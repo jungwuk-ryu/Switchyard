@@ -26,7 +26,7 @@ struct SetupAssistantView: View {
                 PathPickerRow(title: "Library", message: "Choose where Switchyard stores bottles and manifests.", path: $store.libraryPath) {
                     store.persistPreferences()
                 }
-                PathPickerRow(title: "Wine", message: "Choose the cached Switchyard Wine executable.", path: $store.winePath) {
+                PathPickerRow(title: "Wine", message: "Choose a Wine executable or a Wine runtime folder.", path: $store.winePath) {
                     store.refreshRuntimeStatus()
                 }
             }

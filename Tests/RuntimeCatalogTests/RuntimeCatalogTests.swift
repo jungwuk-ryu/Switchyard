@@ -37,6 +37,41 @@ import Foundation
     #expect(result.fingerprint != nil)
 }
 
+@Test func gptkDiskImageCanBeImportedWhenProvided() throws {
+    guard let path = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_GPTK_DMG"], !path.isEmpty else {
+        return
+    }
+
+    let importRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: importRoot) }
+
+    let locator = RuntimeLocator()
+    let importedPath = try locator.importGPTKDiskImage(at: path, to: importRoot.path)
+    let result = locator.validateGPTK(at: importedPath)
+
+    #expect(result.status == .ok)
+    #expect(result.fingerprint != nil)
+}
+
+@Test func wineDirectorySelectionResolvesBinWineExecutable() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let bin = root.appendingPathComponent("bin", isDirectory: true)
+    let wine = bin.appendingPathComponent("wine")
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    try Data("#!/bin/sh\n".utf8).write(to: wine)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wine.path)
+
+    let locator = RuntimeLocator()
+    #expect(locator.resolveWineExecutablePath(for: root.path) == wine.path)
+
+    let result = locator.diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: "/definitely/missing/series")
+    let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
+    #expect(wineCheck.status == .ok)
+    #expect(wineCheck.result.contains(wine.path))
+}
+
 @Test func missingPatchSeriesPreventsLaunchReadiness() {
     let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: "/definitely/missing/series")
     #expect(result.0.patchset == .missing)

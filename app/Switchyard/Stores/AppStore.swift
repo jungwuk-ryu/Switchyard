@@ -5,6 +5,14 @@ import Persistence
 import RuntimeCatalog
 import SwiftUI
 
+private struct RuntimeRefreshResult {
+    var importedGPTKPath: String?
+    var resolvedWinePath: String
+    var status: RuntimeStatus
+    var diagnostics: [DiagnosticCheck]
+    var importMessage: String?
+}
+
 @MainActor
 final class AppStore: ObservableObject {
     @Published var selectedSection: SidebarSelection = .gamesLaunchers
@@ -36,8 +44,14 @@ final class AppStore: ObservableObject {
 
         let initialLibraryPath = defaults.string(forKey: "libraryPath") ?? defaultLibrary
         libraryPath = initialLibraryPath
+        let runtimeLocator = RuntimeLocator()
         gptkPath = defaults.string(forKey: "gptkPath") ?? ""
-        winePath = defaults.string(forKey: "winePath") ?? RuntimeLocator().defaultWineRuntimePath()
+        if let storedWinePath = defaults.string(forKey: "winePath"), !storedWinePath.isEmpty {
+            let defaultWinePath = runtimeLocator.defaultWineRuntimePath()
+            winePath = storedWinePath == defaultWinePath && runtimeLocator.resolveWineExecutablePath(for: storedWinePath) == nil ? "" : storedWinePath
+        } else {
+            winePath = runtimeLocator.resolveWineExecutablePath(for: runtimeLocator.defaultWineRuntimePath()) ?? ""
+        }
         hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
 
         let snapshot = Self.initialLibrarySnapshot(libraryPath: initialLibraryPath)
@@ -60,9 +74,10 @@ final class AppStore: ObservableObject {
     }
 
     var currentRuntime: RuntimeBuild {
-        RuntimeBuild(
+        let resolvedWinePath = RuntimeLocator().resolveWineExecutablePath(for: winePath) ?? winePath
+        return RuntimeBuild(
             id: "local-source-cache",
-            winePath: winePath,
+            winePath: resolvedWinePath,
             patchsetID: "switchyard-v1",
             sourceRevision: "third_party/wine"
         )
@@ -82,6 +97,14 @@ final class AppStore: ObservableObject {
         return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
             .appendingPathComponent("patches/wine/series")
             .path
+    }
+
+    private var gptkImportRoot: String {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Switchyard", isDirectory: true)
+            .appendingPathComponent("Runtimes", isDirectory: true)
+            .appendingPathComponent("GPTK", isDirectory: true)
+            .path ?? ""
     }
 
     func persistPreferences() {
@@ -104,14 +127,57 @@ final class AppStore: ObservableObject {
         let gptkPath = gptkPath
         let winePath = winePath
         let patchSeriesPath = patchSeriesPath
-        diagnosticsTask = Task { [gptkPath, winePath, patchSeriesPath] in
+        let gptkImportRoot = gptkImportRoot
+        diagnosticsTask = Task { [gptkPath, winePath, patchSeriesPath, gptkImportRoot] in
             let result = await Task.detached(priority: .userInitiated) {
-                RuntimeLocator().diagnose(gptkPath: gptkPath, winePath: winePath, patchSeriesPath: patchSeriesPath)
+                let locator = RuntimeLocator()
+                let trimmedGPTKPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
+                var resolvedGPTKPath = gptkPath
+                var importedGPTKPath: String?
+                let resolvedWinePath = locator.resolveWineExecutablePath(for: winePath) ?? winePath
+                var importMessage: String?
+
+                if !trimmedGPTKPath.isEmpty,
+                   URL(fileURLWithPath: trimmedGPTKPath).pathExtension.lowercased() == "dmg",
+                   !gptkImportRoot.isEmpty {
+                    do {
+                        let importedPath = try locator.importGPTKDiskImage(at: trimmedGPTKPath, to: gptkImportRoot)
+                        resolvedGPTKPath = importedPath
+                        importedGPTKPath = importedPath
+                        importMessage = "Imported GPTK from local disk image into Switchyard runtime cache."
+                    } catch {
+                        importMessage = "Could not auto-import GPTK disk image: \(error.localizedDescription)"
+                    }
+                }
+
+                let diagnosed = locator.diagnose(gptkPath: resolvedGPTKPath, winePath: resolvedWinePath, patchSeriesPath: patchSeriesPath)
+                return RuntimeRefreshResult(
+                    importedGPTKPath: importedGPTKPath,
+                    resolvedWinePath: resolvedWinePath,
+                    status: diagnosed.0,
+                    diagnostics: diagnosed.1,
+                    importMessage: importMessage
+                )
             }.value
 
             guard !Task.isCancelled else { return }
-            runtimeStatus = result.0
-            diagnostics = result.1
+            if let importedGPTKPath = result.importedGPTKPath,
+               self.gptkPath == gptkPath {
+                self.gptkPath = importedGPTKPath
+                persistPreferences()
+            }
+            if !result.resolvedWinePath.isEmpty,
+               result.resolvedWinePath != winePath,
+               self.winePath == winePath {
+                self.winePath = result.resolvedWinePath
+                persistPreferences()
+                logLines.insert(LogLine(level: "info", source: "runtime", message: "Resolved Wine selection to executable: \(result.resolvedWinePath)"), at: 0)
+            }
+            if let importMessage = result.importMessage {
+                logLines.insert(LogLine(level: result.importedGPTKPath == nil ? "warning" : "info", source: "runtime", message: importMessage), at: 0)
+            }
+            runtimeStatus = result.status
+            diagnostics = result.diagnostics
         }
     }
 

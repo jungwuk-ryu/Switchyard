@@ -32,9 +32,13 @@ struct SettingsView: View {
             .tabItem { Label("GPTK", systemImage: "cube.transparent") }
 
             Form {
-                PathPickerRow(title: "Wine", message: "Choose the cached Switchyard Wine executable.", path: $store.winePath) {
+                PathPickerRow(title: "Wine", message: "Choose a Wine executable or a Wine runtime folder.", path: $store.winePath) {
                     store.refreshRuntimeStatus()
                 }
+                StatusBadge(status: store.runtimeStatus.wine, label: store.runtimeStatus.wine.label)
+                Text("A default cache path is not enough; Diagnostics require an actual executable such as bin/wine.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 LabeledContent("Runtime Channel", value: "local-source-cache")
                 LabeledContent("Patch Series", value: "switchyard-v1")
                 Button("Re-run Runtime Diagnostics") {
