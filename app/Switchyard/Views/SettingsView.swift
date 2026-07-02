@@ -8,7 +8,7 @@ struct SettingsView: View {
     @AppStorage("developerLogging") private var developerLogging = true
 
     var body: some View {
-        TabView {
+        TabView(selection: $store.selectedSettingsTab) {
             Form {
                 PathPickerRow(title: "Library", message: "Choose the Switchyard library folder.", path: $store.libraryPath) {
                     store.persistPreferences()
@@ -17,6 +17,7 @@ struct SettingsView: View {
                 Toggle("Check for updates", isOn: $checkForUpdates)
             }
             .padding()
+            .tag(SettingsTab.general)
             .tabItem { Label("General", systemImage: "gearshape") }
 
             Form {
@@ -29,6 +30,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
+            .tag(SettingsTab.gptk)
             .tabItem { Label("GPTK", systemImage: "cube.transparent") }
 
             Form {
@@ -46,6 +48,7 @@ struct SettingsView: View {
                 }
             }
             .padding()
+            .tag(SettingsTab.wine)
             .tabItem { Label("Wine & Patches", systemImage: "wrench.and.screwdriver") }
 
             Form {
@@ -56,6 +59,7 @@ struct SettingsView: View {
                 LabeledContent("Bottle Template", value: "Per-launcher isolated prefix")
             }
             .padding()
+            .tag(SettingsTab.launchDefaults)
             .tabItem { Label("Launch Defaults", systemImage: "slider.horizontal.3") }
 
             Form {
@@ -77,6 +81,7 @@ struct SettingsView: View {
                 }
             }
             .padding()
+            .tag(SettingsTab.advanced)
             .tabItem { Label("Advanced", systemImage: "terminal") }
         }
         .frame(width: 620, height: 360)

@@ -16,6 +16,7 @@ private struct RuntimeRefreshResult {
 @MainActor
 final class AppStore: ObservableObject {
     @Published var selectedSection: SidebarSelection = .gamesLaunchers
+    @Published var selectedSettingsTab: SettingsTab = .general
     @Published var selectedLauncherID: UUID?
     @Published var selectedLogSessionID: UUID?
     @Published var showInspector = true

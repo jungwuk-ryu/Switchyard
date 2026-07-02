@@ -24,35 +24,35 @@ public struct RuntimeLocator {
                 title: "Apple Silicon",
                 status: architectureStatus,
                 result: isAppleSilicon ? "Running on \(machineHardwareName)." : "Switchyard v1 supports Apple Silicon only.",
-                recoveryAction: architectureStatus == .ok ? nil : "Use an Apple Silicon Mac."
+                recoveryAction: nil
             ),
             DiagnosticCheck(
                 id: "macos-version",
                 title: "macOS Version",
                 status: macOSStatus,
                 result: "Detected macOS \(operatingSystemVersion).",
-                recoveryAction: macOSStatus == .ok ? nil : "Upgrade to a supported macOS release."
+                recoveryAction: nil
             ),
             DiagnosticCheck(
                 id: "gptk",
                 title: "Game Porting Toolkit",
                 status: gptkValidation.status,
                 result: gptkValidation.message,
-                recoveryAction: gptkValidation.status == .ok ? nil : "Choose a local Apple GPTK installation in Settings."
+                recoveryAction: gptkValidation.status == .ok ? nil : "Open GPTK Settings"
             ),
             DiagnosticCheck(
                 id: "wine-runtime",
                 title: "Wine Runtime",
                 status: wineValidation.status,
                 result: wineValidation.message,
-                recoveryAction: wineValidation.status == .ok ? nil : "Build a Switchyard Wine runtime or choose an executable Wine path."
+                recoveryAction: wineValidation.status == .ok ? nil : "Open Wine Settings"
             ),
             DiagnosticCheck(
                 id: "patch-series",
                 title: "Wine Patch Series",
                 status: patchStatus,
-                result: patchStatus == .ok ? "Patch queue metadata is present." : "Patch queue metadata is missing.",
-                recoveryAction: patchStatus == .ok ? nil : "Create patches/wine/series."
+                result: patchStatus == .ok ? "Patch queue metadata is present." : "Patch queue metadata is missing. Create patches/wine/series.",
+                recoveryAction: patchStatus == .ok ? nil : "Open Wine Settings"
             )
         ]
 
