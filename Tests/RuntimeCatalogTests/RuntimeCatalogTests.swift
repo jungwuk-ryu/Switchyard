@@ -19,6 +19,24 @@ import Foundation
     #expect(result.fingerprint != nil)
 }
 
+@Test func regularFileGPTKPathReportsMissing() throws {
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    try Data().write(to: file)
+
+    let result = RuntimeLocator().validateGPTK(at: file.path)
+    #expect(result.status == .missing)
+}
+
+@Test func gptkDiskImagePathReportsWarningWhenProvided() {
+    guard let path = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_GPTK_DMG"], !path.isEmpty else {
+        return
+    }
+
+    let result = RuntimeLocator().validateGPTK(at: path)
+    #expect(result.status == .warning)
+    #expect(result.fingerprint != nil)
+}
+
 @Test func missingPatchSeriesPreventsLaunchReadiness() {
     let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: "/definitely/missing/series")
     #expect(result.0.patchset == .missing)

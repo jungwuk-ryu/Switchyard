@@ -23,10 +23,10 @@ final class AppStore: ObservableObject {
     @Published var runSessions: [RunSession] = []
     @Published var logLines: [LogLine] = []
 
-    private let runtimeLocator = RuntimeLocator()
     private let jobEngine = JobEngine()
     private let runnerClient = SwitchyardRunnerClient()
     private let defaults = UserDefaults.standard
+    private var diagnosticsTask: Task<Void, Never>?
 
     init() {
         let defaultLibrary = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
@@ -99,9 +99,20 @@ final class AppStore: ObservableObject {
 
     func refreshRuntimeStatus() {
         persistPreferences()
-        let result = runtimeLocator.diagnose(gptkPath: gptkPath, winePath: winePath, patchSeriesPath: patchSeriesPath)
-        runtimeStatus = result.0
-        diagnostics = result.1
+        diagnosticsTask?.cancel()
+
+        let gptkPath = gptkPath
+        let winePath = winePath
+        let patchSeriesPath = patchSeriesPath
+        diagnosticsTask = Task { [gptkPath, winePath, patchSeriesPath] in
+            let result = await Task.detached(priority: .userInitiated) {
+                RuntimeLocator().diagnose(gptkPath: gptkPath, winePath: winePath, patchSeriesPath: patchSeriesPath)
+            }.value
+
+            guard !Task.isCancelled else { return }
+            runtimeStatus = result.0
+            diagnostics = result.1
+        }
     }
 
     func addLauncher() {

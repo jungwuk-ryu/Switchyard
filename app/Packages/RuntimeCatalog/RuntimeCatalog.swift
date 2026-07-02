@@ -4,6 +4,8 @@ import Foundation
 
 public struct RuntimeLocator {
     public var fileManager: FileManager
+    private let hdiutilPath = "/usr/bin/hdiutil"
+    private let hdiutilTimeout: DispatchTimeInterval = .seconds(20)
 
     public init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
@@ -80,16 +82,19 @@ public struct RuntimeLocator {
         }
 
         var isDirectory: ObjCBool = false
-        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else {
             return (.missing, "Selected GPTK path does not exist.", nil)
         }
 
-        let markers = findGPTKMarkers(under: path)
-        guard !markers.isEmpty else {
-        return (.warning, "Path exists, but no known D3DMetal/GPTK marker files were found.", fingerprint(forMarkersAt: path, markers: []))
+        if !isDirectory.boolValue {
+            let url = URL(fileURLWithPath: path)
+            guard url.pathExtension.lowercased() == "dmg" else {
+                return (.missing, "Selected GPTK path is not a directory or supported .dmg disk image.", nil)
+            }
+            return validateGPTKDiskImage(at: url)
         }
 
-        return (.ok, "GPTK markers found: \(markers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: path, markers: markers))
+        return validateGPTKDirectory(at: path, sourceDescription: "Path")
     }
 
     public func defaultWineRuntimePath() -> String {
@@ -101,6 +106,46 @@ public struct RuntimeLocator {
             .appendingPathComponent("bin", isDirectory: true)
             .appendingPathComponent("wine")
             .path ?? ""
+    }
+
+    private func validateGPTKDirectory(at path: String, sourceDescription: String) -> (status: HealthStatus, message: String, fingerprint: String?) {
+        let markers = findGPTKMarkers(under: path)
+        guard !markers.isEmpty else {
+            return (.warning, "\(sourceDescription) exists, but no known D3DMetal/GPTK marker files were found.", fingerprint(forMarkersAt: path, markers: []))
+        }
+
+        return (.ok, "GPTK markers found: \(markers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: path, markers: markers))
+    }
+
+    private func validateGPTKDiskImage(at url: URL) -> (status: HealthStatus, message: String, fingerprint: String?) {
+        do {
+            let outerMounts = try attachDiskImage(at: url.path)
+            defer { detachDiskImages(at: outerMounts) }
+
+            for mount in outerMounts {
+                let markers = findGPTKMarkers(under: mount)
+                if !markers.isEmpty {
+                    return (.warning, "GPTK disk image is valid, but it must be installed or mounted as a directory before launch. Markers found: \(markers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: mount, markers: markers))
+                }
+
+                for nestedImage in findNestedDiskImages(under: mount) {
+                    let nestedMounts = try attachDiskImage(at: nestedImage)
+                    defer { detachDiskImages(at: nestedMounts) }
+
+                    for nestedMount in nestedMounts {
+                        let nestedMarkers = findGPTKMarkers(under: nestedMount)
+                        if !nestedMarkers.isEmpty {
+                            let nestedName = URL(fileURLWithPath: nestedImage).lastPathComponent
+                            return (.warning, "GPTK disk image contains \(nestedName), but the evaluation environment must be installed or mounted as a directory before launch. Markers found: \(nestedMarkers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: nestedMount, markers: nestedMarkers))
+                        }
+                    }
+                }
+            }
+
+            return (.warning, "GPTK disk image mounted, but no known D3DMetal/GPTK marker files were found.", fingerprint(forMarkersAt: url.path, markers: []))
+        } catch {
+            return (.warning, "Selected GPTK disk image could not be mounted: \(error.localizedDescription)", fingerprint(forMarkersAt: url.path, markers: []))
+        }
     }
 
     private func validateWine(at path: String?) -> HealthStatus {
@@ -158,6 +203,104 @@ public struct RuntimeLocator {
         return markers
     }
 
+    private func findNestedDiskImages(under path: String) -> [String] {
+        guard let enumerator = fileManager.enumerator(atPath: path) else {
+            return []
+        }
+
+        var images: [String] = []
+        for case let item as String in enumerator {
+            let url = URL(fileURLWithPath: item)
+            if url.pathExtension.lowercased() == "dmg" {
+                images.append(URL(fileURLWithPath: path).appendingPathComponent(item).path)
+            }
+            if images.count >= 4 {
+                break
+            }
+        }
+        return images
+    }
+
+    private func attachDiskImage(at path: String) throws -> [String] {
+        let mountPoint = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("SwitchyardGPTK-\(UUID().uuidString)", isDirectory: true)
+            .path
+        try fileManager.createDirectory(atPath: mountPoint, withIntermediateDirectories: true)
+
+        var shouldCleanUpMountPoint = true
+        defer {
+            if shouldCleanUpMountPoint {
+                _ = try? runHdiutil(arguments: ["detach", mountPoint])
+                try? fileManager.removeItem(atPath: mountPoint)
+            }
+        }
+
+        let output: Data
+        do {
+            output = try runHdiutil(arguments: ["attach", "-readonly", "-nobrowse", "-plist", "-mountpoint", mountPoint, path])
+        } catch {
+            throw error
+        }
+
+        let plist = try PropertyListSerialization.propertyList(from: output, options: [], format: nil)
+        guard let dictionary = plist as? [String: Any],
+              let entities = dictionary["system-entities"] as? [[String: Any]] else {
+            throw RuntimeLocatorError.invalidDiskImageOutput
+        }
+
+        let mountPoints = entities.compactMap { $0["mount-point"] as? String }
+        guard !mountPoints.isEmpty else {
+            throw RuntimeLocatorError.noMountPoint
+        }
+        shouldCleanUpMountPoint = false
+        return mountPoints
+    }
+
+    private func detachDiskImages(at mountPoints: [String]) {
+        for mountPoint in mountPoints.reversed() {
+            if fileManager.fileExists(atPath: mountPoint) {
+                _ = try? runHdiutil(arguments: ["detach", mountPoint])
+            }
+            try? fileManager.removeItem(atPath: mountPoint)
+        }
+    }
+
+    private func runHdiutil(arguments: [String]) throws -> Data {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: hdiutilPath)
+        process.arguments = arguments
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        let semaphore = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in
+            semaphore.signal()
+        }
+        try process.run()
+
+        if semaphore.wait(timeout: .now() + hdiutilTimeout) == .timedOut {
+            process.terminate()
+            if semaphore.wait(timeout: .now() + .seconds(2)) == .timedOut {
+                kill(process.processIdentifier, SIGKILL)
+                process.waitUntilExit()
+            }
+            throw RuntimeLocatorError.hdiutilTimedOut
+        }
+
+        let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
+        if process.terminationStatus == 0 {
+            return output
+        }
+
+        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+        let errorMessage = String(data: errorData, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        throw RuntimeLocatorError.hdiutilFailed(errorMessage ?? "hdiutil exited with status \(process.terminationStatus)")
+    }
+
     private func fingerprint(forMarkersAt rootPath: String, markers: [String]) -> String {
         let markerInput = markers.sorted().map { marker in
             let fullPath = URL(fileURLWithPath: rootPath).appendingPathComponent(marker).path
@@ -173,5 +316,25 @@ public struct RuntimeLocator {
             hash &*= 1_099_511_628_211
         }
         return String(format: "gptk-%016llx", hash)
+    }
+}
+
+private enum RuntimeLocatorError: LocalizedError {
+    case hdiutilFailed(String)
+    case hdiutilTimedOut
+    case invalidDiskImageOutput
+    case noMountPoint
+
+    var errorDescription: String? {
+        switch self {
+        case .hdiutilFailed(let message):
+            return message
+        case .hdiutilTimedOut:
+            return "hdiutil timed out while mounting the disk image."
+        case .invalidDiskImageOutput:
+            return "hdiutil returned an unexpected plist."
+        case .noMountPoint:
+            return "hdiutil did not report a mounted volume."
+        }
     }
 }
