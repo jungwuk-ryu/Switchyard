@@ -72,8 +72,66 @@ import Foundation
     #expect(wineCheck.result.contains(wine.path))
 }
 
+@Test func switchyardWineRuntimeReportsWoW64PEArchitectures() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let wine = try createSwitchyardWineRuntime(at: root, peArchitectures: ["i386", "x86_64"])
+    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: "/definitely/missing/series")
+    let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
+
+    #expect(wineCheck.status == .ok)
+    #expect(wineCheck.result.contains("Switchyard Wine runtime"))
+    #expect(wineCheck.result.contains("i386"))
+    #expect(wineCheck.result.contains("x86_64"))
+    #expect(wineCheck.result.contains(wine.path))
+}
+
+@Test func switchyardWineRuntimeMissingI386ReportsWarning() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try createSwitchyardWineRuntime(at: root, peArchitectures: ["x86_64"])
+    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: "/definitely/missing/series")
+    let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
+
+    #expect(wineCheck.status == .warning)
+    #expect(wineCheck.result.contains("missing PE architecture(s): i386"))
+}
+
 @Test func missingPatchSeriesPreventsLaunchReadiness() {
     let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: "/definitely/missing/series")
     #expect(result.0.patchset == .missing)
     #expect(!result.0.canLaunch)
+}
+
+@discardableResult
+private func createSwitchyardWineRuntime(at root: URL, peArchitectures: [String]) throws -> URL {
+    let bin = root.appendingPathComponent("bin", isDirectory: true)
+    let wine = bin.appendingPathComponent("wine")
+    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+    try Data("#!/bin/sh\n".utf8).write(to: wine)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wine.path)
+
+    for architecture in peArchitectures {
+        let peDirectory = root
+            .appendingPathComponent("lib/wine", isDirectory: true)
+            .appendingPathComponent("\(architecture)-windows", isDirectory: true)
+        try FileManager.default.createDirectory(at: peDirectory, withIntermediateDirectories: true)
+        try Data().write(to: peDirectory.appendingPathComponent("ntdll.dll"))
+    }
+
+    let quotedArchitectures = peArchitectures
+        .map { "\"\($0)\"" }
+        .joined(separator: ", ")
+    let manifest = """
+    {
+      "id": "switchyard-test-runtime",
+      "buildProfile": "switchyard-wow64-pe",
+      "peArchitectures": [\(quotedArchitectures)],
+      "executable": "\(wine.path)"
+    }
+    """
+    try Data(manifest.utf8).write(to: root.appendingPathComponent("switchyard-runtime.json"))
+    return wine
 }

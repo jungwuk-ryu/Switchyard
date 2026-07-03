@@ -2,6 +2,20 @@ import AppCore
 import Darwin
 import Foundation
 
+private struct SwitchyardRuntimeManifest: Decodable {
+    var id: String?
+    var buildProfile: String?
+    var peArchitectures: [String]?
+    var executable: String?
+    var patchQueueDigest: String?
+}
+
+private struct SwitchyardRuntimeCandidate {
+    var winePath: String
+    var modifiedAt: Date
+    var isCompleteWoW64: Bool
+}
+
 public struct RuntimeLocator {
     public var fileManager: FileManager
     private let hdiutilPath = "/usr/bin/hdiutil"
@@ -114,6 +128,10 @@ public struct RuntimeLocator {
             return resolveWineExecutable(at: trimmedPath)
         }
 
+        if let cachedPath = latestCachedSwitchyardWineExecutablePath() {
+            return cachedPath
+        }
+
         return resolveWineExecutable(at: defaultWineRuntimePath())
     }
 
@@ -190,16 +208,16 @@ public struct RuntimeLocator {
 
     private func validateWine(at path: String?) -> WineValidation {
         let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let candidate = trimmedPath.isEmpty ? defaultWineRuntimePath() : trimmedPath
+        let candidate = trimmedPath.isEmpty ? (latestCachedSwitchyardWineExecutablePath() ?? defaultWineRuntimePath()) : trimmedPath
 
         if let resolvedPath = resolveWineExecutable(at: candidate) {
-            return WineValidation(status: .ok, message: "Wine executable found at \(resolvedPath).")
+            return describeWine(at: resolvedPath)
         }
 
         if trimmedPath.isEmpty {
             return WineValidation(
                 status: .missing,
-                message: "No Wine runtime has been selected. Expected Switchyard cache path: \(defaultWineRuntimePath())."
+                message: "No Wine runtime has been selected. Expected Switchyard runtime cache under \(switchyardRuntimeCacheRoot().path) or \(defaultWineRuntimePath())."
             )
         }
 
@@ -218,6 +236,32 @@ public struct RuntimeLocator {
         return WineValidation(status: .missing, message: "Selected Wine path exists but is not executable: \(candidate).")
     }
 
+    private func describeWine(at resolvedPath: String) -> WineValidation {
+        guard let rootURL = runtimeRoot(forWineExecutable: resolvedPath),
+              let manifest = loadSwitchyardRuntimeManifest(under: rootURL) else {
+            return WineValidation(status: .ok, message: "Wine executable found at \(resolvedPath).")
+        }
+
+        let runtimeID = manifest.id ?? rootURL.lastPathComponent
+        let profile = manifest.buildProfile ?? "unknown profile"
+        let missingArchitectures = ["i386", "x86_64"].filter {
+            !hasPEArchitecture($0, under: rootURL, manifest: manifest)
+        }
+
+        if !missingArchitectures.isEmpty {
+            return WineValidation(
+                status: .warning,
+                message: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but it is missing PE architecture(s): \(missingArchitectures.joined(separator: ", ")). Rebuild the Switchyard WoW64 runtime before installing the official Steam bootstrap."
+            )
+        }
+
+        let declaredArchitectures = manifest.peArchitectures?.sorted().joined(separator: ", ") ?? "i386, x86_64"
+        return WineValidation(
+            status: .ok,
+            message: "Switchyard Wine runtime \(runtimeID) (\(profile)) found at \(resolvedPath). PE architectures: \(declaredArchitectures)."
+        )
+    }
+
     private func resolveWineExecutable(at path: String) -> String? {
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else {
@@ -230,6 +274,7 @@ public struct RuntimeLocator {
 
         let baseURL = URL(fileURLWithPath: path, isDirectory: true)
         let candidateRelativePaths = [
+            "bin/switchyard-wine",
             "bin/wine",
             "bin/wine64",
             "wine",
@@ -250,6 +295,84 @@ public struct RuntimeLocator {
         }
 
         return nil
+    }
+
+    private func latestCachedSwitchyardWineExecutablePath() -> String? {
+        let cacheRoot = switchyardRuntimeCacheRoot()
+        guard let runtimeURLs = try? fileManager.contentsOfDirectory(
+            at: cacheRoot,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+
+        let candidates = runtimeURLs.compactMap { runtimeURL -> SwitchyardRuntimeCandidate? in
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: runtimeURL.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue,
+                  let manifest = loadSwitchyardRuntimeManifest(under: runtimeURL) else {
+                return nil
+            }
+
+            let manifestURL = runtimeURL.appendingPathComponent("switchyard-runtime.json")
+            let modifiedAt = (try? manifestURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let executable = manifest.executable.flatMap { resolveWineExecutable(at: $0) }
+                ?? resolveWineExecutable(at: runtimeURL.path)
+
+            guard let executable else {
+                return nil
+            }
+
+            let isCompleteWoW64 = hasPEArchitecture("i386", under: runtimeURL, manifest: manifest)
+                && hasPEArchitecture("x86_64", under: runtimeURL, manifest: manifest)
+            return SwitchyardRuntimeCandidate(winePath: executable, modifiedAt: modifiedAt, isCompleteWoW64: isCompleteWoW64)
+        }
+
+        return candidates.sorted {
+            if $0.isCompleteWoW64 != $1.isCompleteWoW64 {
+                return $0.isCompleteWoW64
+            }
+            return $0.modifiedAt > $1.modifiedAt
+        }.first?.winePath
+    }
+
+    private func switchyardRuntimeCacheRoot() -> URL {
+        fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent(".switchyard", isDirectory: true)
+            .appendingPathComponent("runtimes", isDirectory: true)
+    }
+
+    private func runtimeRoot(forWineExecutable path: String) -> URL? {
+        let wineURL = URL(fileURLWithPath: path)
+        let parent = wineURL.deletingLastPathComponent()
+        if parent.lastPathComponent == "bin" {
+            return parent.deletingLastPathComponent()
+        }
+        return parent
+    }
+
+    private func loadSwitchyardRuntimeManifest(under rootURL: URL) -> SwitchyardRuntimeManifest? {
+        let manifestURL = rootURL.appendingPathComponent("switchyard-runtime.json")
+        guard let data = try? Data(contentsOf: manifestURL) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(SwitchyardRuntimeManifest.self, from: data)
+    }
+
+    private func hasPEArchitecture(_ architecture: String, under rootURL: URL, manifest: SwitchyardRuntimeManifest) -> Bool {
+        if let declaredArchitectures = manifest.peArchitectures,
+           !declaredArchitectures.contains(architecture) {
+            return false
+        }
+
+        return fileManager.fileExists(
+            atPath: rootURL
+                .appendingPathComponent("lib/wine", isDirectory: true)
+                .appendingPathComponent("\(architecture)-windows", isDirectory: true)
+                .appendingPathComponent("ntdll.dll")
+                .path
+        )
     }
 
     private var isAppleSilicon: Bool {
