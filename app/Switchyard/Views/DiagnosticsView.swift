@@ -59,6 +59,8 @@ struct DiagnosticsView: View {
             openSettingsTab(.gptk)
         case "wine-runtime", "patch-series":
             openSettingsTab(.wine)
+        case "open-font-pack":
+            store.ensureOpenFontPack()
         default:
             store.refreshRuntimeStatus()
         }

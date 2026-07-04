@@ -25,12 +25,20 @@ public struct RuntimeLocator {
         self.fileManager = fileManager
     }
 
-    public func diagnose(gptkPath: String?, winePath: String?, patchSeriesPath: String = "patches/wine/series") -> (RuntimeStatus, [DiagnosticCheck]) {
+    public func diagnose(
+        gptkPath: String?,
+        winePath: String?,
+        patchSeriesPath: String = "patches/wine/series",
+        fontCachePath: String? = nil
+    ) -> (RuntimeStatus, [DiagnosticCheck]) {
         let architectureStatus = isAppleSilicon ? HealthStatus.ok : .unsupported
         let macOSStatus = isSupportedMacOS ? HealthStatus.ok : .unsupported
         let gptkValidation = validateGPTK(at: gptkPath)
         let wineValidation = validateWine(at: winePath)
         let patchStatus: HealthStatus = fileManager.fileExists(atPath: patchSeriesPath) ? .ok : .missing
+        let fontCacheURL = fontCachePath.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? OpenFontPackCatalog.defaultCacheRoot(fileManager: fileManager)
+        let fontPackStatus = OpenFontPackCatalog.diagnose(cacheRoot: fontCacheURL, fileManager: fileManager)
 
         let checks = [
             DiagnosticCheck(
@@ -67,6 +75,13 @@ public struct RuntimeLocator {
                 status: patchStatus,
                 result: patchStatus == .ok ? "Patch queue metadata is present." : "Patch queue metadata is missing. Create patches/wine/series.",
                 recoveryAction: patchStatus == .ok ? nil : "Open Wine Settings"
+            ),
+            DiagnosticCheck(
+                id: "open-font-pack",
+                title: "Open Font Pack",
+                status: fontPackStatus.status,
+                result: fontPackStatus.message,
+                recoveryAction: fontPackStatus.status == .ok ? nil : "Install Open Font Pack"
             )
         ]
 

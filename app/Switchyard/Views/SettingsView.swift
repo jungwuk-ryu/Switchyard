@@ -57,6 +57,18 @@ struct SettingsView: View {
                 }
                 LabeledContent("Renderer", value: "D3DMetal when GPTK is valid")
                 LabeledContent("Bottle Template", value: "Per-launcher isolated prefix")
+                if let fontCheck = store.diagnostics.first(where: { $0.id == "open-font-pack" }) {
+                    StatusBadge(status: fontCheck.status, label: fontCheck.status.label)
+                    Text(fontCheck.result)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Install Open Font Pack") {
+                    store.ensureOpenFontPack()
+                }
+                Text("Switchyard installs OFL Noto fonts into bottles and maps common Windows font family names without bundling Microsoft fonts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding()
             .tag(SettingsTab.launchDefaults)

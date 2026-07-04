@@ -30,10 +30,16 @@ public struct FakeRunnerClient: RunnerClient {
 public struct JobEngine {
     public var adapters: LauncherAdapterRegistry
     public var runner: any RunnerClient
+    public var fontInstaller: BottleFontInstaller
 
-    public init(adapters: LauncherAdapterRegistry = LauncherAdapterRegistry(), runner: any RunnerClient = FakeRunnerClient()) {
+    public init(
+        adapters: LauncherAdapterRegistry = LauncherAdapterRegistry(),
+        runner: any RunnerClient = FakeRunnerClient(),
+        fontInstaller: BottleFontInstaller = BottleFontInstaller()
+    ) {
         self.adapters = adapters
         self.runner = runner
+        self.fontInstaller = fontInstaller
     }
 
     public func installPlan(
@@ -78,5 +84,9 @@ public struct JobEngine {
     ) throws -> RunSession {
         let plan = try runPlan(launcher: launcher, bottles: bottles, runtime: runtime, gptkPath: gptkPath)
         return try runner.run(plan, launcherID: launcher.id, launcherName: launcher.name)
+    }
+
+    public func installOpenFontPack(into bottle: Bottle, from fontCacheRoot: URL) throws -> BottleFontInstallResult {
+        try fontInstaller.installOpenFontPack(into: bottle, from: fontCacheRoot)
     }
 }

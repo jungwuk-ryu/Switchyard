@@ -105,6 +105,16 @@ import Foundation
     #expect(!result.0.canLaunch)
 }
 
+@Test func openFontPackDiagnoseReportsMissingCacheAsWarning() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let status = OpenFontPackCatalog.diagnose(cacheRoot: root)
+
+    #expect(status.status == .warning)
+    #expect(status.missingFonts.count == OpenFontPackCatalog.files.count)
+}
+
 @discardableResult
 private func createSwitchyardWineRuntime(at root: URL, peArchitectures: [String]) throws -> URL {
     let bin = root.appendingPathComponent("bin", isDirectory: true)

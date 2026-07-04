@@ -108,6 +108,10 @@ final class AppStore: ObservableObject {
             .path ?? ""
     }
 
+    private var fontCacheRoot: String {
+        OpenFontPackCatalog.defaultCacheRoot().path
+    }
+
     func persistPreferences() {
         defaults.set(libraryPath, forKey: "libraryPath")
         defaults.set(gptkPath, forKey: "gptkPath")
@@ -129,7 +133,8 @@ final class AppStore: ObservableObject {
         let winePath = winePath
         let patchSeriesPath = patchSeriesPath
         let gptkImportRoot = gptkImportRoot
-        diagnosticsTask = Task { [gptkPath, winePath, patchSeriesPath, gptkImportRoot] in
+        let fontCacheRoot = fontCacheRoot
+        diagnosticsTask = Task { [gptkPath, winePath, patchSeriesPath, gptkImportRoot, fontCacheRoot] in
             let result = await Task.detached(priority: .userInitiated) {
                 let locator = RuntimeLocator()
                 let trimmedGPTKPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -151,7 +156,12 @@ final class AppStore: ObservableObject {
                     }
                 }
 
-                let diagnosed = locator.diagnose(gptkPath: resolvedGPTKPath, winePath: resolvedWinePath, patchSeriesPath: patchSeriesPath)
+                let diagnosed = locator.diagnose(
+                    gptkPath: resolvedGPTKPath,
+                    winePath: resolvedWinePath,
+                    patchSeriesPath: patchSeriesPath,
+                    fontCachePath: fontCacheRoot
+                )
                 return RuntimeRefreshResult(
                     importedGPTKPath: importedGPTKPath,
                     resolvedWinePath: resolvedWinePath,
@@ -182,6 +192,24 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func ensureOpenFontPack() {
+        let fontCacheRoot = fontCacheRoot
+        Task {
+            let message = await Task.detached(priority: .userInitiated) {
+                do {
+                    let result = try await OpenFontPackDownloader().ensureFontPack(
+                        in: URL(fileURLWithPath: fontCacheRoot, isDirectory: true)
+                    )
+                    return LogLine(level: "info", source: "fonts", message: "\(result.summary) Notices: \(result.noticePath)")
+                } catch {
+                    return LogLine(level: "warning", source: "fonts", message: "Could not prepare Open Font Pack: \(error.localizedDescription)")
+                }
+            }.value
+            logLines.insert(message, at: 0)
+            refreshRuntimeStatus()
+        }
+    }
+
     func addLauncher() {
         let bottle = Bottle(
             name: "New Launcher",
@@ -199,12 +227,27 @@ final class AppStore: ObservableObject {
     }
 
     func runSelectedLauncher() {
-        guard let launcher = selectedLauncher else { return }
+        guard let launcherID = selectedLauncher?.id else { return }
+
+        Task {
+            await runSelectedLauncher(launcherID: launcherID)
+        }
+    }
+
+    private func runSelectedLauncher(launcherID: UUID) async {
+        guard let launcher = launchers.first(where: { $0.id == launcherID }) else { return }
 
         guard runtimeStatus.canLaunch else {
             appendFailedRun(for: launcher, message: runtimeStatus.summary)
             return
         }
+
+        guard let bottle = bottles.first(where: { $0.id == launcher.bottleID }) else {
+            appendFailedRun(for: launcher, message: "Could not prepare launcher: \(JobEngineError.missingBottle(launcher.bottleID))")
+            return
+        }
+        let fontPreparationLog = await prepareOpenFontsForLaunch(for: bottle)
+        logLines.insert(fontPreparationLog, at: 0)
 
         do {
             let plan = try jobEngine.runPlan(
@@ -233,8 +276,27 @@ final class AppStore: ObservableObject {
             selectedLogSessionID = session.id
             logLines.insert(LogLine(level: "info", source: launcher.name, message: "Launch command started through switchyard-runner."), at: 0)
         } catch {
-            appendFailedRun(for: launcher, message: "Could not create launch plan: \(error)")
+            appendFailedRun(for: launcher, message: "Could not prepare launcher: \(Self.errorDescription(error))")
         }
+    }
+
+    private func prepareOpenFontsForLaunch(for bottle: Bottle) async -> LogLine {
+        let fontCacheRoot = fontCacheRoot
+        return await Task.detached(priority: .userInitiated) {
+            do {
+                let cacheRoot = URL(fileURLWithPath: fontCacheRoot, isDirectory: true)
+                _ = try await OpenFontPackDownloader().ensureFontPack(in: cacheRoot)
+                let result = try BottleFontInstaller().installOpenFontPack(into: bottle, from: cacheRoot)
+                let level = result.skippedReason == nil ? "info" : "warning"
+                return LogLine(level: level, source: "fonts", message: result.summary)
+            } catch {
+                return LogLine(
+                    level: "warning",
+                    source: "fonts",
+                    message: "Open Font Pack could not be prepared; continuing launch without additional font fallback: \(Self.errorDescription(error))"
+                )
+            }
+        }.value
     }
 
     func stopRunningOperations() {
@@ -265,6 +327,10 @@ final class AppStore: ObservableObject {
         selectedLogSessionID = session.id
         selectedSection = .logs
         logLines.insert(LogLine(level: "error", source: launcher.name, message: message), at: 0)
+    }
+
+    nonisolated private static func errorDescription(_ error: Error) -> String {
+        (error as? LocalizedError)?.errorDescription ?? String(describing: error)
     }
 
     private func completeRunSession(_ session: RunSession) {
