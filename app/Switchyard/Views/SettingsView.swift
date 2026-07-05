@@ -38,11 +38,11 @@ struct SettingsView: View {
                     store.refreshRuntimeStatus()
                 }
                 StatusBadge(status: store.runtimeStatus.wine, label: store.runtimeStatus.wine.label)
-                Text("A default cache path is not enough; Diagnostics require an actual executable such as bin/wine.")
+                Text(wineRuntimeMessage)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                LabeledContent("Runtime Channel", value: "local-source-cache")
-                LabeledContent("Patch Series", value: "switchyard-v1")
+                LabeledContent("Runtime Channel", value: store.currentRuntime.id)
+                LabeledContent("Patch Series", value: store.currentRuntime.patchsetID)
                 Button("Re-run Runtime Diagnostics") {
                     store.refreshRuntimeStatus()
                 }
@@ -97,5 +97,10 @@ struct SettingsView: View {
             .tabItem { Label("Advanced", systemImage: "terminal") }
         }
         .frame(width: 620, height: 360)
+    }
+
+    private var wineRuntimeMessage: String {
+        store.diagnostics.first { $0.id == "wine-runtime" }?.result
+            ?? "Choose a Wine executable or Switchyard Wine runtime folder, then run diagnostics."
     }
 }

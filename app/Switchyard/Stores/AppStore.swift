@@ -52,9 +52,10 @@ final class AppStore: ObservableObject {
         gptkPath = defaults.string(forKey: "gptkPath") ?? ""
         if let storedWinePath = defaults.string(forKey: "winePath"), !storedWinePath.isEmpty {
             let defaultWinePath = runtimeLocator.defaultWineRuntimePath()
-            winePath = storedWinePath == defaultWinePath && runtimeLocator.resolveWineExecutablePath(for: storedWinePath) == nil ? "" : storedWinePath
+            let preferredWinePath = runtimeLocator.preferredWineExecutablePath(for: storedWinePath)
+            winePath = storedWinePath == defaultWinePath && preferredWinePath == nil ? "" : (preferredWinePath ?? storedWinePath)
         } else {
-            winePath = runtimeLocator.resolveWineExecutablePath(for: runtimeLocator.defaultWineRuntimePath()) ?? ""
+            winePath = runtimeLocator.preferredWineExecutablePath(for: nil) ?? ""
         }
         hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
 
@@ -72,7 +73,10 @@ final class AppStore: ObservableObject {
     }
 
     var currentRuntime: RuntimeBuild {
-        let resolvedWinePath = RuntimeLocator().resolveWineExecutablePath(for: winePath) ?? winePath
+        let locator = RuntimeLocator()
+        let resolvedWinePath = locator.preferredWineExecutablePath(for: winePath, patchSeriesPath: patchSeriesPath)
+            ?? locator.resolveWineExecutablePath(for: winePath)
+            ?? winePath
         return RuntimeBuild(
             id: "local-source-cache",
             winePath: resolvedWinePath,
@@ -137,7 +141,9 @@ final class AppStore: ObservableObject {
                 let trimmedGPTKPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
                 var resolvedGPTKPath = gptkPath
                 var importedGPTKPath: String?
-                let resolvedWinePath = locator.resolveWineExecutablePath(for: winePath) ?? winePath
+                let resolvedWinePath = locator.preferredWineExecutablePath(for: winePath, patchSeriesPath: patchSeriesPath)
+                    ?? locator.resolveWineExecutablePath(for: winePath)
+                    ?? winePath
                 var importMessage: String?
 
                 if !trimmedGPTKPath.isEmpty,

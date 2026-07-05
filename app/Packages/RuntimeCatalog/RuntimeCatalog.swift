@@ -15,15 +15,18 @@ private struct SwitchyardRuntimeCandidate {
     var winePath: String
     var modifiedAt: Date
     var isCompleteWoW64: Bool
+    var patchQueueDigest: String?
 }
 
 public struct RuntimeLocator {
     public var fileManager: FileManager
+    private let runtimeCacheRootOverride: URL?
     private let hdiutilPath = "/usr/bin/hdiutil"
     private let hdiutilTimeout: DispatchTimeInterval = .seconds(20)
 
-    public init(fileManager: FileManager = .default) {
+    public init(fileManager: FileManager = .default, runtimeCacheRoot: URL? = nil) {
         self.fileManager = fileManager
+        runtimeCacheRootOverride = runtimeCacheRoot
     }
 
     public func diagnose(
@@ -149,6 +152,30 @@ public struct RuntimeLocator {
         }
 
         return resolveWineExecutable(at: defaultWineRuntimePath())
+    }
+
+    public func preferredWineExecutablePath(for path: String?, patchSeriesPath: String? = nil) -> String? {
+        let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let expectedPatchQueueDigest = patchSeriesPath.flatMap {
+            try? patchQueueDigest(forSeriesAt: URL(fileURLWithPath: $0))
+        }
+        let preferredCachedPath = latestCachedSwitchyardWineExecutablePath(matchingPatchQueueDigest: expectedPatchQueueDigest)
+            ?? latestCachedSwitchyardWineExecutablePath()
+
+        if trimmedPath.isEmpty {
+            return preferredCachedPath ?? resolveWineExecutable(at: defaultWineRuntimePath())
+        }
+
+        let isManagedCacheSelection = isSwitchyardRuntimeCachePath(trimmedPath)
+        guard let resolvedPath = resolveWineExecutable(at: trimmedPath) else {
+            return isManagedCacheSelection ? preferredCachedPath : nil
+        }
+
+        if isManagedCacheSelection || isManagedSwitchyardRuntimePath(resolvedPath) {
+            return preferredCachedPath ?? resolvedPath
+        }
+
+        return resolvedPath
     }
 
     public func importGPTKDiskImage(at path: String, to importRoot: String) throws -> String {
@@ -329,7 +356,7 @@ public struct RuntimeLocator {
         return nil
     }
 
-    private func latestCachedSwitchyardWineExecutablePath() -> String? {
+    private func latestCachedSwitchyardWineExecutablePath(matchingPatchQueueDigest expectedPatchQueueDigest: String? = nil) -> String? {
         let cacheRoot = switchyardRuntimeCacheRoot()
         guard let runtimeURLs = try? fileManager.contentsOfDirectory(
             at: cacheRoot,
@@ -358,21 +385,51 @@ public struct RuntimeLocator {
 
             let isCompleteWoW64 = hasPEArchitecture("i386", under: runtimeURL, manifest: manifest)
                 && hasPEArchitecture("x86_64", under: runtimeURL, manifest: manifest)
-            return SwitchyardRuntimeCandidate(winePath: executable, modifiedAt: modifiedAt, isCompleteWoW64: isCompleteWoW64)
+            return SwitchyardRuntimeCandidate(
+                winePath: executable,
+                modifiedAt: modifiedAt,
+                isCompleteWoW64: isCompleteWoW64,
+                patchQueueDigest: manifest.patchQueueDigest
+            )
         }
 
-        return candidates.sorted {
+        let matchingCandidates: [SwitchyardRuntimeCandidate]
+        if let expectedPatchQueueDigest {
+            matchingCandidates = candidates.filter { $0.patchQueueDigest == expectedPatchQueueDigest }
+        } else {
+            matchingCandidates = candidates
+        }
+
+        let sortedCandidates = matchingCandidates.sorted {
             if $0.isCompleteWoW64 != $1.isCompleteWoW64 {
                 return $0.isCompleteWoW64
             }
             return $0.modifiedAt > $1.modifiedAt
-        }.first?.winePath
+        }
+        return sortedCandidates.first?.winePath
     }
 
     private func switchyardRuntimeCacheRoot() -> URL {
-        fileManager.homeDirectoryForCurrentUser
+        if let runtimeCacheRootOverride {
+            return runtimeCacheRootOverride
+        }
+        return fileManager.homeDirectoryForCurrentUser
             .appendingPathComponent(".switchyard", isDirectory: true)
             .appendingPathComponent("runtimes", isDirectory: true)
+    }
+
+    private func isManagedSwitchyardRuntimePath(_ path: String) -> Bool {
+        guard let rootURL = runtimeRoot(forWineExecutable: path),
+              loadSwitchyardRuntimeManifest(under: rootURL) != nil else {
+            return false
+        }
+        return isSwitchyardRuntimeCachePath(rootURL.path)
+    }
+
+    private func isSwitchyardRuntimeCachePath(_ path: String) -> Bool {
+        let cacheRootPath = switchyardRuntimeCacheRoot().standardizedFileURL.path
+        let candidatePath = URL(fileURLWithPath: path).standardizedFileURL.path
+        return candidatePath == cacheRootPath || candidatePath.hasPrefix(cacheRootPath + "/")
     }
 
     private func runtimeRoot(forWineExecutable path: String) -> URL? {
