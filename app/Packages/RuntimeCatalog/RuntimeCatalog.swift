@@ -501,10 +501,31 @@ public struct RuntimeLocator {
             guard !patchName.isEmpty, !patchName.hasPrefix("#") else { continue }
             let patchURL = patchDirectoryURL.appendingPathComponent(patchName)
             let patchData = try Data(contentsOf: patchURL)
-            digestInput.append(contentsOf: "\(patchName) \(sha256Hex(patchData))\n".utf8)
+            digestInput.append(contentsOf: "\(patchName) \(sha256Hex(canonicalPatchPayload(patchData)))\n".utf8)
         }
 
         return String(sha256Hex(digestInput).prefix(12))
+    }
+
+    private func canonicalPatchPayload(_ patchData: Data) -> Data {
+        // Ignore format-patch prose so provenance/test-note edits do not stale built runtimes.
+        let leadingDiffMarker = Data("diff --git ".utf8)
+        if patchData.count >= leadingDiffMarker.count,
+           patchData.prefix(leadingDiffMarker.count).elementsEqual(leadingDiffMarker) {
+            return patchData
+        }
+
+        let diffLineMarker = Data("\ndiff --git ".utf8)
+        if let diffRange = patchData.range(of: diffLineMarker) {
+            return patchData.subdata(in: patchData.index(after: diffRange.lowerBound)..<patchData.endIndex)
+        }
+
+        let crlfDiffLineMarker = Data("\r\ndiff --git ".utf8)
+        if let diffRange = patchData.range(of: crlfDiffLineMarker) {
+            return patchData.subdata(in: patchData.index(diffRange.lowerBound, offsetBy: 2)..<patchData.endIndex)
+        }
+
+        return patchData
     }
 
     private func sha256Hex(_ data: Data) -> String {

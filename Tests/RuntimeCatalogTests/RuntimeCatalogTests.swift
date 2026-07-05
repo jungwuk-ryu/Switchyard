@@ -1,4 +1,3 @@
-import CryptoKit
 import RuntimeCatalog
 import Testing
 import Foundation
@@ -190,6 +189,74 @@ import Foundation
     #expect(wineCheck.result.contains("current queue"))
 }
 
+@Test func patchQueueDigestIgnoresPatchMailHeaders() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let patchRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: root)
+        try? FileManager.default.removeItem(at: patchRoot)
+    }
+
+    try FileManager.default.createDirectory(at: patchRoot, withIntermediateDirectories: true)
+    let seriesURL = patchRoot.appendingPathComponent("series")
+    let patchURL = patchRoot.appendingPathComponent("current.patch")
+    try Data("current.patch\n".utf8).write(to: seriesURL)
+    try Data("""
+    From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+    Subject: [PATCH] test: first note
+
+    Test notes: local runtime path A.
+    ---
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1 +1 @@
+    -old
+    +new
+    """.utf8).write(to: patchURL)
+
+    let firstDigest = try patchSeriesDigest(for: seriesURL)
+    try createSwitchyardWineRuntime(at: root, peArchitectures: ["i386", "x86_64"], patchQueueDigest: firstDigest)
+
+    try Data("""
+    From 1111111111111111111111111111111111111111 Mon Sep 17 00:00:00 2001
+    Subject: [PATCH] test: revised note
+
+    Test notes: local runtime path B after review.
+    ---
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1 +1 @@
+    -old
+    +new
+    """.utf8).write(to: patchURL)
+
+    let secondDigest = try patchSeriesDigest(for: seriesURL)
+    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: seriesURL.path)
+    let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
+
+    try Data("""
+    From 2222222222222222222222222222222222222222 Mon Sep 17 00:00:00 2001
+    Subject: [PATCH] test: real diff change
+
+    Test notes: local runtime path C.
+    ---
+    diff --git a/file b/file
+    --- a/file
+    +++ b/file
+    @@ -1 +1 @@
+    -old
+    +newer
+    """.utf8).write(to: patchURL)
+    let changedDiffDigest = try patchSeriesDigest(for: seriesURL)
+
+    #expect(secondDigest == firstDigest)
+    #expect(changedDiffDigest != firstDigest)
+    #expect(result.0.wine == .ok)
+    #expect(wineCheck.status == .ok)
+}
+
 @Test func missingPatchSeriesPreventsLaunchReadiness() {
     let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: "/definitely/missing/series")
     #expect(result.0.patchset == .missing)
@@ -254,29 +321,15 @@ private func createPatchSeries(at root: URL) throws -> (seriesURL: URL, digest: 
     let patchURL = root.appendingPathComponent("current.patch")
     try Data("current.patch\n".utf8).write(to: seriesURL)
     try Data("diff --git a/file b/file\n".utf8).write(to: patchURL)
-    return (seriesURL, try patchQueueDigest(forSeriesAt: seriesURL))
+    return (seriesURL, try patchSeriesDigest(for: seriesURL))
 }
 
-private func patchQueueDigest(forSeriesAt seriesURL: URL) throws -> String {
-    let seriesData = try Data(contentsOf: seriesURL)
-    let seriesHash = sha256Hex(seriesData)
-    let patchDirectoryURL = seriesURL.deletingLastPathComponent()
-    let seriesText = String(decoding: seriesData, as: UTF8.self)
-    var digestInput = Data()
-
-    digestInput.append(contentsOf: "series \(seriesHash)\n".utf8)
-    for patchName in seriesText.components(separatedBy: .newlines) {
-        guard !patchName.isEmpty, !patchName.hasPrefix("#") else { continue }
-        let patchURL = patchDirectoryURL.appendingPathComponent(patchName)
-        let patchData = try Data(contentsOf: patchURL)
-        digestInput.append(contentsOf: "\(patchName) \(sha256Hex(patchData))\n".utf8)
-    }
-
-    return String(sha256Hex(digestInput).prefix(12))
-}
-
-private func sha256Hex(_ data: Data) -> String {
-    SHA256.hash(data: data)
-        .map { String(format: "%02x", $0) }
-        .joined()
+private func patchSeriesDigest(for seriesURL: URL) throws -> String {
+    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: seriesURL.path)
+    let patchCheck = try #require(result.1.first { $0.id == "patch-series" })
+    let prefix = "digest "
+    let suffix = ")."
+    let start = try #require(patchCheck.result.range(of: prefix)?.upperBound)
+    let end = try #require(patchCheck.result[start...].range(of: suffix)?.lowerBound)
+    return String(patchCheck.result[start..<end])
 }
