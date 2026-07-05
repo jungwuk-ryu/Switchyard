@@ -16,11 +16,15 @@ APP_HELPERS="$APP_CONTENTS/Helpers"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 RUNNER_BINARY="$APP_HELPERS/switchyard-runner"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-$(($(sysctl -n hw.ncpu) - 1))}"
+if [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
+  SWIFT_BUILD_JOBS=1
+fi
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
-swift build --product "$APP_NAME"
-swift build --product switchyard-runner
+swift build --jobs "$SWIFT_BUILD_JOBS" --product "$APP_NAME"
+swift build --jobs "$SWIFT_BUILD_JOBS" --product switchyard-runner
 BUILD_BIN_PATH="$(swift build --show-bin-path)"
 BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
 BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
