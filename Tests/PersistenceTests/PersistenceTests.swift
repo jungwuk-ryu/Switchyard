@@ -12,6 +12,7 @@ import Testing
         wineBuildID: "wine-a",
         patchsetID: "patch-a",
         executablePath: "C:\\Tools\\Toolbox.exe",
+        executableArguments: ["-safe-mode"],
         status: .ready
     )
     let snapshot = SwitchyardContainerSnapshot(containers: [container])
@@ -25,8 +26,10 @@ import Testing
     #expect(loaded.containers.first?.id == container.id)
     #expect(loaded.containers.first?.name == "Toolbox")
     #expect(loaded.containers.first?.executablePath == "C:\\Tools\\Toolbox.exe")
+    #expect(loaded.containers.first?.executableArguments == ["-safe-mode"])
     #expect(loaded.containers.first?.status == .ready)
     #expect(manifest.contains("\"containers\""))
+    #expect(manifest.contains("\"executableArguments\""))
     #expect(!manifest.contains("\"bottles\""))
     #expect(!manifest.contains("\"launchers\""))
     #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Toolbox.container/switchyard-container.json").path))
@@ -61,6 +64,7 @@ import Testing
     #expect(!loadedPath.contains("OriginalToolbox.bottle"))
     #expect(FileManager.default.fileExists(atPath: loadedPath))
     #expect(loaded.first?.environmentOverrides == [:])
+    #expect(loaded.first?.executableArguments == [])
 }
 
 @Test func librarySnapshotReadsLegacyBottleKeysAndMigratesRunTargetFields() throws {
@@ -105,6 +109,69 @@ import Testing
     #expect(loaded.containers.first?.executablePath == "C:\\Tools\\Toolbox.exe")
     #expect(loaded.containers.first?.lastRun != nil)
     #expect(loaded.containers.first?.status == .ready)
+}
+
+@Test func legacySteamContainerReceivesCEFCompatibilityArguments() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let containerID = UUID()
+    let steamPath = "C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe"
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let legacySnapshot = """
+    {
+      "containers" : [
+        {
+          "id" : "\(containerID.uuidString)",
+          "name" : "Steam",
+          "path" : "\(root.appendingPathComponent("Steam.container").path)",
+          "wineBuildID" : "wine-a",
+          "patchsetID" : "patch-a",
+          "executablePath" : "\(steamPath)",
+          "schemaVersion" : 1,
+          "lastModified" : "2026-07-05T00:00:00Z"
+        }
+      ]
+    }
+    """
+    try Data(legacySnapshot.utf8).write(to: root.appendingPathComponent("switchyard-library.json"))
+
+    let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
+
+    #expect(loaded.containers.first?.schemaVersion == 3)
+    #expect(loaded.containers.first?.executableArguments == ["-cef-disable-gpu", "-cef-disable-sandbox"])
+}
+
+@Test func schemaTwoSteamContainerWithEmptyArgumentsReceivesCompatibilityArguments() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let containerID = UUID()
+    let steamPath = "C:\\\\Program Files (x86)\\\\Steam\\\\steam.exe"
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let snapshot = """
+    {
+      "containers" : [
+        {
+          "id" : "\(containerID.uuidString)",
+          "name" : "Steam",
+          "path" : "\(root.appendingPathComponent("Steam.container").path)",
+          "wineBuildID" : "wine-a",
+          "patchsetID" : "patch-a",
+          "executablePath" : "\(steamPath)",
+          "executableArguments" : [],
+          "schemaVersion" : 2,
+          "lastModified" : "2026-07-05T00:00:00Z"
+        }
+      ]
+    }
+    """
+    try Data(snapshot.utf8).write(to: root.appendingPathComponent("switchyard-library.json"))
+
+    let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
+
+    #expect(loaded.containers.first?.schemaVersion == 3)
+    #expect(loaded.containers.first?.executableArguments == ["-cef-disable-gpu", "-cef-disable-sandbox"])
 }
 
 @Test func installedProgramCatalogFindsProgramFilesExecutables() throws {

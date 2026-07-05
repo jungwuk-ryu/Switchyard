@@ -17,6 +17,7 @@ import Testing
     #expect(container.wineBuildID == "wine-a")
     #expect(container.patchsetID == "patch-a")
     #expect(container.gptkFingerprint == "gptk-a")
+    #expect(container.schemaVersion == 3)
 }
 
 @Test func environmentOverridePolicyRejectsReservedRuntimeIdentityKeys() {
@@ -25,6 +26,28 @@ import Testing
     #expect(!EnvironmentOverridePolicy.isAllowedKey("1INVALID"))
     #expect(!EnvironmentOverridePolicy.isAllowedKey("WINEPREFIX"))
     #expect(!EnvironmentOverridePolicy.isAllowedKey("SWITCHYARD_PATCHSET_ID"))
+}
+
+@Test func launchArgumentParserRoundTripsQuotedArguments() {
+    let parsed = LaunchArgumentParser.parse("-cef-disable-gpu -login \"user name\" 'two words'")
+
+    #expect(parsed == ["-cef-disable-gpu", "-login", "user name", "two words"])
+    #expect(LaunchArgumentParser.parse(LaunchArgumentParser.format(parsed)) == parsed)
+}
+
+@Test func launchArgumentParserPreservesWindowsPathBackslashes() {
+    let parsed = LaunchArgumentParser.parse(#"-config C:\Games\Steam\config.ini -quoted "C:\Program Files\App\app.exe""#)
+
+    #expect(parsed == ["-config", #"C:\Games\Steam\config.ini"#, "-quoted", #"C:\Program Files\App\app.exe"#])
+    #expect(LaunchArgumentParser.parse(LaunchArgumentParser.format(parsed)) == parsed)
+}
+
+@Test func executableArgumentRecommendationsAddsSteamCEFWorkarounds() {
+    let steamArguments = ExecutableArgumentRecommendations.arguments(forExecutablePath: "C:\\Program Files (x86)\\Steam\\steam.exe")
+    let otherArguments = ExecutableArgumentRecommendations.arguments(forExecutablePath: "C:\\Tools\\Toolbox.exe")
+
+    #expect(steamArguments == ["-cef-disable-gpu", "-cef-disable-sandbox"])
+    #expect(otherArguments.isEmpty)
 }
 
 @Test func containerPathPolicyAvoidsExistingDirectoryNames() {

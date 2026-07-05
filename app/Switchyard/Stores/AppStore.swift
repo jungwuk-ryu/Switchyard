@@ -271,12 +271,17 @@ final class AppStore: ObservableObject {
         runExecutable(executableURL.path, in: containerID)
     }
 
-    func runExecutable(_ executablePath: String, in containerID: UUID) {
+    func runExecutable(_ executablePath: String, arguments: [String]? = nil, in containerID: UUID) {
         selectedContainerID = containerID
+        let launchArguments = arguments ?? ExecutableArgumentRecommendations.arguments(forExecutablePath: executablePath)
 
         Task {
-            await runContainer(containerID: containerID, executablePath: executablePath)
+            await runContainer(containerID: containerID, executablePath: executablePath, executableArguments: launchArguments)
         }
+    }
+
+    func runInstalledProgram(_ program: InstalledProgram, in containerID: UUID) {
+        runExecutable(program.executablePath, in: containerID)
     }
 
     func installedPrograms(for containerID: UUID) -> [InstalledProgram] {
@@ -299,7 +304,11 @@ final class AppStore: ObservableObject {
     }
 
     func useInstalledProgramAsDefault(_ program: InstalledProgram, for containerID: UUID) {
-        updateExecutablePath(for: containerID, to: program.executablePath)
+        updateDefaultExecutable(
+            for: containerID,
+            to: program.executablePath,
+            arguments: ExecutableArgumentRecommendations.arguments(forExecutablePath: program.executablePath)
+        )
     }
 
     func renameContainer(_ containerID: UUID, to name: String) {
@@ -314,6 +323,23 @@ final class AppStore: ObservableObject {
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         updateContainer(containerID) { container in
             container.executablePath = trimmedPath.isEmpty ? nil : trimmedPath
+            if container.status != .running {
+                container.status = trimmedPath.isEmpty ? .needsSetup : .ready
+            }
+        }
+    }
+
+    func updateExecutableArguments(for containerID: UUID, to arguments: [String]) {
+        updateContainer(containerID) { container in
+            container.executableArguments = arguments
+        }
+    }
+
+    private func updateDefaultExecutable(for containerID: UUID, to path: String, arguments: [String]) {
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        updateContainer(containerID) { container in
+            container.executablePath = trimmedPath.isEmpty ? nil : trimmedPath
+            container.executableArguments = trimmedPath.isEmpty ? [] : arguments
             if container.status != .running {
                 container.status = trimmedPath.isEmpty ? .needsSetup : .ready
             }
@@ -396,10 +422,10 @@ final class AppStore: ObservableObject {
     }
 
     private func runSelectedContainer(containerID: UUID) async {
-        await runContainer(containerID: containerID, executablePath: nil)
+        await runContainer(containerID: containerID, executablePath: nil, executableArguments: [])
     }
 
-    private func runContainer(containerID: UUID, executablePath: String?) async {
+    private func runContainer(containerID: UUID, executablePath: String?, executableArguments: [String]) async {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         guard !isContainerBusy(containerID) else {
             logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish launching before starting another executable."), at: 0)
@@ -423,6 +449,7 @@ final class AppStore: ObservableObject {
             let plan = try jobEngine.runPlan(
                 container: container,
                 executablePath: executablePath,
+                executableArguments: executableArguments,
                 runtime: currentRuntime,
                 gptkPath: gptkPath
             )
@@ -445,7 +472,9 @@ final class AppStore: ObservableObject {
             runSessions.insert(session, at: 0)
             selectedLogSessionID = session.id
             let launchedExecutable = executablePath ?? container.executablePath ?? "configured executable"
-            logLines.insert(LogLine(level: "info", source: container.name, message: "Launch command started through switchyard-runner: \(launchedExecutable)"), at: 0)
+            let launchArguments = executablePath == nil ? container.executableArguments : executableArguments
+            let argumentSuffix = launchArguments.isEmpty ? "" : " \(LaunchArgumentParser.format(launchArguments))"
+            logLines.insert(LogLine(level: "info", source: container.name, message: "Launch command started through switchyard-runner: \(launchedExecutable)\(argumentSuffix)"), at: 0)
         } catch {
             appendFailedRun(for: container, message: "Could not prepare container: \(Self.errorDescription(error))")
         }

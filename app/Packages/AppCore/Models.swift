@@ -25,6 +25,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
     public var patchsetID: String
     public var gptkFingerprint: String?
     public var executablePath: String?
+    public var executableArguments: [String]
     public var lastRun: Date?
     public var status: ContainerStatus
     public var environmentOverrides: [String: String]
@@ -39,10 +40,11 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         patchsetID: String,
         gptkFingerprint: String? = nil,
         executablePath: String? = nil,
+        executableArguments: [String] = [],
         lastRun: Date? = nil,
         status: ContainerStatus = .needsSetup,
         environmentOverrides: [String: String] = [:],
-        schemaVersion: Int = 1,
+        schemaVersion: Int = 3,
         lastModified: Date = Date()
     ) {
         self.id = id
@@ -52,6 +54,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         self.patchsetID = patchsetID
         self.gptkFingerprint = gptkFingerprint
         self.executablePath = executablePath
+        self.executableArguments = executableArguments
         self.lastRun = lastRun
         self.status = status
         self.environmentOverrides = environmentOverrides
@@ -67,6 +70,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         case patchsetID
         case gptkFingerprint
         case executablePath
+        case executableArguments
         case lastRun
         case status
         case environmentOverrides
@@ -81,12 +85,21 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         path = try container.decode(String.self, forKey: .path)
         wineBuildID = try container.decode(String.self, forKey: .wineBuildID)
         patchsetID = try container.decode(String.self, forKey: .patchsetID)
+        let decodedSchemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         gptkFingerprint = try container.decodeIfPresent(String.self, forKey: .gptkFingerprint)
         executablePath = try container.decodeIfPresent(String.self, forKey: .executablePath)
+        let decodedArguments = try container.decodeIfPresent([String].self, forKey: .executableArguments)
+        if decodedSchemaVersion < 3,
+           (decodedArguments?.isEmpty ?? true),
+           let executablePath {
+            executableArguments = ExecutableArgumentRecommendations.arguments(forExecutablePath: executablePath)
+        } else {
+            executableArguments = decodedArguments ?? []
+        }
         lastRun = try container.decodeIfPresent(Date.self, forKey: .lastRun)
         status = try container.decodeIfPresent(ContainerStatus.self, forKey: .status) ?? .needsSetup
         environmentOverrides = try container.decodeIfPresent([String: String].self, forKey: .environmentOverrides) ?? [:]
-        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        schemaVersion = max(decodedSchemaVersion, 3)
         lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
     }
 }
@@ -113,6 +126,92 @@ public struct InstalledProgram: Identifiable, Codable, Equatable, Sendable {
         self.executablePath = executablePath
         self.installDirectory = installDirectory
         self.source = source
+    }
+}
+
+public enum LaunchArgumentParser {
+    public static func parse(_ commandLine: String) -> [String] {
+        var arguments: [String] = []
+        var current = ""
+        var quote: Character?
+        var isEscaping = false
+
+        for character in commandLine {
+            if isEscaping {
+                if character == "\\" || character == "\"" || character == "'" || character.isWhitespace {
+                    current.append(character)
+                } else {
+                    current.append("\\")
+                    current.append(character)
+                }
+                isEscaping = false
+                continue
+            }
+
+            if character == "\\" {
+                isEscaping = true
+                continue
+            }
+
+            if let activeQuote = quote {
+                if character == activeQuote {
+                    quote = nil
+                } else {
+                    current.append(character)
+                }
+                continue
+            }
+
+            if character == "\"" || character == "'" {
+                quote = character
+            } else if character.isWhitespace {
+                appendCurrentArgument(&arguments, current: &current)
+            } else {
+                current.append(character)
+            }
+        }
+
+        if isEscaping {
+            current.append("\\")
+        }
+        appendCurrentArgument(&arguments, current: &current)
+        return arguments
+    }
+
+    public static func format(_ arguments: [String]) -> String {
+        arguments.map(formatArgument).joined(separator: " ")
+    }
+
+    private static func appendCurrentArgument(_ arguments: inout [String], current: inout String) {
+        guard !current.isEmpty else { return }
+        arguments.append(current)
+        current = ""
+    }
+
+    private static func formatArgument(_ argument: String) -> String {
+        guard !argument.isEmpty else { return "\"\"" }
+        guard argument.contains(where: { $0.isWhitespace || $0 == "\"" || $0 == "\\" || $0 == "'" }) else {
+            return argument
+        }
+
+        var escaped = "\""
+        for character in argument {
+            if character == "\"" || character == "\\" {
+                escaped.append("\\")
+            }
+            escaped.append(character)
+        }
+        escaped.append("\"")
+        return escaped
+    }
+}
+
+public enum ExecutableArgumentRecommendations {
+    public static func arguments(forExecutablePath executablePath: String) -> [String] {
+        let normalizedPath = executablePath.replacingOccurrences(of: "\\", with: "/")
+        let executableName = URL(fileURLWithPath: normalizedPath).lastPathComponent.lowercased()
+        guard executableName == "steam.exe" else { return [] }
+        return ["-cef-disable-gpu", "-cef-disable-sandbox"]
     }
 }
 

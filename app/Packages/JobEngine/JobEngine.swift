@@ -65,6 +65,7 @@ public struct JobEngine {
     public func runPlan(
         container: Container,
         executablePath: String? = nil,
+        executableArguments: [String] = [],
         runtime: RuntimeBuild,
         gptkPath: String?,
         environmentOverrides: [String: String] = [:]
@@ -84,6 +85,7 @@ public struct JobEngine {
             runtime: runtime,
             container: container,
             executablePath: preparedExecutablePath,
+            executableArguments: executablePath == nil && executableArguments.isEmpty ? container.executableArguments : executableArguments,
             gptkPath: gptkPath,
             overrides: mergedEnvironmentOverrides,
             logSource: container.name
@@ -93,10 +95,17 @@ public struct JobEngine {
     public func run(
         container: Container,
         executablePath: String? = nil,
+        executableArguments: [String] = [],
         runtime: RuntimeBuild,
         gptkPath: String?
     ) throws -> RunSession {
-        let plan = try runPlan(container: container, executablePath: executablePath, runtime: runtime, gptkPath: gptkPath)
+        let plan = try runPlan(
+            container: container,
+            executablePath: executablePath,
+            executableArguments: executableArguments,
+            runtime: runtime,
+            gptkPath: gptkPath
+        )
         return try runner.run(plan, containerID: container.id, containerName: container.name)
     }
 
@@ -109,6 +118,7 @@ private func commandPlan(
     runtime: RuntimeBuild,
     container: Container,
     executablePath: String,
+    executableArguments: [String] = [],
     gptkPath: String?,
     overrides: [String: String] = [:],
     logSource: String
@@ -130,7 +140,7 @@ private func commandPlan(
 
     return CommandPlan(
         executable: runtime.winePath,
-        arguments: [executablePath],
+        arguments: [executablePath] + executableArguments,
         environment: environment,
         workingDirectory: container.path,
         logSource: logSource

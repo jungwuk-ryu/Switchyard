@@ -132,6 +132,11 @@ struct ContainersView: View {
                             ) {
                                 store.updateExecutablePath(for: container.id, to: executablePathBinding(for: container.id).wrappedValue)
                             }
+
+                            LabeledContent("Arguments") {
+                                LaunchArgumentsField(containerID: container.id)
+                                    .environmentObject(store)
+                            }
                         }
                     }
 
@@ -234,6 +239,7 @@ struct ContainersView: View {
             store.updateExecutablePath(for: containerID, to: path)
         }
     }
+
 }
 
 private struct InstalledProgramsSection: View {
@@ -268,7 +274,7 @@ private struct InstalledProgramsSection: View {
                         InstalledProgramRow(
                             container: container,
                             program: program,
-                            isDefault: container.executablePath == program.executablePath
+                            isDefault: isDefaultProgram(program, for: container)
                         )
                         .environmentObject(store)
 
@@ -284,6 +290,57 @@ private struct InstalledProgramsSection: View {
 
     private var programs: [InstalledProgram] {
         store.installedPrograms(for: container.id)
+    }
+
+    private func isDefaultProgram(_ program: InstalledProgram, for container: Container) -> Bool {
+        container.executablePath == program.executablePath
+            && container.executableArguments == ExecutableArgumentRecommendations.arguments(forExecutablePath: program.executablePath)
+    }
+}
+
+private struct LaunchArgumentsField: View {
+    @EnvironmentObject private var store: AppStore
+    let containerID: UUID
+    @FocusState private var isFocused: Bool
+    @State private var draft = ""
+
+    var body: some View {
+        TextField("Optional launch arguments", text: draftBinding)
+            .focused($isFocused)
+            .textFieldStyle(.roundedBorder)
+            .font(.system(.body, design: .monospaced))
+            .onAppear {
+                draft = formattedStoredArguments
+            }
+            .onChange(of: containerID) { _, _ in
+                draft = formattedStoredArguments
+            }
+            .onChange(of: storedArguments) { _, arguments in
+                guard !isFocused else { return }
+                draft = LaunchArgumentParser.format(arguments)
+            }
+            .onChange(of: isFocused) { _, focused in
+                if !focused {
+                    draft = formattedStoredArguments
+                }
+            }
+    }
+
+    private var draftBinding: Binding<String> {
+        Binding {
+            draft
+        } set: { commandLine in
+            draft = commandLine
+            store.updateExecutableArguments(for: containerID, to: LaunchArgumentParser.parse(commandLine))
+        }
+    }
+
+    private var storedArguments: [String] {
+        store.containers.first(where: { $0.id == containerID })?.executableArguments ?? []
+    }
+
+    private var formattedStoredArguments: String {
+        LaunchArgumentParser.format(storedArguments)
     }
 }
 
@@ -323,12 +380,12 @@ private struct InstalledProgramRow: View {
             Spacer()
 
             Button {
-                store.runExecutable(program.executablePath, in: container.id)
+                store.runInstalledProgram(program, in: container.id)
             } label: {
                 Image(systemName: "play.fill")
             }
             .buttonStyle(.borderless)
-            .help("Run Program")
+            .help(runHelp)
             .disabled(store.isContainerBusy(container.id))
 
             Button {
@@ -356,6 +413,12 @@ private struct InstalledProgramRow: View {
         }
 
         return String(executablePath.dropFirst(containerPath.count + 1))
+    }
+
+    private var runHelp: String {
+        ExecutableArgumentRecommendations.arguments(forExecutablePath: program.executablePath).isEmpty
+            ? "Run Program"
+            : "Run Program with Compatibility Arguments"
     }
 }
 

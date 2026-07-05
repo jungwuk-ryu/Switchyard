@@ -61,6 +61,44 @@ import Testing
     #expect(plan.environment["DXVK_LOG_LEVEL"] == "none")
 }
 
+@Test func jobEngineUsesContainerExecutableArgumentsForDefaultRuns() throws {
+    let container = Container(
+        name: "Steam",
+        path: "/tmp/Steam.container",
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: "/tmp/Steam/steam.exe",
+        executableArguments: ["-cef-disable-gpu", "-cef-disable-sandbox"]
+    )
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(container: container, runtime: runtime, gptkPath: nil)
+
+    #expect(plan.arguments == ["/tmp/Steam/steam.exe", "-cef-disable-gpu", "-cef-disable-sandbox"])
+}
+
+@Test func jobEngineUsesAdHocExecutableArgumentsForProgramRuns() throws {
+    let container = Container(
+        name: "Steam",
+        path: "/tmp/Steam.container",
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: "/tmp/Steam/steam.exe",
+        executableArguments: ["-silent"]
+    )
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        executablePath: "/tmp/Steam/steam.exe",
+        executableArguments: ["-cef-disable-gpu"],
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.arguments == ["/tmp/Steam/steam.exe", "-cef-disable-gpu"])
+}
+
 @Test func jobEngineRejectsReservedEnvironmentOverrides() throws {
     let container = Container(
         name: "Toolbox",
