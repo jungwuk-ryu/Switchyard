@@ -72,14 +72,25 @@ struct ContainersView: View {
                     }
 
                     TableColumn("Action") { container in
-                        Button {
-                            store.runContainer(container.id)
-                        } label: {
-                            Image(systemName: "play.fill")
+                        HStack(spacing: 6) {
+                            Button {
+                                store.runContainer(container.id)
+                            } label: {
+                                Image(systemName: "play.fill")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Run Container")
+                            .disabled((container.executablePath?.isEmpty ?? true) || store.isContainerBusy(container.id))
+
+                            Button {
+                                store.chooseExecutableAndRun(in: container.id)
+                            } label: {
+                                Image(systemName: "play.square")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Run EXE...")
+                            .disabled(store.isContainerBusy(container.id))
                         }
-                        .buttonStyle(.borderless)
-                        .help("Run Container")
-                        .disabled(container.executablePath?.isEmpty ?? true)
                     }
                 }
                 .padding()
@@ -156,7 +167,14 @@ struct ContainersView: View {
                         } label: {
                             Label("Run", systemImage: "play.fill")
                         }
-                        .disabled(container.executablePath?.isEmpty ?? true)
+                        .disabled((container.executablePath?.isEmpty ?? true) || store.isContainerBusy(container.id))
+
+                        Button {
+                            store.chooseExecutableAndRun(in: container.id)
+                        } label: {
+                            Label("Run EXE...", systemImage: "play.square")
+                        }
+                        .disabled(store.isContainerBusy(container.id))
 
                         Button {
                             store.openContainerInFinder(container.id)

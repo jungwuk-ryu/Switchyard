@@ -64,12 +64,14 @@ public struct JobEngine {
 
     public func runPlan(
         container: Container,
+        executablePath: String? = nil,
         runtime: RuntimeBuild,
         gptkPath: String?,
         environmentOverrides: [String: String] = [:]
     ) throws -> CommandPlan {
-        guard let executablePath = container.executablePath?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !executablePath.isEmpty else {
+        let selectedExecutablePath = executablePath ?? container.executablePath
+        guard let preparedExecutablePath = selectedExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !preparedExecutablePath.isEmpty else {
             throw JobEngineError.missingExecutable(container.id)
         }
 
@@ -81,7 +83,7 @@ public struct JobEngine {
         return commandPlan(
             runtime: runtime,
             container: container,
-            executablePath: executablePath,
+            executablePath: preparedExecutablePath,
             gptkPath: gptkPath,
             overrides: mergedEnvironmentOverrides,
             logSource: container.name
@@ -90,10 +92,11 @@ public struct JobEngine {
 
     public func run(
         container: Container,
+        executablePath: String? = nil,
         runtime: RuntimeBuild,
         gptkPath: String?
     ) throws -> RunSession {
-        let plan = try runPlan(container: container, runtime: runtime, gptkPath: gptkPath)
+        let plan = try runPlan(container: container, executablePath: executablePath, runtime: runtime, gptkPath: gptkPath)
         return try runner.run(plan, containerID: container.id, containerName: container.name)
     }
 

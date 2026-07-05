@@ -5,6 +5,7 @@ import JobEngine
 import Persistence
 import RuntimeCatalog
 import SwiftUI
+import UniformTypeIdentifiers
 
 private struct RuntimeRefreshResult {
     var importedGPTKPath: String?
@@ -26,6 +27,7 @@ final class AppStore: ObservableObject {
     @Published var winePath: String
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
+    @Published private(set) var launchingContainerIDs: Set<UUID> = []
     @Published var containers: [Container]
     @Published var operations: [InstallJob] = []
     @Published var runSessions: [RunSession] = []
@@ -236,6 +238,45 @@ final class AppStore: ObservableObject {
         runSelectedContainer()
     }
 
+    func chooseExecutableAndRun(in containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard !isContainerBusy(containerID) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish launching before starting another executable."), at: 0)
+            return
+        }
+
+        let panel = NSOpenPanel()
+        panel.title = "Run EXE in \(container.name)"
+        panel.message = "Choose a Windows executable or installer to run inside this container."
+        panel.prompt = "Run"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        if let executableType = UTType(filenameExtension: "exe") {
+            panel.allowedContentTypes = [executableType]
+        }
+
+        let installersURL = URL(fileURLWithPath: libraryPath, isDirectory: true)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Installers", isDirectory: true)
+        if FileManager.default.fileExists(atPath: installersURL.path) {
+            panel.directoryURL = installersURL
+        } else {
+            panel.directoryURL = URL(fileURLWithPath: container.path, isDirectory: true)
+        }
+
+        guard panel.runModal() == .OK, let executableURL = panel.url else { return }
+        runExecutable(executableURL.path, in: containerID)
+    }
+
+    func runExecutable(_ executablePath: String, in containerID: UUID) {
+        selectedContainerID = containerID
+
+        Task {
+            await runContainer(containerID: containerID, executablePath: executablePath)
+        }
+    }
+
     func renameContainer(_ containerID: UUID, to name: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
@@ -286,6 +327,10 @@ final class AppStore: ObservableObject {
         containers.contains { $0.id == containerID && $0.status == .running }
     }
 
+    func isContainerBusy(_ containerID: UUID) -> Bool {
+        launchingContainerIDs.contains(containerID) || isContainerRunning(containerID)
+    }
+
     func openContainerInFinder(_ containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: container.path, isDirectory: true)])
@@ -293,8 +338,8 @@ final class AppStore: ObservableObject {
 
     func deleteContainer(_ containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
-        guard !isContainerRunning(containerID) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Stop \(container.name) before deleting its container."), at: 0)
+        guard !isContainerBusy(containerID) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Stop or wait for \(container.name) before deleting its container."), at: 0)
             return
         }
 
@@ -323,11 +368,24 @@ final class AppStore: ObservableObject {
     }
 
     private func runSelectedContainer(containerID: UUID) async {
+        await runContainer(containerID: containerID, executablePath: nil)
+    }
+
+    private func runContainer(containerID: UUID, executablePath: String?) async {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard !isContainerBusy(containerID) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish launching before starting another executable."), at: 0)
+            return
+        }
 
         guard runtimeStatus.canLaunch else {
             appendFailedRun(for: container, message: runtimeStatus.summary)
             return
+        }
+
+        launchingContainerIDs.insert(containerID)
+        defer {
+            launchingContainerIDs.remove(containerID)
         }
 
         let fontPreparationLog = await prepareOpenFontsForLaunch(for: container)
@@ -336,6 +394,7 @@ final class AppStore: ObservableObject {
         do {
             let plan = try jobEngine.runPlan(
                 container: container,
+                executablePath: executablePath,
                 runtime: currentRuntime,
                 gptkPath: gptkPath
             )
@@ -357,7 +416,8 @@ final class AppStore: ObservableObject {
             mark(container.id, as: .running)
             runSessions.insert(session, at: 0)
             selectedLogSessionID = session.id
-            logLines.insert(LogLine(level: "info", source: container.name, message: "Launch command started through switchyard-runner."), at: 0)
+            let launchedExecutable = executablePath ?? container.executablePath ?? "configured executable"
+            logLines.insert(LogLine(level: "info", source: container.name, message: "Launch command started through switchyard-runner: \(launchedExecutable)"), at: 0)
         } catch {
             appendFailedRun(for: container, message: "Could not prepare container: \(Self.errorDescription(error))")
         }

@@ -28,6 +28,23 @@ import Testing
     }
 }
 
+@Test func jobEngineRunsAdHocExecutableWithoutConfiguredDefault() throws {
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        executablePath: "/tmp/Installers/Setup.exe",
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.executable == "/opt/wine/bin/wine")
+    #expect(plan.arguments == ["/tmp/Installers/Setup.exe"])
+    #expect(plan.environment["WINEPREFIX"] == "/tmp/Toolbox.container")
+    #expect(plan.workingDirectory == "/tmp/Toolbox.container")
+}
+
 @Test func jobEngineUsesContainerEnvironmentOverrides() throws {
     let container = Container(
         name: "Toolbox",
