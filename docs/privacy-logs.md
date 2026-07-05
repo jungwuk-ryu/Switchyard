@@ -18,4 +18,4 @@ The initial bundle includes:
 - diagnostic checks
 - recent app log lines
 
-Future bundles may include runner stdout/stderr, Wine version metadata, patchset metadata, and bottle manifests.
+Future bundles may include runner stdout/stderr, Wine version metadata, patchset metadata, and container manifests.

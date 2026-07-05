@@ -33,13 +33,14 @@ public enum LauncherStatus: String, Codable, CaseIterable, Sendable {
     case succeeded
 }
 
-public struct Bottle: Identifiable, Codable, Equatable, Sendable {
+public struct Container: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var name: String
     public var path: String
     public var wineBuildID: String
     public var patchsetID: String
     public var gptkFingerprint: String?
+    public var environmentOverrides: [String: String]
     public var schemaVersion: Int
     public var lastModified: Date
 
@@ -50,6 +51,7 @@ public struct Bottle: Identifiable, Codable, Equatable, Sendable {
         wineBuildID: String,
         patchsetID: String,
         gptkFingerprint: String? = nil,
+        environmentOverrides: [String: String] = [:],
         schemaVersion: Int = 1,
         lastModified: Date = Date()
     ) {
@@ -59,8 +61,63 @@ public struct Bottle: Identifiable, Codable, Equatable, Sendable {
         self.wineBuildID = wineBuildID
         self.patchsetID = patchsetID
         self.gptkFingerprint = gptkFingerprint
+        self.environmentOverrides = environmentOverrides
         self.schemaVersion = schemaVersion
         self.lastModified = lastModified
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case path
+        case wineBuildID
+        case patchsetID
+        case gptkFingerprint
+        case environmentOverrides
+        case schemaVersion
+        case lastModified
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        path = try container.decode(String.self, forKey: .path)
+        wineBuildID = try container.decode(String.self, forKey: .wineBuildID)
+        patchsetID = try container.decode(String.self, forKey: .patchsetID)
+        gptkFingerprint = try container.decodeIfPresent(String.self, forKey: .gptkFingerprint)
+        environmentOverrides = try container.decodeIfPresent([String: String].self, forKey: .environmentOverrides) ?? [:]
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
+    }
+}
+
+public enum EnvironmentOverridePolicy {
+    public static func isAllowedKey(_ key: String) -> Bool {
+        isValidKey(key) && !isReservedKey(key)
+    }
+
+    public static func isValidKey(_ key: String) -> Bool {
+        guard let first = key.unicodeScalars.first,
+              first == "_" || isASCIILetter(first) else {
+            return false
+        }
+        return key.unicodeScalars.allSatisfy { scalar in
+            scalar == "_" || isASCIILetter(scalar) || isASCIIDigit(scalar)
+        }
+    }
+
+    public static func isReservedKey(_ key: String) -> Bool {
+        let normalizedKey = key.uppercased()
+        return normalizedKey == "WINEPREFIX" || normalizedKey.hasPrefix("SWITCHYARD_")
+    }
+
+    private static func isASCIILetter(_ scalar: Unicode.Scalar) -> Bool {
+        (65...90).contains(Int(scalar.value)) || (97...122).contains(Int(scalar.value))
+    }
+
+    private static func isASCIIDigit(_ scalar: Unicode.Scalar) -> Bool {
+        (48...57).contains(Int(scalar.value))
     }
 }
 
@@ -68,7 +125,7 @@ public struct Launcher: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var name: String
     public var kind: LauncherKind
-    public var bottleID: UUID
+    public var containerID: UUID
     public var executablePath: String?
     public var lastRun: Date?
     public var status: LauncherStatus
@@ -77,7 +134,7 @@ public struct Launcher: Identifiable, Codable, Equatable, Sendable {
         id: UUID = UUID(),
         name: String,
         kind: LauncherKind,
-        bottleID: UUID,
+        containerID: UUID,
         executablePath: String? = nil,
         lastRun: Date? = nil,
         status: LauncherStatus = .needsSetup
@@ -85,10 +142,47 @@ public struct Launcher: Identifiable, Codable, Equatable, Sendable {
         self.id = id
         self.name = name
         self.kind = kind
-        self.bottleID = bottleID
+        self.containerID = containerID
         self.executablePath = executablePath
         self.lastRun = lastRun
         self.status = status
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case kind
+        case containerID
+        case bottleID
+        case executablePath
+        case lastRun
+        case status
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        kind = try container.decode(LauncherKind.self, forKey: .kind)
+        if let decodedContainerID = try container.decodeIfPresent(UUID.self, forKey: .containerID) {
+            containerID = decodedContainerID
+        } else {
+            containerID = try container.decode(UUID.self, forKey: .bottleID)
+        }
+        executablePath = try container.decodeIfPresent(String.self, forKey: .executablePath)
+        lastRun = try container.decodeIfPresent(Date.self, forKey: .lastRun)
+        status = try container.decodeIfPresent(LauncherStatus.self, forKey: .status) ?? .needsSetup
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(containerID, forKey: .containerID)
+        try container.encodeIfPresent(executablePath, forKey: .executablePath)
+        try container.encodeIfPresent(lastRun, forKey: .lastRun)
+        try container.encode(status, forKey: .status)
     }
 }
 
@@ -276,7 +370,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
 public struct LaunchProfile: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var launcher: Launcher
-    public var bottle: Bottle
+    public var container: Container
     public var runtime: RuntimeBuild
     public var useGPTK: Bool
     public var gptkPath: String?
@@ -285,7 +379,7 @@ public struct LaunchProfile: Identifiable, Codable, Equatable, Sendable {
     public init(
         id: UUID = UUID(),
         launcher: Launcher,
-        bottle: Bottle,
+        container: Container,
         runtime: RuntimeBuild,
         useGPTK: Bool,
         gptkPath: String?,
@@ -293,7 +387,7 @@ public struct LaunchProfile: Identifiable, Codable, Equatable, Sendable {
     ) {
         self.id = id
         self.launcher = launcher
-        self.bottle = bottle
+        self.container = container
         self.runtime = runtime
         self.useGPTK = useGPTK
         self.gptkPath = gptkPath

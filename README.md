@@ -15,9 +15,9 @@ Switchyard uses a patched Wine runtime and links to a user-provided Apple Game P
 This repository contains the initial product, architecture, and runnable macOS app scaffold:
 
 - SwiftUI macOS app shell
-- Navigation split layout for Library, Operations, Logs, and Diagnostics
+- Navigation split layout for Containers, Operations, Logs, and Diagnostics
 - Runtime detection model for Apple Silicon, macOS, GPTK, and Wine
-- User-local Open Font Pack setup for Wine bottle font fallback
+- User-local Open Font Pack setup for Wine container font fallback
 - Declarative launcher command plans
 - External runner CLI boundary for process execution
 - Wine patch queue and licensing documentation structure
@@ -40,5 +40,5 @@ The Codex Run action is wired to:
 - Wine is tracked as a pinned submodule at `third_party/wine`.
 - Switchyard Wine patches live in `patches/wine`.
 - GPTK is imported from a user-selected local path and fingerprinted.
-- Open Noto fonts are downloaded to a user-local cache and installed into bottles; Switchyard does not bundle Microsoft Windows fonts.
-- Bottles pin runtime IDs so runtime updates do not mutate working installs.
+- Open Noto fonts are downloaded to a user-local cache and installed into containers; Switchyard does not bundle Microsoft Windows fonts.
+- Containers pin runtime IDs so runtime updates do not mutate working installs.

@@ -10,7 +10,7 @@ struct SettingsView: View {
     var body: some View {
         TabView(selection: $store.selectedSettingsTab) {
             Form {
-                PathPickerRow(title: "Library", message: "Choose the Switchyard library folder.", path: $store.libraryPath) {
+                PathPickerRow(title: "Storage", message: "Choose the Switchyard storage folder.", path: $store.libraryPath) {
                     store.persistPreferences()
                 }
                 Toggle("Auto-open logs on failure", isOn: $autoOpenLogsOnFailure)
@@ -56,7 +56,7 @@ struct SettingsView: View {
                     Text("Default DPI")
                 }
                 LabeledContent("Renderer", value: "D3DMetal when GPTK is valid")
-                LabeledContent("Bottle Template", value: "Per-launcher isolated prefix")
+                LabeledContent("Container Template", value: "Per-launcher isolated prefix")
                 if let fontCheck = store.diagnostics.first(where: { $0.id == "open-font-pack" }) {
                     StatusBadge(status: fontCheck.status, label: fontCheck.status.label)
                     Text(fontCheck.result)
@@ -66,7 +66,7 @@ struct SettingsView: View {
                 Button("Install Open Font Pack") {
                     store.ensureOpenFontPack()
                 }
-                Text("Switchyard installs OFL Noto fonts into bottles and maps common Windows font family names without bundling Microsoft fonts.")
+                Text("Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

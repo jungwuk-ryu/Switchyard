@@ -1,4 +1,4 @@
-# ADR 0002: Bottle Data Model
+# ADR 0002: Container Data Model
 
 ## Status
 
@@ -6,7 +6,7 @@ Accepted for v1 scaffold.
 
 ## Decision
 
-Each bottle has a portable manifest that pins runtime identity:
+Each container has a portable manifest that pins runtime identity:
 
 - `wineBuildID`
 - `patchsetID`
@@ -19,6 +19,6 @@ The manifest is the portable source of truth. SQLite may be added as an index/ca
 
 ## Consequences
 
-- Bottles can be moved or inspected outside the app.
+- Containers can be moved or inspected outside the app.
 - Runtime migrations can be explicit and reversible.
-- Corrupted indexes must not destroy bottle state.
+- Corrupted indexes must not destroy container state.

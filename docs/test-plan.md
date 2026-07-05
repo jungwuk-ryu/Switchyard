@@ -7,15 +7,15 @@
 - Missing patch series prevents launch readiness.
 - Steam, Epic Games Launcher, and GOG Galaxy command plan generation.
 - Missing launcher executable failure.
-- Bottle manifest JSON round trip.
+- Container manifest JSON round trip.
 
 ## Integration Tests
 
 - Fake GPTK import.
-- Create launcher bottle.
+- Create launcher container.
 - Generate install and run command plans.
 - Runner helper accepts serialized command plans and emits logs and exit code.
-- Runtime A bottle remains pinned after runtime B appears.
+- Runtime A container remains pinned after runtime B appears.
 - Failed migration preserves rollback metadata.
 
 ## App Verification

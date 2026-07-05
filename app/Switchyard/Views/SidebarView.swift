@@ -5,9 +5,8 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            Section("Library") {
-                SidebarRow(selection: .gamesLaunchers)
-                SidebarRow(selection: .bottles)
+            Section("Containers") {
+                SidebarRow(selection: .containers)
             }
 
             Section("Operations") {

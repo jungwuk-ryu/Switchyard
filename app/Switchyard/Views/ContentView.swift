@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var store: AppStore
-    @SceneStorage("selectedSection") private var selectedSectionRawValue = SidebarSelection.gamesLaunchers.rawValue
+    @SceneStorage("selectedSection") private var selectedSectionRawValue = SidebarSelection.containers.rawValue
     @State private var showsSetup = false
 
     var body: some View {
@@ -14,15 +14,15 @@ struct ContentView: View {
         .toolbar {
             ToolbarItemGroup {
                 Button {
-                    store.addLauncher()
+                    store.addContainer()
                 } label: {
-                    Label("Add Launcher", systemImage: "plus")
+                    Label("Add Container", systemImage: "plus")
                 }
 
                 Button {
-                    store.runSelectedLauncher()
+                    store.runSelectedContainer()
                 } label: {
-                    Label("Run", systemImage: "play.fill")
+                    Label("Run Container", systemImage: "play.fill")
                 }
 
                 Button {
@@ -35,12 +35,6 @@ struct ContentView: View {
                     store.selectedSection = .logs
                 } label: {
                     Label("Open Logs", systemImage: "doc.text.magnifyingglass")
-                }
-
-                Button {
-                    store.showInspector.toggle()
-                } label: {
-                    Label("Toggle Inspector", systemImage: "sidebar.right")
                 }
             }
         }
@@ -60,7 +54,7 @@ struct ContentView: View {
 
     private var selectionBinding: Binding<SidebarSelection> {
         Binding {
-            SidebarSelection(rawValue: selectedSectionRawValue) ?? store.selectedSection
+            SidebarSelection(rawValue: selectedSectionRawValue) ?? .containers
         } set: { newValue in
             selectedSectionRawValue = newValue.rawValue
             store.selectedSection = newValue

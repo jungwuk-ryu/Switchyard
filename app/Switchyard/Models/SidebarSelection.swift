@@ -1,8 +1,7 @@
 import Foundation
 
 enum SidebarSelection: String, CaseIterable, Identifiable {
-    case gamesLaunchers
-    case bottles
+    case containers
     case running
     case installQueue
     case logs
@@ -12,8 +11,7 @@ enum SidebarSelection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .gamesLaunchers: "Games & Launchers"
-        case .bottles: "Bottles"
+        case .containers: "Containers"
         case .running: "Running"
         case .installQueue: "Install Queue"
         case .logs: "Logs"
@@ -23,8 +21,7 @@ enum SidebarSelection: String, CaseIterable, Identifiable {
 
     var symbolName: String {
         switch self {
-        case .gamesLaunchers: "gamecontroller"
-        case .bottles: "shippingbox"
+        case .containers: "shippingbox"
         case .running: "play.circle"
         case .installQueue: "tray.and.arrow.down"
         case .logs: "doc.text.magnifyingglass"

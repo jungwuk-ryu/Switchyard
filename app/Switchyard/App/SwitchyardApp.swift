@@ -7,7 +7,7 @@ struct SwitchyardApp: App {
     @StateObject private var store = AppStore()
 
     var body: some Scene {
-        WindowGroup("Library", id: "main") {
+        WindowGroup("Containers", id: "main") {
             ContentView()
                 .environmentObject(store)
                 .frame(minWidth: 1040, minHeight: 680)
@@ -17,13 +17,13 @@ struct SwitchyardApp: App {
         }
         .commands {
             CommandMenu("Switchyard") {
-                Button("Add Launcher") {
-                    store.addLauncher()
+                Button("Add Container") {
+                    store.addContainer()
                 }
                 .keyboardShortcut("n")
 
-                Button("Run Selected") {
-                    store.runSelectedLauncher()
+                Button("Run Container") {
+                    store.runSelectedContainer()
                 }
                 .keyboardShortcut("r")
 

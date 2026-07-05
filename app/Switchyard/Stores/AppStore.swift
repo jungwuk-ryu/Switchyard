@@ -1,4 +1,5 @@
 import AppCore
+import AppKit
 import Foundation
 import JobEngine
 import Persistence
@@ -15,18 +16,17 @@ private struct RuntimeRefreshResult {
 
 @MainActor
 final class AppStore: ObservableObject {
-    @Published var selectedSection: SidebarSelection = .gamesLaunchers
+    @Published var selectedSection: SidebarSelection = .containers
     @Published var selectedSettingsTab: SettingsTab = .general
-    @Published var selectedLauncherID: UUID?
+    @Published var selectedContainerID: UUID?
     @Published var selectedLogSessionID: UUID?
-    @Published var showInspector = true
     @Published var hasCompletedSetup: Bool
     @Published var libraryPath: String
     @Published var gptkPath: String
     @Published var winePath: String
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
-    @Published var bottles: [Bottle]
+    @Published var containers: [Container]
     @Published var launchers: [Launcher]
     @Published var operations: [InstallJob] = []
     @Published var runSessions: [RunSession] = []
@@ -56,22 +56,26 @@ final class AppStore: ObservableObject {
         hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
 
         let snapshot = Self.initialLibrarySnapshot(libraryPath: initialLibraryPath)
-        bottles = snapshot.bottles
+        containers = snapshot.containers
         launchers = snapshot.launchers
-        selectedLauncherID = launchers.first?.id
+        selectedContainerID = containers.first?.id
         selectedLogSessionID = nil
 
         persistLibrary()
     }
 
-    var selectedLauncher: Launcher? {
-        guard let selectedLauncherID else { return launchers.first }
-        return launchers.first(where: { $0.id == selectedLauncherID })
+    var selectedContainer: Container? {
+        guard let selectedContainerID else { return containers.first }
+        return containers.first(where: { $0.id == selectedContainerID }) ?? containers.first
     }
 
-    var selectedBottle: Bottle? {
-        guard let selectedLauncher else { return nil }
-        return bottles.first(where: { $0.id == selectedLauncher.bottleID })
+    var selectedLauncher: Launcher? {
+        guard let selectedContainer else { return nil }
+        return launcher(for: selectedContainer)
+    }
+
+    func launcher(for container: Container) -> Launcher? {
+        launchers.first(where: { $0.containerID == container.id })
     }
 
     var currentRuntime: RuntimeBuild {
@@ -210,31 +214,139 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func addLauncher() {
-        let bottle = Bottle(
-            name: "New Launcher",
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("NewLauncher.bottle", isDirectory: true).path,
+    func addContainer() {
+        let name = nextContainerName()
+        let pathComponent = name
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined()
+            .appending(".container")
+        let container = Container(
+            name: name,
+            path: URL(fileURLWithPath: libraryPath).appendingPathComponent(pathComponent, isDirectory: true).path,
             wineBuildID: currentRuntime.id,
             patchsetID: currentRuntime.patchsetID,
             gptkFingerprint: runtimeStatus.gptkFingerprint
         )
-        bottles.append(bottle)
-        let launcher = Launcher(name: "New Launcher", kind: .steam, bottleID: bottle.id, status: .needsSetup)
+        containers.append(container)
+        let launcher = Launcher(name: name, kind: .steam, containerID: container.id, status: .needsSetup)
         launchers.append(launcher)
-        selectedLauncherID = launcher.id
-        selectedSection = .gamesLaunchers
+        selectedContainerID = container.id
+        selectedSection = .containers
         persistLibrary()
     }
 
-    func runSelectedLauncher() {
+    func runSelectedContainer() {
         guard let launcherID = selectedLauncher?.id else { return }
 
         Task {
-            await runSelectedLauncher(launcherID: launcherID)
+            await runSelectedContainer(launcherID: launcherID)
         }
     }
 
-    private func runSelectedLauncher(launcherID: UUID) async {
+    func runContainer(_ containerID: UUID) {
+        selectedContainerID = containerID
+        runSelectedContainer()
+    }
+
+    func renameContainer(_ containerID: UUID, to name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        updateContainer(containerID) { container in
+            container.name = trimmedName
+        }
+        if let launcherIndex = launchers.firstIndex(where: { $0.containerID == containerID }) {
+            launchers[launcherIndex].name = trimmedName
+            persistLibrary()
+        }
+    }
+
+    func updateLauncherKind(for containerID: UUID, to kind: LauncherKind) {
+        guard let launcherIndex = launchers.firstIndex(where: { $0.containerID == containerID }) else { return }
+        launchers[launcherIndex].kind = kind
+        persistLibrary()
+    }
+
+    func updateExecutablePath(for containerID: UUID, to path: String) {
+        guard let launcherIndex = launchers.firstIndex(where: { $0.containerID == containerID }) else { return }
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        launchers[launcherIndex].executablePath = trimmedPath.isEmpty ? nil : trimmedPath
+        if launchers[launcherIndex].status != .running {
+            launchers[launcherIndex].status = trimmedPath.isEmpty ? .needsSetup : .ready
+        }
+        persistLibrary()
+    }
+
+    func addEnvironmentOverride(for containerID: UUID, key: String, value: String) {
+        let trimmedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard EnvironmentOverridePolicy.isAllowedKey(trimmedKey) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Environment variable name is invalid or reserved: \(trimmedKey.isEmpty ? "empty" : trimmedKey)."), at: 0)
+            return
+        }
+        updateContainer(containerID) { container in
+            container.environmentOverrides[trimmedKey] = value
+        }
+    }
+
+    func updateEnvironmentOverride(for containerID: UUID, key: String, value: String) {
+        guard EnvironmentOverridePolicy.isAllowedKey(key) else {
+            removeEnvironmentOverride(for: containerID, key: key)
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Removed reserved environment variable: \(key)."), at: 0)
+            return
+        }
+        updateContainer(containerID) { container in
+            container.environmentOverrides[key] = value
+        }
+    }
+
+    func removeEnvironmentOverride(for containerID: UUID, key: String) {
+        updateContainer(containerID) { container in
+            container.environmentOverrides.removeValue(forKey: key)
+        }
+    }
+
+    func isContainerRunning(_ containerID: UUID) -> Bool {
+        launchers.contains { $0.containerID == containerID && $0.status == .running }
+    }
+
+    func openContainerInFinder(_ containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: container.path, isDirectory: true)])
+    }
+
+    func deleteContainer(_ containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard !isContainerRunning(containerID) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Stop \(container.name) before deleting its container."), at: 0)
+            return
+        }
+
+        let containerURL = URL(fileURLWithPath: container.path, isDirectory: true)
+        if FileManager.default.fileExists(atPath: containerURL.path) {
+            guard isSafeTrashTarget(containerURL) else {
+                logLines.insert(LogLine(level: "error", source: "containers", message: "Refusing to move \(container.name) to Trash because its path is outside Switchyard storage or has no Switchyard manifest."), at: 0)
+                return
+            }
+
+            do {
+                var trashedURL: NSURL?
+                try FileManager.default.trashItem(at: containerURL, resultingItemURL: &trashedURL)
+                logLines.insert(LogLine(level: "info", source: "containers", message: "Moved \(container.name) to Trash."), at: 0)
+            } catch {
+                logLines.insert(LogLine(level: "error", source: "containers", message: "Could not move \(container.name) to Trash: \(Self.errorDescription(error))"), at: 0)
+                return
+            }
+        } else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "\(container.name) was removed from Switchyard, but its folder was already missing."), at: 0)
+        }
+
+        launchers.removeAll { $0.containerID == containerID }
+        containers.removeAll { $0.id == containerID }
+        selectedContainerID = containers.first?.id
+        persistLibrary()
+    }
+
+    private func runSelectedContainer(launcherID: UUID) async {
         guard let launcher = launchers.first(where: { $0.id == launcherID }) else { return }
 
         guard runtimeStatus.canLaunch else {
@@ -242,17 +354,17 @@ final class AppStore: ObservableObject {
             return
         }
 
-        guard let bottle = bottles.first(where: { $0.id == launcher.bottleID }) else {
-            appendFailedRun(for: launcher, message: "Could not prepare launcher: \(JobEngineError.missingBottle(launcher.bottleID))")
+        guard let container = containers.first(where: { $0.id == launcher.containerID }) else {
+            appendFailedRun(for: launcher, message: "Could not prepare launcher: \(JobEngineError.missingContainer(launcher.containerID))")
             return
         }
-        let fontPreparationLog = await prepareOpenFontsForLaunch(for: bottle)
+        let fontPreparationLog = await prepareOpenFontsForLaunch(for: container)
         logLines.insert(fontPreparationLog, at: 0)
 
         do {
             let plan = try jobEngine.runPlan(
                 launcher: launcher,
-                bottles: bottles,
+                containers: containers,
                 runtime: currentRuntime,
                 gptkPath: gptkPath
             )
@@ -280,13 +392,13 @@ final class AppStore: ObservableObject {
         }
     }
 
-    private func prepareOpenFontsForLaunch(for bottle: Bottle) async -> LogLine {
+    private func prepareOpenFontsForLaunch(for container: Container) async -> LogLine {
         let fontCacheRoot = fontCacheRoot
         return await Task.detached(priority: .userInitiated) {
             do {
                 let cacheRoot = URL(fileURLWithPath: fontCacheRoot, isDirectory: true)
                 _ = try await OpenFontPackDownloader().ensureFontPack(in: cacheRoot)
-                let result = try BottleFontInstaller().installOpenFontPack(into: bottle, from: cacheRoot)
+                let result = try ContainerFontInstaller().installOpenFontPack(into: container, from: cacheRoot)
                 let level = result.skippedReason == nil ? "info" : "warning"
                 return LogLine(level: level, source: "fonts", message: result.summary)
             } catch {
@@ -357,45 +469,90 @@ final class AppStore: ObservableObject {
         persistLibrary()
     }
 
+    private func updateContainer(_ containerID: UUID, mutation: (inout Container) -> Void) {
+        guard let index = containers.firstIndex(where: { $0.id == containerID }) else { return }
+        mutation(&containers[index])
+        containers[index].lastModified = Date()
+        persistLibrary()
+    }
+
+    private func nextContainerName() -> String {
+        let baseName = "New Container"
+        guard containers.contains(where: { $0.name == baseName }) else {
+            return baseName
+        }
+
+        var suffix = 2
+        while containers.contains(where: { $0.name == "\(baseName) \(suffix)" }) {
+            suffix += 1
+        }
+        return "\(baseName) \(suffix)"
+    }
+
+    private func isSafeTrashTarget(_ url: URL) -> Bool {
+        let targetURL = url.standardizedFileURL.resolvingSymlinksInPath()
+        let storageURL = URL(fileURLWithPath: libraryPath, isDirectory: true).standardizedFileURL.resolvingSymlinksInPath()
+        let storagePath = storageURL.path
+        let targetPath = targetURL.path
+        guard targetPath != storagePath,
+              targetPath.hasPrefix(storagePath + "/") else {
+            return false
+        }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: targetPath, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            return false
+        }
+
+        let hasContainerManifest = FileManager.default.fileExists(
+            atPath: targetURL.appendingPathComponent("switchyard-container.json").path
+        )
+        let hasLegacyManifest = FileManager.default.fileExists(
+            atPath: targetURL.appendingPathComponent("switchyard-bottle.json").path
+        )
+        return hasContainerManifest || hasLegacyManifest
+    }
+
     private func persistLibrary() {
         do {
-            try libraryStore.save(SwitchyardLibrarySnapshot(bottles: bottles, launchers: launchers))
+            try libraryStore.save(SwitchyardContainerSnapshot(containers: containers, launchers: launchers))
         } catch {
-            logLines.insert(LogLine(level: "error", source: "persistence", message: "Could not save library manifest: \(error)"), at: 0)
+            logLines.insert(LogLine(level: "error", source: "persistence", message: "Could not save container manifest: \(error)"), at: 0)
         }
     }
 
-    private static func initialLibrarySnapshot(libraryPath: String) -> SwitchyardLibrarySnapshot {
+    private static func initialLibrarySnapshot(libraryPath: String) -> SwitchyardContainerSnapshot {
         let store = LibraryManifestStore(rootURL: URL(fileURLWithPath: libraryPath, isDirectory: true))
-        if let loaded = try? store.loadSnapshot(), !loaded.bottles.isEmpty, !loaded.launchers.isEmpty {
+        if let loaded = try? store.loadSnapshot(), !loaded.containers.isEmpty {
             return loaded
         }
 
-        let steamBottle = Bottle(
+        let steamContainer = Container(
             name: "Steam",
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("Steam.bottle", isDirectory: true).path,
+            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("Steam.container", isDirectory: true).path,
             wineBuildID: "local-source-cache",
             patchsetID: "switchyard-v1"
         )
-        let epicBottle = Bottle(
+        let epicContainer = Container(
             name: "Epic Games",
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("Epic.bottle", isDirectory: true).path,
+            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("Epic.container", isDirectory: true).path,
             wineBuildID: "local-source-cache",
             patchsetID: "switchyard-v1"
         )
-        let gogBottle = Bottle(
+        let gogContainer = Container(
             name: "GOG Galaxy",
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("GOG.bottle", isDirectory: true).path,
+            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("GOG.container", isDirectory: true).path,
             wineBuildID: "local-source-cache",
             patchsetID: "switchyard-v1"
         )
 
         let launchers = [
-            Launcher(name: "Steam", kind: .steam, bottleID: steamBottle.id, status: .needsSetup),
-            Launcher(name: "Epic Games Launcher", kind: .epicGames, bottleID: epicBottle.id, status: .needsSetup),
-            Launcher(name: "GOG Galaxy", kind: .gogGalaxy, bottleID: gogBottle.id, status: .needsSetup)
+            Launcher(name: "Steam", kind: .steam, containerID: steamContainer.id, status: .needsSetup),
+            Launcher(name: "Epic Games Launcher", kind: .epicGames, containerID: epicContainer.id, status: .needsSetup),
+            Launcher(name: "GOG Galaxy", kind: .gogGalaxy, containerID: gogContainer.id, status: .needsSetup)
         ]
 
-        return SwitchyardLibrarySnapshot(bottles: [steamBottle, epicBottle, gogBottle], launchers: launchers)
+        return SwitchyardContainerSnapshot(containers: [steamContainer, epicContainer, gogContainer], launchers: launchers)
     }
 }

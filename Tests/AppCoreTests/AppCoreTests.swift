@@ -12,9 +12,17 @@ import Testing
     #expect(!missingPatchset.canLaunch)
 }
 
-@Test func bottlePinsRuntimeIdentity() {
-    let bottle = Bottle(name: "Steam", path: "/tmp/Steam.bottle", wineBuildID: "wine-a", patchsetID: "patch-a", gptkFingerprint: "gptk-a")
-    #expect(bottle.wineBuildID == "wine-a")
-    #expect(bottle.patchsetID == "patch-a")
-    #expect(bottle.gptkFingerprint == "gptk-a")
+@Test func containerPinsRuntimeIdentity() {
+    let container = Container(name: "Steam", path: "/tmp/Steam.container", wineBuildID: "wine-a", patchsetID: "patch-a", gptkFingerprint: "gptk-a")
+    #expect(container.wineBuildID == "wine-a")
+    #expect(container.patchsetID == "patch-a")
+    #expect(container.gptkFingerprint == "gptk-a")
+}
+
+@Test func environmentOverridePolicyRejectsReservedRuntimeIdentityKeys() {
+    #expect(EnvironmentOverridePolicy.isAllowedKey("DXVK_LOG_LEVEL"))
+    #expect(!EnvironmentOverridePolicy.isAllowedKey(""))
+    #expect(!EnvironmentOverridePolicy.isAllowedKey("1INVALID"))
+    #expect(!EnvironmentOverridePolicy.isAllowedKey("WINEPREFIX"))
+    #expect(!EnvironmentOverridePolicy.isAllowedKey("SWITCHYARD_PATCHSET_ID"))
 }

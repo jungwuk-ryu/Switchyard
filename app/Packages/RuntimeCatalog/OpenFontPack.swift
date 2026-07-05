@@ -192,7 +192,7 @@ public enum OpenFontPackCatalog {
         if missing.isEmpty {
             return OpenFontPackStatus(
                 status: .ok,
-                message: "Open Font Pack is cached and ready for bottle installation."
+                message: "Open Font Pack is cached and ready for container installation."
             )
         }
 
@@ -210,7 +210,7 @@ public enum OpenFontPackCatalog {
         Switchyard Open Font Pack
 
         Switchyard downloads these font files from official upstream repositories and installs
-        them into user-created Wine bottles to provide multilingual text fallback without
+        them into user-created Wine containers to provide multilingual text fallback without
         redistributing Microsoft Windows fonts.
 
         Fonts:

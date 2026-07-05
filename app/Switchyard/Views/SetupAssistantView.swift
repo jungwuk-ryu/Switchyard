@@ -23,7 +23,7 @@ struct SetupAssistantView: View {
                 PathPickerRow(title: "GPTK", message: "Choose your local Apple Game Porting Toolkit installation.", path: $store.gptkPath) {
                     store.refreshRuntimeStatus()
                 }
-                PathPickerRow(title: "Library", message: "Choose where Switchyard stores bottles and manifests.", path: $store.libraryPath) {
+                PathPickerRow(title: "Storage", message: "Choose where Switchyard stores containers and manifests.", path: $store.libraryPath) {
                     store.persistPreferences()
                 }
                 PathPickerRow(title: "Wine", message: "Choose a Wine executable or a Wine runtime folder.", path: $store.winePath) {

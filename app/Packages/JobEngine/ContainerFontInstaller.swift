@@ -2,7 +2,7 @@ import AppCore
 import Foundation
 import RuntimeCatalog
 
-public struct BottleFontInstallResult: Codable, Equatable, Sendable {
+public struct ContainerFontInstallResult: Codable, Equatable, Sendable {
     public var installedFonts: [String]
     public var reusedFonts: [String]
     public var registeredFontEntries: Int
@@ -31,10 +31,10 @@ public struct BottleFontInstallResult: Codable, Equatable, Sendable {
     }
 }
 
-public enum BottleFontInstallerError: LocalizedError, Equatable {
+public enum ContainerFontInstallerError: LocalizedError, Equatable {
     case missingCachedFont(String, String)
     case invalidCachedFont(String, expected: String, actual: String)
-    case invalidBottlePath(String)
+    case invalidContainerPath(String)
 
     public var errorDescription: String? {
         switch self {
@@ -42,13 +42,13 @@ public enum BottleFontInstallerError: LocalizedError, Equatable {
             return "\(fontName) is missing from the Open Font Pack cache: \(path)"
         case .invalidCachedFont(let fontName, let expected, let actual):
             return "\(fontName) in the Open Font Pack cache failed checksum validation. Expected \(expected), got \(actual)."
-        case .invalidBottlePath(let path):
-            return "Bottle path is empty or invalid: \(path)"
+        case .invalidContainerPath(let path):
+            return "Container path is empty or invalid: \(path)"
         }
     }
 }
 
-public struct BottleFontInstaller {
+public struct ContainerFontInstaller {
     public var fileManager: FileManager
     public var catalog: [OpenFontFile]
     public var replacements: [FontReplacement]
@@ -63,27 +63,27 @@ public struct BottleFontInstaller {
         self.replacements = replacements
     }
 
-    public func installOpenFontPack(into bottle: Bottle, from fontCacheRoot: URL) throws -> BottleFontInstallResult {
-        let bottlePath = bottle.path.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !bottlePath.isEmpty else {
-            throw BottleFontInstallerError.invalidBottlePath(bottle.path)
+    public func installOpenFontPack(into container: Container, from fontCacheRoot: URL) throws -> ContainerFontInstallResult {
+        let containerPath = container.path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !containerPath.isEmpty else {
+            throw ContainerFontInstallerError.invalidContainerPath(container.path)
         }
 
-        let bottleURL = URL(fileURLWithPath: bottlePath, isDirectory: true)
-        let systemRegistryURL = bottleURL.appendingPathComponent("system.reg")
-        let userRegistryURL = bottleURL.appendingPathComponent("user.reg")
+        let containerURL = URL(fileURLWithPath: containerPath, isDirectory: true)
+        let systemRegistryURL = containerURL.appendingPathComponent("system.reg")
+        let userRegistryURL = containerURL.appendingPathComponent("user.reg")
         guard registryHasArchitectureMarker(at: systemRegistryURL),
               registryHasArchitectureMarker(at: userRegistryURL) else {
-            return BottleFontInstallResult(
+            return ContainerFontInstallResult(
                 installedFonts: [],
                 reusedFonts: [],
                 registeredFontEntries: 0,
                 registeredReplacements: 0,
-                skippedReason: "Wine has not initialized this bottle yet."
+                skippedReason: "Wine has not initialized this container yet."
             )
         }
 
-        let fontsURL = bottleURL
+        let fontsURL = containerURL
             .appendingPathComponent("drive_c", isDirectory: true)
             .appendingPathComponent("windows", isDirectory: true)
             .appendingPathComponent("Fonts", isDirectory: true)
@@ -96,12 +96,12 @@ public struct BottleFontInstaller {
         for font in catalog {
             let source = fontCacheRoot.appendingPathComponent(font.fileName)
             guard fileManager.fileExists(atPath: source.path) else {
-                throw BottleFontInstallerError.missingCachedFont(font.displayName, source.path)
+                throw ContainerFontInstallerError.missingCachedFont(font.displayName, source.path)
             }
 
             let sourceDigest = try OpenFontPackCatalog.sha256Hex(for: source)
             guard sourceDigest == font.sha256 else {
-                throw BottleFontInstallerError.invalidCachedFont(font.displayName, expected: font.sha256, actual: sourceDigest)
+                throw ContainerFontInstallerError.invalidCachedFont(font.displayName, expected: font.sha256, actual: sourceDigest)
             }
 
             let destination = fontsURL.appendingPathComponent(font.fileName)
@@ -125,12 +125,12 @@ public struct BottleFontInstaller {
         )
 
         try registerFonts(
-            bottleURL: bottleURL,
+            containerURL: containerURL,
             fontValues: fontRegistryValues,
             replacementValues: replacementValues
         )
 
-        return BottleFontInstallResult(
+        return ContainerFontInstallResult(
             installedFonts: installedFonts,
             reusedFonts: reusedFonts,
             registeredFontEntries: fontRegistryValues.count,
@@ -156,11 +156,11 @@ public struct BottleFontInstaller {
     }
 
     private func registerFonts(
-        bottleURL: URL,
+        containerURL: URL,
         fontValues: [String: String],
         replacementValues: [String: String]
     ) throws {
-        let systemRegistryURL = bottleURL.appendingPathComponent("system.reg")
+        let systemRegistryURL = containerURL.appendingPathComponent("system.reg")
         var systemRegistry = try WineRegistryFile(url: systemRegistryURL)
         for section in [
             "Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Fonts",
@@ -178,7 +178,7 @@ public struct BottleFontInstaller {
         }
         try systemRegistry.write()
 
-        let userRegistryURL = bottleURL.appendingPathComponent("user.reg")
+        let userRegistryURL = containerURL.appendingPathComponent("user.reg")
         var userRegistry = try WineRegistryFile(url: userRegistryURL)
         userRegistry.upsertStringValues(replacementValues, in: "Software\\\\Wine\\\\Fonts\\\\Replacements")
         try userRegistry.write()

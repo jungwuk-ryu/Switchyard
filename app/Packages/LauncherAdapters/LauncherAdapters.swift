@@ -9,7 +9,7 @@ public enum LauncherAdapterError: Error, Equatable {
 public protocol LauncherAdapter {
     var kind: LauncherKind { get }
     var displayName: String { get }
-    func installPlan(bottle: Bottle, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan
+    func installPlan(container: Container, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan
     func runPlan(profile: LaunchProfile) throws -> CommandPlan
 }
 
@@ -19,10 +19,10 @@ public struct SteamAdapter: LauncherAdapter {
 
     public init() {}
 
-    public func installPlan(bottle: Bottle, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan {
+    public func installPlan(container: Container, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan {
         commandPlan(
             runtime: runtime,
-            bottle: bottle,
+            container: container,
             executablePath: installerPath,
             gptkPath: gptkPath,
             logSource: "steam-install"
@@ -36,7 +36,7 @@ public struct SteamAdapter: LauncherAdapter {
 
         return commandPlan(
             runtime: profile.runtime,
-            bottle: profile.bottle,
+            container: profile.container,
             executablePath: executablePath,
             gptkPath: profile.gptkPath,
             overrides: profile.environmentOverrides,
@@ -51,10 +51,10 @@ public struct EpicGamesAdapter: LauncherAdapter {
 
     public init() {}
 
-    public func installPlan(bottle: Bottle, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan {
+    public func installPlan(container: Container, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan {
         commandPlan(
             runtime: runtime,
-            bottle: bottle,
+            container: container,
             executablePath: installerPath,
             gptkPath: gptkPath,
             logSource: "epic-install"
@@ -68,7 +68,7 @@ public struct EpicGamesAdapter: LauncherAdapter {
 
         return commandPlan(
             runtime: profile.runtime,
-            bottle: profile.bottle,
+            container: profile.container,
             executablePath: executablePath,
             gptkPath: profile.gptkPath,
             overrides: profile.environmentOverrides,
@@ -83,10 +83,10 @@ public struct GOGGalaxyAdapter: LauncherAdapter {
 
     public init() {}
 
-    public func installPlan(bottle: Bottle, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan {
+    public func installPlan(container: Container, runtime: RuntimeBuild, gptkPath: String?, installerPath: String) -> CommandPlan {
         commandPlan(
             runtime: runtime,
-            bottle: bottle,
+            container: container,
             executablePath: installerPath,
             gptkPath: gptkPath,
             logSource: "gog-install"
@@ -100,7 +100,7 @@ public struct GOGGalaxyAdapter: LauncherAdapter {
 
         return commandPlan(
             runtime: profile.runtime,
-            bottle: profile.bottle,
+            container: profile.container,
             executablePath: executablePath,
             gptkPath: profile.gptkPath,
             overrides: profile.environmentOverrides,
@@ -126,14 +126,14 @@ public struct LauncherAdapterRegistry {
 
 private func commandPlan(
     runtime: RuntimeBuild,
-    bottle: Bottle,
+    container: Container,
     executablePath: String,
     gptkPath: String?,
     overrides: [String: String] = [:],
     logSource: String
 ) -> CommandPlan {
     var environment = [
-        "WINEPREFIX": bottle.path,
+        "WINEPREFIX": container.path,
         "SWITCHYARD_WINE_BUILD_ID": runtime.id,
         "SWITCHYARD_PATCHSET_ID": runtime.patchsetID
     ]
@@ -143,7 +143,7 @@ private func commandPlan(
         environment["MTL_HUD_ENABLED"] = environment["MTL_HUD_ENABLED", default: "0"]
     }
 
-    for (key, value) in overrides {
+    for (key, value) in overrides where EnvironmentOverridePolicy.isAllowedKey(key) {
         environment[key] = value
     }
 
@@ -151,7 +151,7 @@ private func commandPlan(
         executable: runtime.winePath,
         arguments: [executablePath],
         environment: environment,
-        workingDirectory: bottle.path,
+        workingDirectory: container.path,
         logSource: logSource
     )
 }

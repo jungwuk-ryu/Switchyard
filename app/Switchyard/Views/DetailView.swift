@@ -5,10 +5,8 @@ struct DetailView: View {
 
     var body: some View {
         switch selection {
-        case .gamesLaunchers:
-            LibraryView()
-        case .bottles:
-            BottlesView()
+        case .containers:
+            ContainersView()
         case .running:
             OperationsView(filter: .running)
         case .installQueue:
