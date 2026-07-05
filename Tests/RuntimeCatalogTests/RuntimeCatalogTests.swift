@@ -99,6 +99,28 @@ import Foundation
     #expect(wineCheck.result.contains("missing PE architecture(s): i386"))
 }
 
+@Test func switchyardWineRuntimePatchDigestMismatchReportsWarning() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let patchRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: root)
+        try? FileManager.default.removeItem(at: patchRoot)
+    }
+
+    try createSwitchyardWineRuntime(at: root, peArchitectures: ["i386", "x86_64"], patchQueueDigest: "old-digest")
+    try FileManager.default.createDirectory(at: patchRoot, withIntermediateDirectories: true)
+    try Data("current.patch\n".utf8).write(to: patchRoot.appendingPathComponent("series"))
+    try Data("diff --git a/file b/file\n".utf8).write(to: patchRoot.appendingPathComponent("current.patch"))
+
+    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: patchRoot.appendingPathComponent("series").path)
+    let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
+
+    #expect(result.0.wine == .warning)
+    #expect(!result.0.canLaunch)
+    #expect(wineCheck.result.contains("old-digest"))
+    #expect(wineCheck.result.contains("current queue"))
+}
+
 @Test func missingPatchSeriesPreventsLaunchReadiness() {
     let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: "/definitely/missing/series")
     #expect(result.0.patchset == .missing)
@@ -116,7 +138,11 @@ import Foundation
 }
 
 @discardableResult
-private func createSwitchyardWineRuntime(at root: URL, peArchitectures: [String]) throws -> URL {
+private func createSwitchyardWineRuntime(
+    at root: URL,
+    peArchitectures: [String],
+    patchQueueDigest: String? = nil
+) throws -> URL {
     let bin = root.appendingPathComponent("bin", isDirectory: true)
     let wine = bin.appendingPathComponent("wine")
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
@@ -139,7 +165,7 @@ private func createSwitchyardWineRuntime(at root: URL, peArchitectures: [String]
       "id": "switchyard-test-runtime",
       "buildProfile": "switchyard-wow64-pe",
       "peArchitectures": [\(quotedArchitectures)],
-      "executable": "\(wine.path)"
+      "executable": "\(wine.path)"\(patchQueueDigest.map { ",\n      \"patchQueueDigest\": \"\($0)\"" } ?? "")
     }
     """
     try Data(manifest.utf8).write(to: root.appendingPathComponent("switchyard-runtime.json"))

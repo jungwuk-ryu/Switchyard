@@ -207,14 +207,14 @@ final class AppStore: ObservableObject {
 
     func addContainer() {
         let name = nextContainerName()
-        let pathComponent = name
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-            .joined()
-            .appending(".container")
+        let libraryURL = URL(fileURLWithPath: libraryPath, isDirectory: true)
+        let pathComponent = ContainerPathPolicy.uniqueDirectoryName(
+            for: name,
+            existingDirectoryNames: occupiedContainerDirectoryNames(in: libraryURL)
+        )
         let container = Container(
             name: name,
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent(pathComponent, isDirectory: true).path,
+            path: libraryURL.appendingPathComponent(pathComponent, isDirectory: true).path,
             wineBuildID: currentRuntime.id,
             patchsetID: currentRuntime.patchsetID,
             gptkFingerprint: runtimeStatus.gptkFingerprint
@@ -521,6 +521,53 @@ final class AppStore: ObservableObject {
         return "\(baseName) \(suffix)"
     }
 
+    private func occupiedContainerDirectoryNames(in libraryURL: URL) -> Set<String> {
+        var existingDirectoryNames: Set<String> = []
+
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: libraryURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return ContainerPathPolicy.occupiedDirectoryNames(
+                containers: containers,
+                existingDirectoryNames: existingDirectoryNames
+            )
+        }
+
+        for entry in entries {
+            let isDirectory = (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            if isDirectory {
+                existingDirectoryNames.insert(entry.lastPathComponent)
+            }
+        }
+
+        return ContainerPathPolicy.occupiedDirectoryNames(
+            containers: containers,
+            existingDirectoryNames: existingDirectoryNames
+        )
+    }
+
+    private func removeDuplicateContainerPathsIfNeeded() {
+        let result = ContainerPathPolicy.removingDuplicatePaths(from: containers)
+        containers = result.containers
+
+        guard !result.removedNames.isEmpty else { return }
+
+        if let selectedContainerID, !containers.contains(where: { $0.id == selectedContainerID }) {
+            self.selectedContainerID = containers.first?.id
+        }
+
+        logLines.insert(
+            LogLine(
+                level: "warning",
+                source: "containers",
+                message: "Removed duplicate container entries that pointed to an already-used folder: \(result.removedNames.joined(separator: ", "))."
+            ),
+            at: 0
+        )
+    }
+
     private func isSafeTrashTarget(_ url: URL) -> Bool {
         let targetURL = url.standardizedFileURL.resolvingSymlinksInPath()
         let storageURL = URL(fileURLWithPath: libraryPath, isDirectory: true).standardizedFileURL.resolvingSymlinksInPath()
@@ -547,6 +594,7 @@ final class AppStore: ObservableObject {
     }
 
     private func persistLibrary() {
+        removeDuplicateContainerPathsIfNeeded()
         do {
             try libraryStore.save(SwitchyardContainerSnapshot(containers: containers))
         } catch {

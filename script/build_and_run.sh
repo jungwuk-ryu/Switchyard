@@ -30,6 +30,7 @@ mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES/patches/wine"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_RUNNER" "$RUNNER_BINARY"
 cp "$ROOT_DIR/patches/wine/series" "$APP_RESOURCES/patches/wine/series"
+cp "$ROOT_DIR"/patches/wine/*.patch "$APP_RESOURCES/patches/wine/"
 chmod +x "$APP_BINARY"
 chmod +x "$RUNNER_BINARY"
 
