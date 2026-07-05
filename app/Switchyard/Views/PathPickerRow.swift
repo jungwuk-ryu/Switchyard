@@ -4,6 +4,7 @@ import SwiftUI
 struct PathPickerRow: View {
     let title: String
     let message: String
+    var initialDirectoryURL: URL?
     @Binding var path: String
     var onChange: () -> Void
 
@@ -33,6 +34,7 @@ struct PathPickerRow: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = false
+        panel.directoryURL = initialDirectoryURL
         if panel.runModal() == .OK, let url = panel.url {
             path = url.path
             onChange()

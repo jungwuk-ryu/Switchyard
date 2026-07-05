@@ -129,6 +129,7 @@ struct ContainersView: View {
                             PathPickerRow(
                                 title: "Executable",
                                 message: "Choose the installed Windows launcher executable to run in this container.",
+                                initialDirectoryURL: URL(fileURLWithPath: container.path, isDirectory: true),
                                 path: executablePathBinding(for: container.id)
                             ) {
                                 store.updateExecutablePath(for: container.id, to: executablePathBinding(for: container.id).wrappedValue)
