@@ -63,40 +63,40 @@ import Testing
 
 @Test func jobEngineUsesContainerExecutableArgumentsForDefaultRuns() throws {
     let container = Container(
-        name: "Steam",
-        path: "/tmp/Steam.container",
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
         wineBuildID: "wine-a",
         patchsetID: "patch-a",
-        executablePath: "/tmp/Steam/steam.exe",
-        executableArguments: ["-cef-disable-gpu", "-cef-disable-sandbox"]
+        executablePath: "/tmp/Toolbox/Toolbox.exe",
+        executableArguments: ["-safe-mode", "-lang", "ko-KR"]
     )
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
 
     let plan = try JobEngine().runPlan(container: container, runtime: runtime, gptkPath: nil)
 
-    #expect(plan.arguments == ["/tmp/Steam/steam.exe", "-cef-disable-gpu", "-cef-disable-sandbox"])
+    #expect(plan.arguments == ["/tmp/Toolbox/Toolbox.exe", "-safe-mode", "-lang", "ko-KR"])
 }
 
 @Test func jobEngineUsesAdHocExecutableArgumentsForProgramRuns() throws {
     let container = Container(
-        name: "Steam",
-        path: "/tmp/Steam.container",
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
         wineBuildID: "wine-a",
         patchsetID: "patch-a",
-        executablePath: "/tmp/Steam/steam.exe",
+        executablePath: "/tmp/Toolbox/Toolbox.exe",
         executableArguments: ["-silent"]
     )
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
 
     let plan = try JobEngine().runPlan(
         container: container,
-        executablePath: "/tmp/Steam/steam.exe",
-        executableArguments: ["-cef-disable-gpu"],
+        executablePath: "/tmp/Tools/Repair.exe",
+        executableArguments: ["/repair"],
         runtime: runtime,
         gptkPath: nil
     )
 
-    #expect(plan.arguments == ["/tmp/Steam/steam.exe", "-cef-disable-gpu"])
+    #expect(plan.arguments == ["/tmp/Tools/Repair.exe", "/repair"])
 }
 
 @Test func jobEngineRejectsReservedEnvironmentOverrides() throws {

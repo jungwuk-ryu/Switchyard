@@ -294,7 +294,6 @@ private struct InstalledProgramsSection: View {
 
     private func isDefaultProgram(_ program: InstalledProgram, for container: Container) -> Bool {
         container.executablePath == program.executablePath
-            && container.executableArguments == ExecutableArgumentRecommendations.arguments(forExecutablePath: program.executablePath)
     }
 }
 
@@ -416,9 +415,7 @@ private struct InstalledProgramRow: View {
     }
 
     private var runHelp: String {
-        ExecutableArgumentRecommendations.arguments(forExecutablePath: program.executablePath).isEmpty
-            ? "Run Program"
-            : "Run Program with Compatibility Arguments"
+        "Run Program"
     }
 }
 

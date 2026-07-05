@@ -29,9 +29,9 @@ import Testing
 }
 
 @Test func launchArgumentParserRoundTripsQuotedArguments() {
-    let parsed = LaunchArgumentParser.parse("-cef-disable-gpu -login \"user name\" 'two words'")
+    let parsed = LaunchArgumentParser.parse("-safe-mode -login \"user name\" 'two words'")
 
-    #expect(parsed == ["-cef-disable-gpu", "-login", "user name", "two words"])
+    #expect(parsed == ["-safe-mode", "-login", "user name", "two words"])
     #expect(LaunchArgumentParser.parse(LaunchArgumentParser.format(parsed)) == parsed)
 }
 
@@ -40,14 +40,6 @@ import Testing
 
     #expect(parsed == ["-config", #"C:\Games\Steam\config.ini"#, "-quoted", #"C:\Program Files\App\app.exe"#])
     #expect(LaunchArgumentParser.parse(LaunchArgumentParser.format(parsed)) == parsed)
-}
-
-@Test func executableArgumentRecommendationsAddsSteamCEFWorkarounds() {
-    let steamArguments = ExecutableArgumentRecommendations.arguments(forExecutablePath: "C:\\Program Files (x86)\\Steam\\steam.exe")
-    let otherArguments = ExecutableArgumentRecommendations.arguments(forExecutablePath: "C:\\Tools\\Toolbox.exe")
-
-    #expect(steamArguments == ["-cef-disable-gpu", "-cef-disable-sandbox"])
-    #expect(otherArguments.isEmpty)
 }
 
 @Test func containerPathPolicyAvoidsExistingDirectoryNames() {

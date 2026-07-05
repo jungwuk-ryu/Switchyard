@@ -271,12 +271,11 @@ final class AppStore: ObservableObject {
         runExecutable(executableURL.path, in: containerID)
     }
 
-    func runExecutable(_ executablePath: String, arguments: [String]? = nil, in containerID: UUID) {
+    func runExecutable(_ executablePath: String, arguments: [String] = [], in containerID: UUID) {
         selectedContainerID = containerID
-        let launchArguments = arguments ?? ExecutableArgumentRecommendations.arguments(forExecutablePath: executablePath)
 
         Task {
-            await runContainer(containerID: containerID, executablePath: executablePath, executableArguments: launchArguments)
+            await runContainer(containerID: containerID, executablePath: executablePath, executableArguments: arguments)
         }
     }
 
@@ -307,7 +306,7 @@ final class AppStore: ObservableObject {
         updateDefaultExecutable(
             for: containerID,
             to: program.executablePath,
-            arguments: ExecutableArgumentRecommendations.arguments(forExecutablePath: program.executablePath)
+            arguments: []
         )
     }
 

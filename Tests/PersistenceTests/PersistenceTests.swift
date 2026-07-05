@@ -111,7 +111,7 @@ import Testing
     #expect(loaded.containers.first?.status == .ready)
 }
 
-@Test func legacySteamContainerReceivesCEFCompatibilityArguments() throws {
+@Test func legacySteamContainerKeepsEmptyExecutableArguments() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let containerID = UUID()
@@ -139,10 +139,10 @@ import Testing
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
     #expect(loaded.containers.first?.schemaVersion == 3)
-    #expect(loaded.containers.first?.executableArguments == ["-cef-disable-gpu", "-cef-disable-sandbox"])
+    #expect(loaded.containers.first?.executableArguments == [])
 }
 
-@Test func schemaTwoSteamContainerWithEmptyArgumentsReceivesCompatibilityArguments() throws {
+@Test func schemaTwoSteamContainerWithEmptyArgumentsKeepsEmptyArguments() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let containerID = UUID()
@@ -171,7 +171,7 @@ import Testing
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
     #expect(loaded.containers.first?.schemaVersion == 3)
-    #expect(loaded.containers.first?.executableArguments == ["-cef-disable-gpu", "-cef-disable-sandbox"])
+    #expect(loaded.containers.first?.executableArguments == [])
 }
 
 @Test func installedProgramCatalogFindsProgramFilesExecutables() throws {

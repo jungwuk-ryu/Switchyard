@@ -88,14 +88,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         let decodedSchemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         gptkFingerprint = try container.decodeIfPresent(String.self, forKey: .gptkFingerprint)
         executablePath = try container.decodeIfPresent(String.self, forKey: .executablePath)
-        let decodedArguments = try container.decodeIfPresent([String].self, forKey: .executableArguments)
-        if decodedSchemaVersion < 3,
-           (decodedArguments?.isEmpty ?? true),
-           let executablePath {
-            executableArguments = ExecutableArgumentRecommendations.arguments(forExecutablePath: executablePath)
-        } else {
-            executableArguments = decodedArguments ?? []
-        }
+        executableArguments = try container.decodeIfPresent([String].self, forKey: .executableArguments) ?? []
         lastRun = try container.decodeIfPresent(Date.self, forKey: .lastRun)
         status = try container.decodeIfPresent(ContainerStatus.self, forKey: .status) ?? .needsSetup
         environmentOverrides = try container.decodeIfPresent([String: String].self, forKey: .environmentOverrides) ?? [:]
@@ -203,15 +196,6 @@ public enum LaunchArgumentParser {
         }
         escaped.append("\"")
         return escaped
-    }
-}
-
-public enum ExecutableArgumentRecommendations {
-    public static func arguments(forExecutablePath executablePath: String) -> [String] {
-        let normalizedPath = executablePath.replacingOccurrences(of: "\\", with: "/")
-        let executableName = URL(fileURLWithPath: normalizedPath).lastPathComponent.lowercased()
-        guard executableName == "steam.exe" else { return [] }
-        return ["-cef-disable-gpu", "-cef-disable-sandbox"]
     }
 }
 
