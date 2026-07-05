@@ -32,7 +32,7 @@ struct ContentView: View {
                 }
 
                 Button {
-                    store.selectedSection = .logs
+                    selectSection(.logs)
                 } label: {
                     Label("Open Logs", systemImage: "doc.text.magnifyingglass")
                 }
@@ -43,6 +43,7 @@ struct ContentView: View {
                 .environmentObject(store)
         }
         .onAppear {
+            restoreSelectedSection()
             if !store.hasCompletedSetup {
                 showsSetup = true
             }
@@ -50,14 +51,25 @@ struct ContentView: View {
         .onChange(of: store.hasCompletedSetup) { _, completed in
             showsSetup = !completed
         }
+        .onChange(of: store.selectedSection) { _, selection in
+            selectedSectionRawValue = selection.rawValue
+        }
     }
 
     private var selectionBinding: Binding<SidebarSelection> {
         Binding {
-            SidebarSelection(rawValue: selectedSectionRawValue) ?? .containers
+            store.selectedSection
         } set: { newValue in
-            selectedSectionRawValue = newValue.rawValue
-            store.selectedSection = newValue
+            selectSection(newValue)
         }
+    }
+
+    private func restoreSelectedSection() {
+        selectSection(SidebarSelection(rawValue: selectedSectionRawValue) ?? .containers)
+    }
+
+    private func selectSection(_ selection: SidebarSelection) {
+        selectedSectionRawValue = selection.rawValue
+        store.selectedSection = selection
     }
 }
