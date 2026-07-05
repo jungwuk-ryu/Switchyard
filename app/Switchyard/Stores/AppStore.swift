@@ -28,6 +28,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
     @Published private(set) var launchingContainerIDs: Set<UUID> = []
+    @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
     @Published var containers: [Container]
     @Published var operations: [InstallJob] = []
     @Published var runSessions: [RunSession] = []
@@ -37,6 +38,7 @@ final class AppStore: ObservableObject {
     private let runnerClient = SwitchyardRunnerClient()
     private let defaults = UserDefaults.standard
     private var diagnosticsTask: Task<Void, Never>?
+    private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
 
     init() {
         let defaultLibrary = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
@@ -277,6 +279,29 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func installedPrograms(for containerID: UUID) -> [InstalledProgram] {
+        installedProgramsByContainerID[containerID] ?? []
+    }
+
+    func refreshInstalledPrograms(for containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        installedProgramTasks[containerID]?.cancel()
+
+        installedProgramTasks[containerID] = Task {
+            let programs = await Task.detached(priority: .userInitiated) {
+                InstalledProgramCatalog().installedPrograms(in: container)
+            }.value
+            guard !Task.isCancelled else { return }
+            guard self.containers.contains(where: { $0.id == containerID }) else { return }
+            self.installedProgramsByContainerID[containerID] = programs
+            self.installedProgramTasks.removeValue(forKey: containerID)
+        }
+    }
+
+    func useInstalledProgramAsDefault(_ program: InstalledProgram, for containerID: UUID) {
+        updateExecutablePath(for: containerID, to: program.executablePath)
+    }
+
     func renameContainer(_ containerID: UUID, to name: String) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
@@ -363,6 +388,9 @@ final class AppStore: ObservableObject {
         }
 
         containers.removeAll { $0.id == containerID }
+        installedProgramTasks[containerID]?.cancel()
+        installedProgramTasks.removeValue(forKey: containerID)
+        installedProgramsByContainerID.removeValue(forKey: containerID)
         selectedContainerID = containers.first?.id
         persistLibrary()
     }
@@ -483,6 +511,7 @@ final class AppStore: ObservableObject {
             runSessions.insert(session, at: 0)
         }
         mark(session.containerID, as: session.outcome == .succeeded ? .succeeded : .failed)
+        refreshInstalledPrograms(for: session.containerID)
         logLines.insert(
             LogLine(
                 level: session.outcome == .succeeded ? "info" : "error",

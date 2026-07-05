@@ -114,6 +114,9 @@ struct ContainersView: View {
 
                     Divider()
 
+                    InstalledProgramsSection(container: container)
+                        .environmentObject(store)
+
                     GroupBox("Settings") {
                         VStack(alignment: .leading, spacing: 12) {
                             LabeledContent("Name") {
@@ -193,6 +196,9 @@ struct ContainersView: View {
                 }
                 .padding()
             }
+            .task(id: container.id) {
+                store.refreshInstalledPrograms(for: container.id)
+            }
         } else {
             ContentUnavailableView(
                 "Select a Container",
@@ -227,6 +233,129 @@ struct ContainersView: View {
         } set: { path in
             store.updateExecutablePath(for: containerID, to: path)
         }
+    }
+}
+
+private struct InstalledProgramsSection: View {
+    @EnvironmentObject private var store: AppStore
+    let container: Container
+
+    var body: some View {
+        GroupBox("Installed Programs") {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Spacer()
+                    Button {
+                        store.refreshInstalledPrograms(for: container.id)
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Refresh Programs")
+                }
+                .padding(.bottom, programs.isEmpty ? 0 : 4)
+
+                if programs.isEmpty {
+                    ContentUnavailableView(
+                        "No Programs Found",
+                        systemImage: "app.dashed",
+                        description: Text("Installed Windows apps will appear here after setup.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                } else {
+                    ForEach(Array(programs.enumerated()), id: \.element.id) { index, program in
+                        InstalledProgramRow(
+                            container: container,
+                            program: program,
+                            isDefault: container.executablePath == program.executablePath
+                        )
+                        .environmentObject(store)
+
+                        if index < programs.count - 1 {
+                            Divider()
+                                .padding(.leading, 30)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var programs: [InstalledProgram] {
+        store.installedPrograms(for: container.id)
+    }
+}
+
+private struct InstalledProgramRow: View {
+    @EnvironmentObject private var store: AppStore
+    let container: Container
+    let program: InstalledProgram
+    let isDefault: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "app")
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(program.name)
+                        .fontWeight(.medium)
+                        .lineLimit(1)
+
+                    if isDefault {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .help("Default Executable")
+                    }
+                }
+
+                Text(relativeExecutablePath)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+
+            Spacer()
+
+            Button {
+                store.runExecutable(program.executablePath, in: container.id)
+            } label: {
+                Image(systemName: "play.fill")
+            }
+            .buttonStyle(.borderless)
+            .help("Run Program")
+            .disabled(store.isContainerBusy(container.id))
+
+            Button {
+                store.useInstalledProgramAsDefault(program, for: container.id)
+            } label: {
+                Image(systemName: isDefault ? "checkmark.circle.fill" : "checkmark.circle")
+            }
+            .buttonStyle(.borderless)
+            .help("Use as Default Executable")
+            .disabled(isDefault)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var relativeExecutablePath: String {
+        let containerPath = URL(fileURLWithPath: container.path, isDirectory: true)
+            .standardizedFileURL
+            .path
+        let executablePath = URL(fileURLWithPath: program.executablePath)
+            .standardizedFileURL
+            .path
+
+        guard executablePath.hasPrefix(containerPath + "/") else {
+            return program.executablePath
+        }
+
+        return String(executablePath.dropFirst(containerPath.count + 1))
     }
 }
 

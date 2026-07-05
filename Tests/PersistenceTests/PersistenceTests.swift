@@ -106,3 +106,79 @@ import Testing
     #expect(loaded.containers.first?.lastRun != nil)
     #expect(loaded.containers.first?.status == .ready)
 }
+
+@Test func installedProgramCatalogFindsProgramFilesExecutables() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent("Games.container", isDirectory: true)
+    let steam = containerURL.appendingPathComponent("drive_c/Program Files (x86)/Steam/steam.exe")
+    let steamHelper = containerURL.appendingPathComponent("drive_c/Program Files (x86)/Steam/bin/cef/steamwebhelper.exe")
+    let battleNet = containerURL.appendingPathComponent("drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe")
+    let battleNetUpdater = containerURL.appendingPathComponent("drive_c/Program Files (x86)/Battle.net/Battle.net Update Agent.exe")
+    for executable in [steam, steamHelper, battleNet, battleNetUpdater] {
+        try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: executable)
+    }
+
+    let container = Container(
+        name: "Games",
+        path: containerURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a"
+    )
+
+    let programs = InstalledProgramCatalog().installedPrograms(in: container)
+
+    #expect(programs.map(\.name) == ["Battle.net Launcher", "Steam"])
+    let expectedPaths = [battleNet, steam].map { $0.standardizedFileURL.resolvingSymlinksInPath().path }
+    let discoveredPaths = programs.map { URL(fileURLWithPath: $0.executablePath).standardizedFileURL.resolvingSymlinksInPath().path }
+    #expect(discoveredPaths == expectedPaths)
+}
+
+@Test func installedProgramCatalogIncludesDefaultExecutableInsideContainer() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent("Tools.container", isDirectory: true)
+    let executable = containerURL.appendingPathComponent("drive_c/Tools/Toolbox.exe")
+    try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data().write(to: executable)
+
+    let container = Container(
+        name: "Tools",
+        path: containerURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: executable.path
+    )
+
+    let programs = InstalledProgramCatalog().installedPrograms(in: container)
+
+    #expect(programs.count == 1)
+    #expect(programs.first?.name == "Toolbox")
+    #expect(programs.first?.source == .defaultExecutable)
+}
+
+@Test func installedProgramCatalogIgnoresExeDirectories() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent("Broken.container", isDirectory: true)
+    let programFilesDirectory = containerURL.appendingPathComponent("drive_c/Program Files/Fake/Fake.exe", isDirectory: true)
+    let defaultDirectory = containerURL.appendingPathComponent("drive_c/Tools/Toolbox.exe", isDirectory: true)
+    try FileManager.default.createDirectory(at: programFilesDirectory, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: defaultDirectory, withIntermediateDirectories: true)
+
+    let container = Container(
+        name: "Broken",
+        path: containerURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: defaultDirectory.path
+    )
+
+    let programs = InstalledProgramCatalog().installedPrograms(in: container)
+
+    #expect(programs.isEmpty)
+}

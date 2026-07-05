@@ -91,6 +91,31 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
+public enum InstalledProgramSource: String, Codable, Equatable, Sendable {
+    case programFiles
+    case defaultExecutable
+}
+
+public struct InstalledProgram: Identifiable, Codable, Equatable, Sendable {
+    public var id: String { executablePath }
+    public var name: String
+    public var executablePath: String
+    public var installDirectory: String
+    public var source: InstalledProgramSource
+
+    public init(
+        name: String,
+        executablePath: String,
+        installDirectory: String,
+        source: InstalledProgramSource
+    ) {
+        self.name = name
+        self.executablePath = executablePath
+        self.installDirectory = installDirectory
+        self.source = source
+    }
+}
+
 public enum EnvironmentOverridePolicy {
     public static func isAllowedKey(_ key: String) -> Bool {
         isValidKey(key) && !isReservedKey(key)
