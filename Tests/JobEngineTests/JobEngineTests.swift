@@ -1,55 +1,75 @@
 import AppCore
+import Foundation
 import JobEngine
 import RuntimeCatalog
 import Testing
-import Foundation
 
 @Test func jobEngineCreatesInstallPlan() throws {
-    let container = Container(name: "Steam", path: "/tmp/Steam.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
     let plan = try JobEngine().installPlan(
-        launcherKind: .steam,
         container: container,
         runtime: runtime,
         gptkPath: nil,
-        installerPath: "/tmp/SteamSetup.exe"
+        installerPath: "/tmp/Setup.exe"
     )
 
     #expect(plan.executable == "/opt/wine/bin/wine")
-    #expect(plan.arguments == ["/tmp/SteamSetup.exe"])
-    #expect(plan.environment["WINEPREFIX"] == "/tmp/Steam.container")
+    #expect(plan.arguments == ["/tmp/Setup.exe"])
+    #expect(plan.environment["WINEPREFIX"] == "/tmp/Toolbox.container")
 }
 
-@Test func jobEngineFailsWhenContainerIsMissing() {
-    let container = Container(name: "Steam", path: "/tmp/Steam.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+@Test func jobEngineFailsWhenContainerExecutableIsMissing() {
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
-    let launcher = Launcher(name: "Steam", kind: .steam, containerID: container.id)
 
-    #expect(throws: JobEngineError.missingContainer(container.id)) {
-        _ = try JobEngine().runPlan(launcher: launcher, containers: [], runtime: runtime, gptkPath: nil)
+    #expect(throws: JobEngineError.missingExecutable(container.id)) {
+        _ = try JobEngine().runPlan(container: container, runtime: runtime, gptkPath: nil)
     }
 }
 
 @Test func jobEngineUsesContainerEnvironmentOverrides() throws {
     let container = Container(
-        name: "Steam",
-        path: "/tmp/Steam.container",
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
         wineBuildID: "wine-a",
         patchsetID: "patch-a",
+        executablePath: "/tmp/Toolbox.exe",
         environmentOverrides: ["DXVK_LOG_LEVEL": "none"]
     )
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
-    let launcher = Launcher(name: "Steam", kind: .steam, containerID: container.id, executablePath: "/tmp/Steam.exe")
 
-    let plan = try JobEngine().runPlan(launcher: launcher, containers: [container], runtime: runtime, gptkPath: nil)
+    let plan = try JobEngine().runPlan(container: container, runtime: runtime, gptkPath: nil)
 
+    #expect(plan.environment["DXVK_LOG_LEVEL"] == "none")
+}
+
+@Test func jobEngineRejectsReservedEnvironmentOverrides() throws {
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: "/tmp/Toolbox.exe",
+        environmentOverrides: [
+            "WINEPREFIX": "/tmp/Other.container",
+            "SWITCHYARD_PATCHSET_ID": "other",
+            "DXVK_LOG_LEVEL": "none"
+        ]
+    )
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(container: container, runtime: runtime, gptkPath: nil)
+
+    #expect(plan.environment["WINEPREFIX"] == "/tmp/Toolbox.container")
+    #expect(plan.environment["SWITCHYARD_PATCHSET_ID"] == "patch-a")
     #expect(plan.environment["DXVK_LOG_LEVEL"] == "none")
 }
 
 @Test func containerFontInstallerCopiesFontsAndRegistersWineMappings() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     let cache = root.appendingPathComponent("cache", isDirectory: true)
-    let containerURL = root.appendingPathComponent("Steam.container", isDirectory: true)
+    let containerURL = root.appendingPathComponent("Fonts.container", isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
 
     try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
@@ -70,7 +90,7 @@ import Foundation
         registryEntries: ["Switchyard Sans Test (TrueType)"]
     )
     let replacement = FontReplacement(requestedFamily: "Segoe UI", replacementFamily: "Switchyard Sans Test")
-    let container = Container(name: "Steam", path: containerURL.path, wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Fonts", path: containerURL.path, wineBuildID: "wine-a", patchsetID: "patch-a")
     let installer = ContainerFontInstaller(catalog: [font], replacements: [replacement])
 
     let firstResult = try installer.installOpenFontPack(into: container, from: cache)

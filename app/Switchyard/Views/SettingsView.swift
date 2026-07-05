@@ -56,7 +56,7 @@ struct SettingsView: View {
                     Text("Default DPI")
                 }
                 LabeledContent("Renderer", value: "D3DMetal when GPTK is valid")
-                LabeledContent("Container Template", value: "Per-launcher isolated prefix")
+                LabeledContent("Container Template", value: "Per-container Wine prefix")
                 if let fontCheck = store.diagnostics.first(where: { $0.id == "open-font-pack" }) {
                     StatusBadge(status: fontCheck.status, label: fontCheck.status.label)
                     Text(fontCheck.result)

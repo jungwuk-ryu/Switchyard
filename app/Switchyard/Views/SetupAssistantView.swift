@@ -13,7 +13,7 @@ struct SetupAssistantView: View {
                     Text("Set Up Switchyard")
                         .font(.largeTitle)
                         .fontWeight(.semibold)
-                    Text("Prepare the local runtime paths before launching supported game launchers.")
+                    Text("Prepare the local runtime paths before launching Windows executables.")
                         .foregroundStyle(.secondary)
                 }
             }

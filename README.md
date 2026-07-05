@@ -1,12 +1,14 @@
 # Switchyard
 
-Switchyard is an open-source-core macOS compatibility manager for running Windows game launchers on Apple Silicon.
+Switchyard is an open-source-core macOS compatibility manager for running Windows executables in user-managed Wine containers on Apple Silicon.
 
-The v1 target is intentionally narrow:
+The first compatibility workloads are:
 
 - Steam
 - Epic Games Launcher
 - GOG Galaxy
+
+These are validation targets, not fixed container types. Users should be able to create Wine-style containers freely and choose the executable they want to run.
 
 Switchyard uses a patched Wine runtime and links to a user-provided Apple Game Porting Toolkit installation. It does not bundle GPTK or Apple binaries.
 
@@ -18,7 +20,7 @@ This repository contains the initial product, architecture, and runnable macOS a
 - Navigation split layout for Containers, Operations, Logs, and Diagnostics
 - Runtime detection model for Apple Silicon, macOS, GPTK, and Wine
 - User-local Open Font Pack setup for Wine container font fallback
-- Declarative launcher command plans
+- Generic container command plans
 - External runner CLI boundary for process execution
 - Wine patch queue and licensing documentation structure
 

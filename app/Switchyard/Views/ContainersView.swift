@@ -43,7 +43,7 @@ struct ContainersView: View {
                 ContentUnavailableView(
                     "No Containers",
                     systemImage: "shippingbox",
-                    description: Text("Add a container to configure and run a Windows game launcher.")
+                    description: Text("Add a container to configure a Wine prefix and run a Windows executable.")
                 )
                 .padding()
             } else {
@@ -52,20 +52,12 @@ struct ContainersView: View {
                         Text(container.name)
                     }
 
-                    TableColumn("Launcher") { container in
-                        Text(store.launcher(for: container)?.kind.displayName ?? "Missing")
-                    }
-
                     TableColumn("Status") { container in
-                        if let launcher = store.launcher(for: container) {
-                            StatusBadge(status: launcher.status.health, label: launcher.status.label)
-                        } else {
-                            StatusBadge(status: .missing, label: "Missing")
-                        }
+                        StatusBadge(status: container.status.health, label: container.status.label)
                     }
 
                     TableColumn("Last Run") { container in
-                        if let lastRun = store.launcher(for: container)?.lastRun {
+                        if let lastRun = container.lastRun {
                             Text(switchyardDateFormatter.string(from: lastRun))
                         } else {
                             Text("Never")
@@ -87,6 +79,7 @@ struct ContainersView: View {
                         }
                         .buttonStyle(.borderless)
                         .help("Run Container")
+                        .disabled(container.executablePath?.isEmpty ?? true)
                     }
                 }
                 .padding()
@@ -96,7 +89,7 @@ struct ContainersView: View {
 
     @ViewBuilder
     private var containerDetail: some View {
-        if let container = store.selectedContainer, let launcher = store.launcher(for: container) {
+        if let container = store.selectedContainer {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -105,7 +98,7 @@ struct ContainersView: View {
                             .fontWeight(.semibold)
                             .lineLimit(1)
 
-                        StatusBadge(status: launcher.status.health, label: launcher.status.label)
+                        StatusBadge(status: container.status.health, label: container.status.label)
                     }
 
                     Divider()
@@ -117,18 +110,9 @@ struct ContainersView: View {
                                     .textFieldStyle(.roundedBorder)
                             }
 
-                            LabeledContent("Launcher") {
-                                Picker("Launcher", selection: launcherKindBinding(for: container.id)) {
-                                    ForEach(LauncherKind.allCases) { kind in
-                                        Text(kind.displayName).tag(kind)
-                                    }
-                                }
-                                .labelsHidden()
-                            }
-
                             PathPickerRow(
                                 title: "Executable",
-                                message: "Choose the installed Windows launcher executable to run in this container.",
+                                message: "Choose the Windows executable to run inside this container.",
                                 initialDirectoryURL: URL(fileURLWithPath: container.path, isDirectory: true),
                                 path: executablePathBinding(for: container.id)
                             ) {
@@ -172,6 +156,7 @@ struct ContainersView: View {
                         } label: {
                             Label("Run", systemImage: "play.fill")
                         }
+                        .disabled(container.executablePath?.isEmpty ?? true)
 
                         Button {
                             store.openContainerInFinder(container.id)
@@ -218,17 +203,9 @@ struct ContainersView: View {
         }
     }
 
-    private func launcherKindBinding(for containerID: UUID) -> Binding<LauncherKind> {
-        Binding {
-            store.launchers.first(where: { $0.containerID == containerID })?.kind ?? .steam
-        } set: { kind in
-            store.updateLauncherKind(for: containerID, to: kind)
-        }
-    }
-
     private func executablePathBinding(for containerID: UUID) -> Binding<String> {
         Binding {
-            store.launchers.first(where: { $0.containerID == containerID })?.executablePath ?? ""
+            store.containers.first(where: { $0.id == containerID })?.executablePath ?? ""
         } set: { path in
             store.updateExecutablePath(for: containerID, to: path)
         }

@@ -1,25 +1,33 @@
 import AppCore
 import Foundation
-import LauncherAdapters
-import Persistence
-import RuntimeCatalog
 
 public enum JobEngineError: Error, Equatable {
-    case missingContainer(UUID)
+    case missingExecutable(UUID)
     case runtimeNotRunnable(RuntimeStatus)
 }
 
+extension JobEngineError: LocalizedError {
+    public var errorDescription: String? {
+        switch self {
+        case .missingExecutable:
+            "Choose a Windows executable for this container before running."
+        case let .runtimeNotRunnable(status):
+            status.summary
+        }
+    }
+}
+
 public protocol RunnerClient {
-    func run(_ plan: CommandPlan, launcherID: UUID, launcherName: String) throws -> RunSession
+    func run(_ plan: CommandPlan, containerID: UUID, containerName: String) throws -> RunSession
 }
 
 public struct FakeRunnerClient: RunnerClient {
     public init() {}
 
-    public func run(_ plan: CommandPlan, launcherID: UUID, launcherName: String) throws -> RunSession {
+    public func run(_ plan: CommandPlan, containerID: UUID, containerName: String) throws -> RunSession {
         RunSession(
-            launcherID: launcherID,
-            launcherName: launcherName,
+            containerID: containerID,
+            containerName: containerName,
             endedAt: Date(),
             exitCode: 0,
             outcome: .succeeded
@@ -28,69 +36,100 @@ public struct FakeRunnerClient: RunnerClient {
 }
 
 public struct JobEngine {
-    public var adapters: LauncherAdapterRegistry
     public var runner: any RunnerClient
     public var fontInstaller: ContainerFontInstaller
 
     public init(
-        adapters: LauncherAdapterRegistry = LauncherAdapterRegistry(),
         runner: any RunnerClient = FakeRunnerClient(),
         fontInstaller: ContainerFontInstaller = ContainerFontInstaller()
     ) {
-        self.adapters = adapters
         self.runner = runner
         self.fontInstaller = fontInstaller
     }
 
     public func installPlan(
-        launcherKind: LauncherKind,
         container: Container,
         runtime: RuntimeBuild,
         gptkPath: String?,
         installerPath: String
     ) throws -> CommandPlan {
-        let adapter = try adapters.adapter(for: launcherKind)
-        return adapter.installPlan(container: container, runtime: runtime, gptkPath: gptkPath, installerPath: installerPath)
+        commandPlan(
+            runtime: runtime,
+            container: container,
+            executablePath: installerPath,
+            gptkPath: gptkPath,
+            logSource: "\(container.name)-install"
+        )
     }
 
     public func runPlan(
-        launcher: Launcher,
-        containers: [Container],
+        container: Container,
         runtime: RuntimeBuild,
         gptkPath: String?,
         environmentOverrides: [String: String] = [:]
     ) throws -> CommandPlan {
-        guard let container = containers.first(where: { $0.id == launcher.containerID }) else {
-            throw JobEngineError.missingContainer(launcher.containerID)
+        guard let executablePath = container.executablePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !executablePath.isEmpty else {
+            throw JobEngineError.missingExecutable(container.id)
         }
+
         var mergedEnvironmentOverrides = container.environmentOverrides
         for (key, value) in environmentOverrides {
             mergedEnvironmentOverrides[key] = value
         }
 
-        let adapter = try adapters.adapter(for: launcher.kind)
-        let profile = LaunchProfile(
-            launcher: launcher,
-            container: container,
+        return commandPlan(
             runtime: runtime,
-            useGPTK: gptkPath?.isEmpty == false,
+            container: container,
+            executablePath: executablePath,
             gptkPath: gptkPath,
-            environmentOverrides: mergedEnvironmentOverrides
+            overrides: mergedEnvironmentOverrides,
+            logSource: container.name
         )
-        return try adapter.runPlan(profile: profile)
     }
 
     public func run(
-        launcher: Launcher,
-        containers: [Container],
+        container: Container,
         runtime: RuntimeBuild,
         gptkPath: String?
     ) throws -> RunSession {
-        let plan = try runPlan(launcher: launcher, containers: containers, runtime: runtime, gptkPath: gptkPath)
-        return try runner.run(plan, launcherID: launcher.id, launcherName: launcher.name)
+        let plan = try runPlan(container: container, runtime: runtime, gptkPath: gptkPath)
+        return try runner.run(plan, containerID: container.id, containerName: container.name)
     }
 
     public func installOpenFontPack(into container: Container, from fontCacheRoot: URL) throws -> ContainerFontInstallResult {
         try fontInstaller.installOpenFontPack(into: container, from: fontCacheRoot)
     }
+}
+
+private func commandPlan(
+    runtime: RuntimeBuild,
+    container: Container,
+    executablePath: String,
+    gptkPath: String?,
+    overrides: [String: String] = [:],
+    logSource: String
+) -> CommandPlan {
+    var environment = [
+        "WINEPREFIX": container.path,
+        "SWITCHYARD_WINE_BUILD_ID": runtime.id,
+        "SWITCHYARD_PATCHSET_ID": runtime.patchsetID
+    ]
+
+    if let gptkPath, !gptkPath.isEmpty {
+        environment["SWITCHYARD_GPTK_PATH"] = gptkPath
+        environment["MTL_HUD_ENABLED"] = environment["MTL_HUD_ENABLED", default: "0"]
+    }
+
+    for (key, value) in overrides where EnvironmentOverridePolicy.isAllowedKey(key) {
+        environment[key] = value
+    }
+
+    return CommandPlan(
+        executable: runtime.winePath,
+        arguments: [executablePath],
+        environment: environment,
+        workingDirectory: container.path,
+        logSource: logSource
+    )
 }

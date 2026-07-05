@@ -49,11 +49,9 @@ public struct ContainerManifestStore {
 
 public struct SwitchyardContainerSnapshot: Codable, Equatable, Sendable {
     public var containers: [Container]
-    public var launchers: [Launcher]
 
-    public init(containers: [Container], launchers: [Launcher]) {
+    public init(containers: [Container]) {
         self.containers = containers
-        self.launchers = Self.normalizedLaunchers(containers: containers, launchers: launchers)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -69,41 +67,68 @@ public struct SwitchyardContainerSnapshot: Codable, Equatable, Sendable {
         } else {
             containers = try container.decodeIfPresent([Container].self, forKey: .bottles) ?? []
         }
-        launchers = Self.normalizedLaunchers(
-            containers: containers,
-            launchers: try container.decodeIfPresent([Launcher].self, forKey: .launchers) ?? []
+        containers = Self.migratingLegacyRunTargets(
+            into: containers,
+            legacyRunTargets: try container.decodeIfPresent([LegacyRunTarget].self, forKey: .launchers) ?? []
         )
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(containers, forKey: .containers)
-        try container.encode(launchers, forKey: .launchers)
     }
 
-    private static func normalizedLaunchers(containers: [Container], launchers: [Launcher]) -> [Launcher] {
+    private static func migratingLegacyRunTargets(into containers: [Container], legacyRunTargets: [LegacyRunTarget]) -> [Container] {
         containers.map { container in
-            if let launcher = launchers.first(where: { $0.containerID == container.id }) {
-                return launcher
+            guard let legacyRunTarget = legacyRunTargets.first(where: { $0.containerID == container.id }) else {
+                return container
             }
-            return Launcher(
-                name: container.name,
-                kind: inferredLauncherKind(for: container.name),
-                containerID: container.id,
-                status: .needsSetup
-            )
+
+            var migratedContainer = container
+            if migratedContainer.executablePath == nil {
+                migratedContainer.executablePath = legacyRunTarget.executablePath
+            }
+            if migratedContainer.lastRun == nil {
+                migratedContainer.lastRun = legacyRunTarget.lastRun
+            }
+            if migratedContainer.status == .needsSetup {
+                migratedContainer.status = legacyRunTarget.status
+            }
+            return migratedContainer
         }
     }
+}
 
-    private static func inferredLauncherKind(for name: String) -> LauncherKind {
-        let lowercasedName = name.lowercased()
-        if lowercasedName.contains("epic") {
-            return .epicGames
+private struct LegacyRunTarget: Decodable, Equatable, Sendable {
+    var id: UUID
+    var name: String
+    var containerID: UUID
+    var executablePath: String?
+    var lastRun: Date?
+    var status: ContainerStatus
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case containerID
+        case bottleID
+        case executablePath
+        case lastRun
+        case status
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Imported Entry"
+        if let decodedContainerID = try container.decodeIfPresent(UUID.self, forKey: .containerID) {
+            containerID = decodedContainerID
+        } else {
+            containerID = try container.decode(UUID.self, forKey: .bottleID)
         }
-        if lowercasedName.contains("gog") {
-            return .gogGalaxy
-        }
-        return .steam
+        executablePath = try container.decodeIfPresent(String.self, forKey: .executablePath)
+        lastRun = try container.decodeIfPresent(Date.self, forKey: .lastRun)
+        status = try container.decodeIfPresent(ContainerStatus.self, forKey: .status) ?? .needsSetup
     }
 }
 
@@ -126,7 +151,7 @@ public struct LibraryManifestStore {
     public func loadSnapshot() throws -> SwitchyardContainerSnapshot? {
         guard fileManager.fileExists(atPath: manifestURL.path) else {
             let containers = try ContainerManifestStore(rootURL: rootURL, fileManager: fileManager).loadContainers()
-            return containers.isEmpty ? nil : SwitchyardContainerSnapshot(containers: containers, launchers: [])
+            return containers.isEmpty ? nil : SwitchyardContainerSnapshot(containers: containers)
         }
         let data = try Data(contentsOf: manifestURL)
         return try JSONDecoder.switchyard.decode(SwitchyardContainerSnapshot.self, from: data)

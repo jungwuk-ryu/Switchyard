@@ -12,6 +12,6 @@ Switchyard creates candidate runtimes, then offers per-container migration. Exis
 
 ## Consequences
 
-- Users can keep a known-working launcher setup.
+- Users can keep a known-working container setup.
 - Compatibility regressions are isolated to migrated containers.
 - Test coverage must include runtime A to runtime B migration and rollback.

@@ -11,7 +11,8 @@ Each container has a portable manifest that pins runtime identity:
 - `wineBuildID`
 - `patchsetID`
 - `gptkFingerprint`
-- launcher type/version
+- executable path
+- last run status
 - environment overrides
 - schema version
 

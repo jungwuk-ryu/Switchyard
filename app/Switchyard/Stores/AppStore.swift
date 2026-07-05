@@ -27,7 +27,6 @@ final class AppStore: ObservableObject {
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
     @Published var containers: [Container]
-    @Published var launchers: [Launcher]
     @Published var operations: [InstallJob] = []
     @Published var runSessions: [RunSession] = []
     @Published var logLines: [LogLine] = []
@@ -57,7 +56,6 @@ final class AppStore: ObservableObject {
 
         let snapshot = Self.initialLibrarySnapshot(libraryPath: initialLibraryPath)
         containers = snapshot.containers
-        launchers = snapshot.launchers
         selectedContainerID = containers.first?.id
         selectedLogSessionID = nil
 
@@ -67,15 +65,6 @@ final class AppStore: ObservableObject {
     var selectedContainer: Container? {
         guard let selectedContainerID else { return containers.first }
         return containers.first(where: { $0.id == selectedContainerID }) ?? containers.first
-    }
-
-    var selectedLauncher: Launcher? {
-        guard let selectedContainer else { return nil }
-        return launcher(for: selectedContainer)
-    }
-
-    func launcher(for container: Container) -> Launcher? {
-        launchers.first(where: { $0.containerID == container.id })
     }
 
     var currentRuntime: RuntimeBuild {
@@ -229,18 +218,16 @@ final class AppStore: ObservableObject {
             gptkFingerprint: runtimeStatus.gptkFingerprint
         )
         containers.append(container)
-        let launcher = Launcher(name: name, kind: .steam, containerID: container.id, status: .needsSetup)
-        launchers.append(launcher)
         selectedContainerID = container.id
         selectedSection = .containers
         persistLibrary()
     }
 
     func runSelectedContainer() {
-        guard let launcherID = selectedLauncher?.id else { return }
+        guard let containerID = selectedContainer?.id else { return }
 
         Task {
-            await runSelectedContainer(launcherID: launcherID)
+            await runSelectedContainer(containerID: containerID)
         }
     }
 
@@ -255,26 +242,16 @@ final class AppStore: ObservableObject {
         updateContainer(containerID) { container in
             container.name = trimmedName
         }
-        if let launcherIndex = launchers.firstIndex(where: { $0.containerID == containerID }) {
-            launchers[launcherIndex].name = trimmedName
-            persistLibrary()
-        }
-    }
-
-    func updateLauncherKind(for containerID: UUID, to kind: LauncherKind) {
-        guard let launcherIndex = launchers.firstIndex(where: { $0.containerID == containerID }) else { return }
-        launchers[launcherIndex].kind = kind
-        persistLibrary()
     }
 
     func updateExecutablePath(for containerID: UUID, to path: String) {
-        guard let launcherIndex = launchers.firstIndex(where: { $0.containerID == containerID }) else { return }
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        launchers[launcherIndex].executablePath = trimmedPath.isEmpty ? nil : trimmedPath
-        if launchers[launcherIndex].status != .running {
-            launchers[launcherIndex].status = trimmedPath.isEmpty ? .needsSetup : .ready
+        updateContainer(containerID) { container in
+            container.executablePath = trimmedPath.isEmpty ? nil : trimmedPath
+            if container.status != .running {
+                container.status = trimmedPath.isEmpty ? .needsSetup : .ready
+            }
         }
-        persistLibrary()
     }
 
     func addEnvironmentOverride(for containerID: UUID, key: String, value: String) {
@@ -306,7 +283,7 @@ final class AppStore: ObservableObject {
     }
 
     func isContainerRunning(_ containerID: UUID) -> Bool {
-        launchers.contains { $0.containerID == containerID && $0.status == .running }
+        containers.contains { $0.id == containerID && $0.status == .running }
     }
 
     func openContainerInFinder(_ containerID: UUID) {
@@ -340,38 +317,32 @@ final class AppStore: ObservableObject {
             logLines.insert(LogLine(level: "warning", source: "containers", message: "\(container.name) was removed from Switchyard, but its folder was already missing."), at: 0)
         }
 
-        launchers.removeAll { $0.containerID == containerID }
         containers.removeAll { $0.id == containerID }
         selectedContainerID = containers.first?.id
         persistLibrary()
     }
 
-    private func runSelectedContainer(launcherID: UUID) async {
-        guard let launcher = launchers.first(where: { $0.id == launcherID }) else { return }
+    private func runSelectedContainer(containerID: UUID) async {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
 
         guard runtimeStatus.canLaunch else {
-            appendFailedRun(for: launcher, message: runtimeStatus.summary)
+            appendFailedRun(for: container, message: runtimeStatus.summary)
             return
         }
 
-        guard let container = containers.first(where: { $0.id == launcher.containerID }) else {
-            appendFailedRun(for: launcher, message: "Could not prepare launcher: \(JobEngineError.missingContainer(launcher.containerID))")
-            return
-        }
         let fontPreparationLog = await prepareOpenFontsForLaunch(for: container)
         logLines.insert(fontPreparationLog, at: 0)
 
         do {
             let plan = try jobEngine.runPlan(
-                launcher: launcher,
-                containers: containers,
+                container: container,
                 runtime: currentRuntime,
                 gptkPath: gptkPath
             )
             let session = try runnerClient.launch(
                 plan,
-                launcherID: launcher.id,
-                launcherName: launcher.name,
+                containerID: container.id,
+                containerName: container.name,
                 onLog: { [weak self] line in
                     Task { @MainActor in
                         self?.logLines.insert(line, at: 0)
@@ -383,12 +354,12 @@ final class AppStore: ObservableObject {
                     }
                 }
             )
-            mark(launcher.id, as: .running)
+            mark(container.id, as: .running)
             runSessions.insert(session, at: 0)
             selectedLogSessionID = session.id
-            logLines.insert(LogLine(level: "info", source: launcher.name, message: "Launch command started through switchyard-runner."), at: 0)
+            logLines.insert(LogLine(level: "info", source: container.name, message: "Launch command started through switchyard-runner."), at: 0)
         } catch {
-            appendFailedRun(for: launcher, message: "Could not prepare launcher: \(Self.errorDescription(error))")
+            appendFailedRun(for: container, message: "Could not prepare container: \(Self.errorDescription(error))")
         }
     }
 
@@ -416,9 +387,9 @@ final class AppStore: ObservableObject {
             operations[index].state = .cancelled
         }
         runnerClient.stopAll()
-        if let launcher = selectedLauncher, launcher.status == .running {
-            mark(launcher.id, as: .failed)
-            logLines.insert(LogLine(level: "warning", source: launcher.name, message: "Stop requested for selected launcher."), at: 0)
+        if let container = selectedContainer, container.status == .running {
+            mark(container.id, as: .failed)
+            logLines.insert(LogLine(level: "warning", source: container.name, message: "Stop requested for selected container."), at: 0)
         }
     }
 
@@ -426,11 +397,11 @@ final class AppStore: ObservableObject {
         DiagnosticBundle(runtimeStatus: runtimeStatus, checks: diagnostics, recentLogs: Array(logLines.prefix(50)))
     }
 
-    private func appendFailedRun(for launcher: Launcher, message: String) {
-        mark(launcher.id, as: .failed)
+    private func appendFailedRun(for container: Container, message: String) {
+        mark(container.id, as: .failed)
         let session = RunSession(
-            launcherID: launcher.id,
-            launcherName: launcher.name,
+            containerID: container.id,
+            containerName: container.name,
             endedAt: Date(),
             exitCode: 1,
             outcome: .failed
@@ -438,7 +409,7 @@ final class AppStore: ObservableObject {
         runSessions.insert(session, at: 0)
         selectedLogSessionID = session.id
         selectedSection = .logs
-        logLines.insert(LogLine(level: "error", source: launcher.name, message: message), at: 0)
+        logLines.insert(LogLine(level: "error", source: container.name, message: message), at: 0)
     }
 
     nonisolated private static func errorDescription(_ error: Error) -> String {
@@ -451,21 +422,22 @@ final class AppStore: ObservableObject {
         } else {
             runSessions.insert(session, at: 0)
         }
-        mark(session.launcherID, as: session.outcome == .succeeded ? .succeeded : .failed)
+        mark(session.containerID, as: session.outcome == .succeeded ? .succeeded : .failed)
         logLines.insert(
             LogLine(
                 level: session.outcome == .succeeded ? "info" : "error",
-                source: session.launcherName,
+                source: session.containerName,
                 message: "Runner exited with code \(session.exitCode.map(String.init) ?? "unknown")."
             ),
             at: 0
         )
     }
 
-    private func mark(_ launcherID: UUID, as status: LauncherStatus) {
-        guard let index = launchers.firstIndex(where: { $0.id == launcherID }) else { return }
-        launchers[index].status = status
-        launchers[index].lastRun = Date()
+    private func mark(_ containerID: UUID, as status: ContainerStatus) {
+        guard let index = containers.firstIndex(where: { $0.id == containerID }) else { return }
+        containers[index].status = status
+        containers[index].lastRun = Date()
+        containers[index].lastModified = Date()
         persistLibrary()
     }
 
@@ -516,7 +488,7 @@ final class AppStore: ObservableObject {
 
     private func persistLibrary() {
         do {
-            try libraryStore.save(SwitchyardContainerSnapshot(containers: containers, launchers: launchers))
+            try libraryStore.save(SwitchyardContainerSnapshot(containers: containers))
         } catch {
             logLines.insert(LogLine(level: "error", source: "persistence", message: "Could not save container manifest: \(error)"), at: 0)
         }
@@ -528,31 +500,6 @@ final class AppStore: ObservableObject {
             return loaded
         }
 
-        let steamContainer = Container(
-            name: "Steam",
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("Steam.container", isDirectory: true).path,
-            wineBuildID: "local-source-cache",
-            patchsetID: "switchyard-v1"
-        )
-        let epicContainer = Container(
-            name: "Epic Games",
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("Epic.container", isDirectory: true).path,
-            wineBuildID: "local-source-cache",
-            patchsetID: "switchyard-v1"
-        )
-        let gogContainer = Container(
-            name: "GOG Galaxy",
-            path: URL(fileURLWithPath: libraryPath).appendingPathComponent("GOG.container", isDirectory: true).path,
-            wineBuildID: "local-source-cache",
-            patchsetID: "switchyard-v1"
-        )
-
-        let launchers = [
-            Launcher(name: "Steam", kind: .steam, containerID: steamContainer.id, status: .needsSetup),
-            Launcher(name: "Epic Games Launcher", kind: .epicGames, containerID: epicContainer.id, status: .needsSetup),
-            Launcher(name: "GOG Galaxy", kind: .gogGalaxy, containerID: gogContainer.id, status: .needsSetup)
-        ]
-
-        return SwitchyardContainerSnapshot(containers: [steamContainer, epicContainer, gogContainer], launchers: launchers)
+        return SwitchyardContainerSnapshot(containers: [])
     }
 }

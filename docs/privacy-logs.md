@@ -8,7 +8,7 @@ Switchyard collects local diagnostic logs to help users understand failed launch
 - Export requires explicit user action.
 - Diagnostic bundles should redact obvious secrets, tokens, and private account identifiers before sharing.
 - Full absolute paths may reveal usernames. UI should warn before exporting bundles.
-- Launcher logs may contain account-specific state. Do not upload automatically.
+- Container run logs may contain account-specific state. Do not upload automatically.
 
 ## V1 Diagnostic Bundle
 

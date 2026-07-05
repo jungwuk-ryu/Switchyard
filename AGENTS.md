@@ -58,11 +58,10 @@ For package-level logic changes, run `swift test`.
 
 - `app/Switchyard`: SwiftUI shell, scenes, views, app state, and platform glue.
 - `app/Packages/AppCore`: pure models and portable value types.
-- `app/Packages/JobEngine`: install/run/repair/log state machines.
-- `app/Packages/LauncherAdapters`: declarative Steam/Epic/GOG command plans.
+- `app/Packages/JobEngine`: generic container install/run/repair/log state machines.
 - `app/Packages/RuntimeCatalog`: Wine/GPTK detection and compatibility rules.
-- `app/Packages/Persistence`: portable bottle manifests and indexing/cache code.
+- `app/Packages/Persistence`: portable container manifests and indexing/cache code.
 - `runtime/runner`: process execution, environment construction, log streaming, cancellation.
 - `runtime/build`: reproducible Wine build and artifact manifest scripts.
 
-Keep shell execution out of SwiftUI views. Keep launcher quirks out of the runner. Keep UI state out of portable packages.
+Keep shell execution out of SwiftUI views. Keep executable-specific quirks out of the runner. Keep UI state out of portable packages.

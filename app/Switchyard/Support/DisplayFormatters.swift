@@ -33,7 +33,7 @@ extension HealthStatus {
     }
 }
 
-extension LauncherStatus {
+extension ContainerStatus {
     var label: String {
         switch self {
         case .ready: "Ready"

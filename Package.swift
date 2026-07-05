@@ -12,7 +12,6 @@ let package = Package(
         .executable(name: "switchyard-runner", targets: ["SwitchyardRunner"]),
         .library(name: "AppCore", targets: ["AppCore"]),
         .library(name: "JobEngine", targets: ["JobEngine"]),
-        .library(name: "LauncherAdapters", targets: ["LauncherAdapters"]),
         .library(name: "RuntimeCatalog", targets: ["RuntimeCatalog"]),
         .library(name: "Persistence", targets: ["Persistence"])
     ],
@@ -20,11 +19,6 @@ let package = Package(
         .target(
             name: "AppCore",
             path: "app/Packages/AppCore"
-        ),
-        .target(
-            name: "LauncherAdapters",
-            dependencies: ["AppCore"],
-            path: "app/Packages/LauncherAdapters"
         ),
         .target(
             name: "RuntimeCatalog",
@@ -38,12 +32,12 @@ let package = Package(
         ),
         .target(
             name: "JobEngine",
-            dependencies: ["AppCore", "LauncherAdapters", "RuntimeCatalog", "Persistence"],
+            dependencies: ["AppCore", "RuntimeCatalog"],
             path: "app/Packages/JobEngine"
         ),
         .executableTarget(
             name: "Switchyard",
-            dependencies: ["AppCore", "JobEngine", "LauncherAdapters", "RuntimeCatalog", "Persistence"],
+            dependencies: ["AppCore", "JobEngine", "RuntimeCatalog", "Persistence"],
             path: "app/Switchyard"
         ),
         .executableTarget(
@@ -57,11 +51,6 @@ let package = Package(
             path: "Tests/AppCoreTests"
         ),
         .testTarget(
-            name: "LauncherAdaptersTests",
-            dependencies: ["AppCore", "LauncherAdapters"],
-            path: "Tests/LauncherAdaptersTests"
-        ),
-        .testTarget(
             name: "RuntimeCatalogTests",
             dependencies: ["AppCore", "RuntimeCatalog"],
             path: "Tests/RuntimeCatalogTests"
@@ -73,7 +62,7 @@ let package = Package(
         ),
         .testTarget(
             name: "JobEngineTests",
-            dependencies: ["AppCore", "JobEngine", "LauncherAdapters", "RuntimeCatalog", "Persistence"],
+            dependencies: ["AppCore", "JobEngine", "RuntimeCatalog"],
             path: "Tests/JobEngineTests"
         )
     ]

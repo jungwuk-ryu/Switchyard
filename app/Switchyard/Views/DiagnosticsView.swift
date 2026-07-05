@@ -26,7 +26,7 @@ struct DiagnosticsView: View {
             if !store.runtimeStatus.canLaunch {
                 ErrorBanner(
                     title: "Setup is incomplete",
-                    message: "Resolve missing runtime components before running supported launchers.",
+                    message: "Resolve missing runtime components before running Windows executables.",
                     actionTitle: "Open Settings"
                 ) {
                     openSettingsTab(preferredSettingsTab)

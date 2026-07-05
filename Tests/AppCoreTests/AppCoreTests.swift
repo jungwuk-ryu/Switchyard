@@ -13,7 +13,7 @@ import Testing
 }
 
 @Test func containerPinsRuntimeIdentity() {
-    let container = Container(name: "Steam", path: "/tmp/Steam.container", wineBuildID: "wine-a", patchsetID: "patch-a", gptkFingerprint: "gptk-a")
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a", gptkFingerprint: "gptk-a")
     #expect(container.wineBuildID == "wine-a")
     #expect(container.patchsetID == "patch-a")
     #expect(container.gptkFingerprint == "gptk-a")

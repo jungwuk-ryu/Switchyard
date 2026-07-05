@@ -5,14 +5,15 @@
 - Runtime detection with missing GPTK.
 - Runtime detection with marker files.
 - Missing patch series prevents launch readiness.
-- Steam, Epic Games Launcher, and GOG Galaxy command plan generation.
-- Missing launcher executable failure.
+- Generic container command plan generation.
+- Missing container executable failure.
 - Container manifest JSON round trip.
+- Legacy `bottles`, `bottleID`, and `launchers` data migrates into container manifests.
 
 ## Integration Tests
 
 - Fake GPTK import.
-- Create launcher container.
+- Create container.
 - Generate install and run command plans.
 - Runner helper accepts serialized command plans and emits logs and exit code.
 - Runtime A container remains pinned after runtime B appears.

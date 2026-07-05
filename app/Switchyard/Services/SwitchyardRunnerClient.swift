@@ -21,13 +21,13 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
 
     func launch(
         _ plan: CommandPlan,
-        launcherID: UUID,
-        launcherName: String,
+        containerID: UUID,
+        containerName: String,
         onLog: @escaping @Sendable (LogLine) -> Void,
         onExit: @escaping @Sendable (RunSession) -> Void
     ) throws -> RunSession {
         let runnerURL = try locateRunner()
-        let session = RunSession(launcherID: launcherID, launcherName: launcherName, outcome: .running)
+        let session = RunSession(containerID: containerID, containerName: containerName, outcome: .running)
         let planURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("switchyard-\(session.id.uuidString).json")
 
@@ -46,10 +46,10 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         process.standardError = stderr
 
         stdout.fileHandleForReading.readabilityHandler = { handle in
-            emitLogs(from: handle, level: "info", source: launcherName, onLog: onLog)
+            emitLogs(from: handle, level: "info", source: containerName, onLog: onLog)
         }
         stderr.fileHandleForReading.readabilityHandler = { handle in
-            emitLogs(from: handle, level: "error", source: launcherName, onLog: onLog)
+            emitLogs(from: handle, level: "error", source: containerName, onLog: onLog)
         }
 
         process.terminationHandler = { [weak self] process in
@@ -62,8 +62,8 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
             onExit(
                 RunSession(
                     id: session.id,
-                    launcherID: launcherID,
-                    launcherName: launcherName,
+                    containerID: containerID,
+                    containerName: containerName,
                     startedAt: session.startedAt,
                     endedAt: Date(),
                     exitCode: process.terminationStatus,

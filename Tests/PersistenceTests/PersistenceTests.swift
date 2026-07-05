@@ -3,12 +3,18 @@ import Foundation
 import Persistence
 import Testing
 
-@Test func librarySnapshotRoundTripsContainersAndLaunchers() throws {
+@Test func librarySnapshotRoundTripsContainers() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
-    let container = Container(name: "Steam", path: root.appendingPathComponent("Steam.container", isDirectory: true).path, wineBuildID: "wine-a", patchsetID: "patch-a")
-    let launcher = Launcher(name: "Steam", kind: .steam, containerID: container.id)
-    let snapshot = SwitchyardContainerSnapshot(containers: [container], launchers: [launcher])
+    let container = Container(
+        name: "Toolbox",
+        path: root.appendingPathComponent("Toolbox.container", isDirectory: true).path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: "C:\\Tools\\Toolbox.exe",
+        status: .ready
+    )
+    let snapshot = SwitchyardContainerSnapshot(containers: [container])
     let store = LibraryManifestStore(rootURL: root)
 
     try store.save(snapshot)
@@ -16,28 +22,28 @@ import Testing
     let manifest = try String(contentsOf: store.manifestURL, encoding: .utf8)
 
     #expect(loaded.containers.count == 1)
-    #expect(loaded.launchers.count == 1)
     #expect(loaded.containers.first?.id == container.id)
-    #expect(loaded.containers.first?.name == "Steam")
-    #expect(loaded.launchers.first?.id == launcher.id)
-    #expect(loaded.launchers.first?.containerID == container.id)
+    #expect(loaded.containers.first?.name == "Toolbox")
+    #expect(loaded.containers.first?.executablePath == "C:\\Tools\\Toolbox.exe")
+    #expect(loaded.containers.first?.status == .ready)
     #expect(manifest.contains("\"containers\""))
     #expect(!manifest.contains("\"bottles\""))
-    #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Steam.container/switchyard-container.json").path))
+    #expect(!manifest.contains("\"launchers\""))
+    #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Toolbox.container/switchyard-container.json").path))
 }
 
 @Test func containerManifestStoreReadsLegacyBottleManifest() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let containerID = UUID()
-    let legacyContainerURL = root.appendingPathComponent("Steam.bottle", isDirectory: true)
+    let legacyContainerURL = root.appendingPathComponent("Toolbox.bottle", isDirectory: true)
     try FileManager.default.createDirectory(at: legacyContainerURL, withIntermediateDirectories: true)
 
     let legacyManifest = """
     {
       "id" : "\(containerID.uuidString)",
-      "name" : "Steam",
-      "path" : "/tmp/OriginalSteam.bottle",
+      "name" : "Toolbox",
+      "path" : "/tmp/OriginalToolbox.bottle",
       "wineBuildID" : "wine-a",
       "patchsetID" : "patch-a",
       "schemaVersion" : 1,
@@ -51,18 +57,18 @@ import Testing
     #expect(loaded.count == 1)
     #expect(loaded.first?.id == containerID)
     let loadedPath = try #require(loaded.first?.path)
-    #expect(loadedPath.hasSuffix("/Steam.bottle"))
-    #expect(!loadedPath.contains("OriginalSteam.bottle"))
+    #expect(loadedPath.hasSuffix("/Toolbox.bottle"))
+    #expect(!loadedPath.contains("OriginalToolbox.bottle"))
     #expect(FileManager.default.fileExists(atPath: loadedPath))
     #expect(loaded.first?.environmentOverrides == [:])
 }
 
-@Test func librarySnapshotReadsLegacyBottleKeysAndLauncherContainerID() throws {
+@Test func librarySnapshotReadsLegacyBottleKeysAndMigratesRunTargetFields() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let containerID = UUID()
-    let launcherID = UUID()
-    let legacyContainerURL = root.appendingPathComponent("Steam.bottle", isDirectory: true)
+    let legacyRunTargetID = UUID()
+    let legacyContainerURL = root.appendingPathComponent("Toolbox.bottle", isDirectory: true)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
     let legacySnapshot = """
@@ -70,7 +76,7 @@ import Testing
       "bottles" : [
         {
           "id" : "\(containerID.uuidString)",
-          "name" : "Steam",
+          "name" : "Toolbox",
           "path" : "\(legacyContainerURL.path)",
           "wineBuildID" : "wine-a",
           "patchsetID" : "patch-a",
@@ -80,11 +86,13 @@ import Testing
       ],
       "launchers" : [
         {
-          "id" : "\(launcherID.uuidString)",
-          "name" : "Steam",
+          "id" : "\(legacyRunTargetID.uuidString)",
+          "name" : "Toolbox",
           "kind" : "steam",
           "bottleID" : "\(containerID.uuidString)",
-          "status" : "needsSetup"
+          "executablePath" : "C:\\\\Tools\\\\Toolbox.exe",
+          "lastRun" : "2026-07-05T01:02:03Z",
+          "status" : "ready"
         }
       ]
     }
@@ -94,22 +102,7 @@ import Testing
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
     #expect(loaded.containers.first?.id == containerID)
-    #expect(loaded.launchers.first?.id == launcherID)
-    #expect(loaded.launchers.first?.containerID == containerID)
-}
-
-@Test func librarySnapshotNormalizesLaunchersToOnePerContainer() throws {
-    let steamContainer = Container(name: "Steam", path: "/tmp/Steam.container", wineBuildID: "wine-a", patchsetID: "patch-a")
-    let epicContainer = Container(name: "Epic Games", path: "/tmp/Epic.container", wineBuildID: "wine-a", patchsetID: "patch-a")
-    let primaryLauncher = Launcher(name: "Steam", kind: .steam, containerID: steamContainer.id)
-    let duplicateLauncher = Launcher(name: "Steam Duplicate", kind: .steam, containerID: steamContainer.id)
-
-    let snapshot = SwitchyardContainerSnapshot(
-        containers: [steamContainer, epicContainer],
-        launchers: [primaryLauncher, duplicateLauncher]
-    )
-
-    #expect(snapshot.launchers.count == 2)
-    #expect(snapshot.launchers.first(where: { $0.containerID == steamContainer.id })?.id == primaryLauncher.id)
-    #expect(snapshot.launchers.first(where: { $0.containerID == epicContainer.id })?.kind == .epicGames)
+    #expect(loaded.containers.first?.executablePath == "C:\\Tools\\Toolbox.exe")
+    #expect(loaded.containers.first?.lastRun != nil)
+    #expect(loaded.containers.first?.status == .ready)
 }

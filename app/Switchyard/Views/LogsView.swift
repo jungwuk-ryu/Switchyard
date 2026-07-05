@@ -17,7 +17,7 @@ struct LogsView: View {
 
                 List(store.runSessions, selection: $store.selectedLogSessionID) { session in
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(session.launcherName)
+                        Text(session.containerName)
                             .font(.headline)
                         Text("\(switchyardDateFormatter.string(from: session.startedAt)) · \(session.outcome.label)")
                             .font(.caption)
@@ -67,7 +67,7 @@ struct LogsView: View {
                     ContentUnavailableView(
                         "No Logs Yet",
                         systemImage: "doc.text.magnifyingglass",
-                        description: Text("Run diagnostics or launch a supported game launcher to collect logs.")
+                        description: Text("Run diagnostics or launch a Windows executable to collect logs.")
                     )
                 } else {
                     ScrollView {

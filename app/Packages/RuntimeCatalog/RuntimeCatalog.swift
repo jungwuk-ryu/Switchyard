@@ -87,7 +87,7 @@ public struct RuntimeLocator {
 
         let summary: String
         if architectureStatus == .ok && macOSStatus == .ok && gptkValidation.status == .ok && wineValidation.status == .ok && patchStatus == .ok {
-            summary = "Ready to launch supported game launchers."
+            summary = "Ready to launch Windows executables in Switchyard containers."
         } else {
             summary = "Setup is incomplete. Resolve diagnostics before launching."
         }
@@ -266,7 +266,7 @@ public struct RuntimeLocator {
         if !missingArchitectures.isEmpty {
             return WineValidation(
                 status: .warning,
-                message: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but it is missing PE architecture(s): \(missingArchitectures.joined(separator: ", ")). Rebuild the Switchyard WoW64 runtime before installing the official Steam bootstrap."
+                message: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but it is missing PE architecture(s): \(missingArchitectures.joined(separator: ", ")). Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs."
             )
         }
 
