@@ -29,6 +29,8 @@ Keep commits focused. Do not mix Wine patch changes, app UI changes, and documen
 
 ## Build And Verification
 
+Leave one CPU core free for local builds unless the user explicitly asks for maximum parallelism. For scripts that expose job counts, use `max(1, hw.ncpu - 1)` as the default.
+
 Use the project-local entrypoint:
 
 ```sh
@@ -42,6 +44,12 @@ Use the project-local entrypoint:
 For macOS app changes, run `./script/build_and_run.sh --verify` or explain why it could not run.
 
 For package-level logic changes, run `swift test`.
+
+## Workspace Cleanup
+
+After finishing a task, clean up generated files that are safe to remove so Switchyard data directories do not accumulate old test artifacts. Prefer deleting stale build/test outputs, validation prefixes, obsolete local Wine runtimes, logs, downloads, and caches when they are not referenced by current app state and no running process is using them.
+
+Do not remove user-managed containers, installed games, user-selected GPTK components, active runtimes, or any data whose ownership is unclear. If cleanup would be risky or materially change user state, leave it in place and mention the remaining cleanup opportunity in the final summary.
 
 ## Runtime And Licensing Boundaries
 
