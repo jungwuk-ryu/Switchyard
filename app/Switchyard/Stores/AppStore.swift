@@ -442,6 +442,29 @@ final class AppStore: ObservableObject {
             return
         }
 
+        var terminateExistingPrefixSession = false
+        if executablePath == nil {
+            switch runnerClient.prefixSessionState(
+                winePath: currentRuntime.winePath,
+                prefixPath: container.path
+            ) {
+            case .active:
+                guard confirmRestartOfExistingPrefixSession(for: container) else { return }
+                terminateExistingPrefixSession = true
+            case .inactive:
+                break
+            case .unavailable:
+                logLines.insert(
+                    LogLine(
+                        level: "warning",
+                        source: container.name,
+                        message: "Could not inspect this Wine runtime for an existing prefix session; launching without stopping it."
+                    ),
+                    at: 0
+                )
+            }
+        }
+
         launchingContainerIDs.insert(containerID)
         defer {
             launchingContainerIDs.remove(containerID)
@@ -456,7 +479,8 @@ final class AppStore: ObservableObject {
                 executablePath: executablePath,
                 executableArguments: executableArguments,
                 runtime: currentRuntime,
-                gptkPath: gptkPath
+                gptkPath: gptkPath,
+                terminateExistingPrefixSession: terminateExistingPrefixSession
             )
             let session = try runnerClient.launch(
                 plan,
@@ -483,6 +507,16 @@ final class AppStore: ObservableObject {
         } catch {
             appendFailedRun(for: container, message: "Could not prepare container: \(Self.errorDescription(error))")
         }
+    }
+
+    private func confirmRestartOfExistingPrefixSession(for container: Container) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "\(container.name) is already running"
+        alert.informativeText = "Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?"
+        alert.addButton(withTitle: "Restart")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func prepareOpenFontsForLaunch(for container: Container) async -> LogLine {

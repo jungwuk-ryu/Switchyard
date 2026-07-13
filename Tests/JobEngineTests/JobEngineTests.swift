@@ -77,6 +77,26 @@ import Testing
     #expect(plan.arguments == ["/tmp/Toolbox/Toolbox.exe", "-safe-mode", "-lang", "ko-KR"])
 }
 
+@Test func jobEngineCanReplaceAnExistingPrefixSessionBeforeDefaultRun() throws {
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: "/tmp/Toolbox/Toolbox.exe"
+    )
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: nil,
+        terminateExistingPrefixSession: true
+    )
+
+    #expect(plan.terminateExistingPrefixSession == true)
+}
+
 @Test func jobEngineUsesAdHocExecutableArgumentsForProgramRuns() throws {
     let container = Container(
         name: "Toolbox",

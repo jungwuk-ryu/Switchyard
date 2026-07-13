@@ -432,19 +432,22 @@ public struct CommandPlan: Codable, Equatable, Sendable {
     public var environment: [String: String]
     public var workingDirectory: String?
     public var logSource: String
+    public var terminateExistingPrefixSession: Bool?
 
     public init(
         executable: String,
         arguments: [String] = [],
         environment: [String: String] = [:],
         workingDirectory: String? = nil,
-        logSource: String
+        logSource: String,
+        terminateExistingPrefixSession: Bool? = nil
     ) {
         self.executable = executable
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = workingDirectory
         self.logSource = logSource
+        self.terminateExistingPrefixSession = terminateExistingPrefixSession
     }
 }
 

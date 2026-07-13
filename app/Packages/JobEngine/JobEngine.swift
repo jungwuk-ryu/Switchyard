@@ -68,7 +68,8 @@ public struct JobEngine {
         executableArguments: [String] = [],
         runtime: RuntimeBuild,
         gptkPath: String?,
-        environmentOverrides: [String: String] = [:]
+        environmentOverrides: [String: String] = [:],
+        terminateExistingPrefixSession: Bool = false
     ) throws -> CommandPlan {
         let selectedExecutablePath = executablePath ?? container.executablePath
         guard let preparedExecutablePath = selectedExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -88,7 +89,8 @@ public struct JobEngine {
             executableArguments: executablePath == nil && executableArguments.isEmpty ? container.executableArguments : executableArguments,
             gptkPath: gptkPath,
             overrides: mergedEnvironmentOverrides,
-            logSource: container.name
+            logSource: container.name,
+            terminateExistingPrefixSession: terminateExistingPrefixSession
         )
     }
 
@@ -121,7 +123,8 @@ private func commandPlan(
     executableArguments: [String] = [],
     gptkPath: String?,
     overrides: [String: String] = [:],
-    logSource: String
+    logSource: String,
+    terminateExistingPrefixSession: Bool = false
 ) -> CommandPlan {
     var environment = [
         "WINEPREFIX": container.path,
@@ -143,6 +146,7 @@ private func commandPlan(
         arguments: [executablePath] + executableArguments,
         environment: environment,
         workingDirectory: container.path,
-        logSource: logSource
+        logSource: logSource,
+        terminateExistingPrefixSession: terminateExistingPrefixSession
     )
 }

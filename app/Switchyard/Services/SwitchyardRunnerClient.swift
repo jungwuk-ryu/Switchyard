@@ -1,6 +1,12 @@
 import AppCore
 import Foundation
 
+enum WinePrefixSessionState {
+    case active
+    case inactive
+    case unavailable
+}
+
 enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     case missingRunner
     case couldNotEncodePlan
@@ -18,6 +24,32 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
 final class SwitchyardRunnerClient: @unchecked Sendable {
     private var processes: [UUID: Process] = [:]
     private let lock = NSLock()
+
+    func prefixSessionState(winePath: String, prefixPath: String) -> WinePrefixSessionState {
+        guard let runnerURL = try? locateRunner() else { return .unavailable }
+
+        let process = Process()
+        process.executableURL = runnerURL
+        process.arguments = ["probe-prefix", "--wine", winePath, "--prefix", prefixPath]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return .unavailable
+        }
+
+        switch process.terminationStatus {
+        case 0:
+            return .active
+        case 1:
+            return .inactive
+        default:
+            return .unavailable
+        }
+    }
 
     func launch(
         _ plan: CommandPlan,
