@@ -21,6 +21,10 @@ if [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
   SWIFT_BUILD_JOBS=1
 fi
 
+if [ "${SWITCHYARD_SKIP_RUNTIME_ENSURE:-0}" != "1" ]; then
+  "$ROOT_DIR/runtime/build/ensure_switchyard_wine.sh"
+fi
+
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 swift build --jobs "$SWIFT_BUILD_JOBS" --product "$APP_NAME"
