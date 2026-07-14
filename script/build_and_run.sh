@@ -5,6 +5,8 @@ MODE="${1:-run}"
 APP_NAME="Switchyard"
 BUNDLE_ID="dev.switchyard.Switchyard"
 MIN_SYSTEM_VERSION="14.0"
+APP_VERSION="${SWITCHYARD_APP_VERSION:-0.1.0}"
+APP_BUILD="${SWITCHYARD_APP_BUILD:-1}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -52,6 +54,12 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUNDLE_ID</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDisplayName</key>
+  <string>$APP_NAME</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$APP_VERSION</string>
+  <key>CFBundleVersion</key>
+  <string>$APP_BUILD</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
@@ -85,8 +93,19 @@ case "$MODE" in
     ;;
   --verify|verify)
     open_app
-    sleep 1
-    pgrep -x "$APP_NAME" >/dev/null
+    verified_pid=""
+    for _ in {1..20}; do
+      verified_pid="$(pgrep -x "$APP_NAME" | tail -n 1 || true)"
+      if [ -n "$verified_pid" ]; then
+        break
+      fi
+      sleep 0.5
+    done
+    if [ -z "$verified_pid" ]; then
+      echo "$APP_NAME did not start within 10 seconds" >&2
+      exit 1
+    fi
+    kill "$verified_pid" >/dev/null 2>&1 || true
     ;;
   *)
     echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
