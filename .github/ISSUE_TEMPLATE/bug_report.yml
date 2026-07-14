@@ -1,0 +1,86 @@
+name: Bug report
+description: Report a reproducible Switchyard app or runner problem.
+title: "bug: "
+labels:
+  - bug
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Switchyard is an experimental developer preview. Do not attach GPTK or Apple files, Windows application files, credentials, container contents, or unredacted account logs.
+
+  - type: input
+    id: commit
+    attributes:
+      label: Switchyard commit
+      description: Run `git rev-parse HEAD` in the app repository.
+      placeholder: 40-character commit ID
+    validations:
+      required: true
+
+  - type: input
+    id: wine_commit
+    attributes:
+      label: switchyard-wine source commit
+      description: Copy the full revision from `config/switchyard-wine.env` or the runtime manifest.
+      placeholder: 40-character commit ID, or N/A for an app-only problem
+
+  - type: input
+    id: system
+    attributes:
+      label: macOS and Mac
+      description: Include the macOS version and Apple Silicon model.
+      placeholder: macOS 15.x, MacBook Pro with M-series chip
+    validations:
+      required: true
+
+  - type: input
+    id: application
+    attributes:
+      label: Windows application
+      description: Name and version only. Do not attach the application or installer.
+      placeholder: Name and version, or N/A when no Windows application is involved
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Start from a clean app launch or explain the existing container state.
+      placeholder: |
+        1. Open Switchyard...
+        2. Select...
+        3. Observe...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Paste only the minimum diagnostic text needed after reviewing Switchyard's redaction output.
+      render: text
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I reviewed the report and removed secrets, account identifiers, private paths, and proprietary files.
+          required: true
+        - label: This report does not request DRM or anti-cheat circumvention.
+          required: true

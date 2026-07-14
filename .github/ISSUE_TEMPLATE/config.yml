@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability privately
+    url: https://github.com/jungwuk-ryu/Switchyard/security/advisories/new
+    about: Use GitHub private vulnerability reporting for security-sensitive reports.
+  - name: switchyard-wine issues
+    url: https://github.com/jungwuk-ryu/switchyard-wine/issues
+    about: Report patched Wine source or runtime-builder problems in the source repository.

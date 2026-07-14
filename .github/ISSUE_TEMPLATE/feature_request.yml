@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose a focused improvement to the app, runner, or container workflow.
+title: "feat: "
+labels:
+  - enhancement
+  - triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Wine source changes belong in `switchyard-wine`. Requests to bundle GPTK, proprietary Windows files or fonts, or to bypass DRM or anti-cheat are out of scope.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem or development limitation should this solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful outcome without prescribing an implementation unless necessary.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request preserves the external Wine runner and user-provided GPTK boundaries.
+          required: true
+        - label: This request does not depend on DRM or anti-cheat circumvention.
+          required: true

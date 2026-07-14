@@ -7,3 +7,23 @@ dist/
 .DS_Store
 logs/
 RuntimeCache/
+
+# Local third-party and user data
+*.dmg
+*.iso
+*.pkg
+*.app/
+*.exe
+*.msi
+*.dll
+
+# Credentials and signing material
+.env
+.env.*
+*.pem
+*.p12
+*.mobileprovision
+
+# Additional Apple build output
+*.dSYM/
+*.xcarchive/
