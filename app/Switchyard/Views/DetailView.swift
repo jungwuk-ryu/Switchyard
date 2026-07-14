@@ -7,10 +7,6 @@ struct DetailView: View {
         switch selection {
         case .containers:
             ContainersView()
-        case .running:
-            OperationsView(filter: .running)
-        case .installQueue:
-            OperationsView(filter: nil)
         case .logs:
             LogsView()
         case .diagnostics:

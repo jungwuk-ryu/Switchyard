@@ -26,10 +26,11 @@ struct ContentView: View {
                 }
 
                 Button {
-                    store.stopRunningOperations()
+                    store.stopAllRuns()
                 } label: {
-                    Label("Stop", systemImage: "stop.fill")
+                    Label("Stop All Runs", systemImage: "stop.fill")
                 }
+                .disabled(!store.hasRunningContainers)
 
                 Button {
                     selectSection(.logs)

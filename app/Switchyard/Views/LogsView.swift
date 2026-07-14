@@ -5,83 +5,58 @@ struct LogsView: View {
     @EnvironmentObject private var store: AppStore
     @State private var searchText = ""
     @State private var levelFilter = "all"
-    @State private var isPaused = false
 
     var body: some View {
-        HSplitView {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Sessions")
-                    .font(.headline)
-                    .padding(.horizontal)
-                    .padding(.top)
+        VStack(spacing: 0) {
+            HStack {
+                TextField("Search logs", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: 280)
 
-                List(store.runSessions, selection: $store.selectedLogSessionID) { session in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(session.containerName)
-                            .font(.headline)
-                        Text("\(switchyardDateFormatter.string(from: session.startedAt)) · \(session.outcome.label)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .tag(session.id)
+                Picker("Level", selection: $levelFilter) {
+                    Text("All").tag("all")
+                    Text("Info").tag("info")
+                    Text("Warning").tag("warning")
+                    Text("Error").tag("error")
                 }
-            }
-            .frame(minWidth: 220, idealWidth: 260)
+                .frame(width: 140)
 
-            VStack(spacing: 0) {
-                HStack {
-                    TextField("Search logs", text: $searchText)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 280)
+                Text("\(filteredLogs.count) entries")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-                    Picker("Level", selection: $levelFilter) {
-                        Text("All").tag("all")
-                        Text("Info").tag("info")
-                        Text("Warning").tag("warning")
-                        Text("Error").tag("error")
-                    }
-                    .frame(width: 140)
+                Spacer()
 
-                    Toggle("Pause", isOn: $isPaused)
-                        .toggleStyle(.checkbox)
-
-                    Spacer()
-
-                    Button("Export") {
-                        _ = store.diagnosticBundle()
-                    }
-
-                    Button("Copy Selection") {
-                        ClipboardPrivacy.confirmAndCopy(
-                            title: "Copy log text?",
-                            message: "Switchyard will redact common secrets and your home folder path before copying.",
-                            text: filteredLogs.map(\.message).joined(separator: "\n")
-                        )
-                    }
-                }
-                .padding()
-
-                Divider()
-
-                if filteredLogs.isEmpty {
-                    ContentUnavailableView(
-                        "No Logs Yet",
-                        systemImage: "doc.text.magnifyingglass",
-                        description: Text("Run diagnostics or launch a Windows executable to collect logs.")
+                Button("Copy Filtered Logs") {
+                    ClipboardPrivacy.confirmAndCopy(
+                        title: "Copy filtered logs?",
+                        message: "Switchyard will redact common secrets and your home folder path before copying.",
+                        text: copyText
                     )
-                } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 6) {
-                            ForEach(filteredLogs) { line in
-                                LogLineView(line: line)
-                            }
-                        }
-                        .padding()
-                    }
-                    .font(.system(.body, design: .monospaced))
                 }
+                .disabled(filteredLogs.isEmpty)
             }
-            .frame(minWidth: 620)
+            .padding()
+
+            Divider()
+
+            if filteredLogs.isEmpty {
+                ContentUnavailableView(
+                    "No Matching Logs",
+                    systemImage: "doc.text.magnifyingglass",
+                    description: Text("Run diagnostics, launch a Windows executable, or change the current filters.")
+                )
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(filteredLogs) { line in
+                            LogLineView(line: line)
+                        }
+                    }
+                    .padding()
+                }
+                .font(.system(.body, design: .monospaced))
+            }
         }
         .navigationTitle("Logs")
     }
@@ -92,6 +67,13 @@ struct LogsView: View {
             let matchesSearch = searchText.isEmpty || line.message.localizedCaseInsensitiveContains(searchText) || line.source.localizedCaseInsensitiveContains(searchText)
             return matchesLevel && matchesSearch
         }
+    }
+
+    private var copyText: String {
+        filteredLogs.map { line in
+            "\(switchyardDateFormatter.string(from: line.timestamp)) [\(line.level.uppercased())] [\(line.source)] \(line.message)"
+        }
+        .joined(separator: "\n")
     }
 }
 

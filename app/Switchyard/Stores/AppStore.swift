@@ -47,7 +47,6 @@ final class AppStore: ObservableObject {
     @Published var selectedSection: SidebarSelection = .containers
     @Published var selectedSettingsTab: SettingsTab = .general
     @Published var selectedContainerID: UUID?
-    @Published var selectedLogSessionID: UUID?
     @Published var hasCompletedSetup: Bool
     @Published var libraryPath: String
     @Published var gptkPath: String
@@ -57,8 +56,6 @@ final class AppStore: ObservableObject {
     @Published private(set) var launchingContainerIDs: Set<UUID> = []
     @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
     @Published var containers: [Container]
-    @Published var operations: [InstallJob] = []
-    @Published var runSessions: [RunSession] = []
     @Published var logLines: [LogLine] = []
     @AppStorage("developerLogging") private var developerLogging = false
 
@@ -102,7 +99,6 @@ final class AppStore: ObservableObject {
         let snapshot = Self.initialLibrarySnapshot(libraryPath: initialLibraryPath)
         containers = snapshot.containers
         selectedContainerID = containers.first?.id
-        selectedLogSessionID = nil
 
         persistLibrary()
         pruneDebugRunLogs(in: debugRunLogRoot)
@@ -519,7 +515,7 @@ final class AppStore: ObservableObject {
                 debugLogPath: debugLogPath,
                 terminateExistingPrefixSession: terminateExistingPrefixSession
             )
-            let session = try runnerClient.launch(
+            _ = try runnerClient.launch(
                 plan,
                 containerID: container.id,
                 containerName: container.name,
@@ -535,10 +531,19 @@ final class AppStore: ObservableObject {
                 }
             )
             mark(container.id, as: .running)
-            runSessions.insert(session, at: 0)
-            selectedLogSessionID = session.id
-            let argumentSuffix = launchArguments.isEmpty ? "" : " \(LaunchArgumentParser.format(launchArguments))"
-            logLines.insert(LogLine(level: "info", source: container.name, message: "Launch command started through switchyard-runner: \(launchedExecutable)\(argumentSuffix)"), at: 0)
+            let executableName = launchedExecutable
+                .replacingOccurrences(of: "\\", with: "/")
+                .split(separator: "/")
+                .last
+                .map(String.init) ?? "configured executable"
+            logLines.insert(
+                LogLine(
+                    level: "info",
+                    source: container.name,
+                    message: "Launch command started through switchyard-runner: executable=\(executableName) argumentCount=\(launchArguments.count)"
+                ),
+                at: 0
+            )
             if let debugLogPath {
                 logLines.insert(
                     LogLine(
@@ -662,14 +667,20 @@ final class AppStore: ObservableObject {
         }.value
     }
 
-    func stopRunningOperations() {
-        for index in operations.indices where operations[index].state == .running {
-            operations[index].state = .cancelled
-        }
+    var hasRunningContainers: Bool {
+        containers.contains { $0.status == .running }
+    }
+
+    func stopAllRuns() {
+        let runningContainers = containers.filter { $0.status == .running }
         runnerClient.stopAll()
-        if let container = selectedContainer, container.status == .running {
+
+        for container in runningContainers {
             mark(container.id, as: .failed)
-            logLines.insert(LogLine(level: "warning", source: container.name, message: "Stop requested for selected container."), at: 0)
+            logLines.insert(
+                LogLine(level: "warning", source: container.name, message: "Stop requested for this container."),
+                at: 0
+            )
         }
     }
 
@@ -679,15 +690,6 @@ final class AppStore: ObservableObject {
 
     private func appendFailedRun(for container: Container, message: String) {
         mark(container.id, as: .failed)
-        let session = RunSession(
-            containerID: container.id,
-            containerName: container.name,
-            endedAt: Date(),
-            exitCode: 1,
-            outcome: .failed
-        )
-        runSessions.insert(session, at: 0)
-        selectedLogSessionID = session.id
         selectedSection = .logs
         logLines.insert(LogLine(level: "error", source: container.name, message: message), at: 0)
     }
@@ -697,11 +699,6 @@ final class AppStore: ObservableObject {
     }
 
     private func completeRunSession(_ session: RunSession) {
-        if let index = runSessions.firstIndex(where: { $0.id == session.id }) {
-            runSessions[index] = session
-        } else {
-            runSessions.insert(session, at: 0)
-        }
         mark(session.containerID, as: session.outcome == .succeeded ? .succeeded : .failed)
         refreshInstalledPrograms(for: session.containerID)
         logLines.insert(

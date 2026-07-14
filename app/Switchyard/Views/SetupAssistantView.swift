@@ -36,10 +36,10 @@ struct SetupAssistantView: View {
             Spacer()
 
             HStack {
-                Button("Read-only Mode") {
+                Button("Skip for Now") {
                     dismiss()
                 }
-                .help("Close setup. Running remains disabled until diagnostics pass.")
+                .help("Close setup for now. Running remains disabled until diagnostics pass.")
 
                 Spacer()
 

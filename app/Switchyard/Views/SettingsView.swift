@@ -2,9 +2,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
-    @AppStorage("autoOpenLogsOnFailure") private var autoOpenLogsOnFailure = true
-    @AppStorage("checkForUpdates") private var checkForUpdates = true
-    @AppStorage("defaultDPI") private var defaultDPI = 144.0
     @AppStorage("developerLogging") private var developerLogging = false
 
     var body: some View {
@@ -13,8 +10,9 @@ struct SettingsView: View {
                 PathPickerRow(title: "Storage", message: "Choose the Switchyard storage folder.", path: $store.libraryPath) {
                     store.persistPreferences()
                 }
-                Toggle("Auto-open logs on failure", isOn: $autoOpenLogsOnFailure)
-                Toggle("Check for updates", isOn: $checkForUpdates)
+                Text("Containers and portable manifests stay in this user-selected folder. Runtime caches and logs remain in their documented user-local locations.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .padding()
             .tag(SettingsTab.general)
@@ -58,9 +56,6 @@ struct SettingsView: View {
             .tabItem { Label("Wine Runtime", systemImage: "wrench.and.screwdriver") }
 
             Form {
-                Slider(value: $defaultDPI, in: 96...240, step: 12) {
-                    Text("Default DPI")
-                }
                 LabeledContent("Renderer", value: "D3DMetal when GPTK is valid")
                 LabeledContent("Container Template", value: "Per-container Wine prefix")
                 if let fontCheck = store.diagnostics.first(where: { $0.id == "open-font-pack" }) {
@@ -77,8 +72,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .tag(SettingsTab.launchDefaults)
-            .tabItem { Label("Launch Defaults", systemImage: "slider.horizontal.3") }
+            .tag(SettingsTab.containerSetup)
+            .tabItem { Label("Container Setup", systemImage: "slider.horizontal.3") }
 
             Form {
                 Toggle("Developer logging", isOn: $developerLogging)

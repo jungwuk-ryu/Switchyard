@@ -312,28 +312,6 @@ public enum OperationState: String, Codable, CaseIterable, Sendable {
     case cancelled
 }
 
-public struct InstallJob: Identifiable, Codable, Equatable, Sendable {
-    public var id: UUID
-    public var title: String
-    public var state: OperationState
-    public var progress: Double
-    public var detail: String
-
-    public init(
-        id: UUID = UUID(),
-        title: String,
-        state: OperationState = .queued,
-        progress: Double = 0,
-        detail: String = ""
-    ) {
-        self.id = id
-        self.title = title
-        self.state = state
-        self.progress = progress
-        self.detail = detail
-    }
-}
-
 public struct RunSession: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var containerID: UUID

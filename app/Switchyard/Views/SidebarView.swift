@@ -9,9 +9,7 @@ struct SidebarView: View {
                 SidebarRow(selection: .containers)
             }
 
-            Section("Operations") {
-                SidebarRow(selection: .running)
-                SidebarRow(selection: .installQueue)
+            Section("Activity") {
                 SidebarRow(selection: .logs)
             }
 

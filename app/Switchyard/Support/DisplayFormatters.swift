@@ -54,26 +54,6 @@ extension ContainerStatus {
     }
 }
 
-extension OperationState {
-    var label: String {
-        switch self {
-        case .queued: "Queued"
-        case .running: "Running"
-        case .succeeded: "Succeeded"
-        case .failed: "Failed"
-        case .cancelled: "Cancelled"
-        }
-    }
-
-    var health: HealthStatus {
-        switch self {
-        case .queued, .running: .warning
-        case .succeeded: .ok
-        case .failed, .cancelled: .missing
-        }
-    }
-}
-
 let switchyardDateFormatter: DateFormatter = {
     let formatter = DateFormatter()
     formatter.dateStyle = .none

@@ -27,10 +27,11 @@ struct SwitchyardApp: App {
                 }
                 .keyboardShortcut("r")
 
-                Button("Stop Operation") {
-                    store.stopRunningOperations()
+                Button("Stop All Runs") {
+                    store.stopAllRuns()
                 }
                 .keyboardShortcut(".")
+                .disabled(!store.hasRunningContainers)
 
                 Button("Open Logs") {
                     store.selectedSection = .logs
