@@ -42,14 +42,20 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 LabeledContent("Runtime Channel", value: store.currentRuntime.id)
-                LabeledContent("Patch Series", value: store.currentRuntime.patchsetID)
+                LabeledContent("Runtime Source", value: store.currentRuntime.patchsetID)
+                LabeledContent(
+                    "Source Revision",
+                    value: store.currentRuntime.sourceRevision.isEmpty
+                        ? "Unpinned"
+                        : String(store.currentRuntime.sourceRevision.prefix(12))
+                )
                 Button("Re-run Runtime Diagnostics") {
                     store.refreshRuntimeStatus()
                 }
             }
             .padding()
             .tag(SettingsTab.wine)
-            .tabItem { Label("Wine & Patches", systemImage: "wrench.and.screwdriver") }
+            .tabItem { Label("Wine Runtime", systemImage: "wrench.and.screwdriver") }
 
             Form {
                 Slider(value: $defaultDPI, in: 96...240, step: 12) {

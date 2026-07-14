@@ -66,7 +66,7 @@ import Foundation
     let locator = RuntimeLocator()
     #expect(locator.resolveWineExecutablePath(for: root.path) == wine.path)
 
-    let result = locator.diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: "/definitely/missing/series")
+    let result = locator.diagnose(gptkPath: nil, winePath: root.path)
     let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
     #expect(wineCheck.status == .ok)
     #expect(wineCheck.result.contains(wine.path))
@@ -74,24 +74,20 @@ import Foundation
 
 @Test func preferredWineExecutablePathTracksLatestManagedRuntimeCache() throws {
     let cacheRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    let patchRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     let oldRoot = cacheRoot.appendingPathComponent("switchyard-local-old", isDirectory: true)
     let newRoot = cacheRoot.appendingPathComponent("switchyard-local-new", isDirectory: true)
-    defer {
-        try? FileManager.default.removeItem(at: cacheRoot)
-        try? FileManager.default.removeItem(at: patchRoot)
-    }
+    defer { try? FileManager.default.removeItem(at: cacheRoot) }
 
-    let patchSeries = try createPatchSeries(at: patchRoot)
+    let sourceRevision = String(repeating: "a", count: 40)
     let oldWine = try createSwitchyardWineRuntime(
         at: oldRoot,
         peArchitectures: ["i386", "x86_64"],
-        patchQueueDigest: patchSeries.digest
+        sourceRevision: sourceRevision
     )
     let newWine = try createSwitchyardWineRuntime(
         at: newRoot,
         peArchitectures: ["i386", "x86_64"],
-        patchQueueDigest: patchSeries.digest
+        sourceRevision: sourceRevision
     )
     try setManifestModificationDate(at: oldRoot, to: Date(timeIntervalSince1970: 100))
     try setManifestModificationDate(at: newRoot, to: Date(timeIntervalSince1970: 200))
@@ -100,7 +96,7 @@ import Foundation
 
     #expect(locator.preferredWineExecutablePath(for: nil) == newWine.path)
     #expect(locator.preferredWineExecutablePath(for: oldWine.path) == newWine.path)
-    #expect(locator.preferredWineExecutablePath(for: oldWine.path, patchSeriesPath: patchSeries.seriesURL.path) == newWine.path)
+    #expect(locator.preferredWineExecutablePath(for: oldWine.path, expectedSourceRevision: sourceRevision) == newWine.path)
 }
 
 @Test func preferredWineExecutablePathRecoversDeletedManagedRuntimeSelection() throws {
@@ -140,12 +136,57 @@ import Foundation
     #expect(locator.preferredWineExecutablePath(for: externalRoot.path) == externalWine.path)
 }
 
+@Test func pinnedSourcePolicyRejectsUnverifiedExternalWine() throws {
+    let externalRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let externalBin = externalRoot.appendingPathComponent("bin", isDirectory: true)
+    let externalWine = externalBin.appendingPathComponent("wine")
+    defer { try? FileManager.default.removeItem(at: externalRoot) }
+
+    try FileManager.default.createDirectory(at: externalBin, withIntermediateDirectories: true)
+    try Data("#!/bin/sh\n".utf8).write(to: externalWine)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: externalWine.path)
+
+    let locator = RuntimeLocator()
+    let result = locator.diagnose(
+        gptkPath: nil,
+        winePath: externalWine.path,
+        expectedSourceRevision: String(repeating: "e", count: 40)
+    )
+    let sourceCheck = try #require(result.1.first { $0.id == "runtime-source" })
+    let runtime = locator.runtimeBuild(for: externalWine.path)
+
+    #expect(result.0.patchset == .warning)
+    #expect(!result.0.canLaunch)
+    #expect(sourceCheck.result.contains("cannot be verified"))
+    #expect(runtime.id == "external-unverified")
+    #expect(runtime.patchsetID == "external-unverified")
+    #expect(runtime.sourceRevision.isEmpty)
+}
+
+@Test func runtimeBuildUsesManifestIdentity() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let revision = String(repeating: "f", count: 40)
+    let wine = try createSwitchyardWineRuntime(
+        at: root,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: revision
+    )
+
+    let runtime = RuntimeLocator().runtimeBuild(for: wine.path)
+
+    #expect(runtime.id == "switchyard-test-runtime")
+    #expect(runtime.patchsetID == "switchyard-test-patchset")
+    #expect(runtime.sourceRevision == revision)
+    #expect(runtime.winePath == wine.path)
+}
+
 @Test func switchyardWineRuntimeReportsWoW64PEArchitectures() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
 
     let wine = try createSwitchyardWineRuntime(at: root, peArchitectures: ["i386", "x86_64"])
-    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: "/definitely/missing/series")
+    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path)
     let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
 
     #expect(wineCheck.status == .ok)
@@ -160,105 +201,72 @@ import Foundation
     defer { try? FileManager.default.removeItem(at: root) }
 
     try createSwitchyardWineRuntime(at: root, peArchitectures: ["x86_64"])
-    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: "/definitely/missing/series")
+    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path)
     let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
 
     #expect(wineCheck.status == .warning)
     #expect(wineCheck.result.contains("missing PE architecture(s): i386"))
 }
 
-@Test func switchyardWineRuntimePatchDigestMismatchReportsWarning() throws {
+@Test func switchyardWineRuntimeSourceMismatchReportsWarning() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    let patchRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    defer {
-        try? FileManager.default.removeItem(at: root)
-        try? FileManager.default.removeItem(at: patchRoot)
-    }
+    defer { try? FileManager.default.removeItem(at: root) }
 
-    try createSwitchyardWineRuntime(at: root, peArchitectures: ["i386", "x86_64"], patchQueueDigest: "old-digest")
-    try FileManager.default.createDirectory(at: patchRoot, withIntermediateDirectories: true)
-    try Data("current.patch\n".utf8).write(to: patchRoot.appendingPathComponent("series"))
-    try Data("diff --git a/file b/file\n".utf8).write(to: patchRoot.appendingPathComponent("current.patch"))
+    let oldRevision = String(repeating: "a", count: 40)
+    let expectedRevision = String(repeating: "b", count: 40)
+    try createSwitchyardWineRuntime(
+        at: root,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: oldRevision
+    )
 
-    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: patchRoot.appendingPathComponent("series").path)
-    let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
+    let result = RuntimeLocator().diagnose(
+        gptkPath: nil,
+        winePath: root.path,
+        expectedSourceRevision: expectedRevision
+    )
+    let sourceCheck = try #require(result.1.first { $0.id == "runtime-source" })
 
-    #expect(result.0.wine == .warning)
-    #expect(!result.0.canLaunch)
-    #expect(wineCheck.result.contains("old-digest"))
-    #expect(wineCheck.result.contains("current queue"))
-}
-
-@Test func patchQueueDigestIgnoresPatchMailHeaders() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    let patchRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-    defer {
-        try? FileManager.default.removeItem(at: root)
-        try? FileManager.default.removeItem(at: patchRoot)
-    }
-
-    try FileManager.default.createDirectory(at: patchRoot, withIntermediateDirectories: true)
-    let seriesURL = patchRoot.appendingPathComponent("series")
-    let patchURL = patchRoot.appendingPathComponent("current.patch")
-    try Data("current.patch\n".utf8).write(to: seriesURL)
-    try Data("""
-    From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-    Subject: [PATCH] test: first note
-
-    Test notes: local runtime path A.
-    ---
-    diff --git a/file b/file
-    --- a/file
-    +++ b/file
-    @@ -1 +1 @@
-    -old
-    +new
-    """.utf8).write(to: patchURL)
-
-    let firstDigest = try patchSeriesDigest(for: seriesURL)
-    try createSwitchyardWineRuntime(at: root, peArchitectures: ["i386", "x86_64"], patchQueueDigest: firstDigest)
-
-    try Data("""
-    From 1111111111111111111111111111111111111111 Mon Sep 17 00:00:00 2001
-    Subject: [PATCH] test: revised note
-
-    Test notes: local runtime path B after review.
-    ---
-    diff --git a/file b/file
-    --- a/file
-    +++ b/file
-    @@ -1 +1 @@
-    -old
-    +new
-    """.utf8).write(to: patchURL)
-
-    let secondDigest = try patchSeriesDigest(for: seriesURL)
-    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path, patchSeriesPath: seriesURL.path)
-    let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
-
-    try Data("""
-    From 2222222222222222222222222222222222222222 Mon Sep 17 00:00:00 2001
-    Subject: [PATCH] test: real diff change
-
-    Test notes: local runtime path C.
-    ---
-    diff --git a/file b/file
-    --- a/file
-    +++ b/file
-    @@ -1 +1 @@
-    -old
-    +newer
-    """.utf8).write(to: patchURL)
-    let changedDiffDigest = try patchSeriesDigest(for: seriesURL)
-
-    #expect(secondDigest == firstDigest)
-    #expect(changedDiffDigest != firstDigest)
     #expect(result.0.wine == .ok)
-    #expect(wineCheck.status == .ok)
+    #expect(result.0.patchset == .warning)
+    #expect(!result.0.canLaunch)
+    #expect(sourceCheck.result.contains(oldRevision.prefix(12)))
+    #expect(sourceCheck.result.contains(expectedRevision.prefix(12)))
 }
 
-@Test func missingPatchSeriesPreventsLaunchReadiness() {
-    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: "/definitely/missing/series")
+@Test func switchyardWineRuntimeDirtySourceReportsWarning() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let sourceRevision = String(repeating: "c", count: 40)
+    try createSwitchyardWineRuntime(
+        at: root,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: sourceRevision,
+        sourceDirty: true
+    )
+
+    let result = RuntimeLocator().diagnose(
+        gptkPath: nil,
+        winePath: root.path,
+        expectedSourceRevision: sourceRevision
+    )
+    let sourceCheck = try #require(result.1.first { $0.id == "runtime-source" })
+
+    #expect(result.0.patchset == .warning)
+    #expect(sourceCheck.result.contains("dirty source tree"))
+}
+
+@Test func missingRuntimeSourcePreventsLaunchReadiness() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: cacheRoot) }
+
+    let result = RuntimeLocator(runtimeCacheRoot: cacheRoot).diagnose(
+        gptkPath: nil,
+        winePath: nil,
+        expectedSourceRevision: String(repeating: "d", count: 40)
+    )
     #expect(result.0.patchset == .missing)
     #expect(!result.0.canLaunch)
 }
@@ -277,7 +285,8 @@ import Foundation
 private func createSwitchyardWineRuntime(
     at root: URL,
     peArchitectures: [String],
-    patchQueueDigest: String? = nil
+    sourceRevision: String = String(repeating: "a", count: 40),
+    sourceDirty: Bool = false
 ) throws -> URL {
     let bin = root.appendingPathComponent("bin", isDirectory: true)
     let wine = bin.appendingPathComponent("wine")
@@ -301,7 +310,11 @@ private func createSwitchyardWineRuntime(
       "id": "switchyard-test-runtime",
       "buildProfile": "switchyard-wow64-pe",
       "peArchitectures": [\(quotedArchitectures)],
-      "executable": "\(wine.path)"\(patchQueueDigest.map { ",\n      \"patchQueueDigest\": \"\($0)\"" } ?? "")
+      "executable": "\(wine.path)",
+      "sourceRepository": "https://github.com/jungwuk-ryu/switchyard-wine",
+      "sourceRevision": "\(sourceRevision)",
+      "sourceDirty": \(sourceDirty),
+      "patchsetID": "switchyard-test-patchset"
     }
     """
     try Data(manifest.utf8).write(to: root.appendingPathComponent("switchyard-runtime.json"))
@@ -313,23 +326,4 @@ private func setManifestModificationDate(at runtimeRoot: URL, to date: Date) thr
         [.modificationDate: date],
         ofItemAtPath: runtimeRoot.appendingPathComponent("switchyard-runtime.json").path
     )
-}
-
-private func createPatchSeries(at root: URL) throws -> (seriesURL: URL, digest: String) {
-    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    let seriesURL = root.appendingPathComponent("series")
-    let patchURL = root.appendingPathComponent("current.patch")
-    try Data("current.patch\n".utf8).write(to: seriesURL)
-    try Data("diff --git a/file b/file\n".utf8).write(to: patchURL)
-    return (seriesURL, try patchSeriesDigest(for: seriesURL))
-}
-
-private func patchSeriesDigest(for seriesURL: URL) throws -> String {
-    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: nil, patchSeriesPath: seriesURL.path)
-    let patchCheck = try #require(result.1.first { $0.id == "patch-series" })
-    let prefix = "digest "
-    let suffix = ")."
-    let start = try #require(patchCheck.result.range(of: prefix)?.upperBound)
-    let end = try #require(patchCheck.result[start...].range(of: suffix)?.lowerBound)
-    return String(patchCheck.result[start..<end])
 }

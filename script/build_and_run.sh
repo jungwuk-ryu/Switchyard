@@ -22,7 +22,7 @@ if [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
 fi
 
 if [ "${SWITCHYARD_SKIP_RUNTIME_ENSURE:-0}" != "1" ]; then
-  "$ROOT_DIR/runtime/build/ensure_switchyard_wine.sh"
+  "$ROOT_DIR/script/ensure_wine_runtime.sh"
 fi
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
@@ -34,11 +34,10 @@ BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
 BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
 
 rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES/patches/wine"
+mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_RUNNER" "$RUNNER_BINARY"
-cp "$ROOT_DIR/patches/wine/series" "$APP_RESOURCES/patches/wine/series"
-cp "$ROOT_DIR"/patches/wine/*.patch "$APP_RESOURCES/patches/wine/"
+cp "$ROOT_DIR/config/switchyard-wine.env" "$APP_RESOURCES/switchyard-wine.env"
 chmod +x "$APP_BINARY"
 chmod +x "$RUNNER_BINARY"
 

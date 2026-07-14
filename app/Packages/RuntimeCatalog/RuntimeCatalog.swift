@@ -1,5 +1,4 @@
 import AppCore
-import CryptoKit
 import Darwin
 import Foundation
 
@@ -8,14 +7,19 @@ private struct SwitchyardRuntimeManifest: Decodable {
     var buildProfile: String?
     var peArchitectures: [String]?
     var executable: String?
-    var patchQueueDigest: String?
+    var wineRevision: String?
+    var sourceRepository: String?
+    var sourceRevision: String?
+    var sourceDirty: Bool?
+    var patchsetID: String?
 }
 
 private struct SwitchyardRuntimeCandidate {
     var winePath: String
     var modifiedAt: Date
     var isCompleteWoW64: Bool
-    var patchQueueDigest: String?
+    var sourceRevision: String?
+    var sourceDirty: Bool
 }
 
 public struct RuntimeLocator {
@@ -32,14 +36,13 @@ public struct RuntimeLocator {
     public func diagnose(
         gptkPath: String?,
         winePath: String?,
-        patchSeriesPath: String = "patches/wine/series",
+        expectedSourceRevision: String? = nil,
         fontCachePath: String? = nil
     ) -> (RuntimeStatus, [DiagnosticCheck]) {
         let architectureStatus = isAppleSilicon ? HealthStatus.ok : .unsupported
         let macOSStatus = isSupportedMacOS ? HealthStatus.ok : .unsupported
         let gptkValidation = validateGPTK(at: gptkPath)
-        let patchValidation = validatePatchSeries(at: patchSeriesPath)
-        let wineValidation = validateWine(at: winePath, expectedPatchQueueDigest: patchValidation.digest)
+        let wineValidation = validateWine(at: winePath, expectedSourceRevision: expectedSourceRevision)
         let fontCacheURL = fontCachePath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? OpenFontPackCatalog.defaultCacheRoot(fileManager: fileManager)
         let fontPackStatus = OpenFontPackCatalog.diagnose(cacheRoot: fontCacheURL, fileManager: fileManager)
@@ -74,11 +77,11 @@ public struct RuntimeLocator {
                 recoveryAction: wineValidation.status == .ok ? nil : "Open Wine Settings"
             ),
             DiagnosticCheck(
-                id: "patch-series",
-                title: "Wine Patch Series",
-                status: patchValidation.status,
-                result: patchValidation.message,
-                recoveryAction: patchValidation.status == .ok ? nil : "Open Wine Settings"
+                id: "runtime-source",
+                title: "Wine Runtime Source",
+                status: wineValidation.sourceStatus,
+                result: wineValidation.sourceMessage,
+                recoveryAction: wineValidation.sourceStatus == .ok ? nil : "Open Wine Settings"
             ),
             DiagnosticCheck(
                 id: "open-font-pack",
@@ -90,7 +93,7 @@ public struct RuntimeLocator {
         ]
 
         let summary: String
-        if architectureStatus == .ok && macOSStatus == .ok && gptkValidation.status == .ok && wineValidation.status == .ok && patchValidation.status == .ok {
+        if architectureStatus == .ok && macOSStatus == .ok && gptkValidation.status == .ok && wineValidation.status == .ok && wineValidation.sourceStatus == .ok {
             summary = "Ready to launch Windows executables in Switchyard containers."
         } else {
             summary = "Setup is incomplete. Resolve diagnostics before launching."
@@ -101,7 +104,7 @@ public struct RuntimeLocator {
             macOS: macOSStatus,
             gptk: gptkValidation.status,
             wine: wineValidation.status,
-            patchset: patchValidation.status,
+            patchset: wineValidation.sourceStatus,
             summary: summary,
             gptkFingerprint: gptkValidation.fingerprint
         )
@@ -154,12 +157,9 @@ public struct RuntimeLocator {
         return resolveWineExecutable(at: defaultWineRuntimePath())
     }
 
-    public func preferredWineExecutablePath(for path: String?, patchSeriesPath: String? = nil) -> String? {
+    public func preferredWineExecutablePath(for path: String?, expectedSourceRevision: String? = nil) -> String? {
         let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let expectedPatchQueueDigest = patchSeriesPath.flatMap {
-            try? patchQueueDigest(forSeriesAt: URL(fileURLWithPath: $0))
-        }
-        let preferredCachedPath = latestCachedSwitchyardWineExecutablePath(matchingPatchQueueDigest: expectedPatchQueueDigest)
+        let preferredCachedPath = latestCachedSwitchyardWineExecutablePath(matchingSourceRevision: expectedSourceRevision)
             ?? latestCachedSwitchyardWineExecutablePath()
 
         if trimmedPath.isEmpty {
@@ -176,6 +176,35 @@ public struct RuntimeLocator {
         }
 
         return resolvedPath
+    }
+
+    public func runtimeBuild(for path: String?) -> RuntimeBuild {
+        let resolvedPath = resolveWineExecutablePath(for: path)
+            ?? path?.trimmingCharacters(in: .whitespacesAndNewlines)
+            ?? ""
+        guard let rootURL = runtimeRoot(forWineExecutable: resolvedPath),
+              let manifest = loadSwitchyardRuntimeManifest(under: rootURL) else {
+            return RuntimeBuild(
+                id: "external-unverified",
+                winePath: resolvedPath,
+                patchsetID: "external-unverified",
+                sourceRevision: ""
+            )
+        }
+
+        let sourceRevision = manifest.sourceRevision ?? manifest.wineRevision ?? ""
+        let patchsetID = manifest.patchsetID
+            ?? (sourceRevision.isEmpty ? "switchyard-wine-unverified" : "switchyard-wine-\(sourceRevision.prefix(12))")
+        let manifestURL = rootURL.appendingPathComponent("switchyard-runtime.json")
+        let createdAt = (try? manifestURL.resourceValues(forKeys: [.contentModificationDateKey]))?
+            .contentModificationDate ?? Date()
+        return RuntimeBuild(
+            id: manifest.id ?? rootURL.lastPathComponent,
+            winePath: resolvedPath,
+            patchsetID: patchsetID,
+            sourceRevision: sourceRevision,
+            createdAt: createdAt
+        )
     }
 
     public func importGPTKDiskImage(at path: String, to importRoot: String) throws -> String {
@@ -249,44 +278,71 @@ public struct RuntimeLocator {
         }
     }
 
-    private func validateWine(at path: String?, expectedPatchQueueDigest: String?) -> WineValidation {
+    private func validateWine(at path: String?, expectedSourceRevision: String?) -> WineValidation {
         let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let candidate = trimmedPath.isEmpty ? (latestCachedSwitchyardWineExecutablePath() ?? defaultWineRuntimePath()) : trimmedPath
 
         if let resolvedPath = resolveWineExecutable(at: candidate) {
-            return describeWine(at: resolvedPath, expectedPatchQueueDigest: expectedPatchQueueDigest)
+            return describeWine(at: resolvedPath, expectedSourceRevision: expectedSourceRevision)
         }
 
         if trimmedPath.isEmpty {
             return WineValidation(
                 status: .missing,
-                message: "No Wine runtime has been selected. Expected Switchyard runtime cache under \(switchyardRuntimeCacheRoot().path) or \(defaultWineRuntimePath())."
+                message: "No Wine runtime has been selected. Expected Switchyard runtime cache under \(switchyardRuntimeCacheRoot().path) or \(defaultWineRuntimePath()).",
+                sourceStatus: .missing,
+                sourceMessage: "No Wine runtime is available to verify against the pinned Switchyard Wine source."
             )
         }
 
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: candidate, isDirectory: &isDirectory) else {
-            return WineValidation(status: .missing, message: "Selected Wine path does not exist: \(candidate).")
+            return WineValidation(
+                status: .missing,
+                message: "Selected Wine path does not exist: \(candidate).",
+                sourceStatus: .missing,
+                sourceMessage: "The selected Wine runtime does not exist, so its source identity cannot be verified."
+            )
         }
 
         if isDirectory.boolValue {
             return WineValidation(
                 status: .missing,
-                message: "Selected Wine directory exists, but no executable wine or wine64 was found in expected locations: \(candidate)."
+                message: "Selected Wine directory exists, but no executable wine or wine64 was found in expected locations: \(candidate).",
+                sourceStatus: .missing,
+                sourceMessage: "The selected directory is not a runnable Wine runtime, so its source identity cannot be verified."
             )
         }
 
-        return WineValidation(status: .missing, message: "Selected Wine path exists but is not executable: \(candidate).")
+        return WineValidation(
+            status: .missing,
+            message: "Selected Wine path exists but is not executable: \(candidate).",
+            sourceStatus: .missing,
+            sourceMessage: "The selected Wine file is not executable, so its source identity cannot be verified."
+        )
     }
 
-    private func describeWine(at resolvedPath: String, expectedPatchQueueDigest: String?) -> WineValidation {
+    private func describeWine(at resolvedPath: String, expectedSourceRevision: String?) -> WineValidation {
         guard let rootURL = runtimeRoot(forWineExecutable: resolvedPath),
               let manifest = loadSwitchyardRuntimeManifest(under: rootURL) else {
-            return WineValidation(status: .ok, message: "Wine executable found at \(resolvedPath).")
+            let sourceStatus: HealthStatus = expectedSourceRevision == nil ? .ok : .warning
+            return WineValidation(
+                status: .ok,
+                message: "Wine executable found at \(resolvedPath).",
+                sourceStatus: sourceStatus,
+                sourceMessage: expectedSourceRevision == nil
+                    ? "External Wine runtime selected; no source revision policy was requested."
+                    : "External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision."
+            )
         }
 
         let runtimeID = manifest.id ?? rootURL.lastPathComponent
         let profile = manifest.buildProfile ?? "unknown profile"
+        let sourceValidation = validateRuntimeSource(
+            manifest,
+            runtimeID: runtimeID,
+            expectedSourceRevision: expectedSourceRevision
+        )
         let missingArchitectures = ["i386", "x86_64"].filter {
             !hasPEArchitecture($0, under: rootURL, manifest: manifest)
         }
@@ -294,30 +350,52 @@ public struct RuntimeLocator {
         if !missingArchitectures.isEmpty {
             return WineValidation(
                 status: .warning,
-                message: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but it is missing PE architecture(s): \(missingArchitectures.joined(separator: ", ")). Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs."
+                message: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but it is missing PE architecture(s): \(missingArchitectures.joined(separator: ", ")). Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs.",
+                sourceStatus: sourceValidation.status,
+                sourceMessage: sourceValidation.message
             )
-        }
-
-        if let expectedPatchQueueDigest {
-            guard let runtimePatchQueueDigest = manifest.patchQueueDigest else {
-                return WineValidation(
-                    status: .warning,
-                    message: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but its manifest does not record a patch queue digest. Rebuild the Switchyard Wine runtime before launching."
-                )
-            }
-
-            guard runtimePatchQueueDigest == expectedPatchQueueDigest else {
-                return WineValidation(
-                    status: .warning,
-                    message: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but it was built from patch queue \(runtimePatchQueueDigest) while the current queue is \(expectedPatchQueueDigest). Rebuild the Switchyard Wine runtime before launching."
-                )
-            }
         }
 
         let declaredArchitectures = manifest.peArchitectures?.sorted().joined(separator: ", ") ?? "i386, x86_64"
         return WineValidation(
             status: .ok,
-            message: "Switchyard Wine runtime \(runtimeID) (\(profile)) found at \(resolvedPath). PE architectures: \(declaredArchitectures)."
+            message: "Switchyard Wine runtime \(runtimeID) (\(profile)) found at \(resolvedPath). PE architectures: \(declaredArchitectures).",
+            sourceStatus: sourceValidation.status,
+            sourceMessage: sourceValidation.message
+        )
+    }
+
+    private func validateRuntimeSource(
+        _ manifest: SwitchyardRuntimeManifest,
+        runtimeID: String,
+        expectedSourceRevision: String?
+    ) -> RuntimeSourceValidation {
+        guard let sourceRevision = manifest.sourceRevision ?? manifest.wineRevision else {
+            return RuntimeSourceValidation(
+                status: .warning,
+                message: "Switchyard Wine runtime \(runtimeID) does not record a source revision. Rebuild it from the pinned switchyard-wine repository."
+            )
+        }
+
+        let shortRevision = String(sourceRevision.prefix(12))
+        let repository = manifest.sourceRepository ?? "unrecorded repository"
+        if manifest.sourceDirty == true {
+            return RuntimeSourceValidation(
+                status: .warning,
+                message: "Switchyard Wine runtime \(runtimeID) was built from a dirty source tree at \(shortRevision). Build a clean pinned revision before release use."
+            )
+        }
+
+        if let expectedSourceRevision, sourceRevision != expectedSourceRevision {
+            return RuntimeSourceValidation(
+                status: .warning,
+                message: "Switchyard Wine runtime \(runtimeID) was built from source \(shortRevision), but this Switchyard build pins \(expectedSourceRevision.prefix(12)). Rebuild the runtime from the pinned revision."
+            )
+        }
+
+        return RuntimeSourceValidation(
+            status: .ok,
+            message: "Runtime source verified at \(repository) revision \(shortRevision)."
         )
     }
 
@@ -356,7 +434,7 @@ public struct RuntimeLocator {
         return nil
     }
 
-    private func latestCachedSwitchyardWineExecutablePath(matchingPatchQueueDigest expectedPatchQueueDigest: String? = nil) -> String? {
+    private func latestCachedSwitchyardWineExecutablePath(matchingSourceRevision expectedSourceRevision: String? = nil) -> String? {
         let cacheRoot = switchyardRuntimeCacheRoot()
         guard let runtimeURLs = try? fileManager.contentsOfDirectory(
             at: cacheRoot,
@@ -389,13 +467,16 @@ public struct RuntimeLocator {
                 winePath: executable,
                 modifiedAt: modifiedAt,
                 isCompleteWoW64: isCompleteWoW64,
-                patchQueueDigest: manifest.patchQueueDigest
+                sourceRevision: manifest.sourceRevision ?? manifest.wineRevision,
+                sourceDirty: manifest.sourceDirty == true
             )
         }
 
         let matchingCandidates: [SwitchyardRuntimeCandidate]
-        if let expectedPatchQueueDigest {
-            matchingCandidates = candidates.filter { $0.patchQueueDigest == expectedPatchQueueDigest }
+        if let expectedSourceRevision {
+            matchingCandidates = candidates.filter {
+                $0.sourceRevision == expectedSourceRevision && !$0.sourceDirty
+            }
         } else {
             matchingCandidates = candidates
         }
@@ -462,74 +543,6 @@ public struct RuntimeLocator {
                 .appendingPathComponent("ntdll.dll")
                 .path
         )
-    }
-
-    private func validatePatchSeries(at patchSeriesPath: String) -> PatchSeriesValidation {
-        guard fileManager.fileExists(atPath: patchSeriesPath) else {
-            return PatchSeriesValidation(
-                status: .missing,
-                message: "Patch queue metadata is missing. Create patches/wine/series.",
-                digest: nil
-            )
-        }
-
-        do {
-            let digest = try patchQueueDigest(forSeriesAt: URL(fileURLWithPath: patchSeriesPath))
-            return PatchSeriesValidation(
-                status: .ok,
-                message: "Patch queue metadata is present (digest \(digest)).",
-                digest: digest
-            )
-        } catch {
-            return PatchSeriesValidation(
-                status: .warning,
-                message: "Patch queue metadata could not be read: \(error.localizedDescription)",
-                digest: nil
-            )
-        }
-    }
-
-    private func patchQueueDigest(forSeriesAt seriesURL: URL) throws -> String {
-        let seriesData = try Data(contentsOf: seriesURL)
-        let seriesHash = sha256Hex(seriesData)
-        let patchDirectoryURL = seriesURL.deletingLastPathComponent()
-        let seriesText = String(decoding: seriesData, as: UTF8.self)
-        var digestInput = Data()
-
-        digestInput.append(contentsOf: "series \(seriesHash)\n".utf8)
-        for patchName in seriesText.components(separatedBy: .newlines) {
-            guard !patchName.isEmpty, !patchName.hasPrefix("#") else { continue }
-            let patchURL = patchDirectoryURL.appendingPathComponent(patchName)
-            let patchData = try Data(contentsOf: patchURL)
-            digestInput.append(contentsOf: "\(patchName) \(sha256Hex(canonicalPatchPayload(patchData)))\n".utf8)
-        }
-
-        return String(sha256Hex(digestInput).prefix(12))
-    }
-
-    private func canonicalPatchPayload(_ patchData: Data) -> Data {
-        // Ignore format-patch prose so provenance/test-note edits do not stale built runtimes.
-        let leadingDiffMarker = Data("diff --git ".utf8)
-        if patchData.count >= leadingDiffMarker.count,
-           patchData.prefix(leadingDiffMarker.count).elementsEqual(leadingDiffMarker) {
-            return patchData
-        }
-
-        let diffLineMarker = Data("\ndiff --git ".utf8)
-        if let diffRange = patchData.range(of: diffLineMarker) {
-            return patchData.subdata(in: patchData.index(after: diffRange.lowerBound)..<patchData.endIndex)
-        }
-
-        let crlfDiffLineMarker = Data("\r\ndiff --git ".utf8)
-        if let diffRange = patchData.range(of: crlfDiffLineMarker) {
-            return patchData.subdata(in: patchData.index(diffRange.lowerBound, offsetBy: 2)..<patchData.endIndex)
-        }
-
-        return patchData
-    }
-
-    private func sha256Hex(_ data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private var isAppleSilicon: Bool {
@@ -856,10 +869,11 @@ private struct MountedDiskImage {
 private struct WineValidation {
     var status: HealthStatus
     var message: String
+    var sourceStatus: HealthStatus
+    var sourceMessage: String
 }
 
-private struct PatchSeriesValidation {
+private struct RuntimeSourceValidation {
     var status: HealthStatus
     var message: String
-    var digest: String?
 }

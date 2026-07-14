@@ -25,7 +25,7 @@ Use Conventional Commits:
 - `build: ...`
 - `chore: ...`
 
-Keep commits focused. Do not mix Wine patch changes, app UI changes, and documentation rewrites unless the change is intentionally atomic.
+Keep commits focused. Do not mix external Wine source changes, app UI changes, and documentation rewrites unless the change is intentionally atomic.
 
 ## Build And Verification
 
@@ -57,9 +57,9 @@ Do not remove user-managed containers, installed games, user-selected GPTK compo
 - Run Wine through the external runner boundary.
 - Do not add Apple GPTK binaries under `third_party/` or commit them anywhere.
 - GPTK must be user-selected, locally fingerprinted, and treated as user-provided software.
-- Wine source lives in `third_party/wine` as a pinned submodule.
-- Switchyard patches live in `patches/wine` as an ordered patch queue.
-- Any `patches/wine` change must update patch provenance, rationale, upstream status, and build/test notes.
+- Wine source, compatibility commits, provenance, and runtime build tooling live in the separate public `switchyard-wine` repository.
+- This repository pins an immutable source commit in `config/switchyard-wine.env` and synchronizes it through `script/ensure_wine_runtime.sh`.
+- Wine source changes must be developed and reviewed in `switchyard-wine`; do not recreate a local patch queue or Wine submodule here.
 - LGPL obligations for Wine changes must stay documented in `docs/licensing.md`.
 
 ## Architecture Rules
@@ -70,6 +70,6 @@ Do not remove user-managed containers, installed games, user-selected GPTK compo
 - `app/Packages/RuntimeCatalog`: Wine/GPTK detection and compatibility rules.
 - `app/Packages/Persistence`: portable container manifests and indexing/cache code.
 - `runtime/runner`: process execution, environment construction, log streaming, cancellation.
-- `runtime/build`: reproducible Wine build and artifact manifest scripts.
+- `script/ensure_wine_runtime.sh`: pinned external Wine source synchronization and runtime build handoff.
 
 Keep shell execution out of SwiftUI views. Keep executable-specific quirks out of the runner. Keep UI state out of portable packages.

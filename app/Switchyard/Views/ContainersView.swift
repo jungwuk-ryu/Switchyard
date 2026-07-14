@@ -158,7 +158,7 @@ struct ContainersView: View {
                                 }
                             }
                             LabeledContent("Wine Build", value: container.wineBuildID)
-                            LabeledContent("Patchset", value: container.patchsetID)
+                            LabeledContent("Runtime Source", value: container.patchsetID)
                             LabeledContent("GPTK Fingerprint", value: container.gptkFingerprint ?? "Not recorded")
                             LabeledContent("Schema", value: "v\(container.schemaVersion)")
                         }
@@ -426,7 +426,7 @@ private struct RuntimeStatusStrip: View {
         HStack(spacing: 10) {
             StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
             StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
-            StatusBadge(status: store.runtimeStatus.patchset, label: "Patchset")
+            StatusBadge(status: store.runtimeStatus.patchset, label: "Runtime Source")
 
             Divider()
                 .frame(height: 20)

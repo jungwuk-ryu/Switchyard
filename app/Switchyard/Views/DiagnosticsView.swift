@@ -57,7 +57,7 @@ struct DiagnosticsView: View {
         switch check.id {
         case "gptk":
             openSettingsTab(.gptk)
-        case "wine-runtime", "patch-series":
+        case "wine-runtime", "runtime-source":
             openSettingsTab(.wine)
         case "open-font-pack":
             store.ensureOpenFontPack()

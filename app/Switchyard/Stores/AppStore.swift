@@ -15,6 +15,30 @@ private struct RuntimeRefreshResult {
     var importMessage: String?
 }
 
+private struct SwitchyardWineSourcePolicy {
+    var revision: String
+
+    static func load(fileManager: FileManager = .default) -> SwitchyardWineSourcePolicy {
+        let bundledURL = Bundle.main.url(forResource: "switchyard-wine", withExtension: "env")
+        let developmentURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+            .appendingPathComponent("config/switchyard-wine.env")
+        let sourceURL = bundledURL ?? developmentURL
+        let contents = (try? String(contentsOf: sourceURL, encoding: .utf8)) ?? ""
+        let values = Dictionary(
+            uniqueKeysWithValues: contents
+                .split(whereSeparator: { $0.isNewline })
+                .compactMap { line -> (String, String)? in
+                    guard !line.hasPrefix("#"), let separator = line.firstIndex(of: "=") else { return nil }
+                    return (String(line[..<separator]), String(line[line.index(after: separator)...]))
+                }
+        )
+        let unresolvedRevision = values["SWITCHYARD_WINE_REVISION"] ?? ""
+        return SwitchyardWineSourcePolicy(
+            revision: unresolvedRevision.hasPrefix("__") ? "" : unresolvedRevision
+        )
+    }
+}
+
 @MainActor
 final class AppStore: ObservableObject {
     @Published var selectedSection: SidebarSelection = .containers
@@ -37,6 +61,7 @@ final class AppStore: ObservableObject {
     private let jobEngine = JobEngine()
     private let runnerClient = SwitchyardRunnerClient()
     private let defaults = UserDefaults.standard
+    private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
     private var diagnosticsTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
 
@@ -52,10 +77,16 @@ final class AppStore: ObservableObject {
         gptkPath = defaults.string(forKey: "gptkPath") ?? ""
         if let storedWinePath = defaults.string(forKey: "winePath"), !storedWinePath.isEmpty {
             let defaultWinePath = runtimeLocator.defaultWineRuntimePath()
-            let preferredWinePath = runtimeLocator.preferredWineExecutablePath(for: storedWinePath)
+            let preferredWinePath = runtimeLocator.preferredWineExecutablePath(
+                for: storedWinePath,
+                expectedSourceRevision: wineSourcePolicy.revision
+            )
             winePath = storedWinePath == defaultWinePath && preferredWinePath == nil ? "" : (preferredWinePath ?? storedWinePath)
         } else {
-            winePath = runtimeLocator.preferredWineExecutablePath(for: nil) ?? ""
+            winePath = runtimeLocator.preferredWineExecutablePath(
+                for: nil,
+                expectedSourceRevision: wineSourcePolicy.revision
+            ) ?? ""
         }
         hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
 
@@ -74,31 +105,17 @@ final class AppStore: ObservableObject {
 
     var currentRuntime: RuntimeBuild {
         let locator = RuntimeLocator()
-        let resolvedWinePath = locator.preferredWineExecutablePath(for: winePath, patchSeriesPath: patchSeriesPath)
+        let resolvedWinePath = locator.preferredWineExecutablePath(
+            for: winePath,
+            expectedSourceRevision: wineSourcePolicy.revision
+        )
             ?? locator.resolveWineExecutablePath(for: winePath)
             ?? winePath
-        return RuntimeBuild(
-            id: "local-source-cache",
-            winePath: resolvedWinePath,
-            patchsetID: "switchyard-v1",
-            sourceRevision: "third_party/wine"
-        )
+        return locator.runtimeBuild(for: resolvedWinePath)
     }
 
     private var libraryStore: LibraryManifestStore {
         LibraryManifestStore(rootURL: URL(fileURLWithPath: libraryPath, isDirectory: true))
-    }
-
-    private var patchSeriesPath: String {
-        if let bundledPath = Bundle.main.resourceURL?
-            .appendingPathComponent("patches/wine/series")
-            .path,
-            FileManager.default.fileExists(atPath: bundledPath) {
-            return bundledPath
-        }
-        return URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-            .appendingPathComponent("patches/wine/series")
-            .path
     }
 
     private var gptkImportRoot: String {
@@ -132,16 +149,19 @@ final class AppStore: ObservableObject {
 
         let gptkPath = gptkPath
         let winePath = winePath
-        let patchSeriesPath = patchSeriesPath
+        let expectedWineSourceRevision = wineSourcePolicy.revision
         let gptkImportRoot = gptkImportRoot
         let fontCacheRoot = fontCacheRoot
-        diagnosticsTask = Task { [gptkPath, winePath, patchSeriesPath, gptkImportRoot, fontCacheRoot] in
+        diagnosticsTask = Task { [gptkPath, winePath, expectedWineSourceRevision, gptkImportRoot, fontCacheRoot] in
             let result = await Task.detached(priority: .userInitiated) {
                 let locator = RuntimeLocator()
                 let trimmedGPTKPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
                 var resolvedGPTKPath = gptkPath
                 var importedGPTKPath: String?
-                let resolvedWinePath = locator.preferredWineExecutablePath(for: winePath, patchSeriesPath: patchSeriesPath)
+                let resolvedWinePath = locator.preferredWineExecutablePath(
+                    for: winePath,
+                    expectedSourceRevision: expectedWineSourceRevision
+                )
                     ?? locator.resolveWineExecutablePath(for: winePath)
                     ?? winePath
                 var importMessage: String?
@@ -162,7 +182,7 @@ final class AppStore: ObservableObject {
                 let diagnosed = locator.diagnose(
                     gptkPath: resolvedGPTKPath,
                     winePath: resolvedWinePath,
-                    patchSeriesPath: patchSeriesPath,
+                    expectedSourceRevision: expectedWineSourceRevision,
                     fontCachePath: fontCacheRoot
                 )
                 return RuntimeRefreshResult(

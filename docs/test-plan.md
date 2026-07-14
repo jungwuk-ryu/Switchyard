@@ -4,7 +4,8 @@
 
 - Runtime detection with missing GPTK.
 - Runtime detection with marker files.
-- Missing patch series prevents launch readiness.
+- Missing or mismatched Switchyard Wine source identity prevents launch readiness.
+- Managed runtime selection prefers the clean runtime built from the pinned source revision.
 - Generic container command plan generation.
 - Missing container executable failure.
 - Container manifest JSON round trip.
@@ -18,6 +19,7 @@
 - Runner helper accepts serialized command plans and emits logs and exit code.
 - Runtime A container remains pinned after runtime B appears.
 - Failed migration preserves rollback metadata.
+- Pinned `switchyard-wine` source synchronization is serialized and hands off to source-owned verification and build tooling.
 
 ## App Verification
 
