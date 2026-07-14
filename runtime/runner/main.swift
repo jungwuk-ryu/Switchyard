@@ -6,6 +6,7 @@ private enum SwitchyardRunnerError: LocalizedError {
     case missingWineServer(String)
     case wineServerCommandFailed(arguments: [String], status: Int32, output: String)
     case wineServerCommandTimedOut(arguments: [String])
+    case terminationRequested
 
     var errorDescription: String? {
         switch self {
@@ -15,6 +16,8 @@ private enum SwitchyardRunnerError: LocalizedError {
             "wineserver \(arguments.joined(separator: " ")) failed with status \(status): \(output)"
         case let .wineServerCommandTimedOut(arguments):
             "wineserver \(arguments.joined(separator: " ")) did not finish within 15 seconds."
+        case .terminationRequested:
+            "Runner termination was requested before the child process started."
         }
     }
 }
@@ -22,11 +25,28 @@ private enum SwitchyardRunnerError: LocalizedError {
 private final class ProcessOutputCollector: @unchecked Sendable {
     private let lock = NSLock()
     private var data = Data()
+    private var isFinished = false
 
-    func append(_ chunk: Data) {
-        guard !chunk.isEmpty else { return }
+    func consumeAvailableData(from handle: FileHandle) {
         lock.lock()
-        data.append(chunk)
+        defer { lock.unlock() }
+        guard !isFinished else { return }
+        data.append(handle.availableData)
+    }
+
+    func finish(from handle: FileHandle) {
+        handle.readabilityHandler = nil
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isFinished else { return }
+        data.append(handle.readDataToEndOfFile())
+        isFinished = true
+    }
+
+    func cancel(from handle: FileHandle) {
+        handle.readabilityHandler = nil
+        lock.lock()
+        isFinished = true
         lock.unlock()
     }
 
@@ -152,46 +172,100 @@ private final class RunnerProcessRegistry: @unchecked Sendable {
 
     private let lock = NSLock()
     private var process: Process?
+    private var terminationSignal: Int32?
 
-    func set(_ process: Process) {
+    func launch(_ process: Process) throws {
         lock.lock()
+        guard terminationSignal == nil else {
+            lock.unlock()
+            throw SwitchyardRunnerError.terminationRequested
+        }
         self.process = process
+        do {
+            try process.run()
+            lock.unlock()
+        } catch {
+            self.process = nil
+            lock.unlock()
+            throw error
+        }
+    }
+
+    func clear(_ process: Process) {
+        lock.lock()
+        if self.process === process {
+            self.process = nil
+        }
         lock.unlock()
     }
 
-    func clear() {
+    func requestTermination(signalNumber: Int32) -> Int32 {
         lock.lock()
-        process = nil
-        lock.unlock()
-    }
-
-    func terminateChild() {
-        lock.lock()
+        if terminationSignal == nil {
+            terminationSignal = signalNumber
+        }
+        let exitStatus = 128 + (terminationSignal ?? signalNumber)
         let activeProcess = process
         lock.unlock()
 
-        if let activeProcess, activeProcess.isRunning {
-            activeProcess.terminate()
+        if let activeProcess {
+            stopProcessWithinDeadline(activeProcess)
         }
+        return exitStatus
+    }
+
+    var requestedExitStatus: Int32? {
+        lock.lock()
+        defer { lock.unlock() }
+        return terminationSignal.map { 128 + $0 }
     }
 }
 
-private let terminationSignalHandler: @convention(c) (Int32) -> Void = { signalNumber in
-    RunnerProcessRegistry.shared.terminateChild()
-    signal(signalNumber, SIG_DFL)
-    raise(signalNumber)
+private func runnerExit(_ status: Int32) -> Never {
+    Foundation.exit(RunnerProcessRegistry.shared.requestedExitStatus ?? status)
+}
+
+private final class TerminationSignalMonitor {
+    private let sources: [DispatchSourceSignal]
+
+    init() {
+        sources = [SIGTERM, SIGINT].map { signalNumber in
+            signal(signalNumber, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(
+                signal: signalNumber,
+                queue: .global(qos: .userInitiated)
+            )
+            source.setEventHandler {
+                let status = RunnerProcessRegistry.shared.requestTermination(signalNumber: signalNumber)
+                Foundation.exit(status)
+            }
+            source.resume()
+            return source
+        }
+    }
+
+    deinit {
+        for source in sources {
+            source.cancel()
+        }
+    }
 }
 
 @main
 struct SwitchyardRunner {
     static func main() {
-        signal(SIGTERM, terminationSignalHandler)
-        signal(SIGINT, terminationSignalHandler)
+        let signalMonitor = TerminationSignalMonitor()
 
+        withExtendedLifetime(signalMonitor) {
+            runCommand()
+        }
+    }
+
+    private static func runCommand() {
         let arguments = Array(CommandLine.arguments.dropFirst())
         guard !arguments.isEmpty else {
             printUsage()
-            Foundation.exit(2)
+            runnerExit(2)
         }
 
         switch arguments[0] {
@@ -204,18 +278,18 @@ struct SwitchyardRunner {
                 try run(arguments: Array(arguments.dropFirst()))
             } catch {
                 FileHandle.standardError.write(Data("switchyard-runner failed: \(error.localizedDescription)\n".utf8))
-                Foundation.exit(1)
+                runnerExit(1)
             }
         default:
             printUsage()
-            Foundation.exit(2)
+            runnerExit(2)
         }
     }
 
     private static func run(arguments: [String]) throws {
         guard arguments.count == 2, arguments[0] == "--plan" else {
             printUsage()
-            Foundation.exit(2)
+            runnerExit(2)
         }
 
         let planURL = URL(fileURLWithPath: arguments[1])
@@ -256,8 +330,7 @@ struct SwitchyardRunner {
 
         let stdoutBuffer = LineAccumulator()
         let stderrBuffer = LineAccumulator()
-        try process.run()
-        RunnerProcessRegistry.shared.set(process)
+        try RunnerProcessRegistry.shared.launch(process)
         let outputGroup = DispatchGroup()
         streamOutput(
             from: stdout.fileHandleForReading,
@@ -278,7 +351,7 @@ struct SwitchyardRunner {
             group: outputGroup
         )
         process.waitUntilExit()
-        RunnerProcessRegistry.shared.clear()
+        RunnerProcessRegistry.shared.clear(process)
         if outputGroup.wait(timeout: .now() + outputDrainTimeout) == .timedOut {
             emit(
                 source: plan.logSource,
@@ -294,7 +367,7 @@ struct SwitchyardRunner {
             logWriter: debugLogWriter
         )
         debugLogWriter?.close()
-        Foundation.exit(process.terminationStatus)
+        runnerExit(process.terminationStatus)
     }
 
     private static func probePrefix(arguments: [String]) {
@@ -302,11 +375,11 @@ struct SwitchyardRunner {
               arguments[0] == "--wine",
               arguments[2] == "--prefix" else {
             printUsage()
-            Foundation.exit(2)
+            runnerExit(2)
         }
 
         guard let wineServerURL = wineServerURL(forWineExecutable: arguments[1]) else {
-            Foundation.exit(2)
+            runnerExit(2)
         }
 
         do {
@@ -314,10 +387,10 @@ struct SwitchyardRunner {
                 wineServerURL: wineServerURL,
                 prefixPath: arguments[3]
             )
-            Foundation.exit(isActive ? 0 : 1)
+            runnerExit(isActive ? 0 : 1)
         } catch {
             FileHandle.standardError.write(Data("Unable to inspect Wine prefix session: \(error)\n".utf8))
-            Foundation.exit(2)
+            runnerExit(2)
         }
     }
 
@@ -364,7 +437,8 @@ private func winePrefixSessionIsActive(wineServerURL: URL, prefixPath: String) t
     process.environment = ProcessInfo.processInfo.environment.merging(["WINEPREFIX": prefixPath]) { _, new in new }
     process.standardOutput = FileHandle.nullDevice
     process.standardError = FileHandle.nullDevice
-    try process.run()
+    defer { RunnerProcessRegistry.shared.clear(process) }
+    try RunnerProcessRegistry.shared.launch(process)
 
     if waitForExit(process, timeout: 0.25) {
         guard process.terminationStatus == 0 else {
@@ -396,18 +470,23 @@ private func runWineServer(
     process.standardOutput = output
     process.standardError = output
     output.fileHandleForReading.readabilityHandler = { handle in
-        outputCollector.append(handle.availableData)
+        outputCollector.consumeAvailableData(from: handle)
     }
-    try process.run()
+    defer { RunnerProcessRegistry.shared.clear(process) }
+    do {
+        try RunnerProcessRegistry.shared.launch(process)
+    } catch {
+        outputCollector.cancel(from: output.fileHandleForReading)
+        throw error
+    }
 
     guard waitForExit(process, timeout: wineServerCommandTimeout) else {
         stopProcessWithinDeadline(process)
-        output.fileHandleForReading.readabilityHandler = nil
+        outputCollector.finish(from: output.fileHandleForReading)
         throw SwitchyardRunnerError.wineServerCommandTimedOut(arguments: arguments)
     }
 
-    output.fileHandleForReading.readabilityHandler = nil
-    outputCollector.append(output.fileHandleForReading.readDataToEndOfFile())
+    outputCollector.finish(from: output.fileHandleForReading)
     guard acceptedExitStatuses.contains(process.terminationStatus) else {
         throw SwitchyardRunnerError.wineServerCommandFailed(
             arguments: arguments,

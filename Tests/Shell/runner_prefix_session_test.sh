@@ -2,7 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-(cd "$ROOT_DIR" && swift build >/dev/null)
+SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-$(($(sysctl -n hw.ncpu) - 1))}"
+if [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
+  SWIFT_BUILD_JOBS=1
+fi
+(cd "$ROOT_DIR" && swift build --jobs "$SWIFT_BUILD_JOBS" >/dev/null)
 BIN_PATH="$(cd "$ROOT_DIR" && swift build --show-bin-path)"
 RUNNER="$BIN_PATH/switchyard-runner"
 TEST_ROOT="$(mktemp -d)"
@@ -14,6 +18,12 @@ cleanup() {
   if [ -f "$TEST_ROOT/descendant.pid" ]; then
     kill "$(cat "$TEST_ROOT/descendant.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/signal-child.pid" ]; then
+    kill "$(cat "$TEST_ROOT/signal-child.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/preflight-wineserver.pid" ]; then
+    kill "$(cat "$TEST_ROOT/preflight-wineserver.pid")" >/dev/null 2>&1 || true
+  fi
   rm -rf "$TEST_ROOT"
 }
 trap cleanup EXIT
@@ -23,6 +33,9 @@ cat > "$BIN_DIR/wineserver" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'wineserver %s prefix=%s\n' "$*" "$WINEPREFIX" >> "$TEST_EVENTS"
+if [ "${1:-}" = "-w" ] && [ -n "${TEST_WINESERVER_PID_FILE:-}" ]; then
+  printf '%s\n' "$$" > "$TEST_WINESERVER_PID_FILE"
+fi
 if [ "${1:-}" = "-k" ] && [ "${TEST_KILL_STATUS:-0}" -ne 0 ]; then
   exit "$TEST_KILL_STATUS"
 fi
@@ -100,6 +113,44 @@ if [ "$((SECONDS - started_at))" -gt 3 ]; then
 fi
 
 : > "$EVENTS"
+TEST_EVENTS="$EVENTS" TEST_WAIT_HANG=1 \
+  TEST_WINESERVER_PID_FILE="$TEST_ROOT/preflight-wineserver.pid" \
+  SWITCHYARD_TEST_WINESERVER_TIMEOUT=30 \
+  "$RUNNER" run --plan "$TEST_ROOT/replace.json" >/dev/null 2>&1 &
+preflight_runner_pid=$!
+for _ in {1..50}; do
+  if [ -s "$TEST_ROOT/preflight-wineserver.pid" ]; then
+    break
+  fi
+  sleep 0.1
+done
+if [ ! -s "$TEST_ROOT/preflight-wineserver.pid" ]; then
+  echo "preflight signal test did not start wineserver" >&2
+  exit 1
+fi
+
+kill -TERM "$preflight_runner_pid"
+set +e
+wait "$preflight_runner_pid"
+preflight_runner_status=$?
+set -e
+if [ "$preflight_runner_status" -ne 143 ]; then
+  echo "runner returned $preflight_runner_status instead of 143 during wineserver preflight" >&2
+  exit 1
+fi
+preflight_wineserver_pid="$(cat "$TEST_ROOT/preflight-wineserver.pid")"
+for _ in {1..50}; do
+  if ! kill -0 "$preflight_wineserver_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+if kill -0 "$preflight_wineserver_pid" >/dev/null 2>&1; then
+  echo "runner left a wineserver child alive after SIGTERM" >&2
+  exit 1
+fi
+
+: > "$EVENTS"
 perl -0pe 's/,\n  "terminateExistingPrefixSession": true//' "$TEST_ROOT/replace.json" > "$TEST_ROOT/reuse.json"
 TEST_EVENTS="$EVENTS" "$RUNNER" run --plan "$TEST_ROOT/reuse.json" >/dev/null
 if [ "$(sed -n '1p' "$EVENTS")" != "wine C:\\Program Files\\Steam\\steam.exe prefix=$PREFIX" ]; then
@@ -166,5 +217,61 @@ if [ ! -s "$TEST_ROOT/descendant.pid" ]; then
   exit 1
 fi
 kill "$(cat "$TEST_ROOT/descendant.pid")" >/dev/null 2>&1 || true
+
+cat > "$TEST_ROOT/signal-child.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+trap 'printf "terminated\n" > "$TEST_SIGNAL_MARKER"; exit 0' TERM INT
+printf '%s\n' "$$" > "$TEST_SIGNAL_PID_FILE"
+while :; do
+  sleep 1
+done
+EOF
+chmod +x "$TEST_ROOT/signal-child.sh"
+cat > "$TEST_ROOT/signal.json" <<EOF
+{
+  "executable": "$TEST_ROOT/signal-child.sh",
+  "arguments": [],
+  "environment": {
+    "TEST_SIGNAL_MARKER": "$TEST_ROOT/signal-child.terminated",
+    "TEST_SIGNAL_PID_FILE": "$TEST_ROOT/signal-child.pid"
+  },
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "signal-test"
+}
+EOF
+
+"$RUNNER" run --plan "$TEST_ROOT/signal.json" >/dev/null 2>/dev/null &
+runner_pid=$!
+for _ in {1..50}; do
+  if [ -s "$TEST_ROOT/signal-child.pid" ]; then
+    break
+  fi
+  sleep 0.1
+done
+if [ ! -s "$TEST_ROOT/signal-child.pid" ]; then
+  echo "signal test did not start its child process" >&2
+  exit 1
+fi
+
+kill -TERM "$runner_pid"
+set +e
+wait "$runner_pid"
+runner_status=$?
+set -e
+if [ "$runner_status" -ne 143 ]; then
+  echo "runner returned $runner_status instead of 143 after SIGTERM" >&2
+  exit 1
+fi
+for _ in {1..50}; do
+  if [ -s "$TEST_ROOT/signal-child.terminated" ]; then
+    break
+  fi
+  sleep 0.1
+done
+if [ ! -s "$TEST_ROOT/signal-child.terminated" ]; then
+  echo "runner did not forward SIGTERM to its child process" >&2
+  exit 1
+fi
 
 echo "runner_prefix_session tests passed"
