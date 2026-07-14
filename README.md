@@ -1,47 +1,76 @@
 # Switchyard
 
-Switchyard is an open-source-core macOS compatibility manager for running Windows executables in user-managed Wine containers on Apple Silicon.
+[![CI](https://github.com/jungwuk-ryu/Switchyard/actions/workflows/ci.yml/badge.svg)](https://github.com/jungwuk-ryu/Switchyard/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black.svg)](https://support.apple.com/macos)
 
-The first compatibility workloads are:
+Switchyard is an experimental, open-source macOS app for running Windows game launchers and other executables in user-managed Wine containers on Apple Silicon.
 
-- Steam
-- Epic Games Launcher
-- GOG Galaxy
+> [!IMPORTANT]
+> Switchyard is an early developer preview. There are no signed releases yet, compatibility varies by application, and containers should not be treated as a substitute for backups.
 
-These are validation targets, not fixed container types. Users should be able to create Wine-style containers freely and choose the executable they want to run.
+## What Switchyard Does
 
-Switchyard uses a patched Wine runtime and can integrate components from a user-selected local Apple Game Porting Toolkit installation. It does not bundle GPTK or Apple binaries.
+- Creates Wine containers with portable manifests and explicit runtime identities.
+- Detects Apple Silicon, macOS, a user-selected Game Porting Toolkit installation, and a compatible Wine runtime.
+- Runs install and launch plans through a separate `switchyard-runner` process.
+- Records the Wine build, source revision, and GPTK fingerprint used when each container is created.
+- Installs verified Noto fonts as open replacements for common Windows UI fonts.
+- Keeps diagnostic and debug logs local unless the user explicitly copies them.
 
-## Current State
+The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher, and GOG Galaxy are development targets, not guaranteed compatibility claims. Switchyard does not bypass DRM or anti-cheat systems.
 
-This repository contains the initial product, architecture, and runnable macOS app scaffold:
+## Runtime and License Boundaries
 
-- SwiftUI macOS app shell
-- Navigation split layout for Containers, Operations, Logs, and Diagnostics
-- Runtime detection model for Apple Silicon, macOS, GPTK, and Wine
-- User-local Open Font Pack setup for Wine container font fallback
-- Generic container command plans
-- External runner CLI boundary for process execution
-- Pinned external Switchyard Wine source and runtime-manifest validation
+| Component | Source and license | Distribution boundary |
+| --- | --- | --- |
+| Switchyard app and runner | This repository, [MIT](LICENSE) | Built locally from Swift source |
+| Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Synchronized at the exact commit in [`config/switchyard-wine.env`](config/switchyard-wine.env) |
+| Apple Game Porting Toolkit components | User-provided Apple software | Never committed, downloaded, or bundled by Switchyard |
+| Open Font Pack | Official Noto projects, SIL OFL 1.1 | Downloaded to a user-local cache and verified before installation |
 
-## Build And Run
+The SwiftUI app does not link against Wine. Wine is replaceable and runs only through the external runner boundary. See [Licensing and redistribution](docs/licensing.md) for the complete policy.
+
+## Requirements
+
+- An Apple Silicon Mac running macOS 14 or later
+- Xcode Command Line Tools with Swift 6
+- Rosetta 2 for the x86_64 Wine runtime
+- A locally obtained Apple Game Porting Toolkit installation for D3DMetal support
+
+## Build and Verify
+
+Clone the app repository and run the fast, runtime-independent checks:
 
 ```sh
+git clone https://github.com/jungwuk-ryu/Switchyard.git
+cd Switchyard
 swift test
-./script/build_and_run.sh --verify
+Tests/Shell/ensure_switchyard_wine_test.sh
+Tests/Shell/runner_prefix_session_test.sh
+SWITCHYARD_SKIP_RUNTIME_ENSURE=1 ./script/build_and_run.sh --verify
 ```
 
-The Codex Run action is wired to:
+To synchronize the pinned Wine source, build its user-local runtime, assemble the app bundle, and launch Switchyard:
 
 ```sh
 ./script/build_and_run.sh
 ```
 
-## Runtime Policy
+The first full runtime build can take a while. Wine source, build products, imported GPTK files, containers, and logs remain outside this repository. The Wine build prerequisites and provenance model are documented in [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine).
 
-- Wine source and compatibility commits live in the public [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine) repository.
-- `config/switchyard-wine.env` pins the exact source revision used by this app.
-- Local development synchronizes that revision into a user cache and builds an immutable runtime outside the app repository.
-- GPTK is imported from a user-selected local path and fingerprinted.
-- Open Noto fonts are downloaded to a user-local cache and installed into containers; Switchyard does not bundle Microsoft Windows fonts.
-- Containers pin runtime IDs so runtime updates do not mutate working installs.
+## Repository Layout
+
+- `app/Switchyard`: SwiftUI app shell and platform integration
+- `app/Packages`: portable models, job planning, runtime detection, and persistence
+- `runtime/runner`: external Wine workload execution boundary
+- `config/switchyard-wine.env`: immutable Wine source pin
+- `script`: local build, verification, and runtime synchronization entrypoints
+- `Tests`: Swift package and shell integration tests
+- `docs`: architecture decisions, development notes, privacy, testing, and licensing
+
+Start with [Architecture](docs/architecture.md) and [Development](docs/development.md). Contributions are welcome through [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities according to [SECURITY.md](SECURITY.md).
+
+## License
+
+Switchyard app and runner code are available under the [MIT License](LICENSE). The patched Wine runtime and third-party components retain their own licenses and distribution requirements.

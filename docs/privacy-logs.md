@@ -1,21 +1,24 @@
-# Privacy And Logs
+# Privacy and Logs
 
 Switchyard collects local diagnostic logs to help users understand failed launches.
 
 ## Rules
 
 - Logs remain local by default.
-- Export requires explicit user action.
-- Diagnostic bundles should redact obvious secrets, tokens, and private account identifiers before sharing.
-- Full absolute paths may reveal usernames. UI should warn before exporting bundles.
+- Copying logs or a diagnostic bundle requires explicit user confirmation.
+- Clipboard output redacts common secret patterns and replaces the current home directory with `~`.
+- Redaction is a safety aid, not a guarantee. Users should review copied text before sharing it.
+- Full absolute paths may reveal usernames. The UI warns before copying diagnostic data.
 - Container run logs may contain account-specific state. Do not upload automatically.
 
-## V1 Diagnostic Bundle
+## Current Diagnostic Bundle
 
-The initial bundle includes:
+The current bundle includes:
 
 - runtime status
 - diagnostic checks
-- recent app log lines
+- recent app log lines, including runner stdout and stderr already streamed into the app
 
-Future bundles may include runner stdout/stderr, Wine version metadata, patchset metadata, and container manifests.
+Runner and Wine output can contain application-specific or account-specific text. Review copied diagnostic data even after automated redaction. Future bundles may add Wine version metadata, patchset metadata, and container manifests.
+
+Developer logging is opt-in. Per-run files are stored with account-only permissions under `~/Library/Application Support/Switchyard/Logs/DebugRuns`, omit argument values from runner metadata, and are pruned by age and count.

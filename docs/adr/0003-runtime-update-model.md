@@ -2,15 +2,19 @@
 
 ## Status
 
-Accepted for v1 scaffold.
+Accepted target architecture; not yet implemented in the developer preview.
 
 ## Decision
 
 Runtime updates must not mutate working containers in place.
 
-Switchyard creates candidate runtimes, then offers per-container migration. Existing containers keep their pinned runtime until the user migrates them. Failed migration must leave recovery metadata and preserve rollback.
+Switchyard will create candidate runtimes, then offer per-container migration. Existing containers will keep their recorded runtime until the user migrates them. Failed migration must leave recovery metadata and preserve rollback.
+
+The current preview records runtime identity in each container manifest but launches with the globally selected compatible runtime. It must not claim per-container pin enforcement until runtime lookup and migration are implemented and tested.
 
 ## Consequences
+
+When implemented:
 
 - Users can keep a known-working container setup.
 - Compatibility regressions are isolated to migrated containers.
