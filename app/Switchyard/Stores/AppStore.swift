@@ -15,6 +15,9 @@ private struct RuntimeRefreshResult {
     var importMessage: String?
 }
 
+private let debugRunLogRetentionInterval: TimeInterval = 14 * 24 * 60 * 60
+private let maximumRetainedDebugRunLogs = 50
+
 private struct SwitchyardWineSourcePolicy {
     var revision: String
 
@@ -57,11 +60,17 @@ final class AppStore: ObservableObject {
     @Published var operations: [InstallJob] = []
     @Published var runSessions: [RunSession] = []
     @Published var logLines: [LogLine] = []
+    @AppStorage("developerLogging") private var developerLogging = false
 
     private let jobEngine = JobEngine()
     private let runnerClient = SwitchyardRunnerClient()
     private let defaults = UserDefaults.standard
     private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
+    private let debugLogFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter
+    }()
     private var diagnosticsTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
 
@@ -96,6 +105,7 @@ final class AppStore: ObservableObject {
         selectedLogSessionID = nil
 
         persistLibrary()
+        pruneDebugRunLogs(in: debugRunLogRoot)
     }
 
     var selectedContainer: Container? {
@@ -494,12 +504,19 @@ final class AppStore: ObservableObject {
         logLines.insert(fontPreparationLog, at: 0)
 
         do {
+            let launchedExecutable = executablePath ?? container.executablePath ?? "configured executable"
+            let launchArguments = executablePath == nil ? container.executableArguments : executableArguments
+            let debugEnvironmentOverrides = debugRunEnvironmentOverrides(for: container)
+            let debugLogPath = debugRunLogPath(for: container, executablePath: launchedExecutable)
+
             let plan = try jobEngine.runPlan(
                 container: container,
                 executablePath: executablePath,
                 executableArguments: executableArguments,
                 runtime: currentRuntime,
                 gptkPath: gptkPath,
+                environmentOverrides: debugEnvironmentOverrides,
+                debugLogPath: debugLogPath,
                 terminateExistingPrefixSession: terminateExistingPrefixSession
             )
             let session = try runnerClient.launch(
@@ -520,10 +537,18 @@ final class AppStore: ObservableObject {
             mark(container.id, as: .running)
             runSessions.insert(session, at: 0)
             selectedLogSessionID = session.id
-            let launchedExecutable = executablePath ?? container.executablePath ?? "configured executable"
-            let launchArguments = executablePath == nil ? container.executableArguments : executableArguments
             let argumentSuffix = launchArguments.isEmpty ? "" : " \(LaunchArgumentParser.format(launchArguments))"
             logLines.insert(LogLine(level: "info", source: container.name, message: "Launch command started through switchyard-runner: \(launchedExecutable)\(argumentSuffix)"), at: 0)
+            if let debugLogPath {
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: container.name,
+                        message: "Debug run logging enabled (WINEDEBUG=\(debugEnvironmentOverrides["WINEDEBUG"] ?? "inherited"), file: \(debugLogPath))"
+                    ),
+                    at: 0
+                )
+            }
         } catch {
             appendFailedRun(for: container, message: "Could not prepare container: \(Self.errorDescription(error))")
         }
@@ -537,6 +562,85 @@ final class AppStore: ObservableObject {
         alert.addButton(withTitle: "Restart")
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func debugRunEnvironmentOverrides(for container: Container) -> [String: String] {
+        guard developerLogging else { return [:] }
+        guard container.environmentOverrides["WINEDEBUG"] == nil else { return [:] }
+        return [
+            "WINEDEBUG": "+timestamp,+seh,+warn,+err,+dcomp,+macdrv,+dxgi,+wined3d"
+        ]
+    }
+
+    private func debugRunLogPath(for container: Container, executablePath: String) -> String? {
+        guard developerLogging else { return nil }
+        let logsRoot = debugRunLogRoot
+        let stamp = debugLogFormatter.string(from: Date())
+        let runID = String(UUID().uuidString.prefix(8)).lowercased()
+        let executableName = URL(fileURLWithPath: executablePath).deletingPathExtension().lastPathComponent
+        let fileName = "\(stamp)-\(runID)-\(sanitizeFilename(container.name))-\(sanitizeFilename(executableName)).log"
+        let fileURL = logsRoot.appendingPathComponent(fileName)
+
+        do {
+            try FileManager.default.createDirectory(at: logsRoot, withIntermediateDirectories: true)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: logsRoot.path
+            )
+            pruneDebugRunLogs(in: logsRoot)
+            return fileURL.path
+        } catch {
+            logLines.insert(
+                LogLine(level: "warning", source: "containers", message: "Could not create debug log directory \(logsRoot.path): \(Self.errorDescription(error))"),
+                at: 0
+            )
+            return nil
+        }
+    }
+
+    private var debugRunLogRoot: URL {
+        let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
+        return library
+            .appendingPathComponent("Application Support", isDirectory: true)
+            .appendingPathComponent("Switchyard", isDirectory: true)
+            .appendingPathComponent("Logs", isDirectory: true)
+            .appendingPathComponent("DebugRuns", isDirectory: true)
+    }
+
+    private func pruneDebugRunLogs(in root: URL, now: Date = Date()) {
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return }
+
+        let cutoff = now.addingTimeInterval(-debugRunLogRetentionInterval)
+        var retained: [(url: URL, modifiedAt: Date)] = []
+        for url in urls where url.pathExtension.lowercased() == "log" {
+            guard let values = try? url.resourceValues(
+                forKeys: [.contentModificationDateKey, .isRegularFileKey]
+            ), values.isRegularFile == true else { continue }
+            let modifiedAt = values.contentModificationDate ?? .distantPast
+            if modifiedAt < cutoff {
+                try? FileManager.default.removeItem(at: url)
+            } else {
+                retained.append((url, modifiedAt))
+            }
+        }
+
+        for entry in retained
+            .sorted(by: { $0.modifiedAt > $1.modifiedAt })
+            .dropFirst(maximumRetainedDebugRunLogs - 1) {
+            try? FileManager.default.removeItem(at: entry.url)
+        }
+    }
+
+    private func sanitizeFilename(_ value: String) -> String {
+        let legal = CharacterSet.alphanumerics.union(.init(charactersIn: "-_."))
+        return value
+            .unicodeScalars
+            .map { scalar in legal.contains(scalar) ? String(scalar) : "_" }
+            .joined()
     }
 
     private func prepareOpenFontsForLaunch(for container: Container) async -> LogLine {

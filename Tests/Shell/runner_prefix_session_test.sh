@@ -11,6 +11,9 @@ PREFIX="$TEST_ROOT/Test.container"
 EVENTS="$TEST_ROOT/events.log"
 
 cleanup() {
+  if [ -f "$TEST_ROOT/descendant.pid" ]; then
+    kill "$(cat "$TEST_ROOT/descendant.pid")" >/dev/null 2>&1 || true
+  fi
   rm -rf "$TEST_ROOT"
 }
 trap cleanup EXIT
@@ -103,5 +106,65 @@ if [ "$(sed -n '1p' "$EVENTS")" != "wine C:\\Program Files\\Steam\\steam.exe pre
   echo "legacy command plans should launch without terminating the prefix session" >&2
   exit 1
 fi
+
+DEBUG_LOG="$TEST_ROOT/logs/debug.log"
+cat > "$TEST_ROOT/logging.json" <<EOF
+{
+  "executable": "/bin/sh",
+  "arguments": ["-c", "printf 'stdout-line\\n'; printf 'stderr-line\\n' >&2", "--token=do-not-record"],
+  "environment": {},
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "logging-test",
+  "debugLogPath": "$DEBUG_LOG"
+}
+EOF
+
+"$RUNNER" run --plan "$TEST_ROOT/logging.json" >/dev/null 2>/dev/null
+if [ "$(stat -f '%Lp' "$DEBUG_LOG")" != "600" ] || [ "$(stat -f '%Lp' "$(dirname "$DEBUG_LOG")")" != "700" ]; then
+  echo "runner debug logs must be private to the current user" >&2
+  exit 1
+fi
+if ! grep -q 'stdout-line' "$DEBUG_LOG" || ! grep -q 'stderr-line' "$DEBUG_LOG"; then
+  echo "runner did not drain stdout and stderr into the debug log" >&2
+  exit 1
+fi
+if grep -q 'do-not-record' "$DEBUG_LOG"; then
+  echo "runner wrote a command-line argument value into the debug log" >&2
+  exit 1
+fi
+if ! grep -q 'argumentCount=3' "$DEBUG_LOG"; then
+  echo "runner did not record redacted launch metadata" >&2
+  exit 1
+fi
+
+cat > "$TEST_ROOT/inherit-pipes.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+sleep 30 &
+printf '%s\n' "$!" > "$DESCENDANT_PID_FILE"
+EOF
+chmod +x "$TEST_ROOT/inherit-pipes.sh"
+cat > "$TEST_ROOT/inherit-pipes.json" <<EOF
+{
+  "executable": "$TEST_ROOT/inherit-pipes.sh",
+  "arguments": [],
+  "environment": {"DESCENDANT_PID_FILE": "$TEST_ROOT/descendant.pid"},
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "inherited-output-test"
+}
+EOF
+
+started_at=$SECONDS
+SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT=0.1 \
+  "$RUNNER" run --plan "$TEST_ROOT/inherit-pipes.json" >/dev/null 2>/dev/null
+if [ "$((SECONDS - started_at))" -gt 3 ]; then
+  echo "runner waited indefinitely for output inherited by a descendant" >&2
+  exit 1
+fi
+if [ ! -s "$TEST_ROOT/descendant.pid" ]; then
+  echo "inherited-output test did not start its descendant" >&2
+  exit 1
+fi
+kill "$(cat "$TEST_ROOT/descendant.pid")" >/dev/null 2>&1 || true
 
 echo "runner_prefix_session tests passed"

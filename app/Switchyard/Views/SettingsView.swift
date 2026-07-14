@@ -5,7 +5,7 @@ struct SettingsView: View {
     @AppStorage("autoOpenLogsOnFailure") private var autoOpenLogsOnFailure = true
     @AppStorage("checkForUpdates") private var checkForUpdates = true
     @AppStorage("defaultDPI") private var defaultDPI = 144.0
-    @AppStorage("developerLogging") private var developerLogging = true
+    @AppStorage("developerLogging") private var developerLogging = false
 
     var body: some View {
         TabView(selection: $store.selectedSettingsTab) {
@@ -82,6 +82,9 @@ struct SettingsView: View {
 
             Form {
                 Toggle("Developer logging", isOn: $developerLogging)
+                Text("When enabled, launches include detailed Wine debug output. Per-run files omit argument values, are protected for your account only, and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Button("Copy Diagnostic Bundle") {
                     let bundle = store.diagnosticBundle()
                     if let data = try? JSONEncoder().encode(bundle),

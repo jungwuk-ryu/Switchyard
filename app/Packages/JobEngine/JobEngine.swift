@@ -69,6 +69,7 @@ public struct JobEngine {
         runtime: RuntimeBuild,
         gptkPath: String?,
         environmentOverrides: [String: String] = [:],
+        debugLogPath: String? = nil,
         terminateExistingPrefixSession: Bool = false
     ) throws -> CommandPlan {
         let selectedExecutablePath = executablePath ?? container.executablePath
@@ -90,6 +91,7 @@ public struct JobEngine {
             gptkPath: gptkPath,
             overrides: mergedEnvironmentOverrides,
             logSource: container.name,
+            debugLogPath: debugLogPath,
             terminateExistingPrefixSession: terminateExistingPrefixSession
         )
     }
@@ -124,6 +126,7 @@ private func commandPlan(
     gptkPath: String?,
     overrides: [String: String] = [:],
     logSource: String,
+    debugLogPath: String? = nil,
     terminateExistingPrefixSession: Bool = false
 ) -> CommandPlan {
     var environment = [
@@ -147,6 +150,7 @@ private func commandPlan(
         environment: environment,
         workingDirectory: container.path,
         logSource: logSource,
+        debugLogPath: debugLogPath,
         terminateExistingPrefixSession: terminateExistingPrefixSession
     )
 }

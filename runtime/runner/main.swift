@@ -47,6 +47,106 @@ private let wineServerCommandTimeout: TimeInterval = {
     return seconds
 }()
 
+private let outputDrainTimeout: TimeInterval = {
+    guard let value = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT"],
+          let seconds = TimeInterval(value),
+          seconds > 0 else {
+        return 1
+    }
+    return seconds
+}()
+
+private final class LineAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffer = ""
+
+    func consume(_ chunk: String) -> [String] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        buffer += chunk
+        guard !buffer.isEmpty else { return [] }
+
+        let lines = buffer.components(separatedBy: .newlines)
+        guard !lines.isEmpty else { return [] }
+
+        if buffer.last == "\n" {
+            buffer.removeAll(keepingCapacity: true)
+            return lines
+        }
+
+        let completeLines = lines.dropLast()
+        buffer = lines.last ?? ""
+        return Array(completeLines)
+    }
+
+    func flush() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !buffer.isEmpty else { return nil }
+        let pending = buffer
+        buffer.removeAll(keepingCapacity: true)
+        return pending
+    }
+}
+
+private final class DebugLogWriter: @unchecked Sendable {
+    private let lock = NSLock()
+    private let handle: FileHandle
+    private var isClosed = false
+
+    init(path: String) throws {
+        let url = URL(fileURLWithPath: path)
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        if Darwin.chmod(directory.path, mode_t(S_IRWXU)) != 0 {
+            throw Self.posixError(operation: "protect debug log directory")
+        }
+
+        let descriptor = Darwin.open(
+            url.path,
+            O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw Self.posixError(operation: "open debug log")
+        }
+        guard Darwin.fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+            let error = Self.posixError(operation: "protect debug log")
+            Darwin.close(descriptor)
+            throw error
+        }
+        handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+    }
+
+    func write(source: String, level: String, message: String) {
+        guard let data = "[\(source)] [\(level)] \(message)\n".data(using: .utf8) else { return }
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isClosed else { return }
+        handle.write(data)
+    }
+
+    func close() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isClosed else { return }
+        try? handle.synchronize()
+        try? handle.close()
+        isClosed = true
+    }
+
+    private static func posixError(operation: String) -> NSError {
+        let code = errno
+        return NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(code),
+            userInfo: [NSLocalizedDescriptionKey: "\(operation): \(String(cString: strerror(code)))"]
+        )
+    }
+}
+
 private final class RunnerProcessRegistry: @unchecked Sendable {
     static let shared = RunnerProcessRegistry()
 
@@ -121,6 +221,21 @@ struct SwitchyardRunner {
         let planURL = URL(fileURLWithPath: arguments[1])
         let data = try Data(contentsOf: planURL)
         let plan = try JSONDecoder().decode(CommandPlan.self, from: data)
+        let debugLogWriter = openDebugLogWriter(path: plan.debugLogPath, source: plan.logSource)
+        defer { debugLogWriter?.close() }
+        let environmentKeys = plan.environment.keys.sorted().joined(separator: ",")
+        emit(
+            source: plan.logSource,
+            level: "info",
+            message: "switchyard-runner start: executable=\(plan.executable) argumentCount=\(plan.arguments.count)",
+            logWriter: debugLogWriter
+        )
+        emit(
+            source: plan.logSource,
+            level: "info",
+            message: "environment-keys=\(environmentKeys)",
+            logWriter: debugLogWriter
+        )
 
         if plan.terminateExistingPrefixSession == true {
             try terminateExistingPrefixSession(plan: plan)
@@ -139,23 +254,46 @@ struct SwitchyardRunner {
         process.standardOutput = stdout
         process.standardError = stderr
 
-        stdout.fileHandleForReading.readabilityHandler = { handle in
-            if let line = String(data: handle.availableData, encoding: .utf8), !line.isEmpty {
-                FileHandle.standardOutput.write(Data("[\(plan.logSource)] \(line)".utf8))
-            }
-        }
-        stderr.fileHandleForReading.readabilityHandler = { handle in
-            if let line = String(data: handle.availableData, encoding: .utf8), !line.isEmpty {
-                FileHandle.standardError.write(Data("[\(plan.logSource)] \(line)".utf8))
-            }
-        }
-
+        let stdoutBuffer = LineAccumulator()
+        let stderrBuffer = LineAccumulator()
         try process.run()
         RunnerProcessRegistry.shared.set(process)
+        let outputGroup = DispatchGroup()
+        streamOutput(
+            from: stdout.fileHandleForReading,
+            source: plan.logSource,
+            level: "info",
+            to: FileHandle.standardOutput,
+            accumulator: stdoutBuffer,
+            logWriter: debugLogWriter,
+            group: outputGroup
+        )
+        streamOutput(
+            from: stderr.fileHandleForReading,
+            source: plan.logSource,
+            level: "error",
+            to: FileHandle.standardError,
+            accumulator: stderrBuffer,
+            logWriter: debugLogWriter,
+            group: outputGroup
+        )
         process.waitUntilExit()
         RunnerProcessRegistry.shared.clear()
-        stdout.fileHandleForReading.readabilityHandler = nil
-        stderr.fileHandleForReading.readabilityHandler = nil
+        if outputGroup.wait(timeout: .now() + outputDrainTimeout) == .timedOut {
+            emit(
+                source: plan.logSource,
+                level: "warning",
+                message: "output drain timed out after the launched process exited; a descendant may still hold its output streams open",
+                logWriter: debugLogWriter
+            )
+        }
+        emit(
+            source: plan.logSource,
+            level: "info",
+            message: "switchyard-runner exit: status=\(process.terminationStatus)",
+            logWriter: debugLogWriter
+        )
+        debugLogWriter?.close()
         Foundation.exit(process.terminationStatus)
     }
 
@@ -296,4 +434,78 @@ private func stopProcessWithinDeadline(_ process: Process) {
 
     Darwin.kill(process.processIdentifier, SIGKILL)
     _ = waitForExit(process, timeout: 0.5)
+}
+
+private func emitLine(
+    source: String,
+    level: String,
+    message: String,
+    outputHandle: FileHandle,
+    logWriter: DebugLogWriter?
+) {
+    let text = "[\(source)] \(message)"
+    outputHandle.write(Data((text + "\n").utf8))
+    emit(source: source, level: level, message: message, logWriter: logWriter)
+}
+
+private func emit(
+    source: String,
+    level: String,
+    message: String,
+    logWriter: DebugLogWriter?
+) {
+    logWriter?.write(source: source, level: level, message: message)
+}
+
+private func openDebugLogWriter(path: String?, source: String) -> DebugLogWriter? {
+    guard let path else { return nil }
+    do {
+        let writer = try DebugLogWriter(path: path)
+        writer.write(source: source, level: "info", message: "created protected debug log")
+        return writer
+    } catch {
+        FileHandle.standardError.write(Data("[\(source)] Unable to open switchyard debug log file: \(error)\n".utf8))
+        return nil
+    }
+}
+
+private func streamOutput(
+    from inputHandle: FileHandle,
+    source: String,
+    level: String,
+    to outputHandle: FileHandle,
+    accumulator: LineAccumulator,
+    logWriter: DebugLogWriter?,
+    group: DispatchGroup
+) {
+    group.enter()
+    DispatchQueue.global(qos: .utility).async {
+        defer {
+            if let tail = accumulator.flush(), !tail.isEmpty {
+                emitLine(
+                    source: source,
+                    level: level,
+                    message: tail,
+                    outputHandle: outputHandle,
+                    logWriter: logWriter
+                )
+            }
+            group.leave()
+        }
+
+        while true {
+            let data = inputHandle.availableData
+            guard !data.isEmpty else { break }
+            let chunk = String(decoding: data, as: UTF8.self)
+            for line in accumulator.consume(chunk) where !line.isEmpty {
+                emitLine(
+                    source: source,
+                    level: level,
+                    message: line,
+                    outputHandle: outputHandle,
+                    logWriter: logWriter
+                )
+            }
+        }
+    }
 }
