@@ -61,6 +61,7 @@ final class AppStore: ObservableObject {
 
     private let jobEngine = JobEngine()
     private let runnerClient = SwitchyardRunnerClient()
+    private let protocolBridge = WineProtocolBridge()
     private let defaults = UserDefaults.standard
     private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
     private let debugLogFormatter: DateFormatter = {
@@ -70,6 +71,8 @@ final class AppStore: ObservableObject {
     }()
     private var diagnosticsTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
+    private var protocolBridgeTask: Task<Void, Never>?
+    private var lastProtocolBridgeError: String?
 
     init() {
         let defaultLibrary = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
@@ -102,6 +105,7 @@ final class AppStore: ObservableObject {
 
         persistLibrary()
         pruneDebugRunLogs(in: debugRunLogRoot)
+        startProtocolBridgeMonitoring()
     }
 
     var selectedContainer: Container? {
@@ -530,6 +534,8 @@ final class AppStore: ObservableObject {
                     }
                 }
             )
+            protocolBridge.recordLaunch(containerID: container.id)
+            refreshProtocolAssociations()
             mark(container.id, as: .running)
             let executableName = launchedExecutable
                 .replacingOccurrences(of: "\\", with: "/")
@@ -567,6 +573,50 @@ final class AppStore: ObservableObject {
         alert.addButton(withTitle: "Restart")
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func startProtocolBridgeMonitoring() {
+        protocolBridgeTask?.cancel()
+        protocolBridgeTask = Task { [weak self] in
+            while !Task.isCancelled {
+                self?.refreshProtocolAssociations()
+                do {
+                    try await Task.sleep(for: .seconds(1))
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func refreshProtocolAssociations() {
+        do {
+            let runnerPath = try runnerClient.runnerURL().path
+            let result = try protocolBridge.refresh(
+                containers: containers,
+                winePath: currentRuntime.winePath,
+                runnerPath: runnerPath
+            )
+            lastProtocolBridgeError = nil
+            for scheme in result.newlyRegisteredSchemes {
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "protocols",
+                        message: "Registered a macOS callback bridge for a Wine URL scheme: \(scheme)"
+                    ),
+                    at: 0
+                )
+            }
+        } catch {
+            let description = Self.errorDescription(error)
+            guard description != lastProtocolBridgeError else { return }
+            lastProtocolBridgeError = description
+            logLines.insert(
+                LogLine(level: "warning", source: "protocols", message: description),
+                at: 0
+            )
+        }
     }
 
     private func debugRunEnvironmentOverrides(for container: Container) -> [String: String] {

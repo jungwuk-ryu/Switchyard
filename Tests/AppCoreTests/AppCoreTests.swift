@@ -1,4 +1,5 @@
 import AppCore
+import Foundation
 import Testing
 
 @Test func runtimeStatusCanLaunchOnlyWhenRequiredComponentsAreReady() {
@@ -40,6 +41,50 @@ import Testing
 
     #expect(parsed == ["-config", #"C:\Games\Steam\config.ini"#, "-quoted", #"C:\Program Files\App\app.exe"#])
     #expect(LaunchArgumentParser.parse(LaunchArgumentParser.format(parsed)) == parsed)
+}
+
+@Test func wineProtocolManifestAcceptsOnlyCustomURLSchemes() {
+    let manifest = """
+    # switchyard-wine-protocols-v1
+    XDT
+    com.example.login
+    https
+    bad/scheme
+    1invalid
+    """
+
+    #expect(
+        WineProtocolAssociationFormat.schemes(inManifest: manifest)
+            == ["xdt", "com.example.login"]
+    )
+    #expect(WineProtocolAssociationFormat.scheme(inRawURL: "XDT://callback?code=secret") == "xdt")
+    #expect(WineProtocolAssociationFormat.scheme(inRawURL: "https://example.com") == nil)
+}
+
+@Test func wineProtocolRoutesPreferTheMostRecentlyActivatedContainer() {
+    let olderID = UUID()
+    let newerID = UUID()
+    let older = WineProtocolRoute(
+        scheme: "xdt",
+        containerID: olderID,
+        prefixPath: "/tmp/Older.container",
+        winePath: "/opt/wine/bin/wine",
+        runnerPath: "/Applications/Switchyard.app/Contents/Helpers/switchyard-runner",
+        lastActivatedAt: Date(timeIntervalSince1970: 1)
+    )
+    let newer = WineProtocolRoute(
+        scheme: "xdt",
+        containerID: newerID,
+        prefixPath: "/tmp/Newer.container",
+        winePath: "/opt/wine/bin/wine",
+        runnerPath: "/Applications/Switchyard.app/Contents/Helpers/switchyard-runner",
+        lastActivatedAt: Date(timeIntervalSince1970: 2)
+    )
+
+    let index = WineProtocolRouteIndex(routes: [older, newer])
+
+    #expect(index.route(forScheme: "XDT")?.containerID == newerID)
+    #expect(index.route(forScheme: "https") == nil)
 }
 
 @Test func containerPathPolicyAvoidsExistingDirectoryNames() {

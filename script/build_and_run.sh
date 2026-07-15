@@ -17,6 +17,7 @@ APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_HELPERS="$APP_CONTENTS/Helpers"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 RUNNER_BINARY="$APP_HELPERS/switchyard-runner"
+URL_HANDLER_BINARY="$APP_HELPERS/switchyard-url-handler"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-$(($(sysctl -n hw.ncpu) - 1))}"
 if [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
@@ -31,17 +32,21 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
 swift build --jobs "$SWIFT_BUILD_JOBS" --product "$APP_NAME"
 swift build --jobs "$SWIFT_BUILD_JOBS" --product switchyard-runner
+swift build --jobs "$SWIFT_BUILD_JOBS" --product switchyard-url-handler
 BUILD_BIN_PATH="$(swift build --show-bin-path)"
 BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
 BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
+BUILD_URL_HANDLER="$BUILD_BIN_PATH/switchyard-url-handler"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_RUNNER" "$RUNNER_BINARY"
+cp "$BUILD_URL_HANDLER" "$URL_HANDLER_BINARY"
 cp "$ROOT_DIR/config/switchyard-wine.env" "$APP_RESOURCES/switchyard-wine.env"
 chmod +x "$APP_BINARY"
 chmod +x "$RUNNER_BINARY"
+chmod +x "$URL_HANDLER_BINARY"
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

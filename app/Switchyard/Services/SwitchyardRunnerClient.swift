@@ -25,6 +25,10 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
     private var processes: [UUID: Process] = [:]
     private let lock = NSLock()
 
+    func runnerURL() throws -> URL {
+        try locateRunner()
+    }
+
     func prefixSessionState(winePath: String, prefixPath: String) -> WinePrefixSessionState {
         guard let runnerURL = try? locateRunner() else { return .unavailable }
 

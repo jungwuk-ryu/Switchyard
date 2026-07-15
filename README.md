@@ -16,6 +16,7 @@ Switchyard is an experimental, open-source macOS app for running Windows game la
 - Runs install and launch plans through a separate `switchyard-runner` process.
 - Records the Wine build, source revision, and GPTK fingerprint used when each container is created.
 - Installs verified Noto fonts as open replacements for common Windows UI fonts.
+- Bridges application-registered custom URL schemes back into the originating Wine container after a macOS browser login.
 - Keeps diagnostic and debug logs local unless the user explicitly copies them.
 
 The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher, and GOG Galaxy are development targets, not guaranteed compatibility claims. Switchyard does not bypass DRM or anti-cheat systems.
@@ -48,6 +49,7 @@ cd Switchyard
 swift test
 Tests/Shell/ensure_switchyard_wine_test.sh
 Tests/Shell/runner_prefix_session_test.sh
+Tests/Shell/runner_protocol_callback_test.sh
 SWITCHYARD_SKIP_RUNTIME_ENSURE=1 ./script/build_and_run.sh --verify
 ```
 

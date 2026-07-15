@@ -10,6 +10,7 @@ Switchyard collects local diagnostic logs to help users understand failed launch
 - Redaction is a safety aid, not a guarantee. Users should review copied text before sharing it.
 - Full absolute paths may reveal usernames. The UI warns before copying diagnostic data.
 - Container run logs may contain account-specific state. Do not upload automatically.
+- Browser-login callback URLs and their query or fragment tokens are never written to Switchyard logs.
 
 ## Current Diagnostic Bundle
 
@@ -22,3 +23,5 @@ The current bundle includes:
 Runner and Wine output can contain application-specific or account-specific text. Review copied diagnostic data even after automated redaction. Future bundles may add Wine version metadata, patchset metadata, and container manifests.
 
 Developer logging is opt-in. Per-run files are stored with account-only permissions under `~/Library/Application Support/Switchyard/Logs/DebugRuns`, omit argument values from runner metadata, and are pruned by age and count.
+
+Custom URL callbacks are transferred through an account-only request file under `~/Library/Application Support/Switchyard/ProtocolBridge/Requests`. The runner reads and deletes that file before invoking Wine. The full callback URL is not placed on the helper or runner command line.

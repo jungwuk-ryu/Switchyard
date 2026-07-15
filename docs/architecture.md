@@ -13,6 +13,9 @@ flowchart LR
     GPTK["User-provided GPTK"] --> Catalog
     Runner --> Wine["Replaceable Wine runtime"]
     Wine --> Container["User-managed container"]
+    Container --> Manifest["Registered URL scheme manifest"]
+    Manifest --> Bridge["Dynamic macOS URL handler"]
+    Bridge --> Runner
 ```
 
 ## Components
@@ -33,6 +36,14 @@ These packages do not own SwiftUI state. `RuntimeCatalog` may invoke narrow macO
 ### Runner
 
 `runtime/runner` is the only boundary that executes Wine and Windows workloads. It accepts a serialized `CommandPlan`, constructs an explicit process environment, streams output, handles cancellation, and returns the child status. Application-specific compatibility behavior belongs in the runtime source, not in the runner.
+
+The runner also accepts protected URL callback request files from the bundled `switchyard-url-handler` helper. It validates the requested scheme and prefix, deletes the request file before launch, and delivers the unchanged URL through `wine start` in that prefix. Callback URLs never appear in runner command-line arguments or Switchyard logs.
+
+### Browser Login Callback Bridge
+
+Wine exports the custom protocols registered in each prefix to a small versioned manifest. The runner starts one Wine-side registry monitor per active prefix, so direct changes under the user or machine `Software\Classes` keys refresh the manifest even when an application does not send a shell association notification. The app watches those manifests and generates one lightweight LaunchServices proxy bundle per scheme. No launcher or game scheme is hardcoded. Standard host schemes such as `http`, `https`, and `file` are rejected, and Switchyard does not replace a handler already owned by another native app.
+
+When Safari or another macOS browser opens a callback, the proxy selects the most recently activated container that registered the scheme and hands a protected one-shot request to `switchyard-runner`. The runner synchronizes that scheme's per-user registration into Wine's class root before calling `wine start`, compensating for Wine's incomplete `HKCU\Software\Classes` merge. This keeps macOS registration and app lifecycle policy in the app repository while the Windows registry enumeration remains in the Wine runtime repository.
 
 ### Runtime Source
 

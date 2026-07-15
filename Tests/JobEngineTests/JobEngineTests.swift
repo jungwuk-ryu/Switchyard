@@ -17,6 +17,10 @@ import Testing
     #expect(plan.executable == "/opt/wine/bin/wine")
     #expect(plan.arguments == ["/tmp/Setup.exe"])
     #expect(plan.environment["WINEPREFIX"] == "/tmp/Toolbox.container")
+    #expect(
+        plan.environment[WineProtocolAssociationFormat.manifestEnvironmentKey]
+            == WineProtocolAssociationFormat.windowsManifestPath
+    )
 }
 
 @Test func jobEngineFailsWhenContainerExecutableIsMissing() {
