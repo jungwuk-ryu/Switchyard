@@ -249,3 +249,62 @@ import Testing
 
     #expect(programs.isEmpty)
 }
+
+@Test func containerDirectoryCatalogListsFoldersBeforeFiles() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent("Games.container", isDirectory: true)
+    let driveCURL = containerURL.appendingPathComponent("drive_c", isDirectory: true)
+    let programFilesURL = driveCURL.appendingPathComponent("Program Files", isDirectory: true)
+    try FileManager.default.createDirectory(at: programFilesURL, withIntermediateDirectories: true)
+    try Data("hello".utf8).write(to: driveCURL.appendingPathComponent("readme.txt"))
+    try Data("hidden".utf8).write(to: driveCURL.appendingPathComponent(".hidden"))
+
+    let container = Container(
+        name: "Games",
+        path: containerURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a"
+    )
+    let catalog = ContainerDirectoryCatalog()
+
+    #expect(catalog.defaultDirectory(for: container) == driveCURL.standardizedFileURL)
+    let entries = try catalog.contents(of: driveCURL, in: container)
+    #expect(entries.map(\.name) == ["Program Files", "readme.txt"])
+    #expect(entries.first?.isDirectory == true)
+    #expect(entries.first?.isNavigable == true)
+    #expect(entries.last?.byteCount == 5)
+}
+
+@Test func containerDirectoryCatalogBlocksSymlinksOutsideContainer() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent("Games.container", isDirectory: true)
+    let driveCURL = containerURL.appendingPathComponent("drive_c", isDirectory: true)
+    let outsideURL = root.appendingPathComponent("Outside", isDirectory: true)
+    let linkedURL = driveCURL.appendingPathComponent("External", isDirectory: true)
+    try FileManager.default.createDirectory(at: driveCURL, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: outsideURL, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(at: linkedURL, withDestinationURL: outsideURL)
+
+    let container = Container(
+        name: "Games",
+        path: containerURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a"
+    )
+    let catalog = ContainerDirectoryCatalog()
+    let entries = try catalog.contents(of: driveCURL, in: container)
+    let externalEntry = try #require(entries.first(where: { $0.name == "External" }))
+
+    #expect(externalEntry.isNavigable == false)
+    #expect(catalog.contains(linkedURL, in: container) == false)
+    do {
+        _ = try catalog.contents(of: linkedURL, in: container)
+        Issue.record("Expected browsing an external symlink to fail")
+    } catch let error as ContainerDirectoryCatalogError {
+        #expect(error == .outsideContainer)
+    }
+}

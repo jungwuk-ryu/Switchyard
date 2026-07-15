@@ -246,3 +246,31 @@ import Testing
     #expect(result.containers.map(\.name) == ["First", "Case Distinct"])
     #expect(result.removedNames == ["Duplicate"])
 }
+
+@Test func logLineKeepsContainerIdentityAndDecodesLegacyPayloads() throws {
+    let containerID = UUID()
+    let line = LogLine(
+        containerID: containerID,
+        level: "info",
+        source: "Steam",
+        message: "Launched"
+    )
+    let roundTripped = try JSONDecoder().decode(LogLine.self, from: JSONEncoder().encode(line))
+
+    #expect(roundTripped.containerID == containerID)
+
+    let legacyData = Data(
+        """
+        {
+          "id": "00000000-0000-0000-0000-000000000001",
+          "timestamp": 0,
+          "level": "info",
+          "source": "Steam",
+          "message": "Legacy log"
+        }
+        """.utf8
+    )
+    let legacyLine = try JSONDecoder().decode(LogLine.self, from: legacyData)
+
+    #expect(legacyLine.containerID == nil)
+}

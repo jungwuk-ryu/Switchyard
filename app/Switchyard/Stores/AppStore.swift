@@ -72,6 +72,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
     @Published private(set) var launchingContainerIDs: Set<UUID> = []
     @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
+    @Published private(set) var sessionSnapshotsByContainerID: [UUID: ContainerSessionSnapshot] = [:]
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published var containers: [Container]
     @Published var logLines: [LogLine] = []
@@ -89,6 +90,7 @@ final class AppStore: ObservableObject {
     }()
     private var diagnosticsTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
+    private var sessionRefreshTokens: [UUID: UUID] = [:]
     private var callbackRecoveryTasks: [UUID: Task<Void, Never>] = [:]
     private var pendingLoginCallbackRecoveries: [UUID: PendingLoginCallbackRecovery] = [:]
     private var protocolBridgeTask: Task<Void, Never>?
@@ -548,6 +550,83 @@ final class AppStore: ObservableObject {
         installedProgramsByContainerID[containerID] ?? []
     }
 
+    func sessionSnapshot(for containerID: UUID) -> ContainerSessionSnapshot {
+        sessionSnapshotsByContainerID[containerID] ?? .checking
+    }
+
+    func monitorContainerSession(for containerID: UUID) async {
+        while !Task.isCancelled,
+              containers.contains(where: { $0.id == containerID }) {
+            await refreshContainerSession(for: containerID)
+            do {
+                try await Task.sleep(for: .seconds(3))
+            } catch {
+                return
+            }
+        }
+    }
+
+    func refreshContainerSession(for containerID: UUID) async {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        let refreshToken = UUID()
+        sessionRefreshTokens[containerID] = refreshToken
+        if sessionSnapshotsByContainerID[containerID] == nil {
+            sessionSnapshotsByContainerID[containerID] = .checking
+        }
+
+        let winePath = currentRuntime.winePath
+        let prefixPath = container.path
+        let runnerClient = runnerClient
+        let snapshot = await Task.detached(priority: .utility) {
+            switch runnerClient.prefixSessionState(winePath: winePath, prefixPath: prefixPath) {
+            case .active:
+                do {
+                    let paths = try runnerClient.runningWindowsExecutablePaths(
+                        winePath: winePath,
+                        prefixPath: prefixPath
+                    )
+                    let processes = paths
+                        .map { WindowsProcessSnapshot(executablePath: $0) }
+                        .sorted { lhs, rhs in
+                            lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+                        }
+                    return ContainerSessionSnapshot(
+                        wineServerState: .active,
+                        processes: processes,
+                        refreshedAt: Date(),
+                        message: nil
+                    )
+                } catch {
+                    return ContainerSessionSnapshot(
+                        wineServerState: .active,
+                        processes: [],
+                        refreshedAt: Date(),
+                        message: "Process details are temporarily unavailable."
+                    )
+                }
+            case .inactive:
+                return ContainerSessionSnapshot(
+                    wineServerState: .inactive,
+                    processes: [],
+                    refreshedAt: Date(),
+                    message: nil
+                )
+            case .unavailable:
+                return ContainerSessionSnapshot(
+                    wineServerState: .unavailable,
+                    processes: [],
+                    refreshedAt: Date(),
+                    message: "Switchyard could not inspect this Wine session."
+                )
+            }
+        }.value
+
+        guard !Task.isCancelled,
+              sessionRefreshTokens[containerID] == refreshToken,
+              containers.contains(where: { $0.id == containerID }) else { return }
+        sessionSnapshotsByContainerID[containerID] = snapshot
+    }
+
     func refreshInstalledPrograms(for containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         installedProgramTasks[containerID]?.cancel()
@@ -647,6 +726,14 @@ final class AppStore: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: container.path, isDirectory: true)])
     }
 
+    func openInFinder(_ url: URL, in containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }),
+              ContainerDirectoryCatalog().contains(url, in: container) else {
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
     func deleteContainer(_ containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         guard !isContainerBusy(containerID) else {
@@ -681,6 +768,8 @@ final class AppStore: ObservableObject {
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)
+        sessionRefreshTokens.removeValue(forKey: containerID)
+        sessionSnapshotsByContainerID.removeValue(forKey: containerID)
         selectedContainerID = containers.first?.id
         persistLibrary()
     }
@@ -957,7 +1046,12 @@ final class AppStore: ObservableObject {
         for container in runningContainers {
             mark(container.id, as: .failed)
             logLines.insert(
-                LogLine(level: "warning", source: container.name, message: "Stop requested for this container."),
+                LogLine(
+                    containerID: container.id,
+                    level: "warning",
+                    source: container.name,
+                    message: "Stop requested for this container."
+                ),
                 at: 0
             )
         }
@@ -970,7 +1064,15 @@ final class AppStore: ObservableObject {
     private func appendFailedRun(for container: Container, message: String) {
         mark(container.id, as: .failed)
         selectedSection = .logs
-        logLines.insert(LogLine(level: "error", source: container.name, message: message), at: 0)
+        logLines.insert(
+            LogLine(
+                containerID: container.id,
+                level: "error",
+                source: container.name,
+                message: message
+            ),
+            at: 0
+        )
     }
 
     nonisolated private static func errorDescription(_ error: Error) -> String {
@@ -980,8 +1082,12 @@ final class AppStore: ObservableObject {
     private func completeRunSession(_ session: RunSession) {
         mark(session.containerID, as: session.outcome == .succeeded ? .succeeded : .failed)
         refreshInstalledPrograms(for: session.containerID)
+        Task {
+            await refreshContainerSession(for: session.containerID)
+        }
         logLines.insert(
             LogLine(
+                containerID: session.containerID,
                 level: session.outcome == .succeeded ? "info" : "error",
                 source: session.containerName,
                 message: "Runner exited with code \(session.exitCode.map(String.init) ?? "unknown")."

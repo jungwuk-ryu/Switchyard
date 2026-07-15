@@ -111,12 +111,14 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         let stdoutStream = ProcessLogStream(
             handle: stdout.fileHandleForReading,
             level: "info",
+            containerID: containerID,
             source: containerName,
             onLog: onLog
         )
         let stderrStream = ProcessLogStream(
             handle: stderr.fileHandleForReading,
             level: "error",
+            containerID: containerID,
             source: containerName,
             onLog: onLog
         )
@@ -259,6 +261,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
 private final class ProcessLogStream: @unchecked Sendable {
     private let handle: FileHandle
     private let level: String
+    private let containerID: UUID
     private let source: String
     private let onLog: @Sendable (LogLine) -> Void
     private let lock = NSLock()
@@ -268,11 +271,13 @@ private final class ProcessLogStream: @unchecked Sendable {
     init(
         handle: FileHandle,
         level: String,
+        containerID: UUID,
         source: String,
         onLog: @escaping @Sendable (LogLine) -> Void
     ) {
         self.handle = handle
         self.level = level
+        self.containerID = containerID
         self.source = source
         self.onLog = onLog
     }
@@ -316,7 +321,14 @@ private final class ProcessLogStream: @unchecked Sendable {
 
     private func emit(_ data: Data, finish: Bool) {
         for line in accumulator.consume(data, finish: finish) {
-            onLog(LogLine(level: level, source: source, message: line))
+            onLog(
+                LogLine(
+                    containerID: containerID,
+                    level: level,
+                    source: source,
+                    message: line
+                )
+            )
         }
     }
 }
