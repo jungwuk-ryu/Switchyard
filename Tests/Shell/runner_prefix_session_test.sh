@@ -3,6 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-$(($(sysctl -n hw.ncpu) - 1))}"
+if [ "$SWIFT_BUILD_JOBS" -gt 13 ]; then
+  SWIFT_BUILD_JOBS=13
+fi
 if [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
   SWIFT_BUILD_JOBS=1
 fi
@@ -23,6 +26,9 @@ cleanup() {
   fi
   if [ -f "$TEST_ROOT/preflight-wineserver.pid" ]; then
     kill "$(cat "$TEST_ROOT/preflight-wineserver.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/protocol-monitor.pid" ]; then
+    kill "$(cat "$TEST_ROOT/protocol-monitor.pid")" >/dev/null 2>&1 || true
   fi
   rm -rf "$TEST_ROOT"
 }
@@ -51,6 +57,19 @@ cat > "$BIN_DIR/switchyard-wine" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'wine %s prefix=%s\n' "$*" "$WINEPREFIX" >> "$TEST_EVENTS"
+if [ "${1:-}" = "winemenubuilder.exe" ] && [ "${2:-}" = "-m" ] && [ -n "${TEST_MONITOR_PID_FILE:-}" ]; then
+  printf '%s\n' "$$" > "$TEST_MONITOR_PID_FILE"
+  trap 'printf "stopped\n" > "$TEST_MONITOR_STOPPED_FILE"; exit 0' TERM INT
+  while :; do
+    sleep 0.1
+  done
+fi
+if [ -n "${TEST_MONITOR_PID_FILE:-}" ]; then
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [ -s "$TEST_MONITOR_PID_FILE" ] && break
+    sleep 0.02
+  done
+fi
 EOF
 chmod +x "$BIN_DIR/wineserver" "$BIN_DIR/switchyard-wine"
 
@@ -155,6 +174,32 @@ perl -0pe 's/,\n  "terminateExistingPrefixSession": true//' "$TEST_ROOT/replace.
 TEST_EVENTS="$EVENTS" "$RUNNER" run --plan "$TEST_ROOT/reuse.json" >/dev/null
 if [ "$(sed -n '1p' "$EVENTS")" != "wine C:\\Program Files\\Steam\\steam.exe prefix=$PREFIX" ]; then
   echo "legacy command plans should launch without terminating the prefix session" >&2
+  exit 1
+fi
+
+: > "$EVENTS"
+cat > "$TEST_ROOT/monitor.json" <<EOF
+{
+  "executable": "$BIN_DIR/switchyard-wine",
+  "arguments": ["C:\\\\Game.exe"],
+  "environment": {
+    "WINEPREFIX": "$PREFIX",
+    "SWITCHYARD_PROTOCOL_ASSOCIATIONS_FILE": "C:\\\\windows\\\\temp\\\\switchyard-protocols-v1.txt",
+    "TEST_MONITOR_PID_FILE": "$TEST_ROOT/protocol-monitor.pid",
+    "TEST_MONITOR_STOPPED_FILE": "$TEST_ROOT/protocol-monitor.stopped"
+  },
+  "workingDirectory": "$PREFIX",
+  "logSource": "protocol-monitor-lifetime-test"
+}
+EOF
+
+TEST_EVENTS="$EVENTS" "$RUNNER" run --plan "$TEST_ROOT/monitor.json" >/dev/null
+if [ ! -s "$TEST_ROOT/protocol-monitor.pid" ] || [ ! -s "$TEST_ROOT/protocol-monitor.stopped" ]; then
+  echo "runner did not stop the Wine protocol monitor after the main process exited" >&2
+  exit 1
+fi
+if kill -0 "$(cat "$TEST_ROOT/protocol-monitor.pid")" >/dev/null 2>&1; then
+  echo "Wine protocol monitor remained alive after runner exit" >&2
   exit 1
 fi
 

@@ -6,8 +6,11 @@ private enum SwitchyardRunnerError: LocalizedError {
     case missingWineServer(String)
     case invalidURLCallbackRequest
     case urlCallbackTimedOut
+    case urlCallbackCommandFailed(Int32)
     case wineServerCommandFailed(arguments: [String], status: Int32, output: String)
     case wineServerCommandTimedOut(arguments: [String])
+    case processInspectionFailed(Int32)
+    case processInspectionTimedOut
     case terminationRequested
 
     var errorDescription: String? {
@@ -18,10 +21,16 @@ private enum SwitchyardRunnerError: LocalizedError {
             "The Wine URL callback request was invalid."
         case .urlCallbackTimedOut:
             "The Wine URL callback did not finish within 15 seconds."
+        case let .urlCallbackCommandFailed(status):
+            "The Wine URL callback command failed with status \(status)."
         case let .wineServerCommandFailed(arguments, status, output):
             "wineserver \(arguments.joined(separator: " ")) failed with status \(status): \(output)"
         case let .wineServerCommandTimedOut(arguments):
             "wineserver \(arguments.joined(separator: " ")) did not finish within 15 seconds."
+        case let .processInspectionFailed(status):
+            "The Wine process list command failed with status \(status)."
+        case .processInspectionTimedOut:
+            "The Wine process list command did not finish within 15 seconds."
         case .terminationRequested:
             "Runner termination was requested before the child process started."
         }
@@ -177,7 +186,7 @@ private final class RunnerProcessRegistry: @unchecked Sendable {
     static let shared = RunnerProcessRegistry()
 
     private let lock = NSLock()
-    private var process: Process?
+    private var processes: [ObjectIdentifier: Process] = [:]
     private var terminationSignal: Int32?
 
     func launch(_ process: Process) throws {
@@ -186,12 +195,13 @@ private final class RunnerProcessRegistry: @unchecked Sendable {
             lock.unlock()
             throw SwitchyardRunnerError.terminationRequested
         }
-        self.process = process
+        let identifier = ObjectIdentifier(process)
+        processes[identifier] = process
         do {
             try process.run()
             lock.unlock()
         } catch {
-            self.process = nil
+            processes.removeValue(forKey: identifier)
             lock.unlock()
             throw error
         }
@@ -199,9 +209,7 @@ private final class RunnerProcessRegistry: @unchecked Sendable {
 
     func clear(_ process: Process) {
         lock.lock()
-        if self.process === process {
-            self.process = nil
-        }
+        processes.removeValue(forKey: ObjectIdentifier(process))
         lock.unlock()
     }
 
@@ -211,10 +219,10 @@ private final class RunnerProcessRegistry: @unchecked Sendable {
             terminationSignal = signalNumber
         }
         let exitStatus = 128 + (terminationSignal ?? signalNumber)
-        let activeProcess = process
+        let activeProcesses = Array(processes.values)
         lock.unlock()
 
-        if let activeProcess {
+        for activeProcess in activeProcesses {
             stopProcessWithinDeadline(activeProcess)
         }
         return exitStatus
@@ -279,6 +287,13 @@ struct SwitchyardRunner {
             print("switchyard-runner ok")
         case "probe-prefix":
             probePrefix(arguments: Array(arguments.dropFirst()))
+        case "list-processes":
+            do {
+                try listProcesses(arguments: Array(arguments.dropFirst()))
+            } catch {
+                FileHandle.standardError.write(Data("Unable to inspect Wine processes: \(error.localizedDescription)\n".utf8))
+                runnerExit(1)
+            }
         case "open-url":
             do {
                 try openURL(arguments: Array(arguments.dropFirst()))
@@ -327,7 +342,10 @@ struct SwitchyardRunner {
         if plan.terminateExistingPrefixSession == true {
             try terminateExistingPrefixSession(plan: plan)
         }
-        startProtocolAssociationMonitor(plan: plan)
+        var protocolMonitor = try startProtocolAssociationMonitor(plan: plan)
+        defer {
+            stopProtocolAssociationMonitor(&protocolMonitor)
+        }
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: plan.executable)
@@ -381,12 +399,65 @@ struct SwitchyardRunner {
             logWriter: debugLogWriter
         )
         debugLogWriter?.close()
+        stopProtocolAssociationMonitor(&protocolMonitor)
         runnerExit(process.terminationStatus)
     }
 
-    private static func startProtocolAssociationMonitor(plan: CommandPlan) {
+    private static func listProcesses(arguments: [String]) throws {
+        guard arguments.count == 4,
+              arguments[0] == "--wine",
+              arguments[2] == "--prefix",
+              FileManager.default.isExecutableFile(atPath: arguments[1]),
+              FileManager.default.fileExists(atPath: arguments[3]) else {
+            printUsage()
+            runnerExit(2)
+        }
+
+        let process = Process()
+        let output = Pipe()
+        let collector = ProcessOutputCollector()
+        process.executableURL = URL(fileURLWithPath: arguments[1])
+        process.arguments = ["wmic", "process", "get", "ExecutablePath"]
+        process.environment = ProcessInfo.processInfo.environment.merging([
+            "WINEPREFIX": arguments[3],
+            "WINEDEBUG": "-all"
+        ]) { _, new in new }
+        process.currentDirectoryURL = URL(fileURLWithPath: arguments[3], isDirectory: true)
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        output.fileHandleForReading.readabilityHandler = { handle in
+            collector.consumeAvailableData(from: handle)
+        }
+        defer { RunnerProcessRegistry.shared.clear(process) }
+
+        do {
+            try RunnerProcessRegistry.shared.launch(process)
+        } catch {
+            collector.cancel(from: output.fileHandleForReading)
+            throw error
+        }
+        guard waitForExit(process, timeout: wineServerCommandTimeout) else {
+            stopProcessWithinDeadline(process)
+            collector.finish(from: output.fileHandleForReading)
+            throw SwitchyardRunnerError.processInspectionTimedOut
+        }
+        collector.finish(from: output.fileHandleForReading)
+        guard process.terminationStatus == 0 else {
+            throw SwitchyardRunnerError.processInspectionFailed(process.terminationStatus)
+        }
+
+        let paths = Set(
+            collector.text
+                .components(separatedBy: .newlines)
+                .dropFirst()
+                .compactMap(WineProtocolAssociationFormat.normalizedWindowsExecutablePath)
+        ).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        FileHandle.standardOutput.write(try JSONEncoder().encode(paths))
+    }
+
+    private static func startProtocolAssociationMonitor(plan: CommandPlan) throws -> Process? {
         guard plan.environment[WineProtocolAssociationFormat.manifestEnvironmentKey]?.isEmpty == false else {
-            return
+            return nil
         }
 
         let process = Process()
@@ -398,7 +469,15 @@ struct SwitchyardRunner {
         }
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
-        try? process.run()
+        try RunnerProcessRegistry.shared.launch(process)
+        return process
+    }
+
+    private static func stopProtocolAssociationMonitor(_ monitor: inout Process?) {
+        guard let process = monitor else { return }
+        stopProcessWithinDeadline(process)
+        RunnerProcessRegistry.shared.clear(process)
+        monitor = nil
     }
 
     private static func probePrefix(arguments: [String]) {
@@ -441,10 +520,64 @@ struct SwitchyardRunner {
             throw SwitchyardRunnerError.invalidURLCallbackRequest
         }
 
+        let handlerExecutablePath: String?
+        if let requestedHandlerExecutablePath = request.handlerExecutablePath {
+            guard let normalizedHandlerExecutablePath = WineProtocolAssociationFormat
+                .normalizedWindowsExecutablePath(requestedHandlerExecutablePath) else {
+                throw SwitchyardRunnerError.invalidURLCallbackRequest
+            }
+            handlerExecutablePath = normalizedHandlerExecutablePath
+        } else {
+            handlerExecutablePath = nil
+        }
+
         let environment = ProcessInfo.processInfo.environment.merging([
             "WINEPREFIX": request.prefixPath,
             WineProtocolAssociationFormat.manifestEnvironmentKey: WineProtocolAssociationFormat.windowsManifestPath
         ]) { _, new in new }
+        if let handlerExecutablePath {
+            let registrationExists = try protocolRegistrationExists(
+                scheme: scheme,
+                winePath: request.winePath,
+                prefixPath: request.prefixPath,
+                environment: environment
+            )
+            if !registrationExists {
+                guard windowsExecutableExists(handlerExecutablePath, prefixPath: request.prefixPath) else {
+                    throw SwitchyardRunnerError.invalidURLCallbackRequest
+                }
+                try runURLCallbackWineCommand(
+                    winePath: request.winePath,
+                    prefixPath: request.prefixPath,
+                    environment: environment,
+                    arguments: [handlerExecutablePath, request.rawURL]
+                )
+                do {
+                    try registerLearnedProtocol(
+                        scheme: scheme,
+                        handlerExecutablePath: handlerExecutablePath,
+                        winePath: request.winePath,
+                        prefixPath: request.prefixPath,
+                        environment: environment
+                    )
+                } catch {
+                    removeLearnedProtocol(
+                        scheme: scheme,
+                        winePath: request.winePath,
+                        prefixPath: request.prefixPath,
+                        environment: environment
+                    )
+                    throw error
+                }
+                synchronizeUserProtocolRegistration(
+                    scheme: scheme,
+                    winePath: request.winePath,
+                    prefixPath: request.prefixPath,
+                    environment: environment
+                )
+                return
+            }
+        }
         synchronizeUserProtocolRegistration(
             scheme: scheme,
             winePath: request.winePath,
@@ -467,12 +600,140 @@ struct SwitchyardRunner {
             throw SwitchyardRunnerError.urlCallbackTimedOut
         }
         guard process.terminationStatus == 0 else {
-            throw SwitchyardRunnerError.wineServerCommandFailed(
-                arguments: ["start"],
-                status: process.terminationStatus,
-                output: ""
+            throw SwitchyardRunnerError.urlCallbackCommandFailed(process.terminationStatus)
+        }
+    }
+
+    private static func registerLearnedProtocol(
+        scheme: String,
+        handlerExecutablePath: String,
+        winePath: String,
+        prefixPath: String,
+        environment: [String: String]
+    ) throws {
+        let key = "HKCU\\Software\\Classes\\\(scheme)"
+        let handlerCommand = "\"\(handlerExecutablePath)\" \"%1\""
+        let commands = [
+            ["reg", "add", key, "/ve", "/d", "URL:\(scheme) protocol", "/f"],
+            ["reg", "add", key, "/v", "URL Protocol", "/d", "", "/f"],
+            ["reg", "add", "\(key)\\shell\\open\\command", "/ve", "/d", handlerCommand, "/f"]
+        ]
+
+        for arguments in commands {
+            try runURLCallbackWineCommand(
+                winePath: winePath,
+                prefixPath: prefixPath,
+                environment: environment,
+                arguments: arguments
             )
         }
+    }
+
+    private static func protocolRegistrationExists(
+        scheme: String,
+        winePath: String,
+        prefixPath: String,
+        environment: [String: String]
+    ) throws -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: winePath)
+        process.arguments = ["reg", "query", "HKCR\\\(scheme)\\shell\\open\\command", "/ve"]
+        process.environment = environment
+        process.currentDirectoryURL = URL(fileURLWithPath: prefixPath, isDirectory: true)
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        defer { RunnerProcessRegistry.shared.clear(process) }
+        try RunnerProcessRegistry.shared.launch(process)
+
+        guard waitForExit(process, timeout: wineServerCommandTimeout) else {
+            stopProcessWithinDeadline(process)
+            throw SwitchyardRunnerError.urlCallbackTimedOut
+        }
+        switch process.terminationStatus {
+        case 0:
+            return true
+        case 1:
+            return false
+        default:
+            throw SwitchyardRunnerError.urlCallbackCommandFailed(process.terminationStatus)
+        }
+    }
+
+    private static func removeLearnedProtocol(
+        scheme: String,
+        winePath: String,
+        prefixPath: String,
+        environment: [String: String]
+    ) {
+        for key in ["HKCU\\Software\\Classes\\\(scheme)", "HKCR\\\(scheme)"] {
+            try? runURLCallbackWineCommand(
+                winePath: winePath,
+                prefixPath: prefixPath,
+                environment: environment,
+                arguments: ["reg", "delete", key, "/f"]
+            )
+        }
+    }
+
+    private static func runURLCallbackWineCommand(
+        winePath: String,
+        prefixPath: String,
+        environment: [String: String],
+        arguments: [String]
+    ) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: winePath)
+        process.arguments = arguments
+        process.environment = environment
+        process.currentDirectoryURL = URL(fileURLWithPath: prefixPath, isDirectory: true)
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        defer { RunnerProcessRegistry.shared.clear(process) }
+        try RunnerProcessRegistry.shared.launch(process)
+
+        guard waitForExit(process, timeout: wineServerCommandTimeout) else {
+            stopProcessWithinDeadline(process)
+            throw SwitchyardRunnerError.urlCallbackTimedOut
+        }
+        guard process.terminationStatus == 0 else {
+            throw SwitchyardRunnerError.urlCallbackCommandFailed(process.terminationStatus)
+        }
+    }
+
+    private static func windowsExecutableExists(_ windowsPath: String, prefixPath: String) -> Bool {
+        let relativeComponents = windowsPath.dropFirst(3).split(separator: "\\").map(String.init)
+        guard !relativeComponents.isEmpty else { return false }
+
+        let driveLetter = String(windowsPath.prefix(1)).lowercased()
+        let prefixURL = URL(fileURLWithPath: prefixPath, isDirectory: true).standardizedFileURL
+        let mappedDriveURL: URL
+        if driveLetter == "c" {
+            mappedDriveURL = prefixURL.appendingPathComponent("drive_c", isDirectory: true)
+        } else {
+            mappedDriveURL = prefixURL
+                .appendingPathComponent("dosdevices", isDirectory: true)
+                .appendingPathComponent("\(driveLetter):", isDirectory: true)
+        }
+        guard FileManager.default.fileExists(atPath: mappedDriveURL.path) else { return false }
+
+        let driveRootURL = mappedDriveURL
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let executableURL = relativeComponents.reduce(driveRootURL) { url, component in
+            url.appendingPathComponent(component)
+        }
+        let resolvedExecutableURL = executableURL.standardizedFileURL.resolvingSymlinksInPath()
+        let driveRootPath = driveRootURL.path
+        let isInsideMappedDrive = driveRootPath == "/"
+            ? resolvedExecutableURL.path.hasPrefix("/")
+            : resolvedExecutableURL.path.hasPrefix(driveRootPath + "/")
+        guard isInsideMappedDrive else { return false }
+
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(
+            atPath: resolvedExecutableURL.path,
+            isDirectory: &isDirectory
+        ) && !isDirectory.boolValue
     }
 
     private static func synchronizeUserProtocolRegistration(
@@ -508,7 +769,7 @@ struct SwitchyardRunner {
 
     private static func printUsage() {
         FileHandle.standardError.write(
-            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | open-url --request <request.json> | run --plan <command-plan.json>\n".utf8)
+            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | open-url --request <request.json> | run --plan <command-plan.json>\n".utf8)
         )
     }
 }

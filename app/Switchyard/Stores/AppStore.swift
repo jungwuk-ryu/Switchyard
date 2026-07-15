@@ -15,6 +15,23 @@ private struct RuntimeRefreshResult {
     var importMessage: String?
 }
 
+private enum LoginCallbackRecoveryError: LocalizedError {
+    case noRunningApplication
+
+    var errorDescription: String? {
+        switch self {
+        case .noRunningApplication:
+            "Keep the Windows game open while recovering its copied login callback."
+        }
+    }
+}
+
+private struct PendingLoginCallbackRecovery {
+    var rawURL: String
+    var winePath: String
+    var candidates: [String]
+}
+
 private let debugRunLogRetentionInterval: TimeInterval = 14 * 24 * 60 * 60
 private let maximumRetainedDebugRunLogs = 50
 
@@ -55,6 +72,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
     @Published private(set) var launchingContainerIDs: Set<UUID> = []
     @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
+    @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published var containers: [Container]
     @Published var logLines: [LogLine] = []
     @AppStorage("developerLogging") private var developerLogging = false
@@ -71,6 +89,8 @@ final class AppStore: ObservableObject {
     }()
     private var diagnosticsTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
+    private var callbackRecoveryTasks: [UUID: Task<Void, Never>] = [:]
+    private var pendingLoginCallbackRecoveries: [UUID: PendingLoginCallbackRecovery] = [:]
     private var protocolBridgeTask: Task<Void, Never>?
     private var lastProtocolBridgeError: String?
 
@@ -276,6 +296,211 @@ final class AppStore: ObservableObject {
         runSelectedContainer()
     }
 
+    func recoverCopiedLoginCallbackForSelectedContainer() {
+        guard let containerID = selectedContainer?.id else { return }
+        recoverCopiedLoginCallback(in: containerID)
+    }
+
+    func recoverCopiedLoginCallback(in containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        if isRecoveringLoginCallback(in: containerID) { return }
+
+        guard let rawURL = NSPasteboard.general.string(forType: .string),
+              !rawURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            let message = "Copy the invalid callback address from Safari before recovering it."
+            loginCallbackRecoveryStates[containerID] = .failed(message: message)
+            logLines.insert(LogLine(level: "warning", source: "protocols", message: message), at: 0)
+            return
+        }
+
+        guard let scheme = WineProtocolAssociationFormat.scheme(
+            inRawURL: rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        ) else {
+            let message = WineProtocolBridgeError.invalidCallbackURL.localizedDescription
+            loginCallbackRecoveryStates[containerID] = .failed(message: message)
+            logLines.insert(LogLine(level: "warning", source: "protocols", message: message), at: 0)
+            return
+        }
+
+        let winePath = currentRuntime.winePath
+        if protocolBridge.hasRegisteredScheme(scheme, in: container) {
+            do {
+                try deliverLoginCallback(
+                    rawURL: rawURL,
+                    containerID: containerID,
+                    winePath: winePath,
+                    handlerExecutablePath: nil
+                )
+            } catch {
+                recordLoginCallbackRecoveryFailure(error, containerID: containerID)
+            }
+            return
+        }
+
+        let prefixPath = container.path
+        let runnerClient = runnerClient
+        loginCallbackRecoveryStates[containerID] = .inspecting(scheme: scheme)
+        callbackRecoveryTasks[containerID]?.cancel()
+        callbackRecoveryTasks[containerID] = Task { [weak self] in
+            defer { self?.callbackRecoveryTasks.removeValue(forKey: containerID) }
+            do {
+                let runningExecutables = try await Task.detached(priority: .userInitiated) {
+                    try runnerClient.runningWindowsExecutablePaths(
+                        winePath: winePath,
+                        prefixPath: prefixPath
+                    )
+                }.value
+                try Task.checkCancellation()
+                guard let self,
+                      self.containers.contains(where: { $0.id == containerID }) else {
+                    return
+                }
+
+                let callbackTargets = WineProtocolAssociationFormat.callbackTargetCandidates(
+                    from: runningExecutables
+                )
+                guard let handlerExecutablePath = callbackTargets.first else {
+                    throw LoginCallbackRecoveryError.noRunningApplication
+                }
+                if callbackTargets.count > 1 {
+                    self.pendingLoginCallbackRecoveries[containerID] = PendingLoginCallbackRecovery(
+                        rawURL: rawURL,
+                        winePath: winePath,
+                        candidates: callbackTargets
+                    )
+                    self.loginCallbackRecoveryStates[containerID] = .choosing(
+                        scheme: scheme,
+                        candidates: callbackTargets
+                    )
+                    return
+                }
+                try self.deliverLoginCallback(
+                    rawURL: rawURL,
+                    containerID: containerID,
+                    winePath: winePath,
+                    handlerExecutablePath: handlerExecutablePath
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self else { return }
+                self.recordLoginCallbackRecoveryFailure(error, containerID: containerID)
+            }
+        }
+    }
+
+    func chooseLoginCallbackTarget(_ executablePath: String, in containerID: UUID) {
+        guard let pending = pendingLoginCallbackRecoveries[containerID],
+              pending.candidates.contains(executablePath) else {
+            return
+        }
+        do {
+            try deliverLoginCallback(
+                rawURL: pending.rawURL,
+                containerID: containerID,
+                winePath: pending.winePath,
+                handlerExecutablePath: executablePath
+            )
+        } catch {
+            recordLoginCallbackRecoveryFailure(error, containerID: containerID)
+        }
+    }
+
+    func cancelLoginCallbackTargetSelection(in containerID: UUID) {
+        pendingLoginCallbackRecoveries.removeValue(forKey: containerID)
+        loginCallbackRecoveryStates[containerID] = .failed(message: "Login callback recovery was cancelled.")
+    }
+
+    func loginCallbackRecoveryState(for containerID: UUID) -> LoginCallbackRecoveryState? {
+        loginCallbackRecoveryStates[containerID]
+    }
+
+    func learnedLoginCallbackSchemes(for containerID: UUID) -> [String] {
+        protocolBridge.learnedSchemes(for: containerID)
+    }
+
+    func isRecoveringLoginCallback(in containerID: UUID) -> Bool {
+        switch loginCallbackRecoveryStates[containerID] {
+        case .inspecting, .choosing, .forwarding:
+            true
+        case .succeeded, .failed, nil:
+            false
+        }
+    }
+
+    private func deliverLoginCallback(
+        rawURL: String,
+        containerID: UUID,
+        winePath: String,
+        handlerExecutablePath: String?
+    ) throws {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        let runnerPath = try runnerClient.runnerURL().path
+        let request = try protocolBridge.makeCallbackRecoveryRequest(
+            rawURL: rawURL,
+            containerID: containerID,
+            containers: containers,
+            winePath: winePath,
+            runnerPath: runnerPath,
+            handlerExecutablePath: handlerExecutablePath
+        )
+        pendingLoginCallbackRecoveries.removeValue(forKey: containerID)
+        loginCallbackRecoveryStates[containerID] = .forwarding(scheme: request.scheme)
+
+        try runnerClient.deliverURLCallback(request) { [weak self] exitCode in
+            Task { @MainActor in
+                guard let self,
+                      self.containers.contains(where: { $0.id == containerID }) else {
+                    return
+                }
+                guard exitCode == 0 else {
+                    let message = "Wine could not accept the copied \(request.scheme): callback."
+                    self.loginCallbackRecoveryStates[containerID] = .failed(message: message)
+                    self.logLines.insert(
+                        LogLine(level: "warning", source: "protocols", message: message),
+                        at: 0
+                    )
+                    return
+                }
+
+                do {
+                    try self.protocolBridge.commitCallbackRecovery(
+                        request,
+                        containerID: containerID,
+                        containers: self.containers,
+                        runnerPath: runnerPath
+                    )
+                    self.loginCallbackRecoveryStates[containerID] = .succeeded(scheme: request.scheme)
+                    self.logLines.insert(
+                        LogLine(
+                            level: "info",
+                            source: "protocols",
+                            message: "Recovered the \(request.scheme): callback for \(container.name)."
+                        ),
+                        at: 0
+                    )
+                } catch {
+                    let message = "The callback reached Wine, but automatic recovery could not be saved: \(Self.errorDescription(error))"
+                    self.loginCallbackRecoveryStates[containerID] = .failed(message: message)
+                    self.logLines.insert(
+                        LogLine(level: "warning", source: "protocols", message: message),
+                        at: 0
+                    )
+                }
+            }
+        }
+    }
+
+    private func recordLoginCallbackRecoveryFailure(_ error: Error, containerID: UUID) {
+        pendingLoginCallbackRecoveries.removeValue(forKey: containerID)
+        let message = Self.errorDescription(error)
+        loginCallbackRecoveryStates[containerID] = .failed(message: message)
+        logLines.insert(
+            LogLine(level: "warning", source: "protocols", message: message),
+            at: 0
+        )
+    }
+
     func chooseExecutableAndRun(in containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         guard !isContainerBusy(containerID) else {
@@ -449,6 +674,10 @@ final class AppStore: ObservableObject {
         }
 
         containers.removeAll { $0.id == containerID }
+        callbackRecoveryTasks[containerID]?.cancel()
+        callbackRecoveryTasks.removeValue(forKey: containerID)
+        pendingLoginCallbackRecoveries.removeValue(forKey: containerID)
+        loginCallbackRecoveryStates.removeValue(forKey: containerID)
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)

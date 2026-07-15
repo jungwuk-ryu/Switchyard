@@ -87,6 +87,113 @@ import Testing
     #expect(index.route(forScheme: "https") == nil)
 }
 
+@Test func learnedWineProtocolAssociationsNormalizeReplaceAndPruneRoutes() {
+    let retainedContainerID = UUID()
+    let removedContainerID = UUID()
+    let firstDate = Date(timeIntervalSince1970: 10)
+    let replacementDate = Date(timeIntervalSince1970: 20)
+    var index = WineProtocolLearnedAssociationIndex()
+
+    #expect(
+        index.learn(
+            scheme: "XDT",
+            for: retainedContainerID,
+            handlerExecutablePath: #"C:\Games\First.exe"#,
+            at: firstDate
+        ) == "xdt"
+    )
+    #expect(
+        index.learn(
+            scheme: "xdt",
+            for: retainedContainerID,
+            handlerExecutablePath: #"C:\Games\Heartopia\xdt.exe"#,
+            at: replacementDate
+        ) == "xdt"
+    )
+    #expect(index.learn(scheme: "TapOAuth", for: removedContainerID, at: firstDate) == "tapoauth")
+    #expect(index.learn(scheme: "https", for: retainedContainerID, at: firstDate) == nil)
+    #expect(
+        index.learn(
+            scheme: "bad-handler",
+            for: retainedContainerID,
+            handlerExecutablePath: #"C:\Games\..\Bad.exe"#,
+            at: firstDate
+        ) == nil
+    )
+
+    #expect(
+        index.associations(for: retainedContainerID)
+            == [
+                WineProtocolLearnedAssociation(
+                    scheme: "xdt",
+                    containerID: retainedContainerID,
+                    handlerExecutablePath: #"C:\Games\Heartopia\xdt.exe"#,
+                    learnedAt: replacementDate
+                )
+            ]
+    )
+
+    let pruned = index.pruning(to: [retainedContainerID])
+    #expect(pruned.associations.count == 1)
+    #expect(pruned.associations(for: removedContainerID).isEmpty)
+}
+
+@Test func windowsExecutablePathsAreNormalizedWithoutAllowingTraversal() {
+    let prefixPath = "/tmp/Test.container"
+
+    #expect(
+        WineProtocolAssociationFormat.normalizedWindowsExecutablePath(#" C:/Games/Heartopia/xdt.EXE "#)
+            == #"C:\Games\Heartopia\xdt.EXE"#
+    )
+    #expect(
+        WineProtocolAssociationFormat.windowsExecutablePath(
+            hostPath: "/tmp/Test.container/drive_c/Games/Heartopia/xdt.exe",
+            prefixPath: prefixPath
+        ) == #"C:\Games\Heartopia\xdt.exe"#
+    )
+    #expect(
+        WineProtocolAssociationFormat.windowsExecutablePath(
+            hostPath: "/tmp/Test.container-copy/drive_c/Games/xdt.exe",
+            prefixPath: prefixPath
+        ) == nil
+    )
+    #expect(WineProtocolAssociationFormat.normalizedWindowsExecutablePath(#"C:\Games\..\xdt.exe"#) == nil)
+    #expect(
+        WineProtocolAssociationFormat.normalizedWindowsExecutablePath(#"Z:\Games\xdt.exe"#)
+            == #"Z:\Games\xdt.exe"#
+    )
+    #expect(WineProtocolAssociationFormat.normalizedWindowsExecutablePath(#"1:\Games\xdt.exe"#) == nil)
+    #expect(WineProtocolAssociationFormat.normalizedWindowsExecutablePath(#"C:\Games\xdt.dll"#) == nil)
+    #expect(WineProtocolAssociationFormat.normalizedWindowsExecutablePath(#"C:\Games\"xdt.exe"#) == nil)
+}
+
+@Test func callbackTargetsExcludeWineInfrastructureAndHelpers() {
+    let paths = [
+        #"C:\windows\system32\services.exe"#,
+        #"C:\Program Files (x86)\Steam\steam.exe"#,
+        #"C:\Program Files (x86)\Steam\steamwebhelper.exe"#,
+        #"C:\Games\Heartopia\xdt.exe"#,
+        #"D:\SteamLibrary\Another Game\game.exe"#,
+        #"C:\Games\Heartopia\UnityCrashHandler64.exe"#,
+        #"C:\Games\Heartopia\xdt.exe"#
+    ]
+
+    #expect(
+        WineProtocolAssociationFormat.callbackTargetCandidates(from: paths)
+            == [
+                #"C:\Games\Heartopia\xdt.exe"#,
+                #"C:\Program Files (x86)\Steam\steam.exe"#,
+                #"D:\SteamLibrary\Another Game\game.exe"#
+            ]
+    )
+    #expect(
+        WineProtocolAssociationFormat.callbackTargetCandidates(
+            from: paths,
+            excluding: [#"C:\Program Files (x86)\Steam\steam.exe"#]
+        ) == [#"C:\Games\Heartopia\xdt.exe"#, #"D:\SteamLibrary\Another Game\game.exe"#]
+    )
+}
+
 @Test func containerPathPolicyAvoidsExistingDirectoryNames() {
     let existingNames: Set<String> = [
         "NewContainer.container",

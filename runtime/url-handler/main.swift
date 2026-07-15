@@ -36,7 +36,8 @@ private final class URLHandlerDelegate: NSObject, NSApplicationDelegate {
             scheme: scheme,
             rawURL: rawURL,
             prefixPath: route.prefixPath,
-            winePath: route.winePath
+            winePath: route.winePath,
+            handlerExecutablePath: route.handlerExecutablePath
         )
         guard let requestURL = try? writeProtectedRequest(request) else { return }
         defer { try? FileManager.default.removeItem(at: requestURL) }

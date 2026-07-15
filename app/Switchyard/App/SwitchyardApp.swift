@@ -27,6 +27,16 @@ struct SwitchyardApp: App {
                 }
                 .keyboardShortcut("r")
 
+                Button("Recover Copied Login Callback") {
+                    store.recoverCopiedLoginCallbackForSelectedContainer()
+                }
+                .keyboardShortcut("u", modifiers: [.command, .option])
+                .disabled(
+                    store.selectedContainer.map {
+                        store.isRecoveringLoginCallback(in: $0.id)
+                    } ?? true
+                )
+
                 Button("Stop All Runs") {
                     store.stopAllRuns()
                 }

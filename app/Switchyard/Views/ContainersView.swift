@@ -164,6 +164,9 @@ struct ContainersView: View {
                         }
                     }
 
+                    LoginCallbackRecoverySection(container: container)
+                        .environmentObject(store)
+
                     GroupBox("Environment") {
                         EnvironmentOverridesEditor(containerID: container.id)
                             .environmentObject(store)

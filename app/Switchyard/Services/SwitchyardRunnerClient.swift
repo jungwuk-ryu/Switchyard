@@ -1,4 +1,5 @@
 import AppCore
+import Darwin
 import Foundation
 
 enum WinePrefixSessionState {
@@ -10,6 +11,7 @@ enum WinePrefixSessionState {
 enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     case missingRunner
     case couldNotEncodePlan
+    case couldNotListWindowsProcesses(Int32)
 
     var description: String {
         switch self {
@@ -17,6 +19,8 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
             "switchyard-runner helper was not found in the app bundle or build directory."
         case .couldNotEncodePlan:
             "Command plan could not be serialized for the runner."
+        case let .couldNotListWindowsProcesses(status):
+            "Running Windows applications could not be inspected (exit code \(status))."
         }
     }
 }
@@ -53,6 +57,23 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         default:
             return .unavailable
         }
+    }
+
+    func runningWindowsExecutablePaths(winePath: String, prefixPath: String) throws -> [String] {
+        let runnerURL = try locateRunner()
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = runnerURL
+        process.arguments = ["list-processes", "--wine", winePath, "--prefix", prefixPath]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw SwitchyardRunnerClientError.couldNotListWindowsProcesses(process.terminationStatus)
+        }
+        return try JSONDecoder().decode([String].self, from: data)
     }
 
     func launch(
@@ -138,6 +159,34 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         return session
     }
 
+    func deliverURLCallback(
+        _ request: WineURLCallbackRequest,
+        onExit: @escaping @Sendable (Int32) -> Void
+    ) throws {
+        let runnerURL = try locateRunner()
+        let requestURL = try writeProtectedCallbackRequest(request)
+        let processID = UUID()
+        let process = Process()
+        process.executableURL = runnerURL
+        process.arguments = ["open-url", "--request", requestURL.path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { [weak self] process in
+            try? FileManager.default.removeItem(at: requestURL)
+            self?.removeProcess(processID)
+            onExit(process.terminationStatus)
+        }
+
+        store(process, for: processID)
+        do {
+            try process.run()
+        } catch {
+            removeProcess(processID)
+            try? FileManager.default.removeItem(at: requestURL)
+            throw error
+        }
+    }
+
     func stopAll() {
         lock.lock()
         let activeProcesses = Array(processes.values)
@@ -169,6 +218,29 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         }
 
         throw SwitchyardRunnerClientError.missingRunner
+    }
+
+    private func writeProtectedCallbackRequest(_ request: WineURLCallbackRequest) throws -> URL {
+        let rootURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Switchyard", isDirectory: true)
+            .appendingPathComponent("ProtocolBridge", isDirectory: true)
+        let requestsURL = rootURL.appendingPathComponent("Requests", isDirectory: true)
+        try FileManager.default.createDirectory(at: requestsURL, withIntermediateDirectories: true)
+        guard Darwin.chmod(requestsURL.path, mode_t(S_IRWXU)) == 0 else {
+            throw POSIXError(.EACCES)
+        }
+
+        let requestURL = requestsURL.appendingPathComponent("\(UUID().uuidString).json")
+        do {
+            try JSONEncoder().encode(request).write(to: requestURL, options: [.atomic])
+            guard Darwin.chmod(requestURL.path, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+                throw POSIXError(.EACCES)
+            }
+        } catch {
+            try? FileManager.default.removeItem(at: requestURL)
+            throw error
+        }
+        return requestURL
     }
 
     private func store(_ process: Process, for sessionID: UUID) {
