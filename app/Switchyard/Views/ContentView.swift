@@ -20,12 +20,6 @@ struct ContentView: View {
                 }
 
                 Button {
-                    store.runSelectedContainer()
-                } label: {
-                    Label("Run Container", systemImage: "play.fill")
-                }
-
-                Button {
                     store.stopAllRuns()
                 } label: {
                     Label("Stop All Runs", systemImage: "stop.fill")

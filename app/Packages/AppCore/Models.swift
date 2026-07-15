@@ -385,6 +385,7 @@ public struct RunSession: Identifiable, Codable, Equatable, Sendable {
 public struct LogLine: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var timestamp: Date
+    public var containerID: UUID?
     public var level: String
     public var source: String
     public var message: String
@@ -392,12 +393,14 @@ public struct LogLine: Identifiable, Codable, Equatable, Sendable {
     public init(
         id: UUID = UUID(),
         timestamp: Date = Date(),
+        containerID: UUID? = nil,
         level: String,
         source: String,
         message: String
     ) {
         self.id = id
         self.timestamp = timestamp
+        self.containerID = containerID
         self.level = level
         self.source = source
         self.message = message
