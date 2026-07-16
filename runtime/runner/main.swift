@@ -16,7 +16,7 @@ private enum SwitchyardRunnerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case let .missingWineServer(path):
-            "Cannot replace the existing Wine prefix session because wineserver was not found next to \(path)."
+            "wineserver was not found next to the Wine executable at \(path)."
         case .invalidURLCallbackRequest:
             "The Wine URL callback request was invalid."
         case .urlCallbackTimedOut:
@@ -294,6 +294,13 @@ struct SwitchyardRunner {
                 FileHandle.standardError.write(Data("Unable to inspect Wine processes: \(error.localizedDescription)\n".utf8))
                 runnerExit(1)
             }
+        case "stop-prefix":
+            do {
+                try stopPrefix(arguments: Array(arguments.dropFirst()))
+            } catch {
+                FileHandle.standardError.write(Data("Unable to stop Wine prefix session: \(error.localizedDescription)\n".utf8))
+                runnerExit(1)
+            }
         case "open-url":
             do {
                 try openURL(arguments: Array(arguments.dropFirst()))
@@ -453,6 +460,26 @@ struct SwitchyardRunner {
                 .compactMap(WineProtocolAssociationFormat.normalizedWindowsExecutablePath)
         ).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         FileHandle.standardOutput.write(try JSONEncoder().encode(paths))
+    }
+
+    private static func stopPrefix(arguments: [String]) throws {
+        guard arguments.count == 4,
+              arguments[0] == "--wine",
+              arguments[2] == "--prefix",
+              FileManager.default.isExecutableFile(atPath: arguments[1]),
+              FileManager.default.fileExists(atPath: arguments[3]) else {
+            printUsage()
+            runnerExit(2)
+        }
+
+        let environment = ProcessInfo.processInfo.environment.merging([
+            "WINEPREFIX": arguments[3],
+            "WINEDEBUG": "-all"
+        ]) { _, new in new }
+        try stopWinePrefixSession(
+            wineExecutablePath: arguments[1],
+            environment: environment
+        )
     }
 
     private static func startProtocolAssociationMonitor(plan: CommandPlan) throws -> Process? {
@@ -769,21 +796,31 @@ struct SwitchyardRunner {
 
     private static func printUsage() {
         FileHandle.standardError.write(
-            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | open-url --request <request.json> | run --plan <command-plan.json>\n".utf8)
+            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | run --plan <command-plan.json>\n".utf8)
         )
     }
 }
 
 private func terminateExistingPrefixSession(plan: CommandPlan) throws {
-    guard let wineServerURL = wineServerURL(forWineExecutable: plan.executable) else {
-        throw SwitchyardRunnerError.missingWineServer(plan.executable)
-    }
-
     FileHandle.standardOutput.write(
         Data("[\(plan.logSource)] Stopping any existing Wine session for this prefix before relaunch.\n".utf8)
     )
 
     let environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
+    try stopWinePrefixSession(
+        wineExecutablePath: plan.executable,
+        environment: environment
+    )
+}
+
+private func stopWinePrefixSession(
+    wineExecutablePath: String,
+    environment: [String: String]
+) throws {
+    guard let wineServerURL = wineServerURL(forWineExecutable: wineExecutablePath) else {
+        throw SwitchyardRunnerError.missingWineServer(wineExecutablePath)
+    }
+
     try runWineServer(
         at: wineServerURL,
         arguments: ["-k"],

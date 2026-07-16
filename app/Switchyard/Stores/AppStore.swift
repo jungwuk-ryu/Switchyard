@@ -78,6 +78,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
     @Published private(set) var recentProgramLaunchesByContainerID: [UUID: [RecentProgramLaunch]] = [:]
     @Published private(set) var sessionSnapshotsByContainerID: [UUID: ContainerSessionSnapshot] = [:]
+    @Published private(set) var stoppingWineServerContainerIDs: Set<UUID> = []
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published var containers: [Container]
     @Published var logLines: [LogLine] = []
@@ -96,6 +97,7 @@ final class AppStore: ObservableObject {
     private var diagnosticsTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
     private var activeRunSessionIDsByContainerID: [UUID: Set<UUID>] = [:]
+    private var userStoppedRunSessionIDs: Set<UUID> = []
     private var prefixStartupTasks: [UUID: Task<Void, Never>] = [:]
     private var prefixStartupsAwaitingInactiveTransition: Set<UUID> = []
     private var sessionRefreshTokens: [UUID: UUID] = [:]
@@ -518,8 +520,8 @@ final class AppStore: ObservableObject {
 
     func chooseExecutableAndRun(in containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
-        guard !isContainerLaunching(containerID) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish launching before starting another executable."), at: 0)
+        guard !isContainerTransitioning(containerID) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish its current session action before starting another executable."), at: 0)
             return
         }
 
@@ -600,6 +602,61 @@ final class AppStore: ObservableObject {
 
     func sessionSnapshot(for containerID: UUID) -> ContainerSessionSnapshot {
         sessionSnapshotsByContainerID[containerID] ?? .checking
+    }
+
+    func isStoppingWineServer(in containerID: UUID) -> Bool {
+        stoppingWineServerContainerIDs.contains(containerID)
+    }
+
+    func isContainerTransitioning(_ containerID: UUID) -> Bool {
+        isContainerLaunching(containerID) || isStoppingWineServer(in: containerID)
+    }
+
+    func stopWineServer(in containerID: UUID) async {
+        guard !stoppingWineServerContainerIDs.contains(containerID),
+              !isContainerLaunching(containerID),
+              let container = containers.first(where: { $0.id == containerID }) else { return }
+
+        stoppingWineServerContainerIDs.insert(containerID)
+        defer { stoppingWineServerContainerIDs.remove(containerID) }
+
+        let winePath = currentRuntime.winePath
+        let prefixPath = container.path
+        let runnerClient = runnerClient
+        let targetedRunSessionIDs = activeRunSessionIDsByContainerID[containerID] ?? []
+        userStoppedRunSessionIDs.formUnion(targetedRunSessionIDs)
+
+        do {
+            try await Task.detached(priority: .userInitiated) {
+                try runnerClient.stopWineServer(winePath: winePath, prefixPath: prefixPath)
+            }.value
+            finishPrefixStartup(for: containerID)
+            await refreshContainerSession(for: containerID)
+            mark(containerID, as: .ready)
+            logLines.insert(
+                LogLine(
+                    containerID: containerID,
+                    level: "info",
+                    source: container.name,
+                    message: "wineserver stopped for this container."
+                ),
+                at: 0
+            )
+        } catch {
+            await refreshContainerSession(for: containerID)
+            if sessionSnapshot(for: containerID).wineServerState == .active {
+                userStoppedRunSessionIDs.subtract(targetedRunSessionIDs)
+            }
+            logLines.insert(
+                LogLine(
+                    containerID: containerID,
+                    level: "error",
+                    source: container.name,
+                    message: "Could not stop wineserver: \(Self.errorDescription(error))"
+                ),
+                at: 0
+            )
+        }
     }
 
     func monitorContainerSession(for containerID: UUID) async {
@@ -835,7 +892,7 @@ final class AppStore: ObservableObject {
     }
 
     func isContainerBusy(_ containerID: UUID) -> Bool {
-        isContainerLaunching(containerID) || isContainerRunning(containerID)
+        isContainerTransitioning(containerID) || isContainerRunning(containerID)
     }
 
     func openContainerInFinder(_ containerID: UUID) {
@@ -885,7 +942,11 @@ final class AppStore: ObservableObject {
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)
-        activeRunSessionIDsByContainerID.removeValue(forKey: containerID)
+        if let activeRunSessionIDs = activeRunSessionIDsByContainerID.removeValue(
+            forKey: containerID
+        ) {
+            userStoppedRunSessionIDs.subtract(activeRunSessionIDs)
+        }
         prefixStartupTasks[containerID]?.cancel()
         prefixStartupTasks.removeValue(forKey: containerID)
         startingPrefixContainerIDs.remove(containerID)
@@ -894,6 +955,7 @@ final class AppStore: ObservableObject {
         recentProgramLaunchesByContainerID.removeValue(forKey: containerID)
         sessionRefreshTokens.removeValue(forKey: containerID)
         sessionSnapshotsByContainerID.removeValue(forKey: containerID)
+        stoppingWineServerContainerIDs.remove(containerID)
         selectedContainerID = containers.first?.id
         persistLibrary()
         persistRecentProgramLaunches()
@@ -905,8 +967,8 @@ final class AppStore: ObservableObject {
 
     private func runContainer(containerID: UUID, executablePath: String?, executableArguments: [String]) async {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
-        guard !isContainerLaunching(containerID) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish launching before starting another executable."), at: 0)
+        guard !isContainerTransitioning(containerID) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish its current session action before starting another executable."), at: 0)
             return
         }
 
@@ -1214,6 +1276,10 @@ final class AppStore: ObservableObject {
         containers.contains { isContainerRunning($0.id) }
     }
 
+    func clearLogs(for containerID: UUID? = nil) {
+        logLines = LogClearPolicy.clearing(logLines, for: containerID)
+    }
+
     func stopAllRuns() {
         let runningContainers = containers.filter { isContainerRunning($0.id) }
         runnerClient.stopAll()
@@ -1255,11 +1321,19 @@ final class AppStore: ObservableObject {
     }
 
     private func completeRunSession(_ session: RunSession) {
+        let wasStoppedByUser = userStoppedRunSessionIDs.remove(session.id) != nil
+        let normalizedOutcome = RunCompletionPolicy.normalizedOutcome(
+            session.outcome,
+            stoppedByUser: wasStoppedByUser
+        )
         activeRunSessionIDsByContainerID[session.containerID]?.remove(session.id)
         let hasRemainingRuns = activeRunSessionIDsByContainerID[session.containerID]?.isEmpty == false
         if !hasRemainingRuns {
             activeRunSessionIDsByContainerID.removeValue(forKey: session.containerID)
-            mark(session.containerID, as: session.outcome == .succeeded ? .succeeded : .failed)
+            mark(
+                session.containerID,
+                as: RunCompletionPolicy.containerStatus(for: normalizedOutcome)
+            )
         }
         refreshInstalledPrograms(for: session.containerID)
         Task {
@@ -1268,9 +1342,11 @@ final class AppStore: ObservableObject {
         logLines.insert(
             LogLine(
                 containerID: session.containerID,
-                level: session.outcome == .succeeded ? "info" : "error",
+                level: normalizedOutcome == .failed ? "error" : "info",
                 source: session.containerName,
-                message: "Runner exited with code \(session.exitCode.map(String.init) ?? "unknown")."
+                message: wasStoppedByUser
+                    ? "Runner stopped at the user's request."
+                    : "Runner exited with code \(session.exitCode.map(String.init) ?? "unknown")."
             ),
             at: 0
         )

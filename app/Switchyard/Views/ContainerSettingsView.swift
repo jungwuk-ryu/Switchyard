@@ -7,90 +7,127 @@ struct ContainerSettingsView: View {
     let onDelete: () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Container Settings")
-                        .font(.title2.weight(.semibold))
-                    Text("Launch behavior and advanced compatibility options for \(container.name).")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    settingsHeader
 
-                GroupBox("Launch") {
-                    VStack(alignment: .leading, spacing: 14) {
-                        LabeledContent("Name") {
-                            TextField("Name", text: containerNameBinding)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(maxWidth: 360)
-                        }
-
-                        PathPickerRow(
-                            title: "Default Executable",
-                            message: "Choose the Windows executable to run by default in this container.",
-                            initialDirectoryURL: URL(fileURLWithPath: container.path, isDirectory: true),
-                            path: executablePathBinding
-                        ) {
-                            store.updateExecutablePath(for: container.id, to: executablePathBinding.wrappedValue)
-                        }
-
-                        LabeledContent("Launch Arguments") {
-                            LaunchArgumentsField(containerID: container.id)
-                                .frame(maxWidth: 520)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                GroupBox("Runtime") {
-                    VStack(alignment: .leading, spacing: 11) {
-                        LabeledContent("Container Path") {
-                            HStack {
-                                Text(container.path)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                    .textSelection(.enabled)
-                                Button {
-                                    store.openContainerInFinder(container.id)
-                                } label: {
-                                    Image(systemName: "folder")
-                                }
-                                .buttonStyle(.borderless)
-                                .help("Show in Finder")
+                    if proxy.size.width >= 1_400 {
+                        HStack(alignment: .top, spacing: 16) {
+                            VStack(spacing: 16) {
+                                launchSection
+                                runtimeSection
                             }
+                            .frame(maxWidth: .infinity, alignment: .top)
+
+                            VStack(spacing: 16) {
+                                LoginCallbackRecoverySection(container: container)
+                                environmentSection
+                            }
+                            .frame(maxWidth: .infinity, alignment: .top)
                         }
-                        LabeledContent("Wine Build", value: container.wineBuildID)
-                        LabeledContent("Runtime Source", value: container.patchsetID)
-                        LabeledContent("GPTK", value: container.gptkFingerprint ?? "Not recorded")
+                    } else {
+                        launchSection
+                        runtimeSection
+                        LoginCallbackRecoverySection(container: container)
+                        environmentSection
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    footerActions
+                }
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private var settingsHeader: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Container Settings")
+                .font(.title2.weight(.semibold))
+            Text("Launch behavior and advanced compatibility options for \(container.name).")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var launchSection: some View {
+        GroupBox("Launch") {
+            VStack(alignment: .leading, spacing: 14) {
+                LabeledContent("Name") {
+                    TextField("Name", text: containerNameBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 360)
                 }
 
-                LoginCallbackRecoverySection(container: container)
-
-                GroupBox("Environment Overrides") {
-                    EnvironmentOverridesEditor(containerID: container.id)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                PathPickerRow(
+                    title: "Default Executable",
+                    message: "Choose the Windows executable to run by default in this container.",
+                    initialDirectoryURL: URL(fileURLWithPath: container.path, isDirectory: true),
+                    path: executablePathBinding
+                ) {
+                    store.updateExecutablePath(
+                        for: container.id,
+                        to: executablePathBinding.wrappedValue
+                    )
                 }
 
-                HStack {
-                    Button {
-                        store.openContainerInFinder(container.id)
-                    } label: {
-                        Label("Show Container in Finder", systemImage: "folder")
-                    }
-
-                    Spacer()
-
-                    Button(role: .destructive, action: onDelete) {
-                        Label("Move Container to Trash", systemImage: "trash")
-                    }
-                    .disabled(store.isContainerBusy(container.id))
+                LabeledContent("Launch Arguments") {
+                    LaunchArgumentsField(containerID: container.id)
+                        .frame(maxWidth: 520)
                 }
             }
-            .frame(maxWidth: 980, alignment: .leading)
-            .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var runtimeSection: some View {
+        GroupBox("Runtime") {
+            VStack(alignment: .leading, spacing: 11) {
+                LabeledContent("Container Path") {
+                    HStack {
+                        Text(container.path)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                        Button {
+                            store.openContainerInFinder(container.id)
+                        } label: {
+                            Image(systemName: "folder")
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Show in Finder")
+                    }
+                }
+                LabeledContent("Wine Build", value: container.wineBuildID)
+                LabeledContent("Runtime Source", value: container.patchsetID)
+                LabeledContent("GPTK", value: container.gptkFingerprint ?? "Not recorded")
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var environmentSection: some View {
+        GroupBox("Environment Overrides") {
+            EnvironmentOverridesEditor(containerID: container.id)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var footerActions: some View {
+        HStack {
+            Button {
+                store.openContainerInFinder(container.id)
+            } label: {
+                Label("Show Container in Finder", systemImage: "folder")
+            }
+
+            Spacer()
+
+            Button(role: .destructive, action: onDelete) {
+                Label("Move Container to Trash", systemImage: "trash")
+            }
+            .disabled(store.isContainerBusy(container.id))
         }
     }
 

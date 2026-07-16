@@ -5,6 +5,7 @@ struct LogsView: View {
     @EnvironmentObject private var store: AppStore
     @State private var searchText = ""
     @State private var levelFilter = "all"
+    @State private var isConfirmingClear = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +36,13 @@ struct LogsView: View {
                     )
                 }
                 .disabled(filteredLogs.isEmpty)
+
+                Button(role: .destructive) {
+                    isConfirmingClear = true
+                } label: {
+                    Label("Clear Logs", systemImage: "trash")
+                }
+                .disabled(store.logLines.isEmpty)
             }
             .padding()
 
@@ -59,6 +67,18 @@ struct LogsView: View {
             }
         }
         .navigationTitle("Logs")
+        .confirmationDialog(
+            "Clear all logs?",
+            isPresented: $isConfirmingClear,
+            titleVisibility: .visible
+        ) {
+            Button("Clear Logs", role: .destructive) {
+                store.clearLogs()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The log entries shown in Switchyard will be removed. Debug run files keep their configured retention period.")
+        }
     }
 
     private var filteredLogs: [LogLine] {

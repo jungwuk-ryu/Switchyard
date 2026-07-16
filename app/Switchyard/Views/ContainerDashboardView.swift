@@ -153,9 +153,13 @@ struct ContainerDashboardView: View {
 
     private var dashboardOverview: some View {
         GeometryReader { proxy in
+            let usesWideLayout = proxy.size.width >= 1_400
+            let detailPanelHeight = dashboardDetailPanelHeight(for: proxy.size.height)
+            let detailRowCount = maximumDashboardDetailRows(for: detailPanelHeight)
+
             ScrollView {
                 VStack(spacing: 16) {
-                    if proxy.size.width >= 1_400 {
+                    if usesWideLayout {
                         HStack(alignment: .top, spacing: 16) {
                             ProgramHeroView(container: container, program: selectedProgram)
                                 .frame(maxWidth: .infinity)
@@ -186,24 +190,28 @@ struct ContainerDashboardView: View {
                         }
                     }
 
-                    if proxy.size.width >= 1_400 {
+                    if usesWideLayout {
                         HStack(alignment: .top, spacing: 16) {
                             ContainerFileBrowserView(
                                 container: container,
                                 initialDirectoryURL: selectedProgram.map {
                                     URL(fileURLWithPath: $0.executablePath).deletingLastPathComponent()
                                 },
-                                compact: true
+                                compact: true,
+                                maximumVisibleEntries: detailRowCount,
+                                minimumHeight: detailPanelHeight
                             )
                             .id(selectedProgram?.id ?? container.id.uuidString)
-                            .frame(maxWidth: .infinity, minHeight: 290, alignment: .top)
+                            .frame(maxWidth: .infinity, alignment: .top)
 
                             ContainerSessionPanel(
                                 container: container,
                                 compact: true,
+                                maximumVisibleProcesses: detailRowCount,
+                                minimumHeight: detailPanelHeight,
                                 onShowAll: { selectedSection = .activity }
                             )
-                            .frame(maxWidth: .infinity, minHeight: 290, alignment: .top)
+                            .frame(maxWidth: .infinity, alignment: .top)
                         }
                     } else {
                         VStack(spacing: 16) {
@@ -273,6 +281,14 @@ struct ContainerDashboardView: View {
         if width >= 1_520 { return 6 }
         if width >= 1_400 { return 5 }
         return 4
+    }
+
+    private func dashboardDetailPanelHeight(for availableHeight: CGFloat) -> CGFloat {
+        max(290, availableHeight - 237)
+    }
+
+    private func maximumDashboardDetailRows(for panelHeight: CGFloat) -> Int {
+        max(4, Int((panelHeight - 150) / 42))
     }
 
     private var containerSummary: String {
@@ -383,7 +399,14 @@ private struct ProgramHeroView: View {
                         store.chooseExecutableAndRun(in: container.id)
                     }
                 } label: {
-                    if let program, store.isLaunchingProgram(program, in: container.id) {
+                    if store.isStoppingWineServer(in: container.id) {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Stopping…")
+                        }
+                        .frame(minWidth: 150)
+                    } else if let program, store.isLaunchingProgram(program, in: container.id) {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .controlSize(.small)
@@ -400,7 +423,7 @@ private struct ProgramHeroView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(store.isContainerLaunching(container.id))
+                .disabled(store.isContainerTransitioning(container.id))
 
                 Text(
                     store.sessionSnapshot(for: container.id).wineServerState == .active
@@ -509,7 +532,7 @@ private struct InstalledProgramShelf: View {
                                 selectedProgramID = entry.program.id
                                 store.runInstalledProgram(entry.program, in: container.id)
                             }
-                            .disabled(store.isContainerLaunching(container.id))
+                            .disabled(store.isContainerTransitioning(container.id))
                         }
                     }
                 }
