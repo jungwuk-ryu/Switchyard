@@ -12,6 +12,7 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     case missingRunner
     case couldNotEncodePlan
     case couldNotListWindowsProcesses(Int32)
+    case couldNotStopWineServer(Int32, String)
 
     var description: String {
         switch self {
@@ -21,6 +22,10 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
             "Command plan could not be serialized for the runner."
         case let .couldNotListWindowsProcesses(status):
             "Running Windows applications could not be inspected (exit code \(status))."
+        case let .couldNotStopWineServer(status, detail):
+            detail.isEmpty
+                ? "wineserver could not be stopped (exit code \(status))."
+                : "wineserver could not be stopped (exit code \(status)): \(detail)"
         }
     }
 }
@@ -74,6 +79,27 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
             throw SwitchyardRunnerClientError.couldNotListWindowsProcesses(process.terminationStatus)
         }
         return try JSONDecoder().decode([String].self, from: data)
+    }
+
+    func stopWineServer(winePath: String, prefixPath: String) throws {
+        let runnerURL = try locateRunner()
+        let process = Process()
+        let errorOutput = Pipe()
+        process.executableURL = runnerURL
+        process.arguments = ["stop-prefix", "--wine", winePath, "--prefix", prefixPath]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = errorOutput
+        try process.run()
+        let data = errorOutput.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            let detail = String(decoding: data, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            throw SwitchyardRunnerClientError.couldNotStopWineServer(
+                process.terminationStatus,
+                detail
+            )
+        }
     }
 
     func launch(

@@ -275,6 +275,31 @@ import Testing
     #expect(legacyLine.containerID == nil)
 }
 
+@Test func intentionalRunStopsNormalizeToReadyInsteadOfFailed() {
+    let normalized = RunCompletionPolicy.normalizedOutcome(.failed, stoppedByUser: true)
+
+    #expect(normalized == .cancelled)
+    #expect(RunCompletionPolicy.containerStatus(for: normalized) == .ready)
+    #expect(RunCompletionPolicy.containerStatus(for: .failed) == .failed)
+    #expect(RunCompletionPolicy.containerStatus(for: .succeeded) == .succeeded)
+}
+
+@Test func logClearPolicyScopesContainerAndGlobalClears() {
+    let firstContainerID = UUID()
+    let secondContainerID = UUID()
+    let logs = [
+        LogLine(containerID: firstContainerID, level: "info", source: "first", message: "A"),
+        LogLine(containerID: secondContainerID, level: "warning", source: "second", message: "B"),
+        LogLine(level: "info", source: "runtime", message: "Global")
+    ]
+
+    #expect(LogClearPolicy.clearing(logs).isEmpty)
+    #expect(
+        LogClearPolicy.clearing(logs, for: firstContainerID).map(\.message)
+            == ["B", "Global"]
+    )
+}
+
 @Test func recentProgramLaunchPolicyMovesRelaunchesToTheFrontAndCapsHistory() {
     let firstPath = "/tmp/Container/first.exe"
     let secondPath = "/tmp/Container/second.exe"

@@ -90,6 +90,23 @@ elif [ "$?" -ne 2 ]; then
 fi
 : > "$EVENTS"
 
+TEST_EVENTS="$EVENTS" "$RUNNER" stop-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+expected_stop="$(printf 'wineserver -k prefix=%s\nwineserver -w prefix=%s' "$PREFIX" "$PREFIX")"
+actual_stop="$(sed -n '1,2p' "$EVENTS")"
+if [ "$actual_stop" != "$expected_stop" ]; then
+  echo "stop-prefix did not terminate and wait for the selected Wine prefix" >&2
+  printf 'expected:\n%s\nactual:\n%s\n' "$expected_stop" "$actual_stop" >&2
+  exit 1
+fi
+
+: > "$EVENTS"
+if TEST_EVENTS="$EVENTS" TEST_KILL_STATUS=2 \
+  "$RUNNER" stop-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX" >/dev/null 2>&1; then
+  echo "stop-prefix should fail when wineserver rejects the termination request" >&2
+  exit 1
+fi
+: > "$EVENTS"
+
 cat > "$TEST_ROOT/replace.json" <<EOF
 {
   "executable": "$BIN_DIR/switchyard-wine",

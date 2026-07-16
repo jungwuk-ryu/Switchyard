@@ -7,15 +7,25 @@ struct ContainerFileBrowserView: View {
     @EnvironmentObject private var store: AppStore
     let container: Container
     let compact: Bool
+    let maximumVisibleEntries: Int?
+    let minimumHeight: CGFloat?
 
     @State private var directoryURL: URL
     @State private var entries: [ContainerFileEntry] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
 
-    init(container: Container, initialDirectoryURL: URL?, compact: Bool) {
+    init(
+        container: Container,
+        initialDirectoryURL: URL?,
+        compact: Bool,
+        maximumVisibleEntries: Int? = nil,
+        minimumHeight: CGFloat? = nil
+    ) {
         self.container = container
         self.compact = compact
+        self.maximumVisibleEntries = maximumVisibleEntries
+        self.minimumHeight = minimumHeight
         let catalog = ContainerDirectoryCatalog()
         let initialURL: URL
         if let initialDirectoryURL, catalog.contains(initialDirectoryURL, in: container) {
@@ -83,6 +93,7 @@ struct ContainerFileBrowserView: View {
         }
         .frame(
             maxWidth: .infinity,
+            minHeight: minimumHeight,
             maxHeight: compact ? nil : .infinity,
             alignment: .top
         )
@@ -187,11 +198,14 @@ struct ContainerFileBrowserView: View {
     }
 
     private var displayedEntries: [ContainerFileEntry] {
-        compact ? Array(entries.prefix(5)) : entries
+        compact
+            ? Array(entries.prefix(max(1, maximumVisibleEntries ?? 5)))
+            : entries
     }
 
     private var browserContentMinimumHeight: CGFloat {
-        compact ? 190 : 320
+        guard compact else { return 320 }
+        return max(190, (minimumHeight ?? 0) - 115)
     }
 
     private var browserContentMaximumHeight: CGFloat? {

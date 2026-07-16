@@ -42,7 +42,13 @@ struct ContainerApplicationsView: View {
                     Button {
                         store.chooseExecutableAndRun(in: container.id)
                     } label: {
-                        if store.isContainerLaunching(container.id) {
+                        if store.isStoppingWineServer(in: container.id) {
+                            HStack(spacing: 7) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Stopping…")
+                            }
+                        } else if store.isContainerLaunching(container.id) {
                             HStack(spacing: 7) {
                                 ProgressView()
                                     .controlSize(.small)
@@ -53,7 +59,7 @@ struct ContainerApplicationsView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(store.isContainerLaunching(container.id))
+                    .disabled(store.isContainerTransitioning(container.id))
                 }
 
                 if !recentPrograms.isEmpty {
@@ -73,6 +79,7 @@ struct ContainerApplicationsView: View {
                         Button("Run EXE…") {
                             store.chooseExecutableAndRun(in: container.id)
                         }
+                        .disabled(store.isContainerTransitioning(container.id))
                     }
                     .frame(maxWidth: .infinity, minHeight: 360)
                     .dashboardPanel()
@@ -169,7 +176,7 @@ private struct RecentlyLaunchedProgramsSection: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(store.isContainerLaunching(container.id))
+                        .disabled(store.isContainerTransitioning(container.id))
                         .help(
                             store.isContainerRunning(container.id)
                                 ? "Launch alongside the running Windows apps"
@@ -235,7 +242,7 @@ private struct ApplicationCard: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(store.isContainerLaunching(container.id))
+                .disabled(store.isContainerTransitioning(container.id))
 
                 Button {
                     store.openInFinder(
@@ -267,7 +274,7 @@ private struct ApplicationCard: View {
                 onSelect()
                 store.runInstalledProgram(program, in: container.id)
             }
-            .disabled(store.isContainerLaunching(container.id))
+            .disabled(store.isContainerTransitioning(container.id))
             Button("Make Default") {
                 onSelect()
                 store.useInstalledProgramAsDefault(program, for: container.id)
