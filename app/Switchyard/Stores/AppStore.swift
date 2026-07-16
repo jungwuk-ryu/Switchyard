@@ -34,6 +34,8 @@ private struct PendingLoginCallbackRecovery {
 
 private let debugRunLogRetentionInterval: TimeInterval = 14 * 24 * 60 * 60
 private let maximumRetainedDebugRunLogs = 50
+private let recentProgramLaunchesDefaultsKey = "recentProgramLaunches.v1"
+private let maximumRecentProgramLaunches = 8
 
 private struct SwitchyardWineSourcePolicy {
     var revision: String
@@ -71,7 +73,10 @@ final class AppStore: ObservableObject {
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
     @Published private(set) var launchingContainerIDs: Set<UUID> = []
+    @Published private(set) var startingPrefixContainerIDs: Set<UUID> = []
+    @Published private(set) var launchingExecutablePathByContainerID: [UUID: String] = [:]
     @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
+    @Published private(set) var recentProgramLaunchesByContainerID: [UUID: [RecentProgramLaunch]] = [:]
     @Published private(set) var sessionSnapshotsByContainerID: [UUID: ContainerSessionSnapshot] = [:]
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published var containers: [Container]
@@ -90,6 +95,9 @@ final class AppStore: ObservableObject {
     }()
     private var diagnosticsTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
+    private var activeRunSessionIDsByContainerID: [UUID: Set<UUID>] = [:]
+    private var prefixStartupTasks: [UUID: Task<Void, Never>] = [:]
+    private var prefixStartupsAwaitingInactiveTransition: Set<UUID> = []
     private var sessionRefreshTokens: [UUID: UUID] = [:]
     private var callbackRecoveryTasks: [UUID: Task<Void, Never>] = [:]
     private var pendingLoginCallbackRecoveries: [UUID: PendingLoginCallbackRecovery] = [:]
@@ -124,8 +132,13 @@ final class AppStore: ObservableObject {
         let snapshot = Self.initialLibrarySnapshot(libraryPath: initialLibraryPath)
         containers = snapshot.containers
         selectedContainerID = containers.first?.id
+        recentProgramLaunchesByContainerID = Self.initialRecentProgramLaunches(
+            defaults: defaults,
+            containers: containers
+        )
 
         persistLibrary()
+        persistRecentProgramLaunches()
         pruneDebugRunLogs(in: debugRunLogRoot)
         startProtocolBridgeMonitoring()
     }
@@ -505,7 +518,7 @@ final class AppStore: ObservableObject {
 
     func chooseExecutableAndRun(in containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
-        guard !isContainerBusy(containerID) else {
+        guard !isContainerLaunching(containerID) else {
             logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish launching before starting another executable."), at: 0)
             return
         }
@@ -548,6 +561,41 @@ final class AppStore: ObservableObject {
 
     func installedPrograms(for containerID: UUID) -> [InstalledProgram] {
         installedProgramsByContainerID[containerID] ?? []
+    }
+
+    func recentInstalledPrograms(for containerID: UUID) -> [RecentInstalledProgram] {
+        var installedProgramsByPath: [String: InstalledProgram] = [:]
+        for program in installedPrograms(for: containerID) {
+            installedProgramsByPath[
+                URL(fileURLWithPath: program.executablePath).standardizedFileURL.path
+            ] = program
+        }
+
+        return (recentProgramLaunchesByContainerID[containerID] ?? []).compactMap { launch in
+            let executableURL = URL(fileURLWithPath: launch.executablePath).standardizedFileURL
+            guard FileManager.default.fileExists(atPath: executableURL.path) else { return nil }
+            let program = installedProgramsByPath[executableURL.path]
+                ?? InstalledProgram(
+                    name: executableURL.deletingPathExtension().lastPathComponent,
+                    executablePath: executableURL.path,
+                    installDirectory: executableURL.deletingLastPathComponent().path,
+                    source: .defaultExecutable
+                )
+            return RecentInstalledProgram(program: program, launchedAt: launch.launchedAt)
+        }
+    }
+
+    func isContainerLaunching(_ containerID: UUID) -> Bool {
+        launchingContainerIDs.contains(containerID)
+            || startingPrefixContainerIDs.contains(containerID)
+    }
+
+    func isLaunchingProgram(_ program: InstalledProgram, in containerID: UUID) -> Bool {
+        guard let launchingPath = launchingExecutablePathByContainerID[containerID] else {
+            return false
+        }
+        return URL(fileURLWithPath: launchingPath).standardizedFileURL
+            == URL(fileURLWithPath: program.executablePath).standardizedFileURL
     }
 
     func sessionSnapshot(for containerID: UUID) -> ContainerSessionSnapshot {
@@ -625,6 +673,69 @@ final class AppStore: ObservableObject {
               sessionRefreshTokens[containerID] == refreshToken,
               containers.contains(where: { $0.id == containerID }) else { return }
         sessionSnapshotsByContainerID[containerID] = snapshot
+        if snapshot.wineServerState == .inactive {
+            prefixStartupsAwaitingInactiveTransition.remove(containerID)
+        } else if snapshot.wineServerState == .active,
+                  !prefixStartupsAwaitingInactiveTransition.contains(containerID) {
+            finishPrefixStartup(for: containerID)
+        }
+    }
+
+    private func beginPrefixStartupMonitoring(
+        for containerID: UUID,
+        winePath: String,
+        prefixPath: String,
+        requiresInactiveTransition: Bool
+    ) {
+        prefixStartupTasks[containerID]?.cancel()
+        startingPrefixContainerIDs.insert(containerID)
+        if requiresInactiveTransition {
+            prefixStartupsAwaitingInactiveTransition.insert(containerID)
+        } else {
+            prefixStartupsAwaitingInactiveTransition.remove(containerID)
+        }
+        let runnerClient = runnerClient
+        prefixStartupTasks[containerID] = Task { [weak self] in
+            while !Task.isCancelled {
+                let state = await Task.detached(priority: .utility) {
+                    runnerClient.prefixSessionState(
+                        winePath: winePath,
+                        prefixPath: prefixPath
+                    )
+                }.value
+                guard !Task.isCancelled, let self else { return }
+
+                if case .inactive = state {
+                    self.prefixStartupsAwaitingInactiveTransition.remove(containerID)
+                } else if case .active = state,
+                          !self.prefixStartupsAwaitingInactiveTransition.contains(containerID) {
+                    await self.refreshContainerSession(for: containerID)
+                    self.finishPrefixStartup(for: containerID)
+                    return
+                }
+
+                if self.activeRunSessionIDsByContainerID[containerID]?.isEmpty != false {
+                    await self.refreshContainerSession(for: containerID)
+                    self.finishPrefixStartup(for: containerID)
+                    return
+                }
+
+                do {
+                    try await Task.sleep(for: .milliseconds(250))
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func finishPrefixStartup(for containerID: UUID) {
+        guard startingPrefixContainerIDs.contains(containerID) else { return }
+        prefixStartupTasks[containerID]?.cancel()
+        prefixStartupTasks.removeValue(forKey: containerID)
+        startingPrefixContainerIDs.remove(containerID)
+        prefixStartupsAwaitingInactiveTransition.remove(containerID)
+        launchingExecutablePathByContainerID.removeValue(forKey: containerID)
     }
 
     func refreshInstalledPrograms(for containerID: UUID) {
@@ -714,11 +825,17 @@ final class AppStore: ObservableObject {
     }
 
     func isContainerRunning(_ containerID: UUID) -> Bool {
-        containers.contains { $0.id == containerID && $0.status == .running }
+        if activeRunSessionIDsByContainerID[containerID]?.isEmpty == false {
+            return true
+        }
+        if sessionSnapshotsByContainerID[containerID]?.wineServerState == .active {
+            return true
+        }
+        return containers.contains { $0.id == containerID && $0.status == .running }
     }
 
     func isContainerBusy(_ containerID: UUID) -> Bool {
-        launchingContainerIDs.contains(containerID) || isContainerRunning(containerID)
+        isContainerLaunching(containerID) || isContainerRunning(containerID)
     }
 
     func openContainerInFinder(_ containerID: UUID) {
@@ -768,10 +885,18 @@ final class AppStore: ObservableObject {
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)
+        activeRunSessionIDsByContainerID.removeValue(forKey: containerID)
+        prefixStartupTasks[containerID]?.cancel()
+        prefixStartupTasks.removeValue(forKey: containerID)
+        startingPrefixContainerIDs.remove(containerID)
+        prefixStartupsAwaitingInactiveTransition.remove(containerID)
+        launchingExecutablePathByContainerID.removeValue(forKey: containerID)
+        recentProgramLaunchesByContainerID.removeValue(forKey: containerID)
         sessionRefreshTokens.removeValue(forKey: containerID)
         sessionSnapshotsByContainerID.removeValue(forKey: containerID)
         selectedContainerID = containers.first?.id
         persistLibrary()
+        persistRecentProgramLaunches()
     }
 
     private func runSelectedContainer(containerID: UUID) async {
@@ -780,7 +905,7 @@ final class AppStore: ObservableObject {
 
     private func runContainer(containerID: UUID, executablePath: String?, executableArguments: [String]) async {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
-        guard !isContainerBusy(containerID) else {
+        guard !isContainerLaunching(containerID) else {
             logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish launching before starting another executable."), at: 0)
             return
         }
@@ -790,18 +915,43 @@ final class AppStore: ObservableObject {
             return
         }
 
+        let launchedExecutable = executablePath ?? container.executablePath ?? ""
+        launchingContainerIDs.insert(containerID)
+        if !launchedExecutable.isEmpty {
+            launchingExecutablePathByContainerID[containerID] = launchedExecutable
+        }
+        var preserveLaunchingExecutable = false
+        defer {
+            launchingContainerIDs.remove(containerID)
+            if !preserveLaunchingExecutable {
+                launchingExecutablePathByContainerID.removeValue(forKey: containerID)
+            }
+        }
+
+        let winePath = currentRuntime.winePath
+        let prefixPath = container.path
+        let runnerClient = runnerClient
+        let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
+            runnerClient.prefixSessionState(winePath: winePath, prefixPath: prefixPath)
+        }.value
+        let prefixWasActive: Bool = {
+            if sessionSnapshotsByContainerID[containerID]?.wineServerState == .active
+                || activeRunSessionIDsByContainerID[containerID]?.isEmpty == false
+            {
+                return true
+            }
+            if case .active = inspectedPrefixState {
+                return true
+            }
+            return false
+        }()
+
         var terminateExistingPrefixSession = false
         if executablePath == nil {
-            switch runnerClient.prefixSessionState(
-                winePath: currentRuntime.winePath,
-                prefixPath: container.path
-            ) {
-            case .active:
+            if prefixWasActive {
                 guard confirmRestartOfExistingPrefixSession(for: container) else { return }
                 terminateExistingPrefixSession = true
-            case .inactive:
-                break
-            case .unavailable:
+            } else if case .unavailable = inspectedPrefixState {
                 logLines.insert(
                     LogLine(
                         level: "warning",
@@ -813,16 +963,13 @@ final class AppStore: ObservableObject {
             }
         }
 
-        launchingContainerIDs.insert(containerID)
-        defer {
-            launchingContainerIDs.remove(containerID)
-        }
-
-        let fontPreparationLog = await prepareOpenFontsForLaunch(for: container)
+        let fontPreparationLog = await prepareOpenFontsForLaunch(
+            for: container,
+            prefixSessionIsActive: prefixWasActive
+        )
         logLines.insert(fontPreparationLog, at: 0)
 
         do {
-            let launchedExecutable = executablePath ?? container.executablePath ?? "configured executable"
             let launchArguments = executablePath == nil ? container.executableArguments : executableArguments
             let debugEnvironmentOverrides = debugRunEnvironmentOverrides(for: container)
             let debugLogPath = debugRunLogPath(for: container, executablePath: launchedExecutable)
@@ -837,7 +984,7 @@ final class AppStore: ObservableObject {
                 debugLogPath: debugLogPath,
                 terminateExistingPrefixSession: terminateExistingPrefixSession
             )
-            _ = try runnerClient.launch(
+            let runSession = try runnerClient.launch(
                 plan,
                 containerID: container.id,
                 containerName: container.name,
@@ -852,6 +999,22 @@ final class AppStore: ObservableObject {
                     }
                 }
             )
+            activeRunSessionIDsByContainerID[container.id, default: []].insert(runSession.id)
+            if !prefixWasActive || terminateExistingPrefixSession {
+                preserveLaunchingExecutable = true
+                beginPrefixStartupMonitoring(
+                    for: container.id,
+                    winePath: winePath,
+                    prefixPath: prefixPath,
+                    requiresInactiveTransition: terminateExistingPrefixSession
+                )
+            }
+            if !launchedExecutable.isEmpty {
+                recordRecentProgramLaunch(
+                    executablePath: launchedExecutable,
+                    containerID: container.id
+                )
+            }
             protocolBridge.recordLaunch(containerID: container.id)
             refreshProtocolAssociations()
             mark(container.id, as: .running)
@@ -862,6 +1025,7 @@ final class AppStore: ObservableObject {
                 .map(String.init) ?? "configured executable"
             logLines.insert(
                 LogLine(
+                    containerID: container.id,
                     level: "info",
                     source: container.name,
                     message: "Launch command started through switchyard-runner: executable=\(executableName) argumentCount=\(launchArguments.count)"
@@ -1016,7 +1180,18 @@ final class AppStore: ObservableObject {
             .joined()
     }
 
-    private func prepareOpenFontsForLaunch(for container: Container) async -> LogLine {
+    private func prepareOpenFontsForLaunch(
+        for container: Container,
+        prefixSessionIsActive: Bool
+    ) async -> LogLine {
+        if prefixSessionIsActive {
+            return LogLine(
+                level: "info",
+                source: "fonts",
+                message: "Open Font Pack registration was skipped while this Windows session is active."
+            )
+        }
+
         let fontCacheRoot = fontCacheRoot
         return await Task.detached(priority: .userInitiated) {
             do {
@@ -1036,11 +1211,11 @@ final class AppStore: ObservableObject {
     }
 
     var hasRunningContainers: Bool {
-        containers.contains { $0.status == .running }
+        containers.contains { isContainerRunning($0.id) }
     }
 
     func stopAllRuns() {
-        let runningContainers = containers.filter { $0.status == .running }
+        let runningContainers = containers.filter { isContainerRunning($0.id) }
         runnerClient.stopAll()
 
         for container in runningContainers {
@@ -1080,7 +1255,12 @@ final class AppStore: ObservableObject {
     }
 
     private func completeRunSession(_ session: RunSession) {
-        mark(session.containerID, as: session.outcome == .succeeded ? .succeeded : .failed)
+        activeRunSessionIDsByContainerID[session.containerID]?.remove(session.id)
+        let hasRemainingRuns = activeRunSessionIDsByContainerID[session.containerID]?.isEmpty == false
+        if !hasRemainingRuns {
+            activeRunSessionIDsByContainerID.removeValue(forKey: session.containerID)
+            mark(session.containerID, as: session.outcome == .succeeded ? .succeeded : .failed)
+        }
         refreshInstalledPrograms(for: session.containerID)
         Task {
             await refreshContainerSession(for: session.containerID)
@@ -1203,6 +1383,52 @@ final class AppStore: ObservableObject {
         } catch {
             logLines.insert(LogLine(level: "error", source: "persistence", message: "Could not save container manifest: \(error)"), at: 0)
         }
+    }
+
+    private func recordRecentProgramLaunch(executablePath: String, containerID: UUID) {
+        recentProgramLaunchesByContainerID[containerID] = RecentProgramLaunchPolicy.recording(
+            executablePath: executablePath,
+            in: recentProgramLaunchesByContainerID[containerID] ?? [],
+            limit: maximumRecentProgramLaunches
+        )
+        persistRecentProgramLaunches()
+    }
+
+    private func persistRecentProgramLaunches() {
+        guard let data = try? JSONEncoder().encode(recentProgramLaunchesByContainerID) else {
+            return
+        }
+        defaults.set(data, forKey: recentProgramLaunchesDefaultsKey)
+    }
+
+    private static func initialRecentProgramLaunches(
+        defaults: UserDefaults,
+        containers: [Container]
+    ) -> [UUID: [RecentProgramLaunch]] {
+        let decodedLaunches: [UUID: [RecentProgramLaunch]]
+        if let data = defaults.data(forKey: recentProgramLaunchesDefaultsKey),
+           let storedLaunches = try? JSONDecoder().decode(
+               [UUID: [RecentProgramLaunch]].self,
+               from: data
+           ) {
+            decodedLaunches = storedLaunches
+        } else {
+            decodedLaunches = [:]
+        }
+
+        let containerIDs = Set(containers.map(\.id))
+        var launches = decodedLaunches.filter { containerIDs.contains($0.key) }
+        for container in containers where launches[container.id]?.isEmpty != false {
+            guard let executablePath = container.executablePath,
+                  let lastRun = container.lastRun else { continue }
+            launches[container.id] = RecentProgramLaunchPolicy.recording(
+                executablePath: executablePath,
+                at: lastRun,
+                in: [],
+                limit: maximumRecentProgramLaunches
+            )
+        }
+        return launches
     }
 
     private static func initialLibrarySnapshot(libraryPath: String) -> SwitchyardContainerSnapshot {

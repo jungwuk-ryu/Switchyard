@@ -274,3 +274,38 @@ import Testing
 
     #expect(legacyLine.containerID == nil)
 }
+
+@Test func recentProgramLaunchPolicyMovesRelaunchesToTheFrontAndCapsHistory() {
+    let firstPath = "/tmp/Container/first.exe"
+    let secondPath = "/tmp/Container/second.exe"
+    let thirdPath = "/tmp/Container/third.exe"
+    let firstLaunch = RecentProgramLaunch(
+        executablePath: firstPath,
+        launchedAt: Date(timeIntervalSince1970: 10)
+    )
+    let secondLaunch = RecentProgramLaunch(
+        executablePath: secondPath,
+        launchedAt: Date(timeIntervalSince1970: 20)
+    )
+    let thirdLaunch = RecentProgramLaunch(
+        executablePath: thirdPath,
+        launchedAt: Date(timeIntervalSince1970: 15)
+    )
+
+    let result = RecentProgramLaunchPolicy.recording(
+        executablePath: firstPath,
+        at: Date(timeIntervalSince1970: 30),
+        in: [firstLaunch, secondLaunch, thirdLaunch],
+        limit: 2
+    )
+
+    #expect(result.map(\.executablePath) == [firstPath, secondPath])
+    #expect(result.map(\.launchedAt) == [
+        Date(timeIntervalSince1970: 30),
+        Date(timeIntervalSince1970: 20),
+    ])
+    #expect(RecentProgramLaunchPolicy.recording(executablePath: firstPath, in: result, limit: 0).isEmpty)
+    #expect(
+        RecentProgramLaunchPolicy.recording(executablePath: "  ", in: result, limit: 2) == result
+    )
+}

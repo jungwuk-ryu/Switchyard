@@ -122,6 +122,43 @@ public struct InstalledProgram: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
+public struct RecentProgramLaunch: Identifiable, Codable, Equatable, Sendable {
+    public var id: String { executablePath }
+    public var executablePath: String
+    public var launchedAt: Date
+
+    public init(executablePath: String, launchedAt: Date) {
+        self.executablePath = executablePath
+        self.launchedAt = launchedAt
+    }
+}
+
+public enum RecentProgramLaunchPolicy {
+    public static func recording(
+        executablePath: String,
+        at launchedAt: Date = Date(),
+        in launches: [RecentProgramLaunch],
+        limit: Int = 8
+    ) -> [RecentProgramLaunch] {
+        guard limit > 0 else { return [] }
+        let trimmedPath = executablePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else {
+            return Array(launches.sorted { $0.launchedAt > $1.launchedAt }.prefix(limit))
+        }
+        let normalizedPath = URL(fileURLWithPath: trimmedPath).standardizedFileURL.path
+
+        let remainingLaunches = launches
+            .filter {
+                URL(fileURLWithPath: $0.executablePath).standardizedFileURL.path != normalizedPath
+            }
+            .sorted { $0.launchedAt > $1.launchedAt }
+        return Array(
+            ([RecentProgramLaunch(executablePath: normalizedPath, launchedAt: launchedAt)]
+                + remainingLaunches).prefix(limit)
+        )
+    }
+}
+
 public enum LaunchArgumentParser {
     public static func parse(_ commandLine: String) -> [String] {
         var arguments: [String] = []

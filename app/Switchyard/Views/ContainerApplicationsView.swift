@@ -20,6 +20,15 @@ struct ContainerApplicationsView: View {
                         Text("\(programs.count) Windows applications found in this container")
                             .font(.callout)
                             .foregroundStyle(.secondary)
+
+                        if store.sessionSnapshot(for: container.id).wineServerState == .active {
+                            Label(
+                                "Windows session active · launch another app without stopping it",
+                                systemImage: "plus.circle.fill"
+                            )
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(.green)
+                        }
                     }
 
                     Spacer()
@@ -33,10 +42,26 @@ struct ContainerApplicationsView: View {
                     Button {
                         store.chooseExecutableAndRun(in: container.id)
                     } label: {
-                        Label("Run EXE…", systemImage: "play.square")
+                        if store.isContainerLaunching(container.id) {
+                            HStack(spacing: 7) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Starting…")
+                            }
+                        } else {
+                            Label("Run EXE…", systemImage: "play.square")
+                        }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(store.isContainerBusy(container.id))
+                    .disabled(store.isContainerLaunching(container.id))
+                }
+
+                if !recentPrograms.isEmpty {
+                    RecentlyLaunchedProgramsSection(
+                        container: container,
+                        programs: recentPrograms,
+                        selectedProgramID: $selectedProgramID
+                    )
                 }
 
                 if programs.isEmpty {
@@ -52,6 +77,9 @@ struct ContainerApplicationsView: View {
                     .frame(maxWidth: .infinity, minHeight: 360)
                     .dashboardPanel()
                 } else {
+                    Text("All Applications")
+                        .font(.headline)
+
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
                         ForEach(programs) { program in
                             ApplicationCard(
@@ -71,6 +99,89 @@ struct ContainerApplicationsView: View {
 
     private var programs: [InstalledProgram] {
         store.installedPrograms(for: container.id)
+    }
+
+    private var recentPrograms: [RecentInstalledProgram] {
+        store.recentInstalledPrograms(for: container.id)
+    }
+}
+
+private struct RecentlyLaunchedProgramsSection: View {
+    @EnvironmentObject private var store: AppStore
+    let container: Container
+    let programs: [RecentInstalledProgram]
+    @Binding var selectedProgramID: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Recently Launched")
+                        .font(.headline)
+                    Text("Start another app in the same Windows session.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "clock.arrow.circlepath")
+                    .foregroundStyle(.secondary)
+            }
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 12) {
+                    ForEach(programs.prefix(8)) { recentProgram in
+                        Button {
+                            selectedProgramID = recentProgram.program.id
+                            store.runInstalledProgram(recentProgram.program, in: container.id)
+                        } label: {
+                            HStack(spacing: 12) {
+                                WindowsProgramIconView(program: recentProgram.program, size: 46)
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(recentProgram.program.presentationName)
+                                        .font(.callout.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Text(recentProgram.relativeLaunchDescription)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer(minLength: 8)
+
+                                if store.isLaunchingProgram(recentProgram.program, in: container.id) {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "play.circle.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                            .padding(12)
+                            .frame(width: 260, alignment: .leading)
+                            .background(
+                                selectedProgramID == recentProgram.program.id
+                                    ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.035),
+                                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(store.isContainerLaunching(container.id))
+                        .help(
+                            store.isContainerRunning(container.id)
+                                ? "Launch alongside the running Windows apps"
+                                : "Launch this Windows app"
+                        )
+                    }
+                }
+            }
+            .scrollIndicators(.hidden)
+        }
+        .padding(16)
+        .dashboardPanel()
     }
 }
 
@@ -113,10 +224,18 @@ private struct ApplicationCard: View {
                     onSelect()
                     store.runInstalledProgram(program, in: container.id)
                 } label: {
-                    Label("Launch", systemImage: "play.fill")
+                    if store.isLaunchingProgram(program, in: container.id) {
+                        HStack(spacing: 7) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Starting…")
+                        }
+                    } else {
+                        Label("Launch", systemImage: "play.fill")
+                    }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(store.isContainerBusy(container.id))
+                .disabled(store.isContainerLaunching(container.id))
 
                 Button {
                     store.openInFinder(
@@ -148,6 +267,7 @@ private struct ApplicationCard: View {
                 onSelect()
                 store.runInstalledProgram(program, in: container.id)
             }
+            .disabled(store.isContainerLaunching(container.id))
             Button("Make Default") {
                 onSelect()
                 store.useInstalledProgramAsDefault(program, for: container.id)
