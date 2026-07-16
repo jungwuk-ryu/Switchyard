@@ -41,29 +41,51 @@ struct ContainerFileBrowserView: View {
 
             if isLoading && entries.isEmpty {
                 ProgressView("Loading files…")
-                    .frame(maxWidth: .infinity, minHeight: compact ? 190 : 320)
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: browserContentMinimumHeight,
+                        maxHeight: browserContentMaximumHeight
+                    )
             } else if let errorMessage {
                 ContentUnavailableView(
                     "Folder Unavailable",
                     systemImage: "folder.badge.questionmark",
                     description: Text(errorMessage)
                 )
-                .frame(maxWidth: .infinity, minHeight: compact ? 190 : 320)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: browserContentMinimumHeight,
+                    maxHeight: browserContentMaximumHeight
+                )
             } else if entries.isEmpty {
                 ContentUnavailableView(
                     "Empty Folder",
                     systemImage: "folder",
                     description: Text("There are no visible files in this folder.")
                 )
-                .frame(maxWidth: .infinity, minHeight: compact ? 190 : 320)
+                .frame(
+                    maxWidth: .infinity,
+                    minHeight: browserContentMinimumHeight,
+                    maxHeight: browserContentMaximumHeight
+                )
             } else if compact {
                 entryRows
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: browserContentMinimumHeight,
+                        alignment: .top
+                    )
             } else {
                 ScrollView {
                     entryRows
                 }
             }
         }
+        .frame(
+            maxWidth: .infinity,
+            maxHeight: compact ? nil : .infinity,
+            alignment: .top
+        )
         .dashboardPanel()
         .task(id: directoryURL) {
             await loadDirectory()
@@ -166,6 +188,14 @@ struct ContainerFileBrowserView: View {
 
     private var displayedEntries: [ContainerFileEntry] {
         compact ? Array(entries.prefix(5)) : entries
+    }
+
+    private var browserContentMinimumHeight: CGFloat {
+        compact ? 190 : 320
+    }
+
+    private var browserContentMaximumHeight: CGFloat? {
+        compact ? nil : .infinity
     }
 
     private var breadcrumbs: [(title: String, url: URL)] {

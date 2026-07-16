@@ -38,6 +38,7 @@ struct ContainerDashboardView: View {
             Divider()
             sectionContent
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: container.id) {
             store.refreshInstalledPrograms(for: container.id)
             selectInitialProgram()
