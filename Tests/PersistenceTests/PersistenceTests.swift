@@ -308,3 +308,88 @@ import Testing
         #expect(error == .outsideContainer)
     }
 }
+
+@Test func windowsExecutableIconExtractorBuildsICOFromPEResources() throws {
+    let iconImage = Data([0x11, 0x22, 0x33, 0x44])
+    let executable = makePEExecutableWithIconResource(iconImage: iconImage)
+
+    let icon = try #require(WindowsExecutableIconExtractor.iconData(from: executable))
+
+    #expect(icon.count == 26)
+    #expect(Array(icon.prefix(6)) == [0, 0, 1, 0, 1, 0])
+    #expect(Array(icon[6..<10]) == [32, 32, 0, 0])
+    #expect(Array(icon.suffix(iconImage.count)) == Array(iconImage))
+}
+
+@Test func windowsExecutableIconExtractorRejectsTruncatedAndOutOfBoundsResources() {
+    #expect(WindowsExecutableIconExtractor.iconData(from: Data([0x4D, 0x5A])) == nil)
+
+    var executable = makePEExecutableWithIconResource(iconImage: Data([0x11, 0x22]))
+    writeLittleEndian(UInt32.max, to: &executable, at: 0x250)
+    #expect(WindowsExecutableIconExtractor.iconData(from: executable) == nil)
+}
+
+private func makePEExecutableWithIconResource(iconImage: Data) -> Data {
+    var data = Data(repeating: 0, count: 0x600)
+    data[0] = 0x4D
+    data[1] = 0x5A
+    writeLittleEndian(UInt32(0x80), to: &data, at: 0x3C)
+
+    data.replaceSubrange(0x80..<0x84, with: [0x50, 0x45, 0, 0])
+    writeLittleEndian(UInt16(1), to: &data, at: 0x86)
+    writeLittleEndian(UInt16(224), to: &data, at: 0x94)
+
+    let optionalHeader = 0x98
+    writeLittleEndian(UInt16(0x10B), to: &data, at: optionalHeader)
+    writeLittleEndian(UInt32(0x1_000), to: &data, at: optionalHeader + 112)
+    writeLittleEndian(UInt32(0x200), to: &data, at: optionalHeader + 116)
+
+    let section = optionalHeader + 224
+    writeLittleEndian(UInt32(0x400), to: &data, at: section + 8)
+    writeLittleEndian(UInt32(0x1_000), to: &data, at: section + 12)
+    writeLittleEndian(UInt32(0x400), to: &data, at: section + 16)
+    writeLittleEndian(UInt32(0x200), to: &data, at: section + 20)
+
+    let resources = 0x200
+    writeLittleEndian(UInt16(2), to: &data, at: resources + 14)
+    writeLittleEndian(UInt32(3), to: &data, at: resources + 0x10)
+    writeLittleEndian(UInt32(0x8000_0020), to: &data, at: resources + 0x14)
+    writeLittleEndian(UInt32(14), to: &data, at: resources + 0x18)
+    writeLittleEndian(UInt32(0x8000_0060), to: &data, at: resources + 0x1C)
+
+    writeLittleEndian(UInt16(1), to: &data, at: resources + 0x20 + 14)
+    writeLittleEndian(UInt32(1), to: &data, at: resources + 0x30)
+    writeLittleEndian(UInt32(0x8000_0038), to: &data, at: resources + 0x34)
+    writeLittleEndian(UInt16(1), to: &data, at: resources + 0x38 + 14)
+    writeLittleEndian(UInt32(1_033), to: &data, at: resources + 0x48)
+    writeLittleEndian(UInt32(0x50), to: &data, at: resources + 0x4C)
+    writeLittleEndian(UInt32(0x1_100), to: &data, at: resources + 0x50)
+    writeLittleEndian(UInt32(iconImage.count), to: &data, at: resources + 0x54)
+
+    writeLittleEndian(UInt16(1), to: &data, at: resources + 0x60 + 14)
+    writeLittleEndian(UInt32(101), to: &data, at: resources + 0x70)
+    writeLittleEndian(UInt32(0x8000_0078), to: &data, at: resources + 0x74)
+    writeLittleEndian(UInt16(1), to: &data, at: resources + 0x78 + 14)
+    writeLittleEndian(UInt32(1_033), to: &data, at: resources + 0x88)
+    writeLittleEndian(UInt32(0x90), to: &data, at: resources + 0x8C)
+    writeLittleEndian(UInt32(0x1_120), to: &data, at: resources + 0x90)
+    writeLittleEndian(UInt32(20), to: &data, at: resources + 0x94)
+
+    data.replaceSubrange(0x300..<(0x300 + iconImage.count), with: iconImage)
+    writeLittleEndian(UInt16(1), to: &data, at: 0x322)
+    writeLittleEndian(UInt16(1), to: &data, at: 0x324)
+    data[0x326] = 32
+    data[0x327] = 32
+    writeLittleEndian(UInt16(1), to: &data, at: 0x32A)
+    writeLittleEndian(UInt16(32), to: &data, at: 0x32C)
+    writeLittleEndian(UInt32(iconImage.count), to: &data, at: 0x32E)
+    writeLittleEndian(UInt16(1), to: &data, at: 0x332)
+    return data
+}
+
+private func writeLittleEndian<T: FixedWidthInteger>(_ value: T, to data: inout Data, at offset: Int) {
+    var littleEndian = value.littleEndian
+    withUnsafeBytes(of: &littleEndian) { bytes in
+        data.replaceSubrange(offset..<(offset + bytes.count), with: bytes)
+    }
+}

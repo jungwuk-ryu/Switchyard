@@ -1,17 +1,25 @@
 import AppCore
 import Foundation
+import ImageIO
+import Persistence
 
 enum InstalledProgramIconResolver {
+    private static let cache = InstalledProgramIconCache()
+
     static func iconData(for program: InstalledProgram) async -> Data? {
-        await Task.detached(priority: .utility) {
-            resolveIconData(for: program)
-        }.value
+        await cache.iconData(for: program)
     }
 
-    private static func resolveIconData(for program: InstalledProgram) -> Data? {
+    fileprivate static func resolveIconData(for program: InstalledProgram) -> Data? {
         let fileManager = FileManager.default
+        let executableURL = URL(fileURLWithPath: program.executablePath)
+        if let embeddedIcon = WindowsExecutableIconExtractor.iconData(at: executableURL),
+           isUsableIconData(embeddedIcon) {
+            return embeddedIcon
+        }
+
         let directoryURL = URL(fileURLWithPath: program.installDirectory, isDirectory: true)
-        let executableStem = URL(fileURLWithPath: program.executablePath)
+        let executableStem = executableURL
             .deletingPathExtension()
             .lastPathComponent
             .lowercased()
@@ -82,10 +90,83 @@ enum InstalledProgramIconResolver {
         for candidate in candidates.sorted(by: { lhs, rhs in
             lhs.score == rhs.score ? lhs.url.path < rhs.url.path : lhs.score > rhs.score
         }) {
-            if let data = try? Data(contentsOf: candidate.url, options: [.mappedIfSafe]), !data.isEmpty {
+            if let data = try? Data(contentsOf: candidate.url, options: [.mappedIfSafe]),
+               !data.isEmpty,
+               isUsableIconData(data) {
                 return data
             }
         }
         return nil
+    }
+
+    private static func isUsableIconData(_ data: Data) -> Bool {
+        guard data.count <= 8_000_000,
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else {
+            return false
+        }
+        let imageCount = CGImageSourceGetCount(source)
+        guard imageCount > 0, imageCount <= 256 else { return false }
+
+        var foundImage = false
+        for index in 0..<imageCount {
+            guard let properties = CGImageSourceCopyPropertiesAtIndex(source, index, nil)
+                    as? [CFString: Any],
+                  let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+                  let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
+                continue
+            }
+            guard width.intValue > 0,
+                  height.intValue > 0,
+                  width.intValue <= 1_024,
+                  height.intValue <= 1_024 else {
+                return false
+            }
+            foundImage = true
+        }
+        return foundImage
+    }
+}
+
+private actor InstalledProgramIconCache {
+    private let maximumEntryCount = 24
+
+    private struct Key: Hashable {
+        let path: String
+        let fileSize: Int?
+        let modificationDate: Date?
+    }
+
+    private var tasksByKey: [Key: Task<Data?, Never>] = [:]
+    private var keyOrder: [Key] = []
+
+    func iconData(for program: InstalledProgram) async -> Data? {
+        let executableURL = URL(fileURLWithPath: program.executablePath).standardizedFileURL
+        let resourceValues = try? executableURL.resourceValues(
+            forKeys: [.contentModificationDateKey, .fileSizeKey]
+        )
+        let key = Key(
+            path: executableURL.path,
+            fileSize: resourceValues?.fileSize,
+            modificationDate: resourceValues?.contentModificationDate
+        )
+        if let task = tasksByKey[key] {
+            keyOrder.removeAll { $0 == key }
+            keyOrder.append(key)
+            return await task.value
+        }
+
+        tasksByKey = tasksByKey.filter { cachedKey, _ in
+            cachedKey.path != key.path
+        }
+        keyOrder.removeAll { $0.path == key.path }
+        let task = Task.detached(priority: .utility) {
+            InstalledProgramIconResolver.resolveIconData(for: program)
+        }
+        tasksByKey[key] = task
+        keyOrder.append(key)
+        while keyOrder.count > maximumEntryCount {
+            tasksByKey.removeValue(forKey: keyOrder.removeFirst())
+        }
+        return await task.value
     }
 }

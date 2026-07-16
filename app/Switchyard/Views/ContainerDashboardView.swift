@@ -161,6 +161,7 @@ struct ContainerDashboardView: View {
                             InstalledProgramShelf(
                                 container: container,
                                 programs: programs,
+                                recentPrograms: recentPrograms,
                                 maximumVisiblePrograms: maximumShelfProgramCount(
                                     for: proxy.size.width
                                 ),
@@ -176,6 +177,7 @@ struct ContainerDashboardView: View {
                             InstalledProgramShelf(
                                 container: container,
                                 programs: programs,
+                                recentPrograms: recentPrograms,
                                 maximumVisiblePrograms: 6,
                                 selectedProgramID: $selectedProgramID,
                                 onViewAll: { selectedSection = .applications }
@@ -247,12 +249,23 @@ struct ContainerDashboardView: View {
 
     private var selectedProgram: InstalledProgram? {
         if let selectedProgramID,
-            let selected = programs.first(where: { $0.id == selectedProgramID })
+            let selected = selectablePrograms.first(where: { $0.id == selectedProgramID })
         {
             return selected
         }
         return programs.first(where: { $0.executablePath == container.executablePath })
             ?? programs.first
+    }
+
+    private var recentPrograms: [RecentInstalledProgram] {
+        store.recentInstalledPrograms(for: container.id)
+    }
+
+    private var selectablePrograms: [InstalledProgram] {
+        var seenPaths: Set<String> = []
+        return (recentPrograms.map(\.program) + programs).filter { program in
+            seenPaths.insert(program.executablePath).inserted
+        }
     }
 
     private func maximumShelfProgramCount(for width: CGFloat) -> Int {
@@ -264,7 +277,7 @@ struct ContainerDashboardView: View {
     private var containerSummary: String {
         switch store.sessionSnapshot(for: container.id).wineServerState {
         case .active:
-            "Windows session running"
+            "Windows session active · launch more apps"
         case .checking:
             "Checking Windows session"
         case .inactive, .unavailable:
@@ -292,7 +305,8 @@ struct ContainerDashboardView: View {
     }
 
     private func selectInitialProgram() {
-        guard selectedProgramID == nil || !programs.contains(where: { $0.id == selectedProgramID })
+        guard selectedProgramID == nil
+                || !selectablePrograms.contains(where: { $0.id == selectedProgramID })
         else {
             return
         }
@@ -368,18 +382,30 @@ private struct ProgramHeroView: View {
                         store.chooseExecutableAndRun(in: container.id)
                     }
                 } label: {
-                    Label(
-                        program.map { "Launch \($0.presentationName)" } ?? "Run EXE…", systemImage: "play.fill"
-                    )
-                    .frame(minWidth: 150)
+                    if let program, store.isLaunchingProgram(program, in: container.id) {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Starting…")
+                        }
+                        .frame(minWidth: 150)
+                    } else {
+                        Label(
+                            program.map { "Launch \($0.presentationName)" } ?? "Run EXE…",
+                            systemImage: "play.fill"
+                        )
+                        .frame(minWidth: 150)
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(store.isContainerBusy(container.id))
+                .disabled(store.isContainerLaunching(container.id))
 
                 Text(
-                    program.map { "Start \($0.presentationName) in this container" }
-                        ?? "Choose any Windows executable"
+                    store.sessionSnapshot(for: container.id).wineServerState == .active
+                        ? "Add another app to the running Windows session"
+                        : program.map { "Start \($0.presentationName) in this container" }
+                            ?? "Choose any Windows executable"
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -391,26 +417,51 @@ private struct ProgramHeroView: View {
     }
 }
 
+private enum ProgramShelfSelection: Hashable {
+    case recent
+    case all
+}
+
+private struct ProgramShelfEntry: Identifiable {
+    var id: String { program.id }
+    let program: InstalledProgram
+    let launchedAt: Date?
+}
+
 private struct InstalledProgramShelf: View {
     @EnvironmentObject private var store: AppStore
     let container: Container
     let programs: [InstalledProgram]
+    let recentPrograms: [RecentInstalledProgram]
     let maximumVisiblePrograms: Int
     @Binding var selectedProgramID: String?
     let onViewAll: () -> Void
+    @State private var selection: ProgramShelfSelection = .recent
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Installed Programs")
+                Text(recentPrograms.isEmpty ? "Installed Programs" : "Programs")
                     .font(.headline)
                 Spacer()
+
+                if !recentPrograms.isEmpty {
+                    Picker("Program Group", selection: $selection) {
+                        Text("Recent").tag(ProgramShelfSelection.recent)
+                        Text("All").tag(ProgramShelfSelection.all)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    .frame(width: 138)
+                }
+
                 Button("View all", systemImage: "chevron.right", action: onViewAll)
                     .labelStyle(.titleAndIcon)
                     .buttonStyle(.link)
             }
 
-            if programs.isEmpty {
+            if displayedEntries.isEmpty {
                 ContentUnavailableView(
                     "No Programs Found",
                     systemImage: "app.dashed",
@@ -419,25 +470,33 @@ private struct InstalledProgramShelf: View {
                 .frame(maxWidth: .infinity, minHeight: 110)
             } else {
                 HStack(alignment: .top, spacing: 14) {
-                    ForEach(programs.prefix(maximumVisiblePrograms)) { program in
+                    ForEach(displayedEntries.prefix(maximumVisiblePrograms)) { entry in
                         Button {
-                            selectedProgramID = program.id
+                            selectedProgramID = entry.program.id
                         } label: {
-                            VStack(spacing: 8) {
-                                WindowsProgramIconView(program: program, size: 62)
-                                Text(program.presentationName)
+                            VStack(spacing: 6) {
+                                WindowsProgramIconView(program: entry.program, size: 62)
+                                Text(entry.program.presentationName)
                                     .font(.callout)
                                     .foregroundStyle(.primary)
                                     .lineLimit(1)
                                     .frame(width: 92)
+
+                                if let launchedAt = entry.launchedAt {
+                                    Text(relativeLaunchDescription(for: launchedAt))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
                             .padding(9)
                             .background(
-                                selectedProgramID == program.id ? Color.accentColor.opacity(0.14) : .clear,
+                                selectedProgramID == entry.program.id
+                                    ? Color.accentColor.opacity(0.14) : .clear,
                                 in: RoundedRectangle(cornerRadius: 10, style: .continuous)
                             )
                             .overlay {
-                                if selectedProgramID == program.id {
+                                if selectedProgramID == entry.program.id {
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                                         .stroke(Color.accentColor.opacity(0.65), lineWidth: 1)
                                 }
@@ -445,11 +504,11 @@ private struct InstalledProgramShelf: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            Button("Launch") {
-                                selectedProgramID = program.id
-                                store.runInstalledProgram(program, in: container.id)
+                            Button(store.isContainerRunning(container.id) ? "Launch Alongside" : "Launch") {
+                                selectedProgramID = entry.program.id
+                                store.runInstalledProgram(entry.program, in: container.id)
                             }
-                            .disabled(store.isContainerBusy(container.id))
+                            .disabled(store.isContainerLaunching(container.id))
                         }
                     }
                 }
@@ -457,6 +516,22 @@ private struct InstalledProgramShelf: View {
         }
         .padding(16)
         .dashboardPanel()
+    }
+
+    private var displayedEntries: [ProgramShelfEntry] {
+        if selection == .recent, !recentPrograms.isEmpty {
+            return recentPrograms.map {
+                ProgramShelfEntry(program: $0.program, launchedAt: $0.launchedAt)
+            }
+        }
+        return programs.map { ProgramShelfEntry(program: $0, launchedAt: nil) }
+    }
+
+    private func relativeLaunchDescription(for date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.dateTimeStyle = .named
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 
