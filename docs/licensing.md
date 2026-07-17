@@ -23,13 +23,13 @@ Required practices:
 - Do not ship an opaque Wine binary as an app resource.
 - Keep Wine source changes, provenance, and runtime build tooling in `switchyard-wine`, not in this repository.
 
-Switchyard currently builds user-local runtimes. Publishing prebuilt runtimes remains blocked until source publication, dependency notices, signing, notarization, and LGPL replacement requirements are verified together.
+Switchyard supports both user-local runtime builds and separately published Wine-only runtime archives. Published archives must be traceable to the immutable source commit pinned by the app, carry dependency notices and corresponding-source metadata, preserve replacement and rebuild instructions, use Developer ID signatures, and pass Apple notarization. The signed app pins the archive digest and size, verifies the extracted runtime, and installs it at an immutable content-addressed path.
 
 ## Apple Game Porting Toolkit
 
-Switchyard does not bundle or download Apple Game Porting Toolkit components.
+Switchyard does not bundle, redistribute, or directly download Apple Game Porting Toolkit components. It may open Apple's official download page and detect a completed user download.
 
-The app may import a user-selected Apple disk image or directory into a user-local cache, validate known marker files, and retain a local fingerprint for container compatibility. That cache is the user's local copy and is not a Switchyard-distributed artifact.
+The app may import a user-selected or explicitly requested local Apple disk image into a user-local cache, validate known marker files, reject escaping links, require Apple signatures on every imported Mach-O, and retain a local fingerprint for container compatibility. Apple remains responsible for account sign-in, license presentation, and the download itself. The cache is the user's local copy and is not a Switchyard-distributed artifact.
 
 Do not commit, publish, or add GPTK files to app bundles or release archives. The license presented with the user's GPTK installation is the source of truth for that local use. This policy is an engineering boundary, not legal advice.
 
