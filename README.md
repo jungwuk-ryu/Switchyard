@@ -9,6 +9,16 @@ Switchyard is an experimental, open-source macOS app for running Windows game la
 > [!IMPORTANT]
 > Switchyard is an early developer preview. There are no signed releases yet, compatibility varies by application, and containers should not be treated as a substitute for backups.
 
+## Compatibility Preview
+
+![Chrome, Steam, Overwatch, and Battle.net running through Switchyard on Apple Silicon](docs/assets/compatibility-showcase.png)
+
+**One runtime. Real Windows apps. Apple Silicon.**
+
+This July 2026 snapshot shows four different Windows workloads running side by side from Switchyard-managed containers: Chromium browser rendering, the Steam storefront, DirectX 11 game rendering, and the Battle.net launcher after sign-in. The tested runtime was built from [`switchyard-wine@f24f25e8c0`](https://github.com/jungwuk-ryu/switchyard-wine/commit/f24f25e8c098fc234d9996c4a63a71ebd1b1aaae).
+
+This is a compatibility snapshot, not a blanket support guarantee. Results can vary by macOS version, hardware, application update, DRM, and anti-cheat requirements. Switchyard is an independent project and is not affiliated with or endorsed by Apple, Blizzard Entertainment, Google, Valve, or the owners of the applications and trademarks shown above.
+
 ## What Switchyard Does
 
 - Creates Wine containers with portable manifests and explicit runtime identities.
