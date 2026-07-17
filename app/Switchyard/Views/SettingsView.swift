@@ -7,6 +7,28 @@ struct SettingsView: View {
     var body: some View {
         TabView(selection: $store.selectedSettingsTab) {
             Form {
+                LabeledContent("Apple compatibility support") {
+                    StatusBadge(status: store.runtimeStatus.rosetta, label: "Rosetta 2")
+                }
+                if store.runtimeStatus.architecture == .ok && store.runtimeStatus.rosetta != .ok {
+                    Button {
+                        store.installRosetta()
+                    } label: {
+                        if store.rosettaInstallationState.isWorking {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Installing Rosetta 2…")
+                        } else {
+                            Text("Install Rosetta 2")
+                        }
+                    }
+                    .disabled(store.rosettaInstallationState.isWorking)
+                }
+                if let message = store.rosettaInstallationState.errorMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
                 PathPickerRow(title: "Storage", message: "Choose the Switchyard storage folder.", path: $store.libraryPath) {
                     store.persistPreferences()
                 }
@@ -139,6 +161,7 @@ struct SettingsView: View {
                 Button("Reset Cached Setup State") {
                     store.hasCompletedSetup = false
                     store.persistPreferences()
+                    store.requestSetupAssistant()
                 }
             }
             .padding()

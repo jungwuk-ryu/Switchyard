@@ -21,11 +21,17 @@ struct SwitchyardApp: App {
                     store.addContainer()
                 }
                 .keyboardShortcut("n")
+                .disabled(!store.hasCompletedSetup || !store.runtimeStatus.canLaunch)
 
                 Button("Run Container") {
                     store.runSelectedContainer()
                 }
                 .keyboardShortcut("r")
+                .disabled(
+                    !store.hasCompletedSetup
+                        || !store.runtimeStatus.canLaunch
+                        || (store.selectedContainer?.executablePath?.isEmpty ?? true)
+                )
 
                 Button("Recover Copied Login Callback") {
                     store.recoverCopiedLoginCallbackForSelectedContainer()

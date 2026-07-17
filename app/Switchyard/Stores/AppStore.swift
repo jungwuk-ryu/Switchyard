@@ -115,20 +115,92 @@ enum RuntimeInstallationState: Equatable {
     }
 }
 
+enum RosettaInstallationState: Equatable {
+    case idle
+    case working
+    case ready
+    case failed(String)
+
+    var isWorking: Bool {
+        if case .working = self { return true }
+        return false
+    }
+
+    var errorMessage: String? {
+        if case .failed(let message) = self { return message }
+        return nil
+    }
+}
+
+enum FontPackPreparationState: Equatable {
+    case idle
+    case working
+    case ready
+    case failed(String)
+
+    var isWorking: Bool {
+        if case .working = self { return true }
+        return false
+    }
+}
+
+enum StarterApplicationInstallationState: Equatable {
+    case idle
+    case preparing
+    case launching
+    case installerStarted(UUID)
+    case installed(UUID)
+    case failed(String)
+
+    var isWorking: Bool {
+        switch self {
+        case .preparing, .launching, .installerStarted:
+            true
+        case .idle, .installed, .failed:
+            false
+        }
+    }
+
+    var isInstallerOpen: Bool {
+        if case .installerStarted = self { return true }
+        return false
+    }
+
+    var containerID: UUID? {
+        switch self {
+        case .installerStarted(let id), .installed(let id): id
+        case .idle, .preparing, .launching, .failed: nil
+        }
+    }
+
+    var errorMessage: String? {
+        if case .failed(let message) = self { return message }
+        return nil
+    }
+}
+
 @MainActor
 final class AppStore: ObservableObject {
     @Published var selectedSection: SidebarSelection = .containers
     @Published var selectedSettingsTab: SettingsTab = .general
     @Published var selectedContainerID: UUID?
     @Published var hasCompletedSetup: Bool
+    @Published var isSetupAssistantPresented = false
     @Published var libraryPath: String
     @Published var gptkPath: String
     @Published var winePath: String
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
     @Published private(set) var runtimeInstallationState: RuntimeInstallationState = .idle
+    @Published private(set) var rosettaInstallationState: RosettaInstallationState = .idle
+    @Published private(set) var fontPackPreparationState: FontPackPreparationState = .idle
     @Published private(set) var gptkSetupMessage: String?
     @Published private(set) var isImportingGPTK = false
+    @Published private(set) var downloadedGPTKDiskImagePath: String?
+    @Published private(set) var downloadedSteamInstallerPath: String?
+    @Published private(set) var steamSetupMessage: String?
+    @Published private(set) var isDownloadingSteamInstaller = false
+    @Published private(set) var steamInstallationState: StarterApplicationInstallationState = .idle
     @Published private(set) var launchingContainerIDs: Set<UUID> = []
     @Published private(set) var startingPrefixContainerIDs: Set<UUID> = []
     @Published private(set) var launchingExecutablePathByContainerID: [UUID: String] = [:]
@@ -153,7 +225,9 @@ final class AppStore: ObservableObject {
     }()
     private var diagnosticsTask: Task<Void, Never>?
     private var gptkImportTask: Task<Void, Never>?
+    private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
+    private var starterApplicationDetectionTask: Task<Void, Never>?
     private var activeRunSessionIDsByContainerID: [UUID: Set<UUID>] = [:]
     private var userStoppedRunSessionIDs: Set<UUID> = []
     private var prefixStartupTasks: [UUID: Task<Void, Never>] = [:]
@@ -196,16 +270,30 @@ final class AppStore: ObservableObject {
             defaults: defaults,
             containers: containers
         )
+        downloadedSteamInstallerPath = StarterApplicationDownloader()
+            .trustedCachedInstaller(for: StarterApplicationCatalog.steam)?.path
 
         persistLibrary()
         persistRecentProgramLaunches()
         pruneDebugRunLogs(in: debugRunLogRoot)
         startProtocolBridgeMonitoring()
+
+#if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--show-setup-assistant") {
+            isSetupAssistantPresented = true
+        }
+#endif
     }
 
     var selectedContainer: Container? {
         guard let selectedContainerID else { return containers.first }
         return containers.first(where: { $0.id == selectedContainerID }) ?? containers.first
+    }
+
+    private var guidedSteamContainerID: UUID? {
+        containers.first(where: {
+            $0.starterApplicationID == StarterApplicationCatalog.steam.id
+        })?.id
     }
 
     var currentRuntime: RuntimeBuild {
@@ -242,10 +330,76 @@ final class AppStore: ObservableObject {
         defaults.set(hasCompletedSetup, forKey: "hasCompletedSetup")
     }
 
-    func completeSetup() {
+    @discardableResult
+    func completeSetup() -> Bool {
+        guard GuidedSetupPolicy.canComplete(with: runtimeStatus) else {
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "setup",
+                    message: "Finish the remaining setup step before completing setup."
+                ),
+                at: 0
+            )
+            refreshRuntimeStatus()
+            return false
+        }
         hasCompletedSetup = true
+        isSetupAssistantPresented = false
         persistPreferences()
         refreshRuntimeStatus()
+        return true
+    }
+
+    func requestSetupAssistant() {
+        isSetupAssistantPresented = true
+        refreshRuntimeStatus()
+    }
+
+    func beginGuidedSetup() {
+        refreshRuntimeStatus()
+        ensureOpenFontPack()
+    }
+
+    func installRosetta(licenseNoticeAccepted: Bool = false) {
+        guard !rosettaInstallationState.isWorking else { return }
+        guard runtimeStatus.architecture == .ok else {
+            rosettaInstallationState = .failed("Rosetta 2 can only be installed on an Apple Silicon Mac.")
+            return
+        }
+        guard licenseNoticeAccepted || confirmRosettaLicenseNotice() else { return }
+
+        rosettaInstallationState = .working
+        Task {
+            do {
+                try await RosettaInstaller().install()
+                rosettaInstallationState = .ready
+                refreshRuntimeStatus()
+            } catch {
+                let message = Self.errorDescription(error)
+                rosettaInstallationState = .failed(message)
+                logLines.insert(
+                    LogLine(level: "warning", source: "setup", message: message),
+                    at: 0
+                )
+            }
+        }
+    }
+
+    private func confirmRosettaLicenseNotice() -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Install Rosetta 2?"
+        alert.informativeText = "Switchyard will open Apple's Rosetta installer. Continuing accepts Apple's Rosetta software license; macOS handles any approval that is required."
+        alert.addButton(withTitle: "Accept and Install")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    func installCompatibleWineRuntimeIfNeeded() {
+        guard runtimeStatus.wine != .ok || runtimeStatus.patchset != .ok else { return }
+        guard !runtimeInstallationState.isWorking else { return }
+        installCompatibleWineRuntime()
     }
 
     func installCompatibleWineRuntime() {
@@ -280,7 +434,7 @@ final class AppStore: ObservableObject {
     func openGPTKDownloadPage() {
         guard let url = URL(string: "https://developer.apple.com/download/all/?q=game+porting+toolkit") else { return }
         if NSWorkspace.shared.open(url) {
-            gptkSetupMessage = "Download GPTK from Apple, then return and choose Import Downloaded GPTK."
+            gptkSetupMessage = "Download the newest Game Porting Toolkit disk image, then return to Switchyard."
         } else {
             gptkSetupMessage = "Could not open the Apple Developer download page."
         }
@@ -288,11 +442,35 @@ final class AppStore: ObservableObject {
 
     func importLatestDownloadedGPTK() {
         guard !isImportingGPTK else { return }
-        guard let downloadedPath = RuntimeLocator().latestDownloadedGPTKDiskImage() else {
+        refreshDownloadedInstallers()
+        guard let downloadedPath = downloadedGPTKDiskImagePath else {
             gptkSetupMessage = "No Game Porting Toolkit disk image was found in Downloads."
             return
         }
         importGPTKDiskImage(at: downloadedPath)
+    }
+
+    func chooseGPTKDiskImageAndImport() {
+        guard !isImportingGPTK else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Choose Game Porting Toolkit"
+        panel.message = "Choose the Game Porting Toolkit .dmg file you downloaded from Apple."
+        panel.prompt = "Import"
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = FileManager.default.urls(
+            for: .downloadsDirectory,
+            in: .userDomainMask
+        ).first
+        if let diskImageType = UTType(filenameExtension: "dmg") {
+            panel.allowedContentTypes = [diskImageType]
+        }
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        gptkPath = url.path
+        persistPreferences()
+        importGPTKDiskImage(at: url.path)
     }
 
     func importSelectedGPTKDiskImage() {
@@ -336,6 +514,143 @@ final class AppStore: ObservableObject {
                 logLines.insert(LogLine(level: "warning", source: "runtime", message: message), at: 0)
             }
             gptkImportTask = nil
+        }
+    }
+
+    func refreshDownloadedInstallers() {
+        let downloadsDirectory = FileManager.default.urls(
+            for: .downloadsDirectory,
+            in: .userDomainMask
+        ).first
+        downloadedGPTKDiskImagePath = RuntimeLocator().latestDownloadedGPTKDiskImage(
+            in: downloadsDirectory
+        )
+    }
+
+    func downloadSteamInstaller() {
+        guard !isDownloadingSteamInstaller else { return }
+        let starter = StarterApplicationCatalog.steam
+        steamDownloadTask?.cancel()
+        downloadedSteamInstallerPath = nil
+        isDownloadingSteamInstaller = true
+        steamSetupMessage = "Downloading the Windows installer securely from Valve…"
+
+        steamDownloadTask = Task {
+            do {
+                let installerURL = try await StarterApplicationDownloader().download(starter)
+                guard !Task.isCancelled else { return }
+                downloadedSteamInstallerPath = installerURL.path
+                isDownloadingSteamInstaller = false
+                if case .failed = steamInstallationState {
+                    steamInstallationState = .idle
+                }
+                steamSetupMessage = "The verified Valve download is ready to install."
+            } catch {
+                guard !Task.isCancelled else { return }
+                isDownloadingSteamInstaller = false
+                let message = Self.errorDescription(error)
+                steamInstallationState = .failed(message)
+                steamSetupMessage = message
+            }
+            steamDownloadTask = nil
+        }
+    }
+
+    func cancelSteamDownloadWait() {
+        steamDownloadTask?.cancel()
+        steamDownloadTask = nil
+        isDownloadingSteamInstaller = false
+        if downloadedSteamInstallerPath == nil {
+            steamSetupMessage = "Steam setup is paused. You can resume it whenever you are ready."
+        }
+    }
+
+    func continueSteamSetup() {
+        if downloadedSteamInstallerPath == nil {
+            downloadedSteamInstallerPath = StarterApplicationDownloader()
+                .trustedCachedInstaller(for: StarterApplicationCatalog.steam)?.path
+        }
+        if downloadedSteamInstallerPath == nil {
+            downloadSteamInstaller()
+        } else {
+            installSteam()
+        }
+    }
+
+    func installSteam() {
+        guard !steamInstallationState.isWorking else { return }
+        guard runtimeStatus.canLaunch else {
+            steamInstallationState = .failed("Finish Switchyard setup before installing Steam.")
+            requestSetupAssistant()
+            return
+        }
+
+        if downloadedSteamInstallerPath == nil
+            || !FileManager.default.fileExists(atPath: downloadedSteamInstallerPath ?? "") {
+            downloadedSteamInstallerPath = StarterApplicationDownloader()
+                .trustedCachedInstaller(for: StarterApplicationCatalog.steam)?.path
+        }
+        guard let installerPath = downloadedSteamInstallerPath else {
+            downloadSteamInstaller()
+            return
+        }
+
+        let installerURL = URL(fileURLWithPath: installerPath)
+        guard StarterApplicationDownloader()
+            .trustedCachedInstaller(for: StarterApplicationCatalog.steam)?
+            .standardizedFileURL == installerURL.standardizedFileURL else {
+            downloadedSteamInstallerPath = nil
+            steamInstallationState = .failed("The cached Steam installer changed or could not be verified. Download it again from Valve.")
+            return
+        }
+
+        if let guidedSteamContainerID, isContainerBusy(guidedSteamContainerID) {
+            steamInstallationState = .failed("Wait for the current Steam setup to finish, or stop it before trying again.")
+            return
+        }
+
+        steamInstallationState = .preparing
+        isDownloadingSteamInstaller = false
+        let containerID: UUID
+        if let guidedSteamContainerID,
+           containers.contains(where: { $0.id == guidedSteamContainerID }) {
+            containerID = guidedSteamContainerID
+        } else {
+            containerID = addContainer(
+                named: StarterApplicationCatalog.steam.displayName,
+                starterApplicationID: StarterApplicationCatalog.steam.id
+            )
+        }
+        selectedContainerID = containerID
+        selectedSection = .containers
+        steamInstallationState = .launching
+
+        Task {
+            await runContainer(
+                containerID: containerID,
+                executablePath: installerURL.path,
+                executableArguments: []
+            )
+            if containers.first(where: { $0.id == containerID })?.status == .running {
+                steamInstallationState = .installerStarted(containerID)
+                steamSetupMessage = "The Steam installer is open. Follow its steps to finish installation."
+                monitorSteamInstallation(in: containerID)
+            } else {
+                steamInstallationState = .failed("The Steam installer could not be opened. Check Logs for details, then try again.")
+            }
+        }
+    }
+
+    func cancelSteamInstallation() {
+        guard case .installerStarted(let containerID) = steamInstallationState else { return }
+        starterApplicationDetectionTask?.cancel()
+        starterApplicationDetectionTask = nil
+        Task {
+            await stopWineServer(in: containerID)
+            steamInstallationState = .failed(
+                "Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container."
+            )
+            steamSetupMessage = "Steam setup is paused and can be continued safely."
         }
     }
 
@@ -384,25 +699,43 @@ final class AppStore: ObservableObject {
     }
 
     func ensureOpenFontPack() {
+        guard !fontPackPreparationState.isWorking else { return }
+        fontPackPreparationState = .working
         let fontCacheRoot = fontCacheRoot
         Task {
-            let message = await Task.detached(priority: .userInitiated) {
+            let result: (message: String?, error: String?) = await Task.detached(priority: .userInitiated) {
                 do {
                     let result = try await OpenFontPackDownloader().ensureFontPack(
                         in: URL(fileURLWithPath: fontCacheRoot, isDirectory: true)
                     )
-                    return LogLine(level: "info", source: "fonts", message: "\(result.summary) Notices: \(result.noticePath)")
+                    return ("\(result.summary) Notices: \(result.noticePath)", nil)
                 } catch {
-                    return LogLine(level: "warning", source: "fonts", message: "Could not prepare Open Font Pack: \(error.localizedDescription)")
+                    return (nil, error.localizedDescription)
                 }
             }.value
-            logLines.insert(message, at: 0)
+
+            if let message = result.message {
+                fontPackPreparationState = .ready
+                logLines.insert(LogLine(level: "info", source: "fonts", message: message), at: 0)
+            } else {
+                let message = "Could not prepare Open Font Pack: \(result.error ?? "Unknown error")"
+                fontPackPreparationState = .failed(message)
+                logLines.insert(LogLine(level: "warning", source: "fonts", message: message), at: 0)
+            }
             refreshRuntimeStatus()
         }
     }
 
     func addContainer() {
-        let name = nextContainerName()
+        _ = addContainer(named: "New Container")
+    }
+
+    @discardableResult
+    func addContainer(
+        named requestedName: String,
+        starterApplicationID: String? = nil
+    ) -> UUID {
+        let name = nextContainerName(baseName: requestedName)
         let libraryURL = URL(fileURLWithPath: libraryPath, isDirectory: true)
         let pathComponent = ContainerPathPolicy.uniqueDirectoryName(
             for: name,
@@ -413,12 +746,14 @@ final class AppStore: ObservableObject {
             path: libraryURL.appendingPathComponent(pathComponent, isDirectory: true).path,
             wineBuildID: currentRuntime.id,
             patchsetID: currentRuntime.patchsetID,
-            gptkFingerprint: runtimeStatus.gptkFingerprint
+            gptkFingerprint: runtimeStatus.gptkFingerprint,
+            starterApplicationID: starterApplicationID
         )
         containers.append(container)
         selectedContainerID = container.id
         selectedSection = .containers
         persistLibrary()
+        return container.id
     }
 
     func runSelectedContainer() {
@@ -647,9 +982,9 @@ final class AppStore: ObservableObject {
         }
 
         let panel = NSOpenPanel()
-        panel.title = "Run EXE in \(container.name)"
-        panel.message = "Choose a Windows executable or installer to run inside this container."
-        panel.prompt = "Run"
+        panel.title = "Install or Run a Windows App"
+        panel.message = "Choose the Windows installer or app (.exe) you downloaded. It will stay inside \(container.name)."
+        panel.prompt = "Open"
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
@@ -663,7 +998,10 @@ final class AppStore: ObservableObject {
         if FileManager.default.fileExists(atPath: installersURL.path) {
             panel.directoryURL = installersURL
         } else {
-            panel.directoryURL = URL(fileURLWithPath: container.path, isDirectory: true)
+            panel.directoryURL = FileManager.default.urls(
+                for: .downloadsDirectory,
+                in: .userDomainMask
+            ).first
         }
 
         guard panel.runModal() == .OK, let executableURL = panel.url else { return }
@@ -853,6 +1191,14 @@ final class AppStore: ObservableObject {
         sessionSnapshotsByContainerID[containerID] = snapshot
         if snapshot.wineServerState == .inactive {
             prefixStartupsAwaitingInactiveTransition.remove(containerID)
+            if activeRunSessionIDsByContainerID[containerID]?.isEmpty != false,
+               !isContainerTransitioning(containerID),
+               containers.first(where: { $0.id == containerID })?.status == .running {
+                let recoveredStatus: ContainerStatus = (container.executablePath?.isEmpty ?? true)
+                    ? .needsSetup
+                    : .ready
+                updateContainer(containerID) { $0.status = recoveredStatus }
+            }
         } else if snapshot.wineServerState == .active,
                   !prefixStartupsAwaitingInactiveTransition.contains(containerID) {
             finishPrefixStartup(for: containerID)
@@ -927,7 +1273,84 @@ final class AppStore: ObservableObject {
             guard !Task.isCancelled else { return }
             guard self.containers.contains(where: { $0.id == containerID }) else { return }
             self.installedProgramsByContainerID[containerID] = programs
+            self.selectStarterApplicationAsDefaultIfNeeded(
+                programs,
+                containerID: containerID
+            )
             self.installedProgramTasks.removeValue(forKey: containerID)
+        }
+    }
+
+    private func selectStarterApplicationAsDefaultIfNeeded(
+        _ programs: [InstalledProgram],
+        containerID: UUID
+    ) {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        let belongsToGuidedSetup = container.starterApplicationID
+            == StarterApplicationCatalog.steam.id
+            || steamInstallationState.containerID == containerID
+        guard belongsToGuidedSetup,
+              (container.executablePath?.isEmpty ?? true),
+              let steam = programs.first(where: {
+                  URL(fileURLWithPath: $0.executablePath)
+                      .lastPathComponent
+                      .caseInsensitiveCompare("steam.exe") == .orderedSame
+              }) else {
+            return
+        }
+
+        updateDefaultExecutable(for: containerID, to: steam.executablePath, arguments: [])
+        steamInstallationState = .installed(containerID)
+        steamSetupMessage = "Steam is installed and ready to launch."
+    }
+
+    private func monitorSteamInstallation(in containerID: UUID) {
+        starterApplicationDetectionTask?.cancel()
+        starterApplicationDetectionTask = Task {
+            defer { starterApplicationDetectionTask = nil }
+
+            for _ in 0..<60 {
+                guard !Task.isCancelled,
+                      let container = containers.first(where: { $0.id == containerID }) else {
+                    return
+                }
+                let programs = await Task.detached(priority: .utility) {
+                    InstalledProgramCatalog().installedPrograms(in: container)
+                }.value
+                guard !Task.isCancelled else { return }
+                installedProgramsByContainerID[containerID] = programs
+                selectStarterApplicationAsDefaultIfNeeded(
+                    programs,
+                    containerID: containerID
+                )
+                if case .installed(let installedID) = steamInstallationState,
+                   installedID == containerID {
+                    return
+                }
+
+                if !isContainerRunning(containerID)
+                    && !isContainerTransitioning(containerID) {
+                    steamInstallationState = .failed(
+                        "Steam was not found after the installer closed. You can continue setup in the same container without losing anything."
+                    )
+                    steamSetupMessage = "Steam installation did not finish. Choose Continue Steam Setup to try again."
+                    return
+                }
+
+                do {
+                    try await Task.sleep(for: .seconds(5))
+                } catch {
+                    return
+                }
+            }
+
+            if case .installerStarted(let activeID) = steamInstallationState,
+               activeID == containerID {
+                steamInstallationState = .failed(
+                    "Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container."
+                )
+                steamSetupMessage = "Steam was not detected yet. You can safely continue setup in this container."
+            }
         }
     }
 
@@ -1063,6 +1486,11 @@ final class AppStore: ObservableObject {
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)
+        if steamInstallationState.containerID == containerID {
+            starterApplicationDetectionTask?.cancel()
+            starterApplicationDetectionTask = nil
+            steamInstallationState = .idle
+        }
         if let activeRunSessionIDs = activeRunSessionIDsByContainerID.removeValue(
             forKey: containerID
         ) {
@@ -1146,9 +1574,16 @@ final class AppStore: ObservableObject {
             }
         }
 
+        var prefixSessionIsActiveForFonts = prefixWasActive
+        if !prefixWasActive {
+            prefixSessionIsActiveForFonts = await initializePrefixForFirstLaunchIfNeeded(
+                container,
+                winePath: winePath
+            )
+        }
         let fontPreparationLog = await prepareOpenFontsForLaunch(
             for: container,
-            prefixSessionIsActive: prefixWasActive
+            prefixSessionIsActive: prefixSessionIsActiveForFonts
         )
         logLines.insert(fontPreparationLog, at: 0)
 
@@ -1393,6 +1828,77 @@ final class AppStore: ObservableObject {
         }.value
     }
 
+    private func initializePrefixForFirstLaunchIfNeeded(
+        _ container: Container,
+        winePath: String
+    ) async -> Bool {
+        guard !prefixHasInitializedRegistry(container) else { return false }
+
+        logLines.insert(
+            LogLine(
+                containerID: container.id,
+                level: "info",
+                source: container.name,
+                message: "Initializing this Windows container before its first app opens."
+            ),
+            at: 0
+        )
+
+        do {
+            let plan = try jobEngine.runPlan(
+                container: container,
+                executablePath: "wineboot.exe",
+                executableArguments: ["-u"],
+                runtime: currentRuntime,
+                gptkPath: gptkPath
+            )
+            let session = try await runnerClient.launchAndWait(
+                plan,
+                containerID: container.id,
+                containerName: "\(container.name) Setup",
+                onLog: { [weak self] line in
+                    Task { @MainActor in
+                        self?.logLines.insert(line, at: 0)
+                    }
+                }
+            )
+            guard session.outcome == .succeeded else {
+                throw NSError(
+                    domain: "Switchyard.PrefixSetup",
+                    code: Int(session.exitCode ?? -1),
+                    userInfo: [NSLocalizedDescriptionKey: "Wine initialization exited before finishing."]
+                )
+            }
+
+            let runnerClient = runnerClient
+            let prefixPath = container.path
+            try await Task.detached(priority: .userInitiated) {
+                try runnerClient.stopWineServer(winePath: winePath, prefixPath: prefixPath)
+            }.value
+            return false
+        } catch {
+            logLines.insert(
+                LogLine(
+                    containerID: container.id,
+                    level: "warning",
+                    source: container.name,
+                    message: "The first-run container preparation did not finish; the app will still open and Wine can retry automatically: \(Self.errorDescription(error))"
+                ),
+                at: 0
+            )
+            return true
+        }
+    }
+
+    private func prefixHasInitializedRegistry(_ container: Container) -> Bool {
+        ["system.reg", "user.reg"].allSatisfy { fileName in
+            let url = URL(fileURLWithPath: container.path, isDirectory: true)
+                .appendingPathComponent(fileName)
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { return false }
+            return text.components(separatedBy: .newlines).contains(where: { $0.hasPrefix("#arch=") })
+        }
+    }
+
     var hasRunningContainers: Bool {
         containers.contains { isContainerRunning($0.id) }
     }
@@ -1417,6 +1923,31 @@ final class AppStore: ObservableObject {
                 at: 0
             )
         }
+    }
+
+    func stopAllWindowsAppsForSetup() async -> Bool {
+        let targetIDs = containers.filter { isContainerRunning($0.id) }.map(\.id)
+        stopAllRuns()
+
+        for _ in 0..<40 {
+            for containerID in targetIDs where !isContainerTransitioning(containerID) {
+                let snapshotIsActive = sessionSnapshotsByContainerID[containerID]?.wineServerState == .active
+                let statusIsRunning = containers.first(where: { $0.id == containerID })?.status == .running
+                if snapshotIsActive || statusIsRunning {
+                    await stopWineServer(in: containerID)
+                }
+            }
+            if !hasRunningContainers {
+                return true
+            }
+            do {
+                try await Task.sleep(for: .milliseconds(250))
+            } catch {
+                return false
+            }
+        }
+
+        return !hasRunningContainers
     }
 
     func diagnosticBundle() -> DiagnosticBundle {
@@ -1488,8 +2019,7 @@ final class AppStore: ObservableObject {
         persistLibrary()
     }
 
-    private func nextContainerName() -> String {
-        let baseName = "New Container"
+    private func nextContainerName(baseName: String = "New Container") -> String {
         guard containers.contains(where: { $0.name == baseName }) else {
             return baseName
         }

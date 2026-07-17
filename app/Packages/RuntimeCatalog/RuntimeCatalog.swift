@@ -42,6 +42,12 @@ public struct RuntimeLocator {
     ) -> (RuntimeStatus, [DiagnosticCheck]) {
         let architectureStatus = isAppleSilicon ? HealthStatus.ok : .unsupported
         let macOSStatus = isSupportedMacOS ? HealthStatus.ok : .unsupported
+        let rosettaStatus: HealthStatus
+        if !isAppleSilicon {
+            rosettaStatus = .unsupported
+        } else {
+            rosettaStatus = isRosettaAvailable ? .ok : .missing
+        }
         let gptkValidation = validateGPTK(at: gptkPath)
         let wineValidation = validateWine(at: winePath, expectedSourceRevision: expectedSourceRevision)
         let fontCacheURL = fontCachePath.map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -62,6 +68,19 @@ public struct RuntimeLocator {
                 status: macOSStatus,
                 result: "Detected macOS \(operatingSystemVersion).",
                 recoveryAction: nil
+            ),
+            DiagnosticCheck(
+                id: "rosetta",
+                title: "Rosetta 2",
+                status: rosettaStatus,
+                result: !isAppleSilicon
+                    ? "Rosetta 2 is available only on Apple Silicon Macs."
+                    : (rosettaStatus == .ok
+                        ? "Apple's support for Intel-based apps is installed."
+                        : "Rosetta 2 is required for the Windows compatibility runtime."),
+                recoveryAction: isAppleSilicon && rosettaStatus != .ok
+                    ? "Install Rosetta 2"
+                    : nil
             ),
             DiagnosticCheck(
                 id: "gptk",
@@ -94,7 +113,12 @@ public struct RuntimeLocator {
         ]
 
         let summary: String
-        if architectureStatus == .ok && macOSStatus == .ok && gptkValidation.status == .ok && wineValidation.status == .ok && wineValidation.sourceStatus == .ok {
+        if architectureStatus == .ok
+            && macOSStatus == .ok
+            && rosettaStatus == .ok
+            && gptkValidation.status == .ok
+            && wineValidation.status == .ok
+            && wineValidation.sourceStatus == .ok {
             summary = "Ready to launch Windows executables in Switchyard containers."
         } else {
             summary = "Setup is incomplete. Resolve diagnostics before launching."
@@ -103,6 +127,7 @@ public struct RuntimeLocator {
         let runtimeStatus = RuntimeStatus(
             architecture: architectureStatus,
             macOS: macOSStatus,
+            rosetta: rosettaStatus,
             gptk: gptkValidation.status,
             wine: wineValidation.status,
             patchset: wineValidation.sourceStatus,
@@ -582,6 +607,13 @@ public struct RuntimeLocator {
 
     private var isSupportedMacOS: Bool {
         ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 14
+    }
+
+    private var isRosettaAvailable: Bool {
+        [
+            "/Library/Apple/usr/share/rosetta/rosetta",
+            "/Library/Apple/usr/libexec/oah/runtime"
+        ].contains(where: fileManager.fileExists(atPath:))
     }
 
     private var operatingSystemVersion: String {

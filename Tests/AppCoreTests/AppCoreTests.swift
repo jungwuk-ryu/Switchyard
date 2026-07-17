@@ -3,22 +3,140 @@ import Foundation
 import Testing
 
 @Test func runtimeStatusCanLaunchOnlyWhenRequiredComponentsAreReady() {
-    let ready = RuntimeStatus(architecture: .ok, macOS: .ok, gptk: .ok, wine: .ok, patchset: .ok)
+    let ready = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .ok, wine: .ok, patchset: .ok)
     #expect(ready.canLaunch)
 
-    let missingGPTK = RuntimeStatus(architecture: .ok, macOS: .ok, gptk: .missing, wine: .ok, patchset: .ok)
+    let missingRosetta = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .missing, gptk: .ok, wine: .ok, patchset: .ok)
+    #expect(!missingRosetta.canLaunch)
+
+    let missingGPTK = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .missing, wine: .ok, patchset: .ok)
     #expect(!missingGPTK.canLaunch)
 
-    let missingPatchset = RuntimeStatus(architecture: .ok, macOS: .ok, gptk: .ok, wine: .ok, patchset: .missing)
+    let missingPatchset = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .ok, wine: .ok, patchset: .missing)
     #expect(!missingPatchset.canLaunch)
 }
 
+@Test func guidedSetupPolicyPresentsOnlyTheNextRequiredAction() {
+    #expect(GuidedSetupPolicy.nextRequirement(for: RuntimeStatus()) == .checking)
+    #expect(
+        GuidedSetupPolicy.nextRequirement(
+            for: RuntimeStatus(architecture: .unsupported, macOS: .ok)
+        ) == .unsupportedMac
+    )
+    #expect(
+        GuidedSetupPolicy.nextRequirement(
+            for: RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .missing)
+        ) == .rosetta
+    )
+    #expect(
+        GuidedSetupPolicy.nextRequirement(
+            for: RuntimeStatus(
+                architecture: .ok,
+                macOS: .ok,
+                rosetta: .ok,
+                gptk: .missing,
+                wine: .missing,
+                patchset: .missing
+            )
+        ) == .runtime
+    )
+    #expect(
+        GuidedSetupPolicy.nextRequirement(
+            for: RuntimeStatus(
+                architecture: .ok,
+                macOS: .ok,
+                rosetta: .ok,
+                gptk: .missing,
+                wine: .ok,
+                patchset: .ok
+            )
+        ) == .toolkit
+    )
+
+    let ready = RuntimeStatus(
+        architecture: .ok,
+        macOS: .ok,
+        rosetta: .ok,
+        gptk: .ok,
+        wine: .ok,
+        patchset: .ok
+    )
+    #expect(GuidedSetupPolicy.nextRequirement(for: ready) == .ready)
+    #expect(GuidedSetupPolicy.canComplete(with: ready))
+}
+
+@Test func legacyRuntimeStatusDecodesRosettaAsUnknown() throws {
+    let data = Data(
+        #"{"architecture":"ok","macOS":"ok","gptk":"ok","wine":"ok","patchset":"ok","summary":"Legacy"}"#.utf8
+    )
+
+    let status = try JSONDecoder().decode(RuntimeStatus.self, from: data)
+
+    #expect(status.rosetta == .unknown)
+    #expect(!status.canLaunch)
+}
+
+@Test func starterApplicationAcceptsOnlyExpectedInstallersAndTrustedURLs() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let older = root.appendingPathComponent("SteamSetup.exe")
+    let newer = root.appendingPathComponent("SteamSetup (2).exe")
+    let browserVariant = root.appendingPathComponent("SteamSetup-3.exe")
+    let partial = root.appendingPathComponent("SteamSetup.exe.crdownload")
+    try Data([0x4d, 0x5a, 0x00]).write(to: older)
+    try Data([0x4d, 0x5a, 0x01]).write(to: newer)
+    try Data([0x4d, 0x5a, 0x02]).write(to: partial)
+    try Data([0x4d, 0x5a, 0x03]).write(to: browserVariant)
+    let starter = StarterApplicationCatalog.steam
+    #expect(starter.trustsDownloadURL(starter.downloadURL))
+    #expect(
+        starter.trustsDownloadURL(
+            URL(string: "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe")!
+        )
+    )
+    #expect(
+        !starter.trustsDownloadURL(
+            URL(string: "http://cdn.fastly.steamstatic.com/client/installer/SteamSetup.exe")!
+        )
+    )
+    #expect(
+        !starter.trustsDownloadURL(
+            URL(string: "https://cdn.fastly.steamstatic.com.example.com/client/installer/SteamSetup.exe")!
+        )
+    )
+    #expect(
+        !starter.trustsDownloadURL(
+            URL(string: "https://cdn.fastly.steamstatic.com/anything/SteamSetup.exe")!
+        )
+    )
+    #expect(
+        !starter.trustsDownloadURL(
+            URL(string: "https://cdn.fastly.steamstatic.com:8443/client/installer/SteamSetup.exe")!
+        )
+    )
+    #expect(starter.recognizesInstaller(at: older))
+    #expect(starter.hasWindowsExecutableHeader(at: newer))
+    #expect(starter.recognizesInstaller(at: browserVariant))
+    #expect(!starter.recognizesInstaller(at: partial))
+}
+
 @Test func containerPinsRuntimeIdentity() {
-    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a", gptkFingerprint: "gptk-a")
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        gptkFingerprint: "gptk-a",
+        starterApplicationID: "steam"
+    )
     #expect(container.wineBuildID == "wine-a")
     #expect(container.patchsetID == "patch-a")
     #expect(container.gptkFingerprint == "gptk-a")
-    #expect(container.schemaVersion == 3)
+    #expect(container.starterApplicationID == "steam")
+    #expect(container.schemaVersion == 4)
 }
 
 @Test func environmentOverridePolicyRejectsReservedRuntimeIdentityKeys() {

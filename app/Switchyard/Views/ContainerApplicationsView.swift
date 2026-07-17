@@ -40,9 +40,19 @@ struct ContainerApplicationsView: View {
                     }
 
                     Button {
-                        store.chooseExecutableAndRun(in: container.id)
+                        if isSteamStarterContainer {
+                            store.continueSteamSetup()
+                        } else {
+                            store.chooseExecutableAndRun(in: container.id)
+                        }
                     } label: {
-                        if store.isStoppingWineServer(in: container.id) {
+                        if isSteamStarterContainer && starterSetupIsBusy {
+                            HStack(spacing: 7) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Continuing Steam Setup…")
+                            }
+                        } else if store.isStoppingWineServer(in: container.id) {
                             HStack(spacing: 7) {
                                 ProgressView()
                                     .controlSize(.small)
@@ -55,11 +65,14 @@ struct ContainerApplicationsView: View {
                                 Text("Starting…")
                             }
                         } else {
-                            Label("Run EXE…", systemImage: "play.square")
+                            Label(
+                                isSteamStarterContainer ? "Continue Steam Setup" : "Install or Run App…",
+                                systemImage: isSteamStarterContainer ? "arrow.clockwise.circle" : "play.square"
+                            )
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(store.isContainerTransitioning(container.id))
+                    .disabled(store.isContainerTransitioning(container.id) || starterSetupIsBusy)
                 }
 
                 if !recentPrograms.isEmpty {
@@ -71,15 +84,29 @@ struct ContainerApplicationsView: View {
                 }
 
                 if programs.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Programs Found", systemImage: "app.dashed")
-                    } description: {
-                        Text("Install a Windows application or choose an EXE to run it here.")
-                    } actions: {
-                        Button("Run EXE…") {
-                            store.chooseExecutableAndRun(in: container.id)
+                    VStack {
+                        ContentUnavailableView {
+                            Label("No Programs Found", systemImage: "app.dashed")
+                        } description: {
+                            Text("Choose a Windows installer or app. Switchyard keeps it inside this container.")
+                        } actions: {
+                            Button(isSteamStarterContainer ? "Continue Steam Setup" : "Choose Windows App…") {
+                                if isSteamStarterContainer {
+                                    store.continueSteamSetup()
+                                } else {
+                                    store.chooseExecutableAndRun(in: container.id)
+                                }
+                            }
+                            .disabled(store.isContainerTransitioning(container.id) || starterSetupIsBusy)
                         }
-                        .disabled(store.isContainerTransitioning(container.id))
+
+                        if isSteamStarterContainer,
+                           let message = store.steamInstallationState.errorMessage {
+                            Text(message)
+                                .font(.callout)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     .frame(maxWidth: .infinity, minHeight: 360)
                     .dashboardPanel()
@@ -110,6 +137,16 @@ struct ContainerApplicationsView: View {
 
     private var recentPrograms: [RecentInstalledProgram] {
         store.recentInstalledPrograms(for: container.id)
+    }
+
+    private var isSteamStarterContainer: Bool {
+        container.starterApplicationID == StarterApplicationCatalog.steam.id
+            && programs.isEmpty
+    }
+
+    private var starterSetupIsBusy: Bool {
+        isSteamStarterContainer
+            && (store.isDownloadingSteamInstaller || store.steamInstallationState.isWorking)
     }
 }
 

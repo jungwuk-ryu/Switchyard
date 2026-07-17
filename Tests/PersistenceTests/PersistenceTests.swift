@@ -11,6 +11,7 @@ import Testing
         path: root.appendingPathComponent("Toolbox.container", isDirectory: true).path,
         wineBuildID: "wine-a",
         patchsetID: "patch-a",
+        starterApplicationID: "steam",
         executablePath: "C:\\Tools\\Toolbox.exe",
         executableArguments: ["-safe-mode"],
         status: .ready
@@ -25,11 +26,13 @@ import Testing
     #expect(loaded.containers.count == 1)
     #expect(loaded.containers.first?.id == container.id)
     #expect(loaded.containers.first?.name == "Toolbox")
+    #expect(loaded.containers.first?.starterApplicationID == "steam")
     #expect(loaded.containers.first?.executablePath == "C:\\Tools\\Toolbox.exe")
     #expect(loaded.containers.first?.executableArguments == ["-safe-mode"])
     #expect(loaded.containers.first?.status == .ready)
     #expect(manifest.contains("\"containers\""))
     #expect(manifest.contains("\"executableArguments\""))
+    #expect(manifest.contains("\"starterApplicationID\""))
     #expect(!manifest.contains("\"bottles\""))
     #expect(!manifest.contains("\"launchers\""))
     #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Toolbox.container/switchyard-container.json").path))
@@ -138,7 +141,7 @@ import Testing
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
-    #expect(loaded.containers.first?.schemaVersion == 3)
+    #expect(loaded.containers.first?.schemaVersion == 4)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 
@@ -170,7 +173,7 @@ import Testing
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
-    #expect(loaded.containers.first?.schemaVersion == 3)
+    #expect(loaded.containers.first?.schemaVersion == 4)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 

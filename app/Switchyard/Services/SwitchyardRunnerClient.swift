@@ -187,6 +187,29 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         return session
     }
 
+    func launchAndWait(
+        _ plan: CommandPlan,
+        containerID: UUID,
+        containerName: String,
+        onLog: @escaping @Sendable (LogLine) -> Void
+    ) async throws -> RunSession {
+        try await withCheckedThrowingContinuation { continuation in
+            do {
+                _ = try launch(
+                    plan,
+                    containerID: containerID,
+                    containerName: containerName,
+                    onLog: onLog,
+                    onExit: { session in
+                        continuation.resume(returning: session)
+                    }
+                )
+            } catch {
+                continuation.resume(throwing: error)
+            }
+        }
+    }
+
     func deliverURLCallback(
         _ request: WineURLCallbackRequest,
         onExit: @escaping @Sendable (Int32) -> Void

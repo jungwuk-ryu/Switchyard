@@ -78,7 +78,7 @@ struct ContainerDashboardView: View {
                 }
 
                 Menu {
-                    Button("Run EXE…") {
+                    Button("Install or Run App…") {
                         store.chooseExecutableAndRun(in: container.id)
                     }
                     Button("Show Container in Finder") {
@@ -352,7 +352,10 @@ private struct ProgramHeroView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
-                    Text(program?.presentationName ?? "Choose an application")
+                    Text(
+                        program?.presentationName
+                            ?? (isSteamStarterContainer ? "Finish setting up Steam" : "Choose an application")
+                    )
                         .font(.title.weight(.semibold))
                         .lineLimit(1)
 
@@ -377,7 +380,11 @@ private struct ProgramHeroView: View {
                         .truncationMode(.middle)
                         .textSelection(.enabled)
                 } else {
-                    Text("Installed Windows applications will appear here after setup.")
+                    Text(
+                        isSteamStarterContainer
+                            ? "Continue in the same private container; Switchyard will not create a duplicate."
+                            : "Installed Windows applications will appear here after setup."
+                    )
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -395,11 +402,20 @@ private struct ProgramHeroView: View {
                 Button {
                     if let program {
                         store.runInstalledProgram(program, in: container.id)
+                    } else if isSteamStarterContainer {
+                        store.continueSteamSetup()
                     } else {
                         store.chooseExecutableAndRun(in: container.id)
                     }
                 } label: {
-                    if store.isStoppingWineServer(in: container.id) {
+                    if starterSetupIsBusy {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Continuing Steam Setup…")
+                        }
+                        .frame(minWidth: 150)
+                    } else if store.isStoppingWineServer(in: container.id) {
                         HStack(spacing: 8) {
                             ProgressView()
                                 .controlSize(.small)
@@ -415,7 +431,8 @@ private struct ProgramHeroView: View {
                         .frame(minWidth: 150)
                     } else {
                         Label(
-                            program.map { "Launch \($0.presentationName)" } ?? "Run EXE…",
+                            program.map { "Launch \($0.presentationName)" }
+                                ?? (isSteamStarterContainer ? "Continue Steam Setup" : "Choose Windows App…"),
                             systemImage: "play.fill"
                         )
                         .frame(minWidth: 150)
@@ -423,21 +440,41 @@ private struct ProgramHeroView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(store.isContainerTransitioning(container.id))
+                .disabled(store.isContainerTransitioning(container.id) || starterSetupIsBusy)
 
-                Text(
-                    store.sessionSnapshot(for: container.id).wineServerState == .active
-                        ? "Add another app to the running Windows session"
-                        : program.map { "Start \($0.presentationName) in this container" }
-                            ?? "Choose any Windows executable"
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+                if isSteamStarterContainer,
+                   let message = store.steamInstallationState.errorMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.trailing)
+                        .lineLimit(3)
+                        .frame(maxWidth: 260, alignment: .trailing)
+                } else {
+                    Text(
+                        store.sessionSnapshot(for: container.id).wineServerState == .active
+                            ? "Add another app to the running Windows session"
+                            : program.map { "Start \($0.presentationName) in this container" }
+                                ?? "Choose any Windows executable"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                }
             }
         }
         .padding(18)
         .dashboardPanel(emphasized: true)
+    }
+
+    private var isSteamStarterContainer: Bool {
+        program == nil
+            && container.starterApplicationID == StarterApplicationCatalog.steam.id
+    }
+
+    private var starterSetupIsBusy: Bool {
+        isSteamStarterContainer
+            && (store.isDownloadingSteamInstaller || store.steamInstallationState.isWorking)
     }
 }
 

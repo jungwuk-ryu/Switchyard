@@ -24,6 +24,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
     public var wineBuildID: String
     public var patchsetID: String
     public var gptkFingerprint: String?
+    public var starterApplicationID: String?
     public var executablePath: String?
     public var executableArguments: [String]
     public var lastRun: Date?
@@ -39,12 +40,13 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         wineBuildID: String,
         patchsetID: String,
         gptkFingerprint: String? = nil,
+        starterApplicationID: String? = nil,
         executablePath: String? = nil,
         executableArguments: [String] = [],
         lastRun: Date? = nil,
         status: ContainerStatus = .needsSetup,
         environmentOverrides: [String: String] = [:],
-        schemaVersion: Int = 3,
+        schemaVersion: Int = 4,
         lastModified: Date = Date()
     ) {
         self.id = id
@@ -53,6 +55,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         self.wineBuildID = wineBuildID
         self.patchsetID = patchsetID
         self.gptkFingerprint = gptkFingerprint
+        self.starterApplicationID = starterApplicationID
         self.executablePath = executablePath
         self.executableArguments = executableArguments
         self.lastRun = lastRun
@@ -69,6 +72,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         case wineBuildID
         case patchsetID
         case gptkFingerprint
+        case starterApplicationID
         case executablePath
         case executableArguments
         case lastRun
@@ -87,12 +91,13 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         patchsetID = try container.decode(String.self, forKey: .patchsetID)
         let decodedSchemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
         gptkFingerprint = try container.decodeIfPresent(String.self, forKey: .gptkFingerprint)
+        starterApplicationID = try container.decodeIfPresent(String.self, forKey: .starterApplicationID)
         executablePath = try container.decodeIfPresent(String.self, forKey: .executablePath)
         executableArguments = try container.decodeIfPresent([String].self, forKey: .executableArguments) ?? []
         lastRun = try container.decodeIfPresent(Date.self, forKey: .lastRun)
         status = try container.decodeIfPresent(ContainerStatus.self, forKey: .status) ?? .needsSetup
         environmentOverrides = try container.decodeIfPresent([String: String].self, forKey: .environmentOverrides) ?? [:]
-        schemaVersion = max(decodedSchemaVersion, 3)
+        schemaVersion = max(decodedSchemaVersion, 4)
         lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
     }
 }
@@ -290,6 +295,7 @@ public struct RuntimeBuild: Identifiable, Codable, Equatable, Sendable {
 public struct RuntimeStatus: Codable, Equatable, Sendable {
     public var architecture: HealthStatus
     public var macOS: HealthStatus
+    public var rosetta: HealthStatus
     public var gptk: HealthStatus
     public var wine: HealthStatus
     public var patchset: HealthStatus
@@ -299,6 +305,7 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
     public init(
         architecture: HealthStatus = .unknown,
         macOS: HealthStatus = .unknown,
+        rosetta: HealthStatus = .unknown,
         gptk: HealthStatus = .unknown,
         wine: HealthStatus = .unknown,
         patchset: HealthStatus = .unknown,
@@ -307,6 +314,7 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
     ) {
         self.architecture = architecture
         self.macOS = macOS
+        self.rosetta = rosetta
         self.gptk = gptk
         self.wine = wine
         self.patchset = patchset
@@ -315,7 +323,35 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
     }
 
     public var canLaunch: Bool {
-        architecture == .ok && macOS == .ok && gptk == .ok && wine == .ok && patchset == .ok
+        architecture == .ok
+            && macOS == .ok
+            && rosetta == .ok
+            && gptk == .ok
+            && wine == .ok
+            && patchset == .ok
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case architecture
+        case macOS
+        case rosetta
+        case gptk
+        case wine
+        case patchset
+        case summary
+        case gptkFingerprint
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        architecture = try container.decode(HealthStatus.self, forKey: .architecture)
+        macOS = try container.decode(HealthStatus.self, forKey: .macOS)
+        rosetta = try container.decodeIfPresent(HealthStatus.self, forKey: .rosetta) ?? .unknown
+        gptk = try container.decode(HealthStatus.self, forKey: .gptk)
+        wine = try container.decode(HealthStatus.self, forKey: .wine)
+        patchset = try container.decode(HealthStatus.self, forKey: .patchset)
+        summary = try container.decode(String.self, forKey: .summary)
+        gptkFingerprint = try container.decodeIfPresent(String.self, forKey: .gptkFingerprint)
     }
 }
 

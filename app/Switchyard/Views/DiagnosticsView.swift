@@ -33,6 +33,16 @@ struct DiagnosticsView: View {
                 }
             }
 
+            if let message = store.rosettaInstallationState.errorMessage {
+                ErrorBanner(
+                    title: "Rosetta was not installed",
+                    message: message,
+                    actionTitle: "Try Again"
+                ) {
+                    store.installRosetta()
+                }
+            }
+
             List(store.diagnostics) { check in
                 DiagnosticCheckRow(check: check) {
                     performRecovery(for: check)
@@ -44,6 +54,9 @@ struct DiagnosticsView: View {
     }
 
     private var preferredSettingsTab: SettingsTab {
+        if store.runtimeStatus.rosetta != .ok {
+            return .general
+        }
         if store.runtimeStatus.gptk != .ok {
             return .gptk
         }
@@ -55,6 +68,8 @@ struct DiagnosticsView: View {
 
     private func performRecovery(for check: DiagnosticCheck) {
         switch check.id {
+        case "rosetta" where check.recoveryAction != nil:
+            store.installRosetta()
         case "gptk":
             openSettingsTab(.gptk)
         case "wine-runtime", "runtime-source":

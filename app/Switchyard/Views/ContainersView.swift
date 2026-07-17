@@ -8,7 +8,9 @@ struct ContainersView: View {
 
     var body: some View {
         Group {
-            if let container = presentedContainer {
+            if !canUseContainers {
+                ContainerLibraryView { _ in }
+            } else if let container = presentedContainer {
                 ContainerDashboardView(
                     container: container,
                     onBack: { presentedContainerID = nil },
@@ -23,7 +25,9 @@ struct ContainersView: View {
             }
         }
         .navigationTitle(
-            presentedContainer == nil ? "Containers" : presentedContainer?.name ?? "Container"
+            !canUseContainers || presentedContainer == nil
+                ? "Containers"
+                : presentedContainer?.name ?? "Container"
         )
         .onAppear {
             if presentedContainerID == nil {
@@ -59,6 +63,10 @@ struct ContainersView: View {
         return store.containers.first(where: { $0.id == presentedContainerID })
     }
 
+    private var canUseContainers: Bool {
+        store.hasCompletedSetup && store.runtimeStatus.canLaunch
+    }
+
     private var deletionConfirmationBinding: Binding<Bool> {
         Binding {
             deletionTarget != nil
@@ -82,16 +90,72 @@ private struct ContainerLibraryView: View {
 
             Divider()
 
-            if store.containers.isEmpty {
+            if !store.hasCompletedSetup || !store.runtimeStatus.canLaunch {
                 ContentUnavailableView {
-                    Label("No Containers", systemImage: "shippingbox")
+                    Label("Finish Setting Up Switchyard", systemImage: "wand.and.stars")
                 } description: {
-                    Text("Create a container to install and run Windows applications.")
+                    Text("Switchyard will guide you through the remaining steps before installing a Windows app.")
                 } actions: {
-                    Button("Create Container") {
-                        store.addContainer()
+                    Button("Continue Setup") {
+                        store.requestSetupAssistant()
                     }
                     .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("containers.continueSetup")
+                }
+                .padding()
+            } else if store.containers.isEmpty {
+                VStack {
+                    ContentUnavailableView {
+                        Label("Install Your First Windows App", systemImage: "gamecontroller")
+                    } description: {
+                        Text("Start with Steam, or create an empty private space for another Windows installer.")
+                    } actions: {
+                        if store.steamInstallationState.isWorking || store.isDownloadingSteamInstaller {
+                            HStack(spacing: 8) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text(
+                                    store.isDownloadingSteamInstaller
+                                        ? "Downloading securely from Valve…"
+                                        : (store.steamInstallationState.isInstallerOpen
+                                            ? "Finish installing Steam…"
+                                            : "Opening the Steam installer…")
+                                )
+                            }
+                            if store.isDownloadingSteamInstaller {
+                                Button("Cancel Download") {
+                                    store.cancelSteamDownloadWait()
+                                }
+                            }
+                        } else if store.downloadedSteamInstallerPath != nil {
+                            Button("Install Steam") {
+                                store.installSteam()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("steam.install")
+                        } else {
+                            Button("Download Steam") {
+                                store.downloadSteamInstaller()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .accessibilityIdentifier("steam.download")
+                        }
+
+                        Button("Create an Empty Container") {
+                            store.cancelSteamDownloadWait()
+                            store.addContainer()
+                        }
+                    }
+
+                    if let message = store.steamInstallationState.errorMessage {
+                        Text(message)
+                            .font(.callout)
+                            .foregroundStyle(.red)
+                    } else if let message = store.steamSetupMessage {
+                        Text(message)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding()
             } else {
