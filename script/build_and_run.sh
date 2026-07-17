@@ -5,8 +5,13 @@ MODE="${1:-run}"
 APP_NAME="Switchyard"
 BUNDLE_ID="dev.switchyard.Switchyard"
 MIN_SYSTEM_VERSION="14.0"
-APP_VERSION="${SWITCHYARD_APP_VERSION:-0.1.0}"
-APP_BUILD="${SWITCHYARD_APP_BUILD:-1}"
+APP_VERSION="${SWITCHYARD_APP_VERSION:-0.2.0}"
+APP_BUILD="${SWITCHYARD_APP_BUILD:-2}"
+BUILD_CONFIGURATION="${SWITCHYARD_BUILD_CONFIGURATION:-debug}"
+case "$BUILD_CONFIGURATION" in
+  debug|release) ;;
+  *) echo "SWITCHYARD_BUILD_CONFIGURATION must be debug or release" >&2; exit 2 ;;
+esac
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
@@ -33,10 +38,10 @@ fi
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
-swift build --jobs "$SWIFT_BUILD_JOBS" --product "$APP_NAME"
-swift build --jobs "$SWIFT_BUILD_JOBS" --product switchyard-runner
-swift build --jobs "$SWIFT_BUILD_JOBS" --product switchyard-url-handler
-BUILD_BIN_PATH="$(swift build --show-bin-path)"
+swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product "$APP_NAME"
+swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-runner
+swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-url-handler
+BUILD_BIN_PATH="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
 BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
 BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
 BUILD_URL_HANDLER="$BUILD_BIN_PATH/switchyard-url-handler"
@@ -68,6 +73,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_VERSION</string>
   <key>CFBundleVersion</key>
   <string>$APP_BUILD</string>
+  <key>SwitchyardBuildConfiguration</key>
+  <string>$BUILD_CONFIGURATION</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>

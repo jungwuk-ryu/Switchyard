@@ -38,6 +38,9 @@ jobs:
       - name: Test Wine source synchronization
         run: Tests/Shell/ensure_switchyard_wine_test.sh
 
+      - name: Validate release packaging script
+        run: bash -n script/release_app.sh
+
       - name: Test runner lifecycle and logging
         run: Tests/Shell/runner_prefix_session_test.sh
 
