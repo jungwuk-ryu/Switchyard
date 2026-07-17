@@ -8,15 +8,47 @@ import Foundation
     #expect(result.status == .missing)
 }
 
-@Test func gptkMarkerProducesFingerprint() throws {
+@Test func appleSignedGPTKMarkerProducesFingerprint() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    let marker = root.appendingPathComponent("libd3dmetal.dylib")
-    try Data().write(to: marker)
+    let marker = root.appendingPathComponent("libd3dshared.dylib")
+    try FileManager.default.copyItem(at: URL(fileURLWithPath: "/bin/echo"), to: marker)
 
     let result = RuntimeLocator().validateGPTK(at: root.path)
     #expect(result.status == .ok)
     #expect(result.fingerprint != nil)
+}
+
+@Test func unsignedGPTKMarkerIsRejected() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    try Data().write(to: root.appendingPathComponent("libd3dmetal.dylib"))
+
+    let result = RuntimeLocator().validateGPTK(at: root.path)
+
+    #expect(result.status == .warning)
+    #expect(result.message.contains("not fully Apple-signed"))
+}
+
+@Test func gptkDirectoryRejectsEscapingSymbolicLinks() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    try FileManager.default.copyItem(
+        at: URL(fileURLWithPath: "/bin/echo"),
+        to: root.appendingPathComponent("libd3dshared.dylib")
+    )
+    try FileManager.default.createSymbolicLink(
+        at: root.appendingPathComponent("outside"),
+        withDestinationURL: FileManager.default.temporaryDirectory
+    )
+
+    let result = RuntimeLocator().validateGPTK(at: root.path)
+
+    #expect(result.status == .warning)
+    #expect(result.message.contains("symbolic link"))
 }
 
 @Test func regularFileGPTKPathReportsMissing() throws {
@@ -25,6 +57,107 @@ import Foundation
 
     let result = RuntimeLocator().validateGPTK(at: file.path)
     #expect(result.status == .missing)
+}
+
+@Test func latestDownloadedGPTKDiskImageSelectsNewestMatchingImage() throws {
+    let downloads = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: downloads) }
+    try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
+
+    let older = downloads.appendingPathComponent("Game_Porting_Toolkit_3.dmg")
+    let newer = downloads.appendingPathComponent("Game-Porting-Toolkit-4.dmg")
+    let unrelated = downloads.appendingPathComponent("Unrelated.dmg")
+    try Data().write(to: older)
+    try Data().write(to: newer)
+    try Data().write(to: unrelated)
+    try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 100)], ofItemAtPath: older.path)
+    try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 200)], ofItemAtPath: newer.path)
+
+    let result = RuntimeLocator().latestDownloadedGPTKDiskImage(in: downloads)
+
+    #expect(
+        result.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
+            == newer.resolvingSymlinksInPath().path
+    )
+}
+
+@Test func publishedRuntimeReleaseRequiresExactSignedNotarizedRevision() throws {
+    let revision = String(repeating: "a", count: 40)
+    let releaseNotarizationID = UUID().uuidString
+    let policy = PublishedRuntimePolicy(
+        sourceRevision: revision,
+        releaseManifestURL: try #require(URL(string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/download/runtime-a/switchyard-runtime-release.json")),
+        developerTeamID: "M3CULMDKU3",
+        archiveSha256: String(repeating: "b", count: 64),
+        archiveSize: 1024,
+        notarizationID: releaseNotarizationID
+    )
+    let release = PublishedRuntimeRelease(
+        schemaVersion: 1,
+        runtimeID: "switchyard-runtime-a",
+        sourceRevision: revision,
+        archive: "Switchyard-Wine-Runtime-a.zip",
+        archiveSha256: String(repeating: "b", count: 64),
+        archiveSize: 1024,
+        platform: "macos",
+        hostArchitecture: "x86_64",
+        peArchitectures: ["i386", "x86_64"],
+        developerTeamID: "M3CULMDKU3",
+        notarizationStatus: "Accepted",
+        notarizationID: releaseNotarizationID
+    )
+
+    try PublishedRuntimeInstaller.validate(release: release, against: policy)
+
+    var mismatched = release
+    mismatched.sourceRevision = String(repeating: "c", count: 40)
+    #expect(throws: (any Error).self) {
+        try PublishedRuntimeInstaller.validate(release: mismatched, against: policy)
+    }
+
+    var unsigned = release
+    unsigned.notarizationStatus = "not-submitted"
+    #expect(throws: (any Error).self) {
+        try PublishedRuntimeInstaller.validate(release: unsigned, against: policy)
+    }
+
+    var replacedArchive = release
+    replacedArchive.archiveSha256 = String(repeating: "c", count: 64)
+    #expect(throws: (any Error).self) {
+        try PublishedRuntimeInstaller.validate(release: replacedArchive, against: policy)
+    }
+}
+
+@Test func publishedRuntimeCanBeInstalledWhenProvided() async throws {
+    let environment = ProcessInfo.processInfo.environment
+    guard let manifestValue = environment["SWITCHYARD_TEST_RUNTIME_RELEASE_MANIFEST_URL"],
+          let manifestURL = URL(string: manifestValue),
+          let sourceRevision = environment["SWITCHYARD_TEST_RUNTIME_SOURCE_REVISION"],
+          let developerTeamID = environment["SWITCHYARD_TEST_RUNTIME_DEVELOPER_TEAM_ID"],
+          let archiveSha256 = environment["SWITCHYARD_TEST_RUNTIME_ARCHIVE_SHA256"],
+          let archiveSizeValue = environment["SWITCHYARD_TEST_RUNTIME_ARCHIVE_SIZE"],
+          let archiveSize = UInt64(archiveSizeValue),
+          let notarizationID = environment["SWITCHYARD_TEST_RUNTIME_NOTARIZATION_ID"] else {
+        return
+    }
+
+    let runtimeCache = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: runtimeCache) }
+
+    let policy = PublishedRuntimePolicy(
+        sourceRevision: sourceRevision,
+        releaseManifestURL: manifestURL,
+        developerTeamID: developerTeamID,
+        archiveSha256: archiveSha256,
+        archiveSize: archiveSize,
+        notarizationID: notarizationID
+    )
+    let result = try await PublishedRuntimeInstaller(runtimeCacheRoot: runtimeCache).install(policy: policy)
+
+    #expect(result.sourceRevision == sourceRevision)
+    #expect(FileManager.default.isExecutableFile(atPath: result.winePath))
+    #expect(URL(fileURLWithPath: result.winePath).path.hasPrefix(runtimeCache.path + "/"))
 }
 
 @Test func gptkDiskImagePathReportsWarningWhenProvided() {
@@ -95,8 +228,8 @@ import Foundation
     let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
 
     #expect(locator.preferredWineExecutablePath(for: nil) == newWine.path)
-    #expect(locator.preferredWineExecutablePath(for: oldWine.path) == newWine.path)
-    #expect(locator.preferredWineExecutablePath(for: oldWine.path, expectedSourceRevision: sourceRevision) == newWine.path)
+    #expect(locator.preferredWineExecutablePath(for: oldWine.path) == oldWine.path)
+    #expect(locator.preferredWineExecutablePath(for: oldWine.path, expectedSourceRevision: sourceRevision) == oldWine.path)
 }
 
 @Test func preferredWineExecutablePathRecoversDeletedManagedRuntimeSelection() throws {

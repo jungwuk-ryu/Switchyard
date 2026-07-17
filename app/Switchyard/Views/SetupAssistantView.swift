@@ -13,25 +13,78 @@ struct SetupAssistantView: View {
                     Text("Set Up Switchyard")
                         .font(.largeTitle)
                         .fontWeight(.semibold)
-                    Text("Prepare the local runtime paths before launching Windows executables.")
+                    Text("Install the compatible runtime and import your Apple toolkit.")
                         .foregroundStyle(.secondary)
                 }
             }
 
             VStack(alignment: .leading, spacing: 10) {
                 SetupStepRow(number: 1, title: "Check Apple Silicon and macOS", detail: "Diagnostics run automatically when the app opens.")
-                PathPickerRow(title: "GPTK", message: "Choose your local Apple Game Porting Toolkit installation.", path: $store.gptkPath) {
+
+                SetupStepRow(number: 2, title: "Install the Wine runtime", detail: "Switchyard downloads the latest signed release compatible with this app build.")
+                HStack {
+                    Button {
+                        store.installCompatibleWineRuntime()
+                    } label: {
+                        if store.runtimeInstallationState.isWorking {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Installing Runtime…")
+                        } else {
+                            Label("Install or Update Runtime", systemImage: "arrow.down.circle")
+                        }
+                    }
+                    .disabled(store.runtimeInstallationState.isWorking)
+                    StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
+                }
+                if let message = store.runtimeInstallationState.message {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                SetupStepRow(number: 3, title: "Get Game Porting Toolkit", detail: "Apple sign-in and license acceptance stay on Apple's site; Switchyard imports the downloaded DMG.")
+                HStack {
+                    Button("Download from Apple") {
+                        store.openGPTKDownloadPage()
+                    }
+                    Button {
+                        store.importLatestDownloadedGPTK()
+                    } label: {
+                        if store.isImportingGPTK {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Verifying and Importing…")
+                        } else {
+                            Text("Import Downloaded GPTK")
+                        }
+                    }
+                    .disabled(store.isImportingGPTK)
+                    StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
+                }
+                if let message = store.gptkSetupMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                PathPickerRow(title: "GPTK", message: "Or choose a local GPTK directory or disk image.", path: $store.gptkPath) {
                     store.refreshRuntimeStatus()
+                }
+                if URL(fileURLWithPath: store.gptkPath).pathExtension.lowercased() == "dmg" {
+                    Button("Import Selected GPTK") {
+                        store.importSelectedGPTKDiskImage()
+                    }
+                    .disabled(store.isImportingGPTK)
                 }
                 PathPickerRow(title: "Storage", message: "Choose where Switchyard stores containers and manifests.", path: $store.libraryPath) {
                     store.persistPreferences()
                 }
-                PathPickerRow(title: "Wine", message: "Choose a Wine executable or a Wine runtime folder.", path: $store.winePath) {
+                PathPickerRow(title: "Wine", message: "Optional: choose a runtime manually.", path: $store.winePath) {
                     store.refreshRuntimeStatus()
                 }
             }
 
-            ErrorBanner(title: "User-provided GPTK only", message: "Switchyard links to your local Apple-provided GPTK install and does not include Apple binaries.")
+            ErrorBanner(title: "Apple download required", message: "Switchyard never redistributes GPTK. It imports only the copy you download from Apple after accepting Apple's terms.")
 
             Spacer()
 
@@ -55,7 +108,7 @@ struct SetupAssistantView: View {
             }
         }
         .padding(24)
-        .frame(width: 720, height: 520)
+        .frame(width: 760, height: 650)
     }
 }
 

@@ -19,11 +19,39 @@ struct SettingsView: View {
             .tabItem { Label("General", systemImage: "gearshape") }
 
             Form {
+                HStack {
+                    Button("Download from Apple") {
+                        store.openGPTKDownloadPage()
+                    }
+                    Button {
+                        store.importLatestDownloadedGPTK()
+                    } label: {
+                        if store.isImportingGPTK {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Verifying and Importing…")
+                        } else {
+                            Text("Import Downloaded GPTK")
+                        }
+                    }
+                    .disabled(store.isImportingGPTK)
+                }
                 PathPickerRow(title: "GPTK", message: "Choose your local Apple Game Porting Toolkit installation.", path: $store.gptkPath) {
                     store.refreshRuntimeStatus()
                 }
+                if URL(fileURLWithPath: store.gptkPath).pathExtension.lowercased() == "dmg" {
+                    Button("Import Selected GPTK") {
+                        store.importSelectedGPTKDiskImage()
+                    }
+                    .disabled(store.isImportingGPTK)
+                }
                 StatusBadge(status: store.runtimeStatus.gptk, label: store.runtimeStatus.gptk.label)
-                Text("Switchyard does not bundle GPTK. Choose your own Apple-provided installation.")
+                if let message = store.gptkSetupMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Text("Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -32,6 +60,23 @@ struct SettingsView: View {
             .tabItem { Label("GPTK", systemImage: "cube.transparent") }
 
             Form {
+                Button {
+                    store.installCompatibleWineRuntime()
+                } label: {
+                    if store.runtimeInstallationState.isWorking {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Installing Compatible Runtime…")
+                    } else {
+                        Label("Install or Update Compatible Runtime", systemImage: "arrow.down.circle")
+                    }
+                }
+                .disabled(store.runtimeInstallationState.isWorking)
+                if let message = store.runtimeInstallationState.message {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 PathPickerRow(title: "Wine", message: "Choose a Wine executable or a Wine runtime folder.", path: $store.winePath) {
                     store.refreshRuntimeStatus()
                 }
@@ -100,7 +145,7 @@ struct SettingsView: View {
             .tag(SettingsTab.advanced)
             .tabItem { Label("Advanced", systemImage: "terminal") }
         }
-        .frame(width: 620, height: 360)
+        .frame(width: 660, height: 440)
     }
 
     private var wineRuntimeMessage: String {
