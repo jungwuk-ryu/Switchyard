@@ -8,11 +8,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 private struct RuntimeRefreshResult {
-    var importedGPTKPath: String?
     var resolvedWinePath: String
     var status: RuntimeStatus
     var diagnostics: [DiagnosticCheck]
-    var importMessage: String?
 }
 
 private enum LoginCallbackRecoveryError: LocalizedError {
@@ -39,6 +37,30 @@ private let maximumRecentProgramLaunches = 8
 
 private struct SwitchyardWineSourcePolicy {
     var revision: String
+    var releaseManifestURL: URL?
+    var developerTeamID: String
+    var archiveSha256: String
+    var archiveSize: UInt64?
+    var notarizationID: String
+
+    var publishedRuntimePolicy: PublishedRuntimePolicy? {
+        guard !revision.isEmpty,
+              let releaseManifestURL,
+              !developerTeamID.isEmpty,
+              !archiveSha256.isEmpty,
+              let archiveSize,
+              !notarizationID.isEmpty else {
+            return nil
+        }
+        return PublishedRuntimePolicy(
+            sourceRevision: revision,
+            releaseManifestURL: releaseManifestURL,
+            developerTeamID: developerTeamID,
+            archiveSha256: archiveSha256,
+            archiveSize: archiveSize,
+            notarizationID: notarizationID
+        )
+    }
 
     static func load(fileManager: FileManager = .default) -> SwitchyardWineSourcePolicy {
         let bundledURL = Bundle.main.url(forResource: "switchyard-wine", withExtension: "env")
@@ -55,9 +77,41 @@ private struct SwitchyardWineSourcePolicy {
                 }
         )
         let unresolvedRevision = values["SWITCHYARD_WINE_REVISION"] ?? ""
+        let unresolvedManifestURL = values["SWITCHYARD_WINE_RELEASE_MANIFEST_URL"] ?? ""
+        let unresolvedTeamID = values["SWITCHYARD_WINE_DEVELOPER_TEAM_ID"] ?? ""
+        let unresolvedArchiveSha256 = values["SWITCHYARD_WINE_RELEASE_ARCHIVE_SHA256"] ?? ""
+        let unresolvedArchiveSize = values["SWITCHYARD_WINE_RELEASE_ARCHIVE_SIZE"] ?? ""
+        let unresolvedNotarizationID = values["SWITCHYARD_WINE_RELEASE_NOTARIZATION_ID"] ?? ""
         return SwitchyardWineSourcePolicy(
-            revision: unresolvedRevision.hasPrefix("__") ? "" : unresolvedRevision
+            revision: unresolvedRevision.hasPrefix("__") ? "" : unresolvedRevision,
+            releaseManifestURL: unresolvedManifestURL.hasPrefix("__")
+                ? nil
+                : URL(string: unresolvedManifestURL),
+            developerTeamID: unresolvedTeamID.hasPrefix("__") ? "" : unresolvedTeamID,
+            archiveSha256: unresolvedArchiveSha256.hasPrefix("__") ? "" : unresolvedArchiveSha256,
+            archiveSize: UInt64(unresolvedArchiveSize),
+            notarizationID: unresolvedNotarizationID.hasPrefix("__") ? "" : unresolvedNotarizationID
         )
+    }
+}
+
+enum RuntimeInstallationState: Equatable {
+    case idle
+    case working
+    case ready(String)
+    case failed(String)
+
+    var isWorking: Bool {
+        if case .working = self { return true }
+        return false
+    }
+
+    var message: String? {
+        switch self {
+        case .idle: nil
+        case .working: "Downloading, validating, and installing the signed runtime…"
+        case .ready(let message), .failed(let message): message
+        }
     }
 }
 
@@ -72,6 +126,9 @@ final class AppStore: ObservableObject {
     @Published var winePath: String
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
+    @Published private(set) var runtimeInstallationState: RuntimeInstallationState = .idle
+    @Published private(set) var gptkSetupMessage: String?
+    @Published private(set) var isImportingGPTK = false
     @Published private(set) var launchingContainerIDs: Set<UUID> = []
     @Published private(set) var startingPrefixContainerIDs: Set<UUID> = []
     @Published private(set) var launchingExecutablePathByContainerID: [UUID: String] = [:]
@@ -95,6 +152,7 @@ final class AppStore: ObservableObject {
         return formatter
     }()
     private var diagnosticsTask: Task<Void, Never>?
+    private var gptkImportTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
     private var activeRunSessionIDsByContainerID: [UUID: Set<UUID>] = [:]
     private var userStoppedRunSessionIDs: Set<UUID> = []
@@ -190,6 +248,97 @@ final class AppStore: ObservableObject {
         refreshRuntimeStatus()
     }
 
+    func installCompatibleWineRuntime() {
+        guard !runtimeInstallationState.isWorking else { return }
+        guard !hasRunningContainers else {
+            runtimeInstallationState = .failed("Stop all running containers before changing the selected runtime.")
+            return
+        }
+        guard let policy = wineSourcePolicy.publishedRuntimePolicy else {
+            runtimeInstallationState = .failed("This app build does not contain a published runtime channel.")
+            return
+        }
+
+        runtimeInstallationState = .working
+        Task {
+            do {
+                let result = try await PublishedRuntimeInstaller().install(policy: policy)
+                winePath = result.winePath
+                persistPreferences()
+                let message = "Installed compatible runtime \(result.runtimeID) from source \(result.sourceRevision.prefix(12))."
+                runtimeInstallationState = .ready(message)
+                logLines.insert(LogLine(level: "info", source: "runtime", message: message), at: 0)
+                refreshRuntimeStatus()
+            } catch {
+                let message = "Could not install the compatible runtime: \(error.localizedDescription)"
+                runtimeInstallationState = .failed(message)
+                logLines.insert(LogLine(level: "warning", source: "runtime", message: message), at: 0)
+            }
+        }
+    }
+
+    func openGPTKDownloadPage() {
+        guard let url = URL(string: "https://developer.apple.com/download/all/?q=game+porting+toolkit") else { return }
+        if NSWorkspace.shared.open(url) {
+            gptkSetupMessage = "Download GPTK from Apple, then return and choose Import Downloaded GPTK."
+        } else {
+            gptkSetupMessage = "Could not open the Apple Developer download page."
+        }
+    }
+
+    func importLatestDownloadedGPTK() {
+        guard !isImportingGPTK else { return }
+        guard let downloadedPath = RuntimeLocator().latestDownloadedGPTKDiskImage() else {
+            gptkSetupMessage = "No Game Porting Toolkit disk image was found in Downloads."
+            return
+        }
+        importGPTKDiskImage(at: downloadedPath)
+    }
+
+    func importSelectedGPTKDiskImage() {
+        guard !isImportingGPTK else { return }
+        let selectedPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard URL(fileURLWithPath: selectedPath).pathExtension.lowercased() == "dmg" else {
+            gptkSetupMessage = "Choose a GPTK disk image before importing."
+            return
+        }
+        importGPTKDiskImage(at: selectedPath)
+    }
+
+    private func importGPTKDiskImage(at downloadedPath: String) {
+        guard !hasRunningContainers else {
+            gptkSetupMessage = "Stop all running containers before importing a toolkit."
+            return
+        }
+        isImportingGPTK = true
+        gptkSetupMessage = "Found \(URL(fileURLWithPath: downloadedPath).lastPathComponent); importing it into the local cache…"
+        let importRoot = gptkImportRoot
+        gptkImportTask = Task {
+            let result: (path: String?, error: String?) = await Task.detached(priority: .userInitiated) {
+                do {
+                    let path = try RuntimeLocator().importGPTKDiskImage(at: downloadedPath, to: importRoot)
+                    return (path, nil)
+                } catch {
+                    return (nil, error.localizedDescription)
+                }
+            }.value
+
+            isImportingGPTK = false
+            if let importedPath = result.path {
+                gptkPath = importedPath
+                persistPreferences()
+                gptkSetupMessage = "Imported Apple-signed GPTK code into Switchyard's local cache."
+                logLines.insert(LogLine(level: "info", source: "runtime", message: gptkSetupMessage ?? "GPTK import completed."), at: 0)
+                refreshRuntimeStatus()
+            } else {
+                let message = "Could not import GPTK disk image: \(result.error ?? "Unknown error")"
+                gptkSetupMessage = message
+                logLines.insert(LogLine(level: "warning", source: "runtime", message: message), at: 0)
+            }
+            gptkImportTask = nil
+        }
+    }
+
     func refreshRuntimeStatus() {
         persistPreferences()
         diagnosticsTask?.cancel()
@@ -197,65 +346,37 @@ final class AppStore: ObservableObject {
         let gptkPath = gptkPath
         let winePath = winePath
         let expectedWineSourceRevision = wineSourcePolicy.revision
-        let gptkImportRoot = gptkImportRoot
         let fontCacheRoot = fontCacheRoot
-        diagnosticsTask = Task { [gptkPath, winePath, expectedWineSourceRevision, gptkImportRoot, fontCacheRoot] in
+        diagnosticsTask = Task { [gptkPath, winePath, expectedWineSourceRevision, fontCacheRoot] in
             let result = await Task.detached(priority: .userInitiated) {
                 let locator = RuntimeLocator()
-                let trimmedGPTKPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
-                var resolvedGPTKPath = gptkPath
-                var importedGPTKPath: String?
                 let resolvedWinePath = locator.preferredWineExecutablePath(
                     for: winePath,
                     expectedSourceRevision: expectedWineSourceRevision
                 )
                     ?? locator.resolveWineExecutablePath(for: winePath)
                     ?? winePath
-                var importMessage: String?
-
-                if !trimmedGPTKPath.isEmpty,
-                   URL(fileURLWithPath: trimmedGPTKPath).pathExtension.lowercased() == "dmg",
-                   !gptkImportRoot.isEmpty {
-                    do {
-                        let importedPath = try locator.importGPTKDiskImage(at: trimmedGPTKPath, to: gptkImportRoot)
-                        resolvedGPTKPath = importedPath
-                        importedGPTKPath = importedPath
-                        importMessage = "Imported GPTK from local disk image into Switchyard runtime cache."
-                    } catch {
-                        importMessage = "Could not auto-import GPTK disk image: \(error.localizedDescription)"
-                    }
-                }
 
                 let diagnosed = locator.diagnose(
-                    gptkPath: resolvedGPTKPath,
+                    gptkPath: gptkPath,
                     winePath: resolvedWinePath,
                     expectedSourceRevision: expectedWineSourceRevision,
                     fontCachePath: fontCacheRoot
                 )
                 return RuntimeRefreshResult(
-                    importedGPTKPath: importedGPTKPath,
                     resolvedWinePath: resolvedWinePath,
                     status: diagnosed.0,
-                    diagnostics: diagnosed.1,
-                    importMessage: importMessage
+                    diagnostics: diagnosed.1
                 )
             }.value
 
             guard !Task.isCancelled else { return }
-            if let importedGPTKPath = result.importedGPTKPath,
-               self.gptkPath == gptkPath {
-                self.gptkPath = importedGPTKPath
-                persistPreferences()
-            }
             if !result.resolvedWinePath.isEmpty,
                result.resolvedWinePath != winePath,
                self.winePath == winePath {
                 self.winePath = result.resolvedWinePath
                 persistPreferences()
                 logLines.insert(LogLine(level: "info", source: "runtime", message: "Resolved Wine selection to executable: \(result.resolvedWinePath)"), at: 0)
-            }
-            if let importMessage = result.importMessage {
-                logLines.insert(LogLine(level: result.importedGPTKPath == nil ? "warning" : "info", source: "runtime", message: importMessage), at: 0)
             }
             runtimeStatus = result.status
             diagnostics = result.diagnostics

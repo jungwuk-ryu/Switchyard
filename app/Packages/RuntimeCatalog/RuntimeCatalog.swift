@@ -1,6 +1,7 @@
 import AppCore
 import Darwin
 import Foundation
+import Security
 
 private struct SwitchyardRuntimeManifest: Decodable {
     var id: String?
@@ -127,7 +128,15 @@ public struct RuntimeLocator {
             guard url.pathExtension.lowercased() == "dmg" else {
                 return (.missing, "Selected GPTK path is not a directory or supported .dmg disk image.", nil)
             }
-            return validateGPTKDiskImage(at: url)
+            let attributes = (try? fileManager.attributesOfItem(atPath: url.path)) ?? [:]
+            let size = attributes[.size] as? UInt64 ?? 0
+            let modified = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+            let fingerprint = "gptk-image-\(fnvDigest("\(canonicalPath(url.path)):\(size):\(modified)"))"
+            return (
+                .warning,
+                "The selected GPTK disk image has not been imported. Use Import Selected GPTK to verify Apple-signed code before mounting it.",
+                fingerprint
+            )
         }
 
         return validateGPTKDirectory(at: path, sourceDescription: "Path")
@@ -142,6 +151,37 @@ public struct RuntimeLocator {
             .appendingPathComponent("bin", isDirectory: true)
             .appendingPathComponent("wine")
             .path ?? ""
+    }
+
+    public func latestDownloadedGPTKDiskImage(in downloadsDirectory: URL? = nil) -> String? {
+        let directory = downloadsDirectory
+            ?? fileManager.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        guard let directory,
+              let candidates = try? fileManager.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+                options: [.skipsHiddenFiles]
+              ) else {
+            return nil
+        }
+
+        return candidates
+            .compactMap { url -> (url: URL, modifiedAt: Date)? in
+                guard url.pathExtension.lowercased() == "dmg" else { return nil }
+                let normalizedName = url.deletingPathExtension().lastPathComponent
+                    .lowercased()
+                    .replacingOccurrences(of: "_", with: " ")
+                    .replacingOccurrences(of: "-", with: " ")
+                guard normalizedName.contains("game porting toolkit")
+                    || normalizedName.contains("gameportingtoolkit") else {
+                    return nil
+                }
+                let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .isRegularFileKey])
+                guard values?.isRegularFile == true else { return nil }
+                return (url, values?.contentModificationDate ?? .distantPast)
+            }
+            .max(by: { $0.modifiedAt < $1.modifiedAt })?
+            .url.path
     }
 
     public func resolveWineExecutablePath(for path: String?) -> String? {
@@ -172,7 +212,18 @@ public struct RuntimeLocator {
         }
 
         if isManagedCacheSelection || isManagedSwitchyardRuntimePath(resolvedPath) {
-            return preferredCachedPath ?? resolvedPath
+            guard let expectedSourceRevision else {
+                return resolvedPath
+            }
+            if let rootURL = runtimeRoot(forWineExecutable: resolvedPath),
+               let manifest = loadSwitchyardRuntimeManifest(under: rootURL),
+               (manifest.sourceRevision ?? manifest.wineRevision) == expectedSourceRevision,
+               manifest.sourceDirty != true,
+               hasPEArchitecture("i386", under: rootURL, manifest: manifest),
+               hasPEArchitecture("x86_64", under: rootURL, manifest: manifest) {
+                return resolvedPath
+            }
+            return preferredCachedPath
         }
 
         return resolvedPath
@@ -244,38 +295,18 @@ public struct RuntimeLocator {
             return (.warning, "\(sourceDescription) exists, but no known D3DMetal/GPTK marker files were found.", fingerprint(forMarkersAt: path, markers: []))
         }
 
-        return (.ok, "GPTK markers found: \(markers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: path, markers: markers))
-    }
-
-    private func validateGPTKDiskImage(at url: URL) -> (status: HealthStatus, message: String, fingerprint: String?) {
         do {
-            let outerMount = try attachDiskImage(at: url.path)
-            defer { detachDiskImage(outerMount) }
-
-            for mount in outerMount.mountPoints {
-                let markers = findGPTKMarkers(under: mount)
-                if !markers.isEmpty {
-                    return (.warning, "GPTK disk image is valid and can be imported automatically. Markers found: \(markers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: mount, markers: markers))
-                }
-
-                for nestedImage in findNestedDiskImages(under: mount) {
-                    let nestedMount = try attachDiskImage(at: nestedImage)
-                    defer { detachDiskImage(nestedMount) }
-
-                    for nestedMountPoint in nestedMount.mountPoints {
-                        let nestedMarkers = findGPTKMarkers(under: nestedMountPoint)
-                        if !nestedMarkers.isEmpty {
-                            let nestedName = URL(fileURLWithPath: nestedImage).lastPathComponent
-                            return (.warning, "GPTK disk image contains \(nestedName) and can be imported automatically. Markers found: \(nestedMarkers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: nestedMountPoint, markers: nestedMarkers))
-                        }
-                    }
-                }
-            }
-
-            return (.warning, "GPTK disk image mounted, but no known D3DMetal/GPTK marker files were found.", fingerprint(forMarkersAt: url.path, markers: []))
+            try validateNoEscapingSymbolicLinks(under: path)
+            try validateAppleSignedMachOFiles(under: path)
         } catch {
-            return (.warning, "Selected GPTK disk image could not be mounted: \(error.localizedDescription)", fingerprint(forMarkersAt: url.path, markers: []))
+            return (
+                .warning,
+                "\(sourceDescription) contains GPTK markers, but its executable code is not fully Apple-signed: \(error.localizedDescription)",
+                fingerprint(forMarkersAt: path, markers: markers)
+            )
         }
+
+        return (.ok, "Apple-signed GPTK code and markers found: \(markers.prefix(3).joined(separator: ", ")).", fingerprint(forMarkersAt: path, markers: markers))
     }
 
     private func validateWine(at path: String?, expectedSourceRevision: String?) -> WineValidation {
@@ -614,9 +645,13 @@ public struct RuntimeLocator {
     }
 
     private func copyGPTKRuntime(from sourcePath: String, sourceImagePath: String, to importRoot: String) throws -> String {
+        try validateNoEscapingSymbolicLinks(under: sourcePath)
+        try validateAppleSignedMachOFiles(under: sourcePath)
         let destination = importDestination(forDiskImageAt: sourceImagePath, under: importRoot)
-        if fileManager.fileExists(atPath: destination),
-           validateGPTK(at: destination).status == .ok {
+        if fileManager.fileExists(atPath: destination) {
+            guard validateGPTK(at: destination).status == .ok else {
+                throw RuntimeLocatorError.importDestinationConflict
+            }
             return destination
         }
 
@@ -636,10 +671,9 @@ public struct RuntimeLocator {
         guard !findGPTKMarkers(under: temporaryURL.path).isEmpty else {
             throw RuntimeLocatorError.noGPTKMarkersInImportedRuntime
         }
+        try validateNoEscapingSymbolicLinks(under: temporaryURL.path)
+        try validateAppleSignedMachOFiles(under: temporaryURL.path)
 
-        if fileManager.fileExists(atPath: destinationURL.path) {
-            try fileManager.removeItem(at: destinationURL)
-        }
         try fileManager.moveItem(at: temporaryURL, to: destinationURL)
         shouldRemoveTemporary = false
         return destinationURL.path
@@ -674,6 +708,87 @@ public struct RuntimeLocator {
 
         let trimmed = result.trimmingCharacters(in: CharacterSet(charactersIn: "_-"))
         return trimmed.isEmpty ? "GPTK" : trimmed
+    }
+
+    private func validateAppleSignedMachOFiles(under rootPath: String) throws {
+        var requirement: SecRequirement?
+        guard SecRequirementCreateWithString("anchor apple" as CFString, SecCSFlags(), &requirement) == errSecSuccess,
+              let requirement else {
+            throw RuntimeLocatorError.invalidAppleSigningRequirement
+        }
+        guard let enumerator = fileManager.enumerator(
+            at: URL(fileURLWithPath: rootPath, isDirectory: true),
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: []
+        ) else {
+            throw RuntimeLocatorError.noAppleSignedGPTKCode
+        }
+
+        var machOCount = 0
+        var signedRuntimeMarkerCount = 0
+        for case let url as URL in enumerator {
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey])
+            guard values.isRegularFile == true, try isMachOFile(url) else { continue }
+            machOCount += 1
+            var code: SecStaticCode?
+            guard SecStaticCodeCreateWithPath(url as CFURL, SecCSFlags(), &code) == errSecSuccess,
+                  let code,
+                  SecStaticCodeCheckValidity(
+                    code,
+                    SecCSFlags(rawValue: kSecCSCheckAllArchitectures | kSecCSStrictValidate),
+                    requirement
+                  ) == errSecSuccess else {
+                throw RuntimeLocatorError.invalidGPTKCodeSignature(url.lastPathComponent)
+            }
+            let normalizedPath = url.path.lowercased()
+            if normalizedPath.contains("d3dmetal") || normalizedPath.contains("d3dshared") {
+                signedRuntimeMarkerCount += 1
+            }
+        }
+        guard machOCount > 0, signedRuntimeMarkerCount > 0 else {
+            throw RuntimeLocatorError.noAppleSignedGPTKCode
+        }
+    }
+
+    private func validateNoEscapingSymbolicLinks(under rootPath: String) throws {
+        let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
+        let resolvedRootPath = rootURL.resolvingSymlinksInPath().standardizedFileURL.path
+        guard let enumerator = fileManager.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: [.isSymbolicLinkKey],
+            options: []
+        ) else {
+            throw RuntimeLocatorError.escapingGPTKSymbolicLink
+        }
+
+        for case let url as URL in enumerator {
+            let values = try url.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard values.isSymbolicLink == true else { continue }
+            let target = try fileManager.destinationOfSymbolicLink(atPath: url.path)
+            guard !target.hasPrefix("/") else {
+                throw RuntimeLocatorError.escapingGPTKSymbolicLink
+            }
+            let resolvedTarget = URL(fileURLWithPath: target, relativeTo: url.deletingLastPathComponent())
+                .resolvingSymlinksInPath()
+                .standardizedFileURL.path
+            guard resolvedTarget == resolvedRootPath || resolvedTarget.hasPrefix(resolvedRootPath + "/") else {
+                throw RuntimeLocatorError.escapingGPTKSymbolicLink
+            }
+        }
+    }
+
+    private func isMachOFile(_ url: URL) throws -> Bool {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        guard let data = try handle.read(upToCount: 4), data.count == 4 else { return false }
+        let bytes = Array(data)
+        let magics: [[UInt8]] = [
+            [0xfe, 0xed, 0xfa, 0xce], [0xce, 0xfa, 0xed, 0xfe],
+            [0xfe, 0xed, 0xfa, 0xcf], [0xcf, 0xfa, 0xed, 0xfe],
+            [0xca, 0xfe, 0xba, 0xbe], [0xbe, 0xba, 0xfe, 0xca],
+            [0xca, 0xfe, 0xba, 0xbf], [0xbf, 0xba, 0xfe, 0xca]
+        ]
+        return magics.contains(bytes)
     }
 
     private func attachDiskImage(at path: String) throws -> MountedDiskImage {
@@ -833,20 +948,33 @@ public struct RuntimeLocator {
 }
 
 private enum RuntimeLocatorError: LocalizedError {
+    case escapingGPTKSymbolicLink
     case hdiutilFailed(String)
     case hdiutilTimedOut
+    case importDestinationConflict
+    case invalidAppleSigningRequirement
+    case invalidGPTKCodeSignature(String)
     case invalidDiskImageOutput
     case noMountPoint
     case noGPTKMarkersInDiskImage
     case noGPTKMarkersInImportedRuntime
+    case noAppleSignedGPTKCode
     case unsupportedGPTKImportSource
 
     var errorDescription: String? {
         switch self {
+        case .escapingGPTKSymbolicLink:
+            return "The GPTK source contains a symbolic link outside its import directory."
         case .hdiutilFailed(let message):
             return message
         case .hdiutilTimedOut:
             return "hdiutil timed out while mounting the disk image."
+        case .importDestinationConflict:
+            return "A different GPTK import already exists at the immutable destination."
+        case .invalidAppleSigningRequirement:
+            return "The Apple code-signing requirement could not be created."
+        case .invalidGPTKCodeSignature(let name):
+            return "GPTK executable code has an invalid Apple signature: \(name)."
         case .invalidDiskImageOutput:
             return "hdiutil returned an unexpected plist."
         case .noMountPoint:
@@ -855,6 +983,8 @@ private enum RuntimeLocatorError: LocalizedError {
             return "The disk image did not contain known D3DMetal/GPTK marker files."
         case .noGPTKMarkersInImportedRuntime:
             return "The imported runtime did not contain known D3DMetal/GPTK marker files."
+        case .noAppleSignedGPTKCode:
+            return "No Apple-signed GPTK executable code was found."
         case .unsupportedGPTKImportSource:
             return "Only .dmg disk images can be imported automatically."
         }
