@@ -7,7 +7,7 @@
 Switchyard is an experimental, open-source macOS app for running Windows game launchers and other executables in user-managed Wine containers on Apple Silicon.
 
 > [!IMPORTANT]
-> Switchyard is an early developer preview. There are no signed releases yet, compatibility varies by application, and containers should not be treated as a substitute for backups.
+> Switchyard is an early developer preview. Signed and notarized builds are available, but compatibility varies by application and containers should not be treated as a substitute for backups.
 
 ## Compatibility Preview
 
@@ -35,8 +35,8 @@ The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher
 
 | Component | Source and license | Distribution boundary |
 | --- | --- | --- |
-| Switchyard app and runner | This repository, [MIT](LICENSE) | Built locally from Swift source |
-| Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Synchronized at the exact commit in [`config/switchyard-wine.env`](config/switchyard-wine.env) |
+| Switchyard app and runner | This repository, [MIT](LICENSE) | Developer ID signed and notarized releases, or built locally from Swift source |
+| Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Signed release verified against the exact commit in [`config/switchyard-wine.env`](config/switchyard-wine.env), or built locally |
 | Apple Game Porting Toolkit components | User-provided Apple software | Never committed, downloaded, or bundled by Switchyard |
 | Open Font Pack | Official Noto projects, SIL OFL 1.1 | Downloaded to a user-local cache and verified before installation |
 
@@ -48,6 +48,15 @@ The SwiftUI app does not link against Wine. Wine is replaceable and runs only th
 - Xcode Command Line Tools with Swift 6
 - Rosetta 2 for the x86_64 Wine runtime
 - A locally obtained Apple Game Porting Toolkit installation for D3DMetal support
+
+## Install the Preview
+
+1. Download the current app archive from [GitHub Releases](https://github.com/jungwuk-ryu/Switchyard/releases/latest), open Switchyard, and choose **Install or Update Runtime**.
+2. Choose **Download from Apple** for Game Porting Toolkit. Apple handles account sign-in and license acceptance.
+3. Return to Switchyard after the DMG finishes downloading and choose **Import Downloaded GPTK**. The app locates it in Downloads, verifies that its executable code is Apple-signed, and imports it into the local cache.
+4. Re-run diagnostics and create a container.
+
+The signed app pins the exact runtime archive size and SHA-256, rather than trusting a mutable release manifest. Before installation it also verifies the Git source revision, safe archive paths, full extracted file-tree digest, supported architectures, and Developer ID signatures. GPTK is never included in either release.
 
 ## Build and Verify
 
@@ -69,7 +78,7 @@ To synchronize the pinned Wine source, build its user-local runtime, assemble th
 ./script/build_and_run.sh
 ```
 
-The first full runtime build can take a while. Wine source, build products, imported GPTK files, containers, and logs remain outside this repository. The Wine build prerequisites and provenance model are documented in [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine).
+The first full source build can take a while. Wine source, build products, imported GPTK files, containers, and logs remain outside this repository. The Wine build prerequisites and provenance model are documented in [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine).
 
 ## Repository Layout
 

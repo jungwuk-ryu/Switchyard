@@ -24,6 +24,18 @@ SWITCHYARD_SKIP_RUNTIME_ENSURE=1 SWIFT_BUILD_JOBS="$jobs" ./script/build_and_run
 
 The last command assembles an ad-hoc signed `dist/Switchyard.app`, launches it, verifies that the process starts, and closes the verified instance. It does not synchronize or build Wine.
 
+The published-runtime integration test is opt-in because it downloads the complete release archive:
+
+```sh
+SWITCHYARD_TEST_RUNTIME_RELEASE_MANIFEST_URL="$(awk -F= '/^SWITCHYARD_WINE_RELEASE_MANIFEST_URL=/{print $2}' config/switchyard-wine.env)" \
+SWITCHYARD_TEST_RUNTIME_SOURCE_REVISION="$(awk -F= '/^SWITCHYARD_WINE_REVISION=/{print $2}' config/switchyard-wine.env)" \
+SWITCHYARD_TEST_RUNTIME_DEVELOPER_TEAM_ID="$(awk -F= '/^SWITCHYARD_WINE_DEVELOPER_TEAM_ID=/{print $2}' config/switchyard-wine.env)" \
+SWITCHYARD_TEST_RUNTIME_ARCHIVE_SHA256="$(awk -F= '/^SWITCHYARD_WINE_RELEASE_ARCHIVE_SHA256=/{print $2}' config/switchyard-wine.env)" \
+SWITCHYARD_TEST_RUNTIME_ARCHIVE_SIZE="$(awk -F= '/^SWITCHYARD_WINE_RELEASE_ARCHIVE_SIZE=/{print $2}' config/switchyard-wine.env)" \
+SWITCHYARD_TEST_RUNTIME_NOTARIZATION_ID="$(awk -F= '/^SWITCHYARD_WINE_RELEASE_NOTARIZATION_ID=/{print $2}' config/switchyard-wine.env)" \
+swift test --filter publishedRuntimeCanBeInstalledWhenProvided
+```
+
 ## Full Local Run
 
 ```sh
@@ -40,6 +52,24 @@ Additional modes are available for debugging and local observation:
 ./script/build_and_run.sh --telemetry
 ./script/build_and_run.sh --verify
 ```
+
+## Signed Release Packaging
+
+First assemble an optimized release build, then create a Developer ID signed and notarized archive with a Keychain profile configured for `notarytool`:
+
+```sh
+SWITCHYARD_SKIP_RUNTIME_ENSURE=1 \
+SWITCHYARD_BUILD_CONFIGURATION=release \
+./script/build_and_run.sh --verify
+
+./script/release_app.sh \
+  --app dist/Switchyard.app \
+  --output "$HOME/Library/Caches/Switchyard/ReleaseStaging/app-$(git rev-parse --short=12 HEAD)" \
+  --identity "Developer ID Application: Your Name (TEAMID)" \
+  --notary-profile switchyard-notary
+```
+
+The script signs every nested Mach-O with Hardened Runtime, signs the bundle, submits the ZIP to Apple, staples and validates the accepted ticket, runs Gatekeeper assessment, then recreates the final ZIP and checksum. Credentials remain in the user's Keychain and are never written to the repository.
 
 ## Local Data
 
