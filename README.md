@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/branding/switchyard-app-icon.png" alt="Switchyard app icon" width="180">
+</p>
+
 # Switchyard
 
 [![CI](https://github.com/jungwuk-ryu/Switchyard/actions/workflows/ci.yml/badge.svg)](https://github.com/jungwuk-ryu/Switchyard/actions/workflows/ci.yml)

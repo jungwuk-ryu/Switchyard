@@ -24,6 +24,8 @@ APP_BINARY="$APP_MACOS/$APP_NAME"
 RUNNER_BINARY="$APP_HELPERS/switchyard-runner"
 URL_HANDLER_BINARY="$APP_HELPERS/switchyard-url-handler"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+APP_ICON_SOURCE="$ROOT_DIR/assets/branding/Switchyard.icns"
+APP_ICON="$APP_RESOURCES/Switchyard.icns"
 MAX_SWIFT_BUILD_JOBS=13
 SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-$MAX_SWIFT_BUILD_JOBS}"
 if [ "$SWIFT_BUILD_JOBS" -gt "$MAX_SWIFT_BUILD_JOBS" ]; then
@@ -35,6 +37,11 @@ fi
 if [ "${SWITCHYARD_SKIP_RUNTIME_ENSURE:-0}" != "1" ]; then
   "$ROOT_DIR/script/ensure_wine_runtime.sh"
 fi
+
+[ -f "$APP_ICON_SOURCE" ] || {
+  echo "missing app icon: $APP_ICON_SOURCE" >&2
+  exit 1
+}
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
@@ -51,6 +58,7 @@ mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_RUNNER" "$RUNNER_BINARY"
 cp "$BUILD_URL_HANDLER" "$URL_HANDLER_BINARY"
+cp "$APP_ICON_SOURCE" "$APP_ICON"
 "$ROOT_DIR/script/bundle_wine_source_policy.sh" \
   "$ROOT_DIR/config/switchyard-wine.env" \
   "$APP_RESOURCES/switchyard-wine.env" \
@@ -73,6 +81,8 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleIconFile</key>
+  <string>Switchyard.icns</string>
   <key>CFBundleShortVersionString</key>
   <string>$APP_VERSION</string>
   <key>CFBundleVersion</key>
