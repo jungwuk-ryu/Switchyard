@@ -54,6 +54,7 @@ struct LogsView: View {
                     systemImage: "doc.text.magnifyingglass",
                     description: Text("Run diagnostics, launch a Windows executable, or change the current filters.")
                 )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 6) {
