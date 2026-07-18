@@ -44,6 +44,16 @@ swift test --filter publishedRuntimeCanBeInstalledWhenProvided
 
 The entrypoint synchronizes the exact Wine commit in `config/switchyard-wine.env`, verifies the source checkout, ensures its immutable user-local runtime, builds the Swift app and runner, assembles the app bundle, and launches it.
 
+To assemble the app against an already-built local Wine commit before updating the published source pin, pass the same revision used by that runtime and skip synchronization:
+
+```sh
+SWITCHYARD_WINE_REVISION="$(git -C ../Switchyard-Wine rev-parse HEAD)" \
+SWITCHYARD_SKIP_RUNTIME_ENSURE=1 \
+./script/build_and_run.sh --verify
+```
+
+When this override differs from `config/switchyard-wine.env`, the development bundle records the local revision for runtime selection and omits the stale published-runtime attestation.
+
 Additional modes are available for debugging and local observation:
 
 ```sh

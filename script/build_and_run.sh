@@ -51,7 +51,11 @@ mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_RUNNER" "$RUNNER_BINARY"
 cp "$BUILD_URL_HANDLER" "$URL_HANDLER_BINARY"
-cp "$ROOT_DIR/config/switchyard-wine.env" "$APP_RESOURCES/switchyard-wine.env"
+"$ROOT_DIR/script/bundle_wine_source_policy.sh" \
+  "$ROOT_DIR/config/switchyard-wine.env" \
+  "$APP_RESOURCES/switchyard-wine.env" \
+  "${SWITCHYARD_WINE_REVISION:-}" \
+  "$BUILD_CONFIGURATION"
 chmod +x "$APP_BINARY"
 chmod +x "$RUNNER_BINARY"
 chmod +x "$URL_HANDLER_BINARY"

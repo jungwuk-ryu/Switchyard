@@ -38,6 +38,9 @@ jobs:
       - name: Test Wine source synchronization
         run: Tests/Shell/ensure_switchyard_wine_test.sh
 
+      - name: Test bundled Wine source policy
+        run: Tests/Shell/bundle_wine_source_policy_test.sh
+
       - name: Validate release packaging script
         run: bash -n script/release_app.sh
 
