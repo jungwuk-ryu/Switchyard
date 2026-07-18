@@ -58,6 +58,7 @@ awk -v revision="$source_revision" '
     found_revision = 1
     next
   }
+  /^SWITCHYARD_WINE_REVISION_TIMESTAMP=/ { next }
   /^SWITCHYARD_WINE_RELEASE_/ { next }
   /^SWITCHYARD_WINE_DEVELOPER_TEAM_ID=/ { next }
   { print }

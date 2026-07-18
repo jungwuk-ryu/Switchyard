@@ -26,7 +26,13 @@ if [ ! -f "$SOURCE_CONFIG" ]; then
 fi
 
 repository="${SWITCHYARD_WINE_REPOSITORY:-$(config_value SWITCHYARD_WINE_REPOSITORY)}"
-revision="${SWITCHYARD_WINE_REVISION:-$(config_value SWITCHYARD_WINE_REVISION)}"
+configured_revision="$(config_value SWITCHYARD_WINE_REVISION)"
+revision="${SWITCHYARD_WINE_REVISION:-$configured_revision}"
+if [ "$revision" = "$configured_revision" ]; then
+  revision_timestamp="${SWITCHYARD_WINE_REVISION_TIMESTAMP:-$(config_value SWITCHYARD_WINE_REVISION_TIMESTAMP)}"
+else
+  revision_timestamp="${SWITCHYARD_WINE_REVISION_TIMESTAMP:-}"
+fi
 history_depth="${SWITCHYARD_WINE_HISTORY_DEPTH:-$(config_value SWITCHYARD_WINE_HISTORY_DEPTH)}"
 
 if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
@@ -35,6 +41,10 @@ if [[ ! "$revision" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 if [[ ! "$history_depth" =~ ^[0-9]+$ ]] || [ "$history_depth" -lt 128 ]; then
   echo "Switchyard Wine history depth must be an integer of at least 128, got: $history_depth" >&2
+  exit 1
+fi
+if [ -n "$revision_timestamp" ] && [[ ! "$revision_timestamp" =~ ^[0-9]+$ ]]; then
+  echo "Switchyard Wine revision timestamp must be Unix seconds, got: $revision_timestamp" >&2
   exit 1
 fi
 
@@ -75,6 +85,13 @@ if ! git -C "$SOURCE_DIR" cat-file -e "${revision}^{commit}" 2>/dev/null; then
 fi
 if [ "$(git -C "$SOURCE_DIR" rev-parse HEAD)" != "$revision" ]; then
   git -C "$SOURCE_DIR" checkout --detach "$revision"
+fi
+if [ -n "$revision_timestamp" ]; then
+  actual_revision_timestamp="$(git -C "$SOURCE_DIR" show -s --format=%ct "$revision")"
+  if [ "$actual_revision_timestamp" != "$revision_timestamp" ]; then
+    echo "Switchyard Wine revision timestamp mismatch: expected $revision_timestamp, got $actual_revision_timestamp" >&2
+    exit 1
+  fi
 fi
 
 "$SOURCE_DIR/switchyard/verify_source.sh"

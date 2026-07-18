@@ -16,6 +16,69 @@ import Testing
     #expect(!missingPatchset.canLaunch)
 }
 
+@Test func runtimeBuildNumberUsesSortableUTCRevisionTime() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+    let buildTime = try #require(
+        calendar.date(
+            from: DateComponents(
+                year: 2026,
+                month: 7,
+                day: 18,
+                hour: 6,
+                minute: 45
+            )
+        )
+    )
+    let runtime = RuntimeBuild(
+        id: "runtime-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123",
+        versionDate: buildTime
+    )
+
+    #expect(runtime.buildNumber == "20260718.0645")
+    #expect(
+        RuntimeBuild(
+            id: "external",
+            winePath: "/opt/wine/bin/wine",
+            patchsetID: "external",
+            sourceRevision: ""
+        ).buildNumber == nil
+    )
+}
+
+@Test func runtimeIdentityComparisonRejectsUnverifiedExternalRuntimeMatches() {
+    let verified = RuntimeBuild(
+        id: "runtime-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+    let external = RuntimeBuild(
+        id: "external-unverified",
+        winePath: "/opt/external/bin/wine",
+        patchsetID: "external-unverified",
+        sourceRevision: ""
+    )
+
+    #expect(
+        verified.comparison(toRecordedID: "runtime-a", patchsetID: "patch-a")
+            == .matches
+    )
+    #expect(
+        verified.comparison(toRecordedID: "runtime-b", patchsetID: "patch-b")
+            == .differs
+    )
+    #expect(
+        external.comparison(
+            toRecordedID: "external-unverified",
+            patchsetID: "external-unverified"
+        ) == .unavailable
+    )
+}
+
 @Test func guidedSetupPolicyPresentsOnlyTheNextRequiredAction() {
     #expect(GuidedSetupPolicy.nextRequirement(for: RuntimeStatus()) == .checking)
     #expect(

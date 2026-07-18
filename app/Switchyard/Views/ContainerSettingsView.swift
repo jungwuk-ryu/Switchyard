@@ -82,8 +82,28 @@ struct ContainerSettingsView: View {
     }
 
     private var runtimeSection: some View {
-        GroupBox("Runtime") {
+        let runtime = store.currentRuntime
+        let identityComparison = runtime.comparison(
+            toRecordedID: container.wineBuildID,
+            patchsetID: container.patchsetID
+        )
+
+        return GroupBox("Runtime") {
             VStack(alignment: .leading, spacing: 11) {
+                RuntimeBuildSummaryView(runtime: runtime)
+
+                LabeledContent("Container Record") {
+                    Label(
+                        identityComparison.label,
+                        systemImage: identityComparison.symbolName
+                    )
+                    .font(.caption)
+                    .foregroundStyle(identityComparison.color)
+                }
+                Text("Switchyard currently launches all containers with the active runtime shown above.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 LabeledContent("Container Path") {
                     HStack {
                         Text(container.path)
@@ -99,9 +119,17 @@ struct ContainerSettingsView: View {
                         .help("Show in Finder")
                     }
                 }
-                LabeledContent("Wine Build", value: container.wineBuildID)
-                LabeledContent("Runtime Source", value: container.patchsetID)
-                LabeledContent("GPTK", value: container.gptkFingerprint ?? "Not recorded")
+
+                DisclosureGroup("Technical Details") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        RuntimeBuildTechnicalDetailsView(runtime: runtime)
+                        Divider()
+                        recordedRuntimeValue("Recorded Runtime ID", container.wineBuildID)
+                        recordedRuntimeValue("Recorded Patch Set", container.patchsetID)
+                        recordedRuntimeValue("Recorded GPTK", container.gptkFingerprint ?? "Not recorded")
+                    }
+                    .padding(.top, 6)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -144,6 +172,43 @@ struct ContainerSettingsView: View {
             store.containers.first(where: { $0.id == container.id })?.executablePath ?? ""
         } set: { path in
             store.updateExecutablePath(for: container.id, to: path)
+        }
+    }
+
+    private func recordedRuntimeValue(_ label: String, _ value: String) -> some View {
+        LabeledContent(label) {
+            Text(value)
+                .font(.system(.caption, design: .monospaced))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .help(value)
+        }
+    }
+}
+
+private extension RuntimeIdentityComparison {
+    var label: String {
+        switch self {
+        case .matches: "Matches active build"
+        case .differs: "Different build recorded"
+        case .unavailable: "Comparison unavailable"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .matches: "checkmark.circle.fill"
+        case .differs: "exclamationmark.triangle.fill"
+        case .unavailable: "questionmark.circle.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .matches: .green
+        case .differs: .orange
+        case .unavailable: .gray
         }
     }
 }

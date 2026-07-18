@@ -37,6 +37,7 @@ private let maximumRecentProgramLaunches = 8
 
 private struct SwitchyardWineSourcePolicy {
     var revision: String
+    var revisionTimestamp: UInt64?
     var releaseManifestURL: URL?
     var developerTeamID: String
     var archiveSha256: String
@@ -62,6 +63,10 @@ private struct SwitchyardWineSourcePolicy {
         )
     }
 
+    var revisionDate: Date? {
+        revisionTimestamp.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
     static func load(fileManager: FileManager = .default) -> SwitchyardWineSourcePolicy {
         let bundledURL = Bundle.main.url(forResource: "switchyard-wine", withExtension: "env")
         let developmentURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
@@ -77,6 +82,7 @@ private struct SwitchyardWineSourcePolicy {
                 }
         )
         let unresolvedRevision = values["SWITCHYARD_WINE_REVISION"] ?? ""
+        let unresolvedRevisionTimestamp = values["SWITCHYARD_WINE_REVISION_TIMESTAMP"] ?? ""
         let unresolvedManifestURL = values["SWITCHYARD_WINE_RELEASE_MANIFEST_URL"] ?? ""
         let unresolvedTeamID = values["SWITCHYARD_WINE_DEVELOPER_TEAM_ID"] ?? ""
         let unresolvedArchiveSha256 = values["SWITCHYARD_WINE_RELEASE_ARCHIVE_SHA256"] ?? ""
@@ -84,6 +90,7 @@ private struct SwitchyardWineSourcePolicy {
         let unresolvedNotarizationID = values["SWITCHYARD_WINE_RELEASE_NOTARIZATION_ID"] ?? ""
         return SwitchyardWineSourcePolicy(
             revision: unresolvedRevision.hasPrefix("__") ? "" : unresolvedRevision,
+            revisionTimestamp: UInt64(unresolvedRevisionTimestamp),
             releaseManifestURL: unresolvedManifestURL.hasPrefix("__")
                 ? nil
                 : URL(string: unresolvedManifestURL),
@@ -304,7 +311,11 @@ final class AppStore: ObservableObject {
         )
             ?? locator.resolveWineExecutablePath(for: winePath)
             ?? winePath
-        return locator.runtimeBuild(for: resolvedWinePath)
+        return locator.runtimeBuild(
+            for: resolvedWinePath,
+            versionSourceRevision: wineSourcePolicy.revision,
+            versionDate: wineSourcePolicy.revisionDate
+        )
     }
 
     private var libraryStore: LibraryManifestStore {
@@ -419,9 +430,23 @@ final class AppStore: ObservableObject {
                 let result = try await PublishedRuntimeInstaller().install(policy: policy)
                 winePath = result.winePath
                 persistPreferences()
-                let message = "Installed compatible runtime \(result.runtimeID) from source \(result.sourceRevision.prefix(12))."
+                let installedRuntime = RuntimeLocator().runtimeBuild(
+                    for: result.winePath,
+                    versionSourceRevision: wineSourcePolicy.revision,
+                    versionDate: wineSourcePolicy.revisionDate
+                )
+                let runtimeName = installedRuntime.buildNumber.map { "Build \($0)" }
+                    ?? result.runtimeID
+                let message = "Installed compatible runtime \(runtimeName)."
                 runtimeInstallationState = .ready(message)
-                logLines.insert(LogLine(level: "info", source: "runtime", message: message), at: 0)
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "runtime",
+                        message: "\(message) Source \(result.sourceRevision.prefix(12))."
+                    ),
+                    at: 0
+                )
                 refreshRuntimeStatus()
             } catch {
                 let message = "Could not install the compatible runtime: \(error.localizedDescription)"

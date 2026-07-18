@@ -49,6 +49,7 @@ chmod +x "$SOURCE_REPOSITORY/switchyard/verify_source.sh" "$SOURCE_REPOSITORY/sw
 git -C "$SOURCE_REPOSITORY" add switchyard
 git -C "$SOURCE_REPOSITORY" -c user.name=Switchyard -c user.email=test@switchyard.local commit -m "test: add fake runtime source" >/dev/null
 SOURCE_REVISION="$(git -C "$SOURCE_REPOSITORY" rev-parse HEAD)"
+SOURCE_REVISION_TIMESTAMP="$(git -C "$SOURCE_REPOSITORY" show -s --format=%ct HEAD)"
 
 TEST_BUILD_COUNT="$TEST_ROOT/build-count"
 TEST_CUSTOM_PREFIX="$TEST_ROOT/custom-prefix"
@@ -59,6 +60,7 @@ export SWITCHYARD_RUNTIME_CACHE_ROOT="$RUNTIME_ROOT"
 export SWITCHYARD_WINE_SOURCE_DIR="$SOURCE_CHECKOUT"
 export SWITCHYARD_WINE_REPOSITORY="$SOURCE_REPOSITORY"
 export SWITCHYARD_WINE_REVISION="$SOURCE_REVISION"
+export SWITCHYARD_WINE_REVISION_TIMESTAMP="$SOURCE_REVISION_TIMESTAMP"
 export SWITCHYARD_WINE_HISTORY_DEPTH=128
 
 "$ROOT_DIR/script/ensure_wine_runtime.sh" >/dev/null &
@@ -77,6 +79,11 @@ if [ ! -f "$VERIFY_MARKER" ]; then
 fi
 if [ "$(sed -n '1p' "$TEST_BUILD_COUNT" 2>/dev/null || true)" != "1" ]; then
   echo "source synchronization did not serialize concurrent runtime builds" >&2
+  exit 1
+fi
+if SWITCHYARD_WINE_REVISION_TIMESTAMP="$((SOURCE_REVISION_TIMESTAMP + 1))" \
+   "$ROOT_DIR/script/ensure_wine_runtime.sh" >/dev/null 2>&1; then
+  echo "source synchronization accepted a mismatched revision timestamp" >&2
   exit 1
 fi
 

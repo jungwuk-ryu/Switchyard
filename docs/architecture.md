@@ -51,6 +51,8 @@ Some launchers do not register their callback scheme at all. For that case, the 
 
 Wine source, compatibility commits, provenance, and runtime build tooling live in [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine). `config/switchyard-wine.env` pins an exact source commit. `script/ensure_wine_runtime.sh` synchronizes that commit into a user cache, verifies its source metadata, and hands off to the source-owned builder.
 
+The app presents the pinned source revision's immutable Git timestamp as a UTC calendar build number in `YYYYMMDD.HHmm` form so users can compare compatible runtime versions at a glance. `config/switchyard-wine.env` records that timestamp beside the revision, and source synchronization verifies the pair before building. Local source overrides omit the pinned timestamp rather than inheriting stale version metadata. This display value does not replace provenance: runtime IDs, immutable source revisions, and content fingerprints remain the authoritative compatibility and execution identities.
+
 GPTK remains user-provided local software. The app stores only a selected path, imported user-local copy, and compatibility fingerprint. It is never part of this repository or a Switchyard release artifact.
 
 ## Data Model

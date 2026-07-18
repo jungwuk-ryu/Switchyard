@@ -300,18 +300,44 @@ import Foundation
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     let revision = String(repeating: "f", count: 40)
+    let buildTime = Date(timeIntervalSince1970: 1_752_822_300)
     let wine = try createSwitchyardWineRuntime(
         at: root,
         peArchitectures: ["i386", "x86_64"],
         sourceRevision: revision
     )
+    try setManifestModificationDate(at: root, to: buildTime)
 
-    let runtime = RuntimeLocator().runtimeBuild(for: wine.path)
+    let locator = RuntimeLocator()
+    let runtime = locator.runtimeBuild(
+        for: wine.path,
+        versionSourceRevision: revision,
+        versionDate: buildTime
+    )
+    try setManifestModificationDate(
+        at: root,
+        to: buildTime.addingTimeInterval(86_400)
+    )
+    let runtimeAfterMetadataChange = locator.runtimeBuild(
+        for: wine.path,
+        versionSourceRevision: revision,
+        versionDate: buildTime
+    )
+    let runtimeWithoutPinnedDate = locator.runtimeBuild(for: wine.path)
+    let runtimeWithMismatchedRevision = locator.runtimeBuild(
+        for: wine.path,
+        versionSourceRevision: String(repeating: "e", count: 40),
+        versionDate: buildTime
+    )
 
     #expect(runtime.id == "switchyard-test-runtime")
     #expect(runtime.patchsetID == "switchyard-test-patchset")
     #expect(runtime.sourceRevision == revision)
     #expect(runtime.winePath == wine.path)
+    #expect(runtime.versionDate == buildTime)
+    #expect(runtimeAfterMetadataChange.buildNumber == runtime.buildNumber)
+    #expect(runtimeWithoutPinnedDate.buildNumber == nil)
+    #expect(runtimeWithMismatchedRevision.buildNumber == nil)
 }
 
 @Test func switchyardWineRuntimeReportsWoW64PEArchitectures() throws {

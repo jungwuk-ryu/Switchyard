@@ -270,25 +270,74 @@ public enum EnvironmentOverridePolicy {
     }
 }
 
+public enum RuntimeIdentityComparison: Equatable, Sendable {
+    case matches
+    case differs
+    case unavailable
+}
+
 public struct RuntimeBuild: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var winePath: String
     public var patchsetID: String
     public var sourceRevision: String
     public var createdAt: Date
+    public var versionDate: Date?
 
     public init(
         id: String,
         winePath: String,
         patchsetID: String,
         sourceRevision: String,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        versionDate: Date? = nil
     ) {
         self.id = id
         self.winePath = winePath
         self.patchsetID = patchsetID
         self.sourceRevision = sourceRevision
         self.createdAt = createdAt
+        self.versionDate = versionDate
+    }
+
+    /// A chronological, user-facing build number derived from the immutable
+    /// pinned source revision time. Internal runtime identity continues to use
+    /// `id`.
+    public var buildNumber: String? {
+        guard let versionDate else { return nil }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? .current
+        let components = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: versionDate
+        )
+        guard let year = components.year,
+              let month = components.month,
+              let day = components.day,
+              let hour = components.hour,
+              let minute = components.minute else {
+            return nil
+        }
+
+        return String(
+            format: "%04d%02d%02d.%02d%02d",
+            year,
+            month,
+            day,
+            hour,
+            minute
+        )
+    }
+
+    public func comparison(
+        toRecordedID recordedID: String,
+        patchsetID recordedPatchsetID: String
+    ) -> RuntimeIdentityComparison {
+        guard !sourceRevision.isEmpty else { return .unavailable }
+        return id == recordedID && patchsetID == recordedPatchsetID
+            ? .matches
+            : .differs
     }
 }
 

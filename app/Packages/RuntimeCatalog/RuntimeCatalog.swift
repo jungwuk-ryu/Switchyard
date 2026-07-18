@@ -254,7 +254,11 @@ public struct RuntimeLocator {
         return resolvedPath
     }
 
-    public func runtimeBuild(for path: String?) -> RuntimeBuild {
+    public func runtimeBuild(
+        for path: String?,
+        versionSourceRevision: String? = nil,
+        versionDate: Date? = nil
+    ) -> RuntimeBuild {
         let resolvedPath = resolveWineExecutablePath(for: path)
             ?? path?.trimmingCharacters(in: .whitespacesAndNewlines)
             ?? ""
@@ -271,15 +275,20 @@ public struct RuntimeLocator {
         let sourceRevision = manifest.sourceRevision ?? manifest.wineRevision ?? ""
         let patchsetID = manifest.patchsetID
             ?? (sourceRevision.isEmpty ? "switchyard-wine-unverified" : "switchyard-wine-\(sourceRevision.prefix(12))")
-        let manifestURL = rootURL.appendingPathComponent("switchyard-runtime.json")
-        let createdAt = (try? manifestURL.resourceValues(forKeys: [.contentModificationDateKey]))?
-            .contentModificationDate ?? Date()
+        let trustedVersionDate: Date?
+        if let versionSourceRevision,
+           !sourceRevision.isEmpty,
+           sourceRevision == versionSourceRevision {
+            trustedVersionDate = versionDate
+        } else {
+            trustedVersionDate = nil
+        }
         return RuntimeBuild(
             id: manifest.id ?? rootURL.lastPathComponent,
             winePath: resolvedPath,
             patchsetID: patchsetID,
             sourceRevision: sourceRevision,
-            createdAt: createdAt
+            versionDate: trustedVersionDate
         )
     }
 
