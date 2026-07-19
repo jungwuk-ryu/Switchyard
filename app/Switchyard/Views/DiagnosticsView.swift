@@ -1,4 +1,5 @@
 import AppCore
+import RuntimeCatalog
 import SwiftUI
 
 struct DiagnosticsView: View {
@@ -18,10 +19,33 @@ struct DiagnosticsView: View {
 
                 Spacer()
 
-                Button("Re-run") {
-                    store.refreshRuntimeStatus()
+                VStack(alignment: .trailing, spacing: 5) {
+                    Button {
+                        store.refreshDiagnosticsAndUpdates()
+                    } label: {
+                        HStack(spacing: 6) {
+                            if checksAreRunning {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            Text(checksAreRunning ? "Running…" : "Re-run All Checks")
+                        }
+                    }
+                    .disabled(checksAreRunning)
+                    .help("Check this Mac, the selected runtime, and the latest online releases again")
+
+                    Text(diagnosticsActivityLabel)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
+
+            DiagnosticsVersionOverview(
+                appVersion: runningAppVersion,
+                appVersionNumber: runningAppVersionNumber
+            )
 
             if !store.runtimeStatus.canLaunch {
                 ErrorBanner(
@@ -51,6 +75,9 @@ struct DiagnosticsView: View {
         }
         .padding()
         .navigationTitle("Diagnostics")
+        .task {
+            store.refreshOnlineReleaseStatus()
+        }
     }
 
     private var preferredSettingsTab: SettingsTab {
@@ -64,6 +91,46 @@ struct DiagnosticsView: View {
             return .wine
         }
         return .general
+    }
+
+    private var runningAppVersion: String {
+        let version = runningAppVersionNumber
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+
+        switch (version, build) {
+        case let (.some(version), .some(build)): return "Version \(version) (\(build))"
+        case let (.some(version), .none): return "Version \(version)"
+        case let (.none, .some(build)): return "Build \(build)"
+        case (.none, .none): return "Development build"
+        }
+    }
+
+    private var runningAppVersionNumber: String? {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+    }
+
+    private var checksAreRunning: Bool {
+        store.isRefreshingDiagnostics || store.isCheckingOnlineReleases
+    }
+
+    private var diagnosticsActivityLabel: String {
+        if store.isRefreshingDiagnostics && store.isCheckingOnlineReleases {
+            return "Checking this Mac and online releases"
+        }
+        if store.isRefreshingDiagnostics {
+            return "Checking current configuration"
+        }
+        if store.isCheckingOnlineReleases {
+            return "Checking latest online releases"
+        }
+        let refreshDates = [
+            store.lastDiagnosticsRefreshDate,
+            store.lastOnlineReleaseCheckDate
+        ].compactMap { $0 }
+        guard let lastRefresh = refreshDates.max() else {
+            return "Not checked in this session"
+        }
+        return "Last checked \(lastRefresh.formatted(date: .omitted, time: .standard))"
     }
 
     private func performRecovery(for check: DiagnosticCheck) {
@@ -84,5 +151,255 @@ struct DiagnosticsView: View {
     private func openSettingsTab(_ tab: SettingsTab) {
         store.selectedSettingsTab = tab
         openSettings()
+    }
+}
+
+private struct DiagnosticsVersionOverview: View {
+    @EnvironmentObject private var store: AppStore
+    @Environment(\.openURL) private var openURL
+
+    let appVersion: String
+    let appVersionNumber: String?
+
+    var body: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                appReleaseSection
+                Divider()
+                runtimeReleaseSection
+
+                if let error = store.onlineReleaseError {
+                    Label {
+                        Text("Online check failed: \(error)")
+                    } icon: {
+                        Image(systemName: "wifi.exclamationmark")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .textSelection(.enabled)
+                }
+            }
+        } label: {
+            Text("Versions & Updates")
+        }
+    }
+
+    private var appReleaseSection: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Switchyard", systemImage: "app.fill")
+                    .font(.headline)
+                Spacer()
+                StatusBadge(status: appUpdateStatus, label: appUpdateLabel)
+            }
+
+            Text(appVersion)
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .textSelection(.enabled)
+            Text(appOnlineDetail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            if !store.isCheckingOnlineReleases,
+               store.onlineReleaseError == nil,
+               appUpdateAvailable,
+               let releaseURL = store.onlineReleaseSnapshot?.appRelease.webURL {
+                Button("View Update") {
+                    openURL(releaseURL)
+                }
+                .help("Open the latest Switchyard release on GitHub")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var runtimeReleaseSection: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .firstTextBaseline) {
+                Label("Selected Wine Runtime", systemImage: "shippingbox.fill")
+                    .font(.headline)
+                Spacer()
+                StatusBadge(status: runtimeUpdateStatus, label: runtimeUpdateLabel)
+            }
+
+            Text(runtimeVersionLabel)
+                .font(.title3.weight(.semibold))
+                .monospacedDigit()
+                .textSelection(.enabled)
+            Text(runtimeSourceLabel)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            Text(runtimeOnlineDetail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+            Text(runtimeCompatibilityExplanation)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(runtimePathLabel)
+                .font(.caption2.monospaced())
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .help(runtime.winePath)
+
+            if let message = store.runtimeInstallationState.message {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if shouldOfferRuntimeInstall {
+                Button {
+                    store.installCompatibleWineRuntime()
+                } label: {
+                    if store.runtimeInstallationState.isWorking {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Installing…")
+                    } else {
+                        Label("Install Latest Runtime", systemImage: "arrow.down.circle")
+                    }
+                }
+                .disabled(store.runtimeInstallationState.isWorking)
+                .help("Download, verify, and select the latest runtime supported by this Switchyard version")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var runtimeVersionLabel: String {
+        runtime.buildNumber.map { "Build \($0)" } ?? "Build not available"
+    }
+
+    private var runtimeSourceLabel: String {
+        runtime.sourceRevision.isEmpty
+            ? "Source revision not available"
+            : "Source \(runtime.sourceRevision.prefix(12))"
+    }
+
+    private var runtimePathLabel: String {
+        runtime.winePath.isEmpty ? "No Wine runtime selected" : runtime.winePath
+    }
+
+    private var runtime: RuntimeBuild {
+        store.currentRuntime
+    }
+
+    private var appOnlineDetail: String {
+        guard let release = store.onlineReleaseSnapshot?.appRelease else {
+            return store.isCheckingOnlineReleases
+                ? "Checking the latest GitHub release…"
+                : "Latest online release not available"
+        }
+        let prefix = store.onlineReleaseError == nil ? "Latest online" : "Last known online"
+        return "\(prefix): \(release.tagName) · \(release.publishedAt.formatted(date: .abbreviated, time: .omitted))"
+    }
+
+    private var runtimeOnlineDetail: String {
+        guard let snapshot = store.onlineReleaseSnapshot else {
+            return store.isCheckingOnlineReleases
+                ? "Checking the latest GitHub runtime…"
+                : "Latest online runtime not available"
+        }
+        let prefix = store.onlineReleaseError == nil ? "Latest online" : "Last known online"
+        return "\(prefix): \(snapshot.runtimeRelease.tagName) · source \(snapshot.runtimeManifest.sourceRevision.prefix(12))"
+    }
+
+    private var currentReleaseVersion: ReleaseVersion? {
+        appVersionNumber.flatMap(ReleaseVersion.init)
+    }
+
+    private var latestReleaseVersion: ReleaseVersion? {
+        store.onlineReleaseSnapshot.map(\.appRelease.tagName).flatMap(ReleaseVersion.init)
+    }
+
+    private var appUpdateAvailable: Bool {
+        guard let currentReleaseVersion, let latestReleaseVersion else { return false }
+        return currentReleaseVersion < latestReleaseVersion
+    }
+
+    private var appUpdateStatus: HealthStatus {
+        if store.isCheckingOnlineReleases { return .unknown }
+        if store.onlineReleaseError != nil { return .unknown }
+        guard store.onlineReleaseSnapshot != nil else { return .unknown }
+        guard let currentReleaseVersion, let latestReleaseVersion else { return .unknown }
+        return currentReleaseVersion < latestReleaseVersion ? .warning : .ok
+    }
+
+    private var appUpdateLabel: String {
+        if store.isCheckingOnlineReleases { return "Checking Online" }
+        if store.onlineReleaseError != nil { return "Check Failed" }
+        guard store.onlineReleaseSnapshot != nil else { return "Online Unknown" }
+        if appUpdateAvailable { return "Update Available" }
+        guard let currentReleaseVersion, let latestReleaseVersion else { return "Checked Online" }
+        return currentReleaseVersion > latestReleaseVersion ? "Newer Build" : "Latest Online"
+    }
+
+    private var latestRuntimeMatchesAppPolicy: Bool {
+        guard let manifest = store.onlineReleaseSnapshot?.runtimeManifest else { return false }
+        return store.supportsOnlineRuntimeRelease(manifest)
+    }
+
+    private var selectedRuntimeMatchesLatest: Bool {
+        guard let latestSource = store.onlineReleaseSnapshot?.runtimeManifest.sourceRevision,
+              !runtime.sourceRevision.isEmpty else {
+            return false
+        }
+        return runtime.sourceRevision == latestSource
+    }
+
+    private var selectedRuntimeIsUsable: Bool {
+        store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok
+    }
+
+    private var shouldOfferRuntimeInstall: Bool {
+        !store.isCheckingOnlineReleases
+            && store.onlineReleaseError == nil
+            && store.onlineReleaseSnapshot != nil
+            && latestRuntimeMatchesAppPolicy
+            && (!selectedRuntimeMatchesLatest || !selectedRuntimeIsUsable)
+            && store.canInstallCompatibleWineRuntime
+    }
+
+    private var runtimeUpdateStatus: HealthStatus {
+        if store.isCheckingOnlineReleases || store.onlineReleaseError != nil { return .unknown }
+        if store.onlineReleaseSnapshot == nil { return .unknown }
+        if !latestRuntimeMatchesAppPolicy { return .warning }
+        return selectedRuntimeMatchesLatest && selectedRuntimeIsUsable ? .ok : .warning
+    }
+
+    private var runtimeUpdateLabel: String {
+        if store.isCheckingOnlineReleases { return "Checking Online" }
+        if store.onlineReleaseError != nil { return "Check Failed" }
+        guard store.onlineReleaseSnapshot != nil else { return "Online Unknown" }
+        if !latestRuntimeMatchesAppPolicy {
+            return appUpdateAvailable ? "App Update Required" : "Compatibility Pending"
+        }
+        return selectedRuntimeMatchesLatest && selectedRuntimeIsUsable
+            ? "Latest Online"
+            : "Update Available"
+    }
+
+    private var runtimeCompatibilityExplanation: String {
+        guard store.onlineReleaseSnapshot != nil else {
+            return "Switchyard only installs a runtime after its online release matches this app's signed compatibility policy."
+        }
+        if latestRuntimeMatchesAppPolicy {
+            if selectedRuntimeMatchesLatest && selectedRuntimeIsUsable {
+                return "The selected runtime is both the latest online release and the revision verified for this Switchyard version."
+            }
+            return "The latest online runtime matches this app's verified compatibility policy and can be installed safely."
+        }
+        if appUpdateAvailable {
+            return "The latest online runtime is outside this app's verified compatibility policy. Update Switchyard to get its current approved runtime before installing."
+        }
+        return "The latest online runtime is not yet in this app's verified compatibility policy. A Switchyard release must approve it before installation."
     }
 }

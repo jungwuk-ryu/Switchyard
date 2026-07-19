@@ -3,7 +3,7 @@ import SwiftUI
 
 struct DiagnosticCheckRow: View {
     let check: DiagnosticCheck
-    var rerun: () -> Void
+    var recovery: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -23,18 +23,29 @@ struct DiagnosticCheckRow: View {
 
             Spacer()
 
+            StatusBadge(status: check.status, label: statusLabel)
+
             if let recoveryAction = check.recoveryAction {
                 Button(recoveryAction) {
-                    rerun()
+                    recovery()
                 }
                 .help(recoveryAction)
-            } else {
-                Button("Re-run") {
-                    rerun()
-                }
             }
         }
         .padding(.vertical, 6)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var statusLabel: String {
+        guard check.status == .ok else { return check.status.label }
+
+        switch check.id {
+        case "apple-silicon", "macos-version": return "Supported"
+        case "rosetta", "open-font-pack": return "Installed"
+        case "gptk": return "Verified"
+        case "wine-runtime": return "Selected"
+        case "runtime-source": return "Current"
+        default: return check.status.label
+        }
     }
 }

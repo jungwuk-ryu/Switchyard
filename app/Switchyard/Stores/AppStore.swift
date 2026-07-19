@@ -34,6 +34,7 @@ private let debugRunLogRetentionInterval: TimeInterval = 14 * 24 * 60 * 60
 private let maximumRetainedDebugRunLogs = 50
 private let recentProgramLaunchesDefaultsKey = "recentProgramLaunches.v1"
 private let maximumRecentProgramLaunches = 8
+private let onlineReleaseCacheInterval: TimeInterval = 15 * 60
 
 private struct SwitchyardWineSourcePolicy {
     var revision: String
@@ -198,6 +199,12 @@ final class AppStore: ObservableObject {
     @Published var winePath: String
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
+    @Published private(set) var isRefreshingDiagnostics = false
+    @Published private(set) var lastDiagnosticsRefreshDate: Date?
+    @Published private(set) var onlineReleaseSnapshot: SwitchyardReleaseSnapshot?
+    @Published private(set) var isCheckingOnlineReleases = false
+    @Published private(set) var lastOnlineReleaseCheckDate: Date?
+    @Published private(set) var onlineReleaseError: String?
     @Published private(set) var runtimeInstallationState: RuntimeInstallationState = .idle
     @Published private(set) var rosettaInstallationState: RosettaInstallationState = .idle
     @Published private(set) var fontPackPreparationState: FontPackPreparationState = .idle
@@ -231,6 +238,9 @@ final class AppStore: ObservableObject {
         return formatter
     }()
     private var diagnosticsTask: Task<Void, Never>?
+    private var diagnosticsRefreshID: UUID?
+    private var onlineReleaseTask: Task<Void, Never>?
+    private var onlineReleaseRefreshID: UUID?
     private var gptkImportTask: Task<Void, Never>?
     private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
@@ -316,6 +326,15 @@ final class AppStore: ObservableObject {
             versionSourceRevision: wineSourcePolicy.revision,
             versionDate: wineSourcePolicy.revisionDate
         )
+    }
+
+    var canInstallCompatibleWineRuntime: Bool {
+        wineSourcePolicy.publishedRuntimePolicy != nil
+    }
+
+    func supportsOnlineRuntimeRelease(_ release: PublishedRuntimeRelease) -> Bool {
+        guard let policy = wineSourcePolicy.publishedRuntimePolicy else { return false }
+        return (try? PublishedRuntimeInstaller.validate(release: release, against: policy)) != nil
     }
 
     private var libraryStore: LibraryManifestStore {
@@ -683,6 +702,10 @@ final class AppStore: ObservableObject {
         persistPreferences()
         diagnosticsTask?.cancel()
 
+        let refreshID = UUID()
+        diagnosticsRefreshID = refreshID
+        isRefreshingDiagnostics = true
+
         let gptkPath = gptkPath
         let winePath = winePath
         let expectedWineSourceRevision = wineSourcePolicy.revision
@@ -710,7 +733,7 @@ final class AppStore: ObservableObject {
                 )
             }.value
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self.diagnosticsRefreshID == refreshID else { return }
             if !result.resolvedWinePath.isEmpty,
                result.resolvedWinePath != winePath,
                self.winePath == winePath {
@@ -720,6 +743,50 @@ final class AppStore: ObservableObject {
             }
             runtimeStatus = result.status
             diagnostics = result.diagnostics
+            lastDiagnosticsRefreshDate = Date()
+            isRefreshingDiagnostics = false
+            diagnosticsRefreshID = nil
+            diagnosticsTask = nil
+        }
+    }
+
+    func refreshDiagnosticsAndUpdates() {
+        refreshRuntimeStatus()
+        refreshOnlineReleaseStatus(force: true)
+    }
+
+    func refreshOnlineReleaseStatus(force: Bool = false) {
+        guard !isCheckingOnlineReleases else { return }
+        if !force,
+           let lastOnlineReleaseCheckDate,
+           Date().timeIntervalSince(lastOnlineReleaseCheckDate) < onlineReleaseCacheInterval {
+            return
+        }
+
+        onlineReleaseTask?.cancel()
+        let refreshID = UUID()
+        onlineReleaseRefreshID = refreshID
+        isCheckingOnlineReleases = true
+        onlineReleaseError = nil
+
+        let catalog = OnlineReleaseCatalog()
+        onlineReleaseTask = Task {
+            do {
+                let snapshot = try await catalog.latestReleases()
+                guard !Task.isCancelled, onlineReleaseRefreshID == refreshID else { return }
+                onlineReleaseSnapshot = snapshot
+                lastOnlineReleaseCheckDate = Date()
+                isCheckingOnlineReleases = false
+                onlineReleaseRefreshID = nil
+                onlineReleaseTask = nil
+            } catch {
+                guard !Task.isCancelled, onlineReleaseRefreshID == refreshID else { return }
+                onlineReleaseError = Self.errorDescription(error)
+                lastOnlineReleaseCheckDate = Date()
+                isCheckingOnlineReleases = false
+                onlineReleaseRefreshID = nil
+                onlineReleaseTask = nil
+            }
         }
     }
 
