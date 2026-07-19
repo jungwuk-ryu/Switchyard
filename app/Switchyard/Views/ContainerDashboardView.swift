@@ -176,6 +176,7 @@ struct ContainerDashboardView: View {
                             .frame(maxWidth: .infinity)
                         }
                         .frame(minHeight: 185)
+                        .fixedSize(horizontal: false, vertical: true)
                     } else {
                         VStack(spacing: 16) {
                             ProgramHeroView(container: container, program: selectedProgram)
@@ -464,6 +465,7 @@ private struct ProgramHeroView: View {
             }
         }
         .padding(18)
+        .frame(maxHeight: .infinity, alignment: .top)
         .dashboardPanel(emphasized: true)
     }
 
@@ -576,6 +578,7 @@ private struct InstalledProgramShelf: View {
             }
         }
         .padding(16)
+        .frame(maxHeight: .infinity, alignment: .top)
         .dashboardPanel()
     }
 
