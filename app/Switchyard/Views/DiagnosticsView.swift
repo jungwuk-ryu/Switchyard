@@ -7,73 +7,89 @@ struct DiagnosticsView: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Diagnostics")
-                        .font(.largeTitle)
-                        .fontWeight(.semibold)
-                    Text(store.runtimeStatus.summary)
-                        .foregroundStyle(.secondary)
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Diagnostics")
+                            .font(.largeTitle)
+                            .fontWeight(.semibold)
+                        Text(store.runtimeStatus.summary)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.middle)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+
+                    Spacer(minLength: 12)
+
+                    VStack(alignment: .trailing, spacing: 5) {
+                        Button {
+                            store.refreshDiagnosticsAndUpdates()
+                        } label: {
+                            HStack(spacing: 6) {
+                                if checksAreRunning {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                }
+                                Text(checksAreRunning ? "Running…" : "Re-run All Checks")
+                            }
+                        }
+                        .disabled(checksAreRunning)
+                        .help("Check this Mac, the selected runtime, and the latest online releases again")
+
+                        Text(diagnosticsActivityLabel)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
                 }
 
-                Spacer()
+                DiagnosticsVersionOverview(
+                    appVersion: runningAppVersion,
+                    appVersionNumber: runningAppVersionNumber
+                )
 
-                VStack(alignment: .trailing, spacing: 5) {
-                    Button {
-                        store.refreshDiagnosticsAndUpdates()
-                    } label: {
-                        HStack(spacing: 6) {
-                            if checksAreRunning {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Image(systemName: "arrow.clockwise")
-                            }
-                            Text(checksAreRunning ? "Running…" : "Re-run All Checks")
+                if !store.runtimeStatus.canLaunch {
+                    ErrorBanner(
+                        title: "Setup is incomplete",
+                        message: "Resolve missing runtime components before running Windows executables.",
+                        actionTitle: "Open Settings"
+                    ) {
+                        openSettingsTab(preferredSettingsTab)
+                    }
+                }
+
+                if let message = store.rosettaInstallationState.errorMessage {
+                    ErrorBanner(
+                        title: "Rosetta was not installed",
+                        message: message,
+                        actionTitle: "Try Again"
+                    ) {
+                        store.installRosetta()
+                    }
+                }
+
+                LazyVStack(spacing: 0) {
+                    ForEach(store.diagnostics) { check in
+                        DiagnosticCheckRow(check: check) {
+                            performRecovery(for: check)
+                        }
+
+                        if check.id != store.diagnostics.last?.id {
+                            Divider()
+                                .padding(.leading, 32)
                         }
                     }
-                    .disabled(checksAreRunning)
-                    .help("Check this Mac, the selected runtime, and the latest online releases again")
-
-                    Text(diagnosticsActivityLabel)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
             }
-
-            DiagnosticsVersionOverview(
-                appVersion: runningAppVersion,
-                appVersionNumber: runningAppVersionNumber
-            )
-
-            if !store.runtimeStatus.canLaunch {
-                ErrorBanner(
-                    title: "Setup is incomplete",
-                    message: "Resolve missing runtime components before running Windows executables.",
-                    actionTitle: "Open Settings"
-                ) {
-                    openSettingsTab(preferredSettingsTab)
-                }
-            }
-
-            if let message = store.rosettaInstallationState.errorMessage {
-                ErrorBanner(
-                    title: "Rosetta was not installed",
-                    message: message,
-                    actionTitle: "Try Again"
-                ) {
-                    store.installRosetta()
-                }
-            }
-
-            List(store.diagnostics) { check in
-                DiagnosticCheckRow(check: check) {
-                    performRecovery(for: check)
-                }
-            }
+            .padding()
         }
-        .padding()
+        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle("Diagnostics")
         .task {
             store.refreshOnlineReleaseStatus()
@@ -200,6 +216,9 @@ private struct DiagnosticsVersionOverview: View {
             Text(appOnlineDetail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
 
             if !store.isCheckingOnlineReleases,
@@ -231,10 +250,16 @@ private struct DiagnosticsVersionOverview: View {
             Text(runtimeSourceLabel)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
             Text(runtimeOnlineDetail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
             Text(runtimeCompatibilityExplanation)
                 .font(.caption)
@@ -245,6 +270,7 @@ private struct DiagnosticsVersionOverview: View {
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
                 .help(runtime.winePath)
 

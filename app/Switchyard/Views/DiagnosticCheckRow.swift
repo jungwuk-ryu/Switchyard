@@ -6,7 +6,7 @@ struct DiagnosticCheckRow: View {
     var recovery: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: check.status.symbolName)
                 .foregroundStyle(check.status.tint)
                 .frame(width: 20)
@@ -15,20 +15,25 @@ struct DiagnosticCheckRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(check.title)
                     .font(.headline)
+                    .lineLimit(1)
                 Text(check.result)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            Spacer()
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
             StatusBadge(status: check.status, label: statusLabel)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
 
             if let recoveryAction = check.recoveryAction {
                 Button(recoveryAction) {
                     recovery()
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .help(recoveryAction)
             }
         }

@@ -10,9 +10,12 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView(selection: selectionBinding)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
         } detail: {
             DetailView(selection: store.selectedSection)
+                .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
         }
+        .navigationSplitViewStyle(.balanced)
         .toolbar {
             ToolbarItemGroup {
                 Button {
