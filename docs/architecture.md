@@ -10,7 +10,7 @@ flowchart LR
     Plan --> Runner
     Pin["Immutable Wine source pin"] --> Catalog["RuntimeCatalog"]
     Catalog --> UI
-    GPTK["User-provided GPTK"] --> Catalog
+    GPTK["User-provided or reviewed external GPTK"] --> Catalog
     Runner --> Wine["Replaceable Wine runtime"]
     Wine --> Container["User-managed container"]
     Container --> Manifest["Registered URL scheme manifest"]
@@ -53,7 +53,7 @@ Wine source, compatibility commits, provenance, and runtime build tooling live i
 
 The app presents the pinned source revision's immutable Git timestamp as a UTC calendar build number in `YYYYMMDD.HHmm` form so users can compare compatible runtime versions at a glance. `config/switchyard-wine.env` records that timestamp beside the revision, and source synchronization verifies the pair before building. Local source overrides omit the pinned timestamp rather than inheriting stale version metadata. This display value does not replace provenance: runtime IDs, immutable source revisions, and content fingerprints remain the authoritative compatibility and execution identities.
 
-GPTK remains user-provided local software. The app stores only a selected path, imported user-local copy, and compatibility fingerprint. It is never part of this repository or a Switchyard release artifact.
+GPTK remains separately licensed Apple software. The app stores an imported user-local copy and compatibility fingerprint, whether the source was a user-selected Apple download or a separately hosted component artifact admitted by the version-specific legal release gate. GPTK is never part of this repository, the app bundle, a Wine runtime, or a combined Switchyard release artifact.
 
 ## Data Model
 

@@ -1,6 +1,6 @@
 # Licensing and Redistribution
 
-Switchyard keeps the app, patched Wine runtime, user-provided Apple software, and downloaded open-source assets on explicit license and process boundaries.
+Switchyard keeps the app, patched Wine runtime, separately licensed Apple software, and downloaded open-source assets on explicit license and process boundaries.
 
 ## Switchyard App and Runner
 
@@ -27,11 +27,13 @@ Switchyard supports both user-local runtime builds and separately published Wine
 
 ## Apple Game Porting Toolkit
 
-Switchyard does not bundle, redistribute, or directly download Apple Game Porting Toolkit components. It may open Apple's official download page and detect a completed user download.
+The current Switchyard release does not bundle, redistribute, or directly download Apple Game Porting Toolkit components. It opens Apple's official download page, detects a completed user download, and imports an explicitly selected local copy.
 
 The app may import a user-selected or explicitly requested local Apple disk image into a user-local cache, validate known marker files, reject escaping links, require Apple signatures on every imported Mach-O, and retain a local fingerprint for container compatibility. Apple remains responsible for account sign-in, license presentation, and the download itself. The cache is the user's local copy and is not a Switchyard-distributed artifact.
 
-Do not commit, publish, or add GPTK files to app bundles or release archives. The license presented with the user's GPTK installation is the source of truth for that local use. This policy is an engineering boundary, not legal advice.
+The reviewed GPTK 3 license conditionally supports implementing a future, separate Switchyard component channel solely for non-commercial distribution of the complete unmodified Framework and/or unmodified components from `/redist`. The channel is not part of the app or Wine release, and it must remain disabled until every distributor-authority, provenance, notice, signature, user-flow, export, termination, and non-commercial control in the [GPTK 3 redistribution review](legal/gptk-3-redistribution-review.md) is enforced and its independent legal sign-off is recorded. GPTK 4 and every other unreviewed version remain blocked.
+
+Do not commit or add GPTK files to app bundles, Wine runtimes, container templates, or combined release archives. Do not publish or transfer an Apple-provided GPTK DMG. A separately hosted component artifact may be published only for an exact version approved by the legal release gate. The accompanying license is the source of truth, Apple Software remains outside the MIT and LGPL grants, and the official user-download route must remain available.
 
 The runtime builder may preserve Wine-built fallback graphics modules before overlaying a user-selected GPTK redistributable directory. Those fallback files remain Wine build artifacts and must not contain Apple binaries.
 
@@ -41,7 +43,7 @@ The `switchyard-wine` builder downloads or discovers runtime dependencies only i
 
 - Preserve notices and source obligations for FreeType, fontconfig, libpng, gettext, libunistring, GnuTLS, the Vulkan loader and headers, MoltenVK, and their dependency closures before distributing a runtime containing them.
 - Verify pinned digests before staging dependencies.
-- Keep runtime-local libraries replaceable and separate from user-provided GPTK.
+- Keep runtime-local libraries replaceable and separate from user-provided or version-reviewed GPTK.
 - Never commit staged bottles, libraries, or files copied from another local Wine distribution.
 
 Refer to the source-owned provenance and build documentation in `switchyard-wine` for the exact dependency set.

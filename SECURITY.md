@@ -14,4 +14,4 @@ Switchyard is currently a pre-release project. Security fixes are made on `main`
 
 Reports about the Swift app, runner boundary, manifest handling, source synchronization, logging, or build and release integrity belong here. Vulnerabilities in the patched Wine source should be reported privately to [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine/security/advisories/new) when possible.
 
-Apple Game Porting Toolkit components and third-party Windows applications are user-provided software. Their upstream vulnerabilities are outside Switchyard's maintenance scope, although boundary failures that expose or redistribute them are in scope.
+Apple Game Porting Toolkit components are separately licensed Apple software; the current release imports a user-provided copy. Third-party Windows applications are user-provided software. Their upstream vulnerabilities are outside Switchyard's maintenance scope, while unauthorized GPTK redistribution, component-channel integrity failures, or other boundary failures that expose third-party software are in scope.
