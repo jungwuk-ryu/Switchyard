@@ -47,40 +47,38 @@ struct ContainerDashboardView: View {
         .onChange(of: programs) { _, _ in
             selectInitialProgram()
         }
+        .windowsApplicationDropTarget(
+            containerName: container.name,
+            isEnabled: !store.isContainerTransitioning(container.id)
+        ) { url in
+            store.runWindowsApplication(at: url, in: container.id)
+        }
     }
 
     private var dashboardHeader: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Button(action: onBack) {
-                Label("Containers", systemImage: "chevron.left")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help("Back to Containers")
-
-            HStack(alignment: .center, spacing: 14) {
-                Text(container.name)
-                    .font(.largeTitle.weight(.semibold))
-                    .lineLimit(1)
-
-                Label(containerSummary, systemImage: containerSummarySymbol)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(containerSummaryColor)
-
-                Spacer(minLength: 24)
-
-                StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
-                StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
-                StatusBadge(status: store.runtimeStatus.patchset, label: "Runtime Source")
-
-                Button("Re-run Diagnostics") {
-                    store.refreshRuntimeStatus()
+            HStack(spacing: 12) {
+                Button(action: onBack) {
+                    Label("Containers", systemImage: "chevron.left")
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Back to Containers")
+
+                Spacer()
+
+                Button {
+                    store.chooseExecutableAndRun(in: container.id)
+                } label: {
+                    Label("Install or Run App…", systemImage: "plus.app.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(store.isContainerTransitioning(container.id))
+                .help("Choose an .exe or .msi file, or drop one onto this container")
+                .accessibilityIdentifier("container.installOrRun")
 
                 Menu {
-                    Button("Install or Run App…") {
-                        store.chooseExecutableAndRun(in: container.id)
-                    }
                     Button("Show Container in Finder") {
                         store.openContainerInFinder(container.id)
                     }
@@ -94,6 +92,28 @@ struct ContainerDashboardView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 .help("More Container Actions")
+            }
+
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(container.name)
+                        .font(.largeTitle.weight(.semibold))
+                        .lineLimit(1)
+
+                    Label(containerSummary, systemImage: containerSummarySymbol)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(containerSummaryColor)
+                }
+
+                Spacer(minLength: 24)
+
+                StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
+                StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
+                StatusBadge(status: store.runtimeStatus.patchset, label: "Runtime Source")
+
+                Button("Re-run Diagnostics") {
+                    store.refreshRuntimeStatus()
+                }
             }
         }
         .padding(.horizontal, 20)
@@ -433,7 +453,7 @@ private struct ProgramHeroView: View {
                     } else {
                         Label(
                             program.map { "Launch \($0.presentationName)" }
-                                ?? (isSteamStarterContainer ? "Continue Steam Setup" : "Choose Windows App…"),
+                                ?? (isSteamStarterContainer ? "Continue Steam Setup" : "Install or Run App…"),
                             systemImage: "play.fill"
                         )
                         .frame(minWidth: 150)
@@ -456,7 +476,7 @@ private struct ProgramHeroView: View {
                         store.sessionSnapshot(for: container.id).wineServerState == .active
                             ? "Add another app to the running Windows session"
                             : program.map { "Start \($0.presentationName) in this container" }
-                                ?? "Choose any Windows executable"
+                                ?? "Choose or drop a Windows .exe or .msi file"
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)

@@ -159,13 +159,13 @@ public struct LibraryManifestStore {
 
     public func save(_ snapshot: SwitchyardContainerSnapshot) throws {
         try fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
-        let data = try JSONEncoder.switchyard.encode(snapshot)
-        try data.write(to: manifestURL, options: [.atomic])
-
         let containerStore = ContainerManifestStore(rootURL: rootURL, fileManager: fileManager)
         for container in snapshot.containers {
             try containerStore.save(container)
         }
+
+        let data = try JSONEncoder.switchyard.encode(snapshot)
+        try data.write(to: manifestURL, options: [.atomic])
     }
 }
 

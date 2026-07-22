@@ -168,6 +168,12 @@ private struct ContainerLibraryView: View {
                                 ContainerLibraryRow(container: container)
                             }
                             .buttonStyle(.plain)
+                            .windowsApplicationDropTarget(
+                                containerName: container.name,
+                                isEnabled: !store.isContainerTransitioning(container.id)
+                            ) { url in
+                                store.runWindowsApplication(at: url, in: container.id)
+                            }
                             .contextMenu {
                                 Button("Run") {
                                     store.runContainer(container.id)
@@ -178,6 +184,10 @@ private struct ContainerLibraryView: View {
 
                                 Button("Show in Finder") {
                                     store.openContainerInFinder(container.id)
+                                }
+
+                                Button("Install or Run App…") {
+                                    store.chooseExecutableAndRun(in: container.id)
                                 }
                             }
 
