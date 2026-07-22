@@ -7,6 +7,7 @@ TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/switchyard-wine-policy-test.XXXXXX")"
 trap 'rm -rf "$TEMP_ROOT"' EXIT
 
 SOURCE_CONFIG="$TEMP_ROOT/switchyard-wine.env"
+UNPUBLISHED_CONFIG="$TEMP_ROOT/switchyard-wine-unpublished.env"
 DESTINATION="$TEMP_ROOT/bundled.env"
 PINNED_REVISION="1111111111111111111111111111111111111111"
 LOCAL_REVISION="2222222222222222222222222222222222222222"
@@ -53,5 +54,20 @@ fi
 
 "$BUNDLER" "$SOURCE_CONFIG" "$DESTINATION" "$PINNED_REVISION" release
 cmp "$SOURCE_CONFIG" "$DESTINATION"
+
+cat >"$UNPUBLISHED_CONFIG" <<CONFIG
+SWITCHYARD_WINE_REPOSITORY=https://example.invalid/switchyard-wine
+SWITCHYARD_WINE_REVISION=$PINNED_REVISION
+SWITCHYARD_WINE_REVISION_TIMESTAMP=1784282993
+SWITCHYARD_WINE_HISTORY_DEPTH=256
+CONFIG
+
+"$BUNDLER" "$UNPUBLISHED_CONFIG" "$DESTINATION"
+cmp "$UNPUBLISHED_CONFIG" "$DESTINATION"
+
+if "$BUNDLER" "$UNPUBLISHED_CONFIG" "$DESTINATION" "$PINNED_REVISION" release >/dev/null 2>&1; then
+  echo "release build accepted a Wine policy without published-runtime attestation" >&2
+  exit 1
+fi
 
 echo "Bundled Wine source policy tests passed"

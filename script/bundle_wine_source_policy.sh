@@ -36,6 +36,23 @@ if [ "$BUILD_CONFIGURATION" = "release" ] &&
   exit 1
 fi
 
+if [ "$BUILD_CONFIGURATION" = "release" ]; then
+  required_release_keys=(
+    SWITCHYARD_WINE_RELEASE_MANIFEST_URL
+    SWITCHYARD_WINE_DEVELOPER_TEAM_ID
+    SWITCHYARD_WINE_RELEASE_ARCHIVE_SHA256
+    SWITCHYARD_WINE_RELEASE_ARCHIVE_SIZE
+    SWITCHYARD_WINE_RELEASE_NOTARIZATION_ID
+  )
+  for key in "${required_release_keys[@]}"; do
+    value="$(sed -n "s/^${key}=//p" "$SOURCE_CONFIG" | tail -n 1)"
+    if [ -z "$value" ] || [[ "$value" == __* ]]; then
+      echo "release builds require $key in $SOURCE_CONFIG" >&2
+      exit 1
+    fi
+  done
+fi
+
 mkdir -p "$(dirname "$DESTINATION")"
 
 if [ -z "$SOURCE_REVISION_OVERRIDE" ] || [ "$source_revision" = "$configured_revision" ]; then
