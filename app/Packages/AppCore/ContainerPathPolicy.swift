@@ -52,6 +52,32 @@ public enum ContainerPathPolicy {
         return candidate
     }
 
+    public static func relocatingPath(
+        _ path: String,
+        from sourceDirectory: String,
+        to destinationDirectory: String
+    ) -> String {
+        guard path.hasPrefix("/") else { return path }
+
+        let normalizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        let normalizedSource = URL(
+            fileURLWithPath: sourceDirectory,
+            isDirectory: true
+        ).standardizedFileURL.path
+        let normalizedDestination = URL(
+            fileURLWithPath: destinationDirectory,
+            isDirectory: true
+        ).standardizedFileURL.path
+
+        guard normalizedPath == normalizedSource
+                || normalizedPath.hasPrefix(normalizedSource + "/")
+        else {
+            return path
+        }
+
+        return normalizedDestination + normalizedPath.dropFirst(normalizedSource.count)
+    }
+
     private static func normalizedPath(_ path: String) -> String {
         URL(fileURLWithPath: path, isDirectory: true)
             .standardizedFileURL

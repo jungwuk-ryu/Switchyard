@@ -55,8 +55,7 @@ struct ContainerSettingsView: View {
         GroupBox("Launch") {
             VStack(alignment: .leading, spacing: 14) {
                 LabeledContent("Name") {
-                    TextField("Name", text: containerNameBinding)
-                        .textFieldStyle(.roundedBorder)
+                    ContainerNameField(containerID: container.id)
                         .frame(maxWidth: 360)
                 }
 
@@ -159,14 +158,6 @@ struct ContainerSettingsView: View {
         }
     }
 
-    private var containerNameBinding: Binding<String> {
-        Binding {
-            store.containers.first(where: { $0.id == container.id })?.name ?? ""
-        } set: { name in
-            store.renameContainer(container.id, to: name)
-        }
-    }
-
     private var executablePathBinding: Binding<String> {
         Binding {
             store.containers.first(where: { $0.id == container.id })?.executablePath ?? ""
@@ -184,6 +175,60 @@ struct ContainerSettingsView: View {
                 .textSelection(.enabled)
                 .help(value)
         }
+    }
+}
+
+private struct ContainerNameField: View {
+    @EnvironmentObject private var store: AppStore
+    let containerID: UUID
+
+    @FocusState private var isFocused: Bool
+    @State private var draft = ""
+
+    var body: some View {
+        TextField("Name", text: $draft)
+            .textFieldStyle(.roundedBorder)
+            .focused($isFocused)
+            .disabled(store.isContainerBusy(containerID))
+            .onAppear {
+                draft = storedName
+            }
+            .onChange(of: containerID) { _, _ in
+                draft = storedName
+            }
+            .onChange(of: storedName) { _, name in
+                guard !isFocused else { return }
+                draft = name
+            }
+            .onChange(of: isFocused) { _, focused in
+                if !focused {
+                    commitRename()
+                }
+            }
+            .onSubmit {
+                commitRename()
+                isFocused = false
+            }
+            .help("Press Return or leave the field to rename the container and its folder")
+    }
+
+    private var storedName: String {
+        store.containers.first(where: { $0.id == containerID })?.name ?? ""
+    }
+
+    private func commitRename() {
+        let requestedName = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !requestedName.isEmpty else {
+            draft = storedName
+            return
+        }
+        guard requestedName != storedName else {
+            draft = storedName
+            return
+        }
+
+        store.renameContainer(containerID, to: requestedName)
+        draft = storedName
     }
 }
 

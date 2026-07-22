@@ -23,6 +23,21 @@ import Testing
     )
 }
 
+@Test func jobEngineCreatesWindowsInstallerPlan() throws {
+    let container = Container(name: "Epic", path: "/tmp/Epic.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().installPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: nil,
+        installerPath: "/tmp/Epic Installer.msi"
+    )
+
+    #expect(plan.executable == "/opt/wine/bin/wine")
+    #expect(plan.arguments == ["msiexec.exe", "/i", "/tmp/Epic Installer.msi"])
+}
+
 @Test func jobEngineFailsWhenContainerExecutableIsMissing() {
     let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
@@ -47,6 +62,21 @@ import Testing
     #expect(plan.arguments == ["/tmp/Installers/Setup.exe"])
     #expect(plan.environment["WINEPREFIX"] == "/tmp/Toolbox.container")
     #expect(plan.workingDirectory == "/tmp/Toolbox.container")
+}
+
+@Test func jobEngineRunsAdHocWindowsInstallerWithArguments() throws {
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        executablePath: "/tmp/Installers/Toolbox.msi",
+        executableArguments: ["/quiet"],
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.arguments == ["msiexec.exe", "/i", "/tmp/Installers/Toolbox.msi", "/quiet"])
 }
 
 @Test func jobEngineUsesContainerEnvironmentOverrides() throws {

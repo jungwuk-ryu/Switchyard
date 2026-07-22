@@ -145,9 +145,15 @@ private func commandPlan(
         environment[key] = value
     }
 
+    let launchArguments = WindowsApplicationFileKind(path: executablePath)?.wineArguments(
+        for: executablePath,
+        additionalArguments: executableArguments
+    )
+        ?? [executablePath] + executableArguments
+
     return CommandPlan(
         executable: runtime.winePath,
-        arguments: [executablePath] + executableArguments,
+        arguments: launchArguments,
         environment: environment,
         workingDirectory: container.path,
         logSource: logSource,

@@ -101,6 +101,18 @@ struct ContainerFileBrowserView: View {
         .task(id: directoryURL) {
             await loadDirectory()
         }
+        .onChange(of: container.path) { previousPath, newPath in
+            let relocatedPath = ContainerPathPolicy.relocatingPath(
+                directoryURL.path,
+                from: previousPath,
+                to: newPath
+            )
+            let relocatedURL = URL(fileURLWithPath: relocatedPath, isDirectory: true)
+            let catalog = ContainerDirectoryCatalog()
+            directoryURL = catalog.contains(relocatedURL, in: container)
+                ? relocatedURL
+                : catalog.defaultDirectory(for: container)
+        }
     }
 
     private var browserHeader: some View {

@@ -1075,13 +1075,13 @@ final class AppStore: ObservableObject {
 
         let panel = NSOpenPanel()
         panel.title = "Install or Run a Windows App"
-        panel.message = "Choose the Windows installer or app (.exe) you downloaded. It will stay inside \(container.name)."
+        panel.message = "Choose a Windows app or installer (.exe or .msi) to open in \(container.name)."
         panel.prompt = "Open"
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        if let executableType = UTType(filenameExtension: "exe") {
-            panel.allowedContentTypes = [executableType]
+        panel.allowedContentTypes = WindowsApplicationFileKind.allCases.compactMap {
+            UTType(filenameExtension: $0.rawValue)
         }
 
         let installersURL = URL(fileURLWithPath: libraryPath, isDirectory: true)
@@ -1096,8 +1096,37 @@ final class AppStore: ObservableObject {
             ).first
         }
 
-        guard panel.runModal() == .OK, let executableURL = panel.url else { return }
-        runExecutable(executableURL.path, in: containerID)
+        guard panel.runModal() == .OK, let applicationURL = panel.url else { return }
+        runWindowsApplication(at: applicationURL, in: containerID)
+    }
+
+    @discardableResult
+    func runWindowsApplication(at applicationURL: URL, in containerID: UUID) -> Bool {
+        guard let container = containers.first(where: { $0.id == containerID }) else {
+            return false
+        }
+
+        let standardizedURL = applicationURL.standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard WindowsApplicationFileKind.supports(standardizedURL),
+              FileManager.default.fileExists(
+                atPath: standardizedURL.path,
+                isDirectory: &isDirectory
+              ),
+              !isDirectory.boolValue else {
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: container.name,
+                    message: "Choose an existing Windows .exe or .msi file."
+                ),
+                at: 0
+            )
+            return false
+        }
+
+        runExecutable(standardizedURL.path, in: containerID)
+        return true
     }
 
     func runExecutable(_ executablePath: String, arguments: [String] = [], in containerID: UUID) {
@@ -1454,11 +1483,86 @@ final class AppStore: ObservableObject {
         )
     }
 
-    func renameContainer(_ containerID: UUID, to name: String) {
+    @discardableResult
+    func renameContainer(_ containerID: UUID, to name: String) -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
-        updateContainer(containerID) { container in
-            container.name = trimmedName
+        guard !trimmedName.isEmpty,
+              let index = containers.firstIndex(where: { $0.id == containerID }) else {
+            return false
+        }
+        guard containers[index].name != trimmedName else { return true }
+        guard !isContainerBusy(containerID) else {
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: "Stop or wait for \(containers[index].name) before renaming its folder."
+                ),
+                at: 0
+            )
+            return false
+        }
+
+        let originalContainer = containers[index]
+        do {
+            let occupiedDirectoryNames = ContainerPathPolicy.occupiedDirectoryNames(
+                containers: containers.filter { $0.id != containerID },
+                existingDirectoryNames: []
+            )
+            let renamedContainer = try ContainerDirectoryRenamer(
+                rootURL: URL(fileURLWithPath: libraryPath, isDirectory: true)
+            ).rename(
+                originalContainer,
+                to: trimmedName,
+                occupiedDirectoryNames: occupiedDirectoryNames
+            ) { proposedContainer in
+                var proposedContainers = containers
+                proposedContainers[index] = proposedContainer
+                try libraryStore.save(
+                    SwitchyardContainerSnapshot(containers: proposedContainers)
+                )
+            }
+
+            installedProgramTasks[containerID]?.cancel()
+            installedProgramTasks.removeValue(forKey: containerID)
+            installedProgramsByContainerID.removeValue(forKey: containerID)
+            containers[index] = renamedContainer
+
+            if var recentLaunches = recentProgramLaunchesByContainerID[containerID] {
+                for launchIndex in recentLaunches.indices {
+                    recentLaunches[launchIndex].executablePath = ContainerPathPolicy.relocatingPath(
+                        recentLaunches[launchIndex].executablePath,
+                        from: originalContainer.path,
+                        to: renamedContainer.path
+                    )
+                }
+                recentProgramLaunchesByContainerID[containerID] = recentLaunches
+            }
+
+            sessionRefreshTokens[containerID] = UUID()
+            sessionSnapshotsByContainerID[containerID] = .checking
+            persistRecentProgramLaunches()
+            refreshInstalledPrograms(for: containerID)
+            refreshProtocolAssociations()
+            logLines.insert(
+                LogLine(
+                    level: "info",
+                    source: "containers",
+                    message: "Renamed \(originalContainer.name) and its folder to \(renamedContainer.name)."
+                ),
+                at: 0
+            )
+            return true
+        } catch {
+            logLines.insert(
+                LogLine(
+                    level: "error",
+                    source: "containers",
+                    message: "Could not rename \(originalContainer.name): \(Self.errorDescription(error))"
+                ),
+                at: 0
+            )
+            return false
         }
     }
 
@@ -1680,7 +1784,6 @@ final class AppStore: ObservableObject {
         logLines.insert(fontPreparationLog, at: 0)
 
         do {
-            let launchArguments = executablePath == nil ? container.executableArguments : executableArguments
             let debugEnvironmentOverrides = debugRunEnvironmentOverrides(for: container)
             let debugLogPath = debugRunLogPath(for: container, executablePath: launchedExecutable)
 
@@ -1719,7 +1822,8 @@ final class AppStore: ObservableObject {
                     requiresInactiveTransition: terminateExistingPrefixSession
                 )
             }
-            if !launchedExecutable.isEmpty {
+            if !launchedExecutable.isEmpty,
+               WindowsApplicationFileKind(path: launchedExecutable) != .installerPackage {
                 recordRecentProgramLaunch(
                     executablePath: launchedExecutable,
                     containerID: container.id
@@ -1738,7 +1842,7 @@ final class AppStore: ObservableObject {
                     containerID: container.id,
                     level: "info",
                     source: container.name,
-                    message: "Launch command started through switchyard-runner: executable=\(executableName) argumentCount=\(launchArguments.count)"
+                    message: "Launch command started through switchyard-runner: executable=\(executableName) argumentCount=\(plan.arguments.count)"
                 ),
                 at: 0
             )

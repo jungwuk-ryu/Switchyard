@@ -386,6 +386,45 @@ import Testing
     #expect(ContainerPathPolicy.uniqueDirectoryName(for: "New Container", existingDirectoryNames: existingNames) == "NewContainer3.container")
 }
 
+@Test func windowsApplicationFileKindRecognizesExecutableAndInstallerExtensions() {
+    #expect(WindowsApplicationFileKind(path: "/tmp/Setup.EXE") == .executable)
+    #expect(WindowsApplicationFileKind(path: "/tmp/Package.mSi") == .installerPackage)
+    #expect(WindowsApplicationFileKind(path: "/tmp/Archive.zip") == nil)
+}
+
+@Test func windowsInstallerLaunchUsesMSIExec() {
+    let arguments = WindowsApplicationFileKind.installerPackage.wineArguments(
+        for: "/tmp/Epic Installer.msi",
+        additionalArguments: ["/quiet"]
+    )
+
+    #expect(arguments == ["msiexec.exe", "/i", "/tmp/Epic Installer.msi", "/quiet"])
+}
+
+@Test func containerPathPolicyRelocatesOnlyPathsInsideRenamedContainer() {
+    #expect(
+        ContainerPathPolicy.relocatingPath(
+            "/tmp/Library/Old.container/drive_c/Game/game.exe",
+            from: "/tmp/Library/Old.container",
+            to: "/tmp/Library/New.container"
+        ) == "/tmp/Library/New.container/drive_c/Game/game.exe"
+    )
+    #expect(
+        ContainerPathPolicy.relocatingPath(
+            "/tmp/Library/Old.container-copy/game.exe",
+            from: "/tmp/Library/Old.container",
+            to: "/tmp/Library/New.container"
+        ) == "/tmp/Library/Old.container-copy/game.exe"
+    )
+    #expect(
+        ContainerPathPolicy.relocatingPath(
+            #"C:\Program Files\Game\game.exe"#,
+            from: "/tmp/Library/Old.container",
+            to: "/tmp/Library/New.container"
+        ) == #"C:\Program Files\Game\game.exe"#
+    )
+}
+
 @Test func containerPathPolicyIncludesContainerAndDiskDirectoryNames() {
     let container = Container(
         name: "Steam",

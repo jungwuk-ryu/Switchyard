@@ -3,6 +3,148 @@ import Foundation
 import Persistence
 import Testing
 
+private enum TestContainerRenameError: Error, Equatable {
+    case saveFailed
+}
+
+@Test func containerDirectoryRenamerMovesFolderAndRebasesExecutable() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let sourceURL = root.appendingPathComponent("NewContainer.container", isDirectory: true)
+    let executableURL = sourceURL.appendingPathComponent(
+        "drive_c/Program Files/Epic Games/Launcher.exe"
+    )
+    try FileManager.default.createDirectory(
+        at: executableURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try Data().write(to: executableURL)
+
+    let container = Container(
+        name: "New Container",
+        path: sourceURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a",
+        executablePath: executableURL.path
+    )
+    try ContainerManifestStore(rootURL: root).save(container)
+
+    let renamed = try ContainerDirectoryRenamer(rootURL: root)
+        .rename(container, to: "Epic Games")
+    let destinationURL = root.appendingPathComponent("EpicGames.container", isDirectory: true)
+
+    #expect(renamed.name == "Epic Games")
+    #expect(renamed.path == destinationURL.path)
+    #expect(
+        renamed.executablePath
+            == destinationURL.appendingPathComponent(
+                "drive_c/Program Files/Epic Games/Launcher.exe"
+            ).path
+    )
+    #expect(!FileManager.default.fileExists(atPath: sourceURL.path))
+    #expect(FileManager.default.fileExists(atPath: renamed.executablePath ?? ""))
+
+    let loaded = try #require(
+        ContainerManifestStore(rootURL: root).loadContainers().first
+    )
+    #expect(loaded.id == renamed.id)
+    #expect(loaded.name == renamed.name)
+    #expect(
+        URL(fileURLWithPath: loaded.path).resolvingSymlinksInPath()
+            == destinationURL.resolvingSymlinksInPath()
+    )
+    #expect(
+        loaded.executablePath.map {
+            URL(fileURLWithPath: $0).resolvingSymlinksInPath()
+        } == renamed.executablePath.map {
+            URL(fileURLWithPath: $0).resolvingSymlinksInPath()
+        }
+    )
+}
+
+@Test func containerDirectoryRenamerAvoidsExistingFolderName() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let sourceURL = root.appendingPathComponent("NewContainer.container", isDirectory: true)
+    let occupiedURL = root.appendingPathComponent("EpicGames.container", isDirectory: true)
+    let container = Container(
+        name: "New Container",
+        path: sourceURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a"
+    )
+    try ContainerManifestStore(rootURL: root).save(container)
+    try FileManager.default.createDirectory(at: occupiedURL, withIntermediateDirectories: true)
+
+    let renamed = try ContainerDirectoryRenamer(rootURL: root)
+        .rename(container, to: "Epic Games")
+
+    #expect(renamed.path == root.appendingPathComponent("EpicGames2.container").path)
+    #expect(FileManager.default.fileExists(atPath: occupiedURL.path))
+}
+
+@Test func containerDirectoryRenamerHonorsReservedInMemoryFolderNames() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let sourceURL = root.appendingPathComponent("NewContainer.container", isDirectory: true)
+    let container = Container(
+        name: "New Container",
+        path: sourceURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a"
+    )
+    try ContainerManifestStore(rootURL: root).save(container)
+
+    let renamed = try ContainerDirectoryRenamer(rootURL: root).rename(
+        container,
+        to: "Epic Games",
+        occupiedDirectoryNames: ["EpicGames.container"]
+    )
+
+    #expect(renamed.path == root.appendingPathComponent("EpicGames2.container").path)
+}
+
+@Test func containerDirectoryRenamerRollsBackWhenLibrarySaveFails() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let sourceURL = root.appendingPathComponent("NewContainer.container", isDirectory: true)
+    let container = Container(
+        name: "New Container",
+        path: sourceURL.path,
+        wineBuildID: "wine-a",
+        patchsetID: "patch-a"
+    )
+    try ContainerManifestStore(rootURL: root).save(container)
+
+    #expect(throws: TestContainerRenameError.saveFailed) {
+        _ = try ContainerDirectoryRenamer(rootURL: root).rename(
+            container,
+            to: "Epic Games"
+        ) { _ in
+            throw TestContainerRenameError.saveFailed
+        }
+    }
+
+    #expect(FileManager.default.fileExists(atPath: sourceURL.path))
+    #expect(
+        !FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("EpicGames.container").path
+        )
+    )
+    let restored = try #require(
+        ContainerManifestStore(rootURL: root).loadContainers().first
+    )
+    #expect(restored.name == container.name)
+}
+
 @Test func librarySnapshotRoundTripsContainers() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
