@@ -603,6 +603,79 @@ import Testing
     )
 }
 
+@Test func wineDebugLoggingProfilesKeepSEHTraceBehindVerboseMode() {
+    let standard = WineDebugLoggingProfile.standard.environmentValue
+    let verbose = WineDebugLoggingProfile.verbose.environmentValue
+
+    #expect(standard.contains("err+all"))
+    #expect(standard.contains("warn+all"))
+    #expect(!standard.contains("trace+seh"))
+    #expect(!standard.contains("fixme+all"))
+    #expect(verbose.contains("err+all"))
+    #expect(verbose.contains("warn+all"))
+    #expect(verbose.contains("fixme+all"))
+    #expect(verbose.contains("trace+seh"))
+    #expect(verbose.contains("trace+dxgi"))
+    #expect(verbose.contains("trace+wined3d"))
+}
+
+@Test func processLogLevelPolicyUnderstandsWineDebugClasses() {
+    #expect(
+        ProcessLogLevelPolicy.normalizedLevel(
+            for: "[Battle.net] 37884.833:0580:trace:seh:dispatch_exception code=c0000005",
+            fallbackLevel: "error"
+        ) == "debug"
+    )
+    #expect(
+        ProcessLogLevelPolicy.normalizedLevel(
+            for: "0430:warn:dxgi:dxgi_device_init Failed to create device",
+            fallbackLevel: "error"
+        ) == "warning"
+    )
+    #expect(
+        ProcessLogLevelPolicy.normalizedLevel(
+            for: "0088:fixme:msvcp:locale__Locimp__Makexloc semi-stub",
+            fallbackLevel: "error"
+        ) == "warning"
+    )
+    #expect(
+        ProcessLogLevelPolicy.normalizedLevel(
+            for: "0744:err:d3d:wined3d_check_gl_call GL error",
+            fallbackLevel: "info"
+        ) == "error"
+    )
+    #expect(
+        ProcessLogLevelPolicy.normalizedLevel(
+            for: "wine: Unhandled exception 0xe0000008",
+            fallbackLevel: "error"
+        ) == "error"
+    )
+}
+
+@Test func liveLogPolicyPrependsChronologicalBatchesAndCapsRetention() {
+    let existing = [
+        LogLine(level: "info", source: "test", message: "C"),
+        LogLine(level: "info", source: "test", message: "B"),
+        LogLine(level: "info", source: "test", message: "A"),
+    ]
+    let incoming = [
+        LogLine(level: "debug", source: "test", message: "D"),
+        LogLine(level: "error", source: "test", message: "E"),
+    ]
+
+    #expect(
+        LiveLogPolicy.merging(chronological: incoming, before: existing, limit: 4)
+            .map(\.message) == ["E", "D", "C", "B"]
+    )
+    #expect(
+        LiveLogPolicy.merging(chronological: incoming, before: existing, limit: 1)
+            .map(\.message) == ["E"]
+    )
+    #expect(
+        LiveLogPolicy.merging(chronological: incoming, before: existing, limit: 0).isEmpty
+    )
+}
+
 @Test func recentProgramLaunchPolicyMovesRelaunchesToTheFrontAndCapsHistory() {
     let firstPath = "/tmp/Container/first.exe"
     let secondPath = "/tmp/Container/second.exe"

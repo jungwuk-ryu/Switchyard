@@ -109,7 +109,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         _ plan: CommandPlan,
         containerID: UUID,
         containerName: String,
-        onLog: @escaping @Sendable (LogLine) -> Void,
+        onLogs: @escaping @Sendable ([LogLine]) -> Void,
         onExit: @escaping @Sendable (RunSession) -> Void
     ) throws -> RunSession {
         let runnerURL = try locateRunner()
@@ -137,19 +137,24 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
 
         let stdout = Pipe()
         let stderr = Pipe()
+        let logBatcher = ProcessLogBatcher(
+            containerID: containerID,
+            source: containerName,
+            onLogs: onLogs
+        )
         let stdoutStream = ProcessLogStream(
             handle: stdout.fileHandleForReading,
             level: "info",
             containerID: containerID,
             source: containerName,
-            onLog: onLog
+            batcher: logBatcher
         )
         let stderrStream = ProcessLogStream(
             handle: stderr.fileHandleForReading,
             level: "error",
             containerID: containerID,
             source: containerName,
-            onLog: onLog
+            batcher: logBatcher
         )
         process.standardOutput = stdout
         process.standardError = stderr
@@ -160,6 +165,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         process.terminationHandler = { [weak self] process in
             stdoutStream.finish()
             stderrStream.finish()
+            logBatcher.finish()
             try? FileManager.default.removeItem(at: planURL)
             self?.removeProcess(session.id)
 
@@ -183,6 +189,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         } catch {
             stdoutStream.cancel()
             stderrStream.cancel()
+            logBatcher.finish()
             removeProcess(session.id)
             try? FileManager.default.removeItem(at: planURL)
             throw error
@@ -194,7 +201,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         _ plan: CommandPlan,
         containerID: UUID,
         containerName: String,
-        onLog: @escaping @Sendable (LogLine) -> Void
+        onLogs: @escaping @Sendable ([LogLine]) -> Void
     ) async throws -> RunSession {
         try await withCheckedThrowingContinuation { continuation in
             do {
@@ -202,7 +209,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
                     plan,
                     containerID: containerID,
                     containerName: containerName,
-                    onLog: onLog,
+                    onLogs: onLogs,
                     onExit: { session in
                         continuation.resume(returning: session)
                     }
@@ -315,7 +322,7 @@ private final class ProcessLogStream: @unchecked Sendable {
     private let level: String
     private let containerID: UUID
     private let source: String
-    private let onLog: @Sendable (LogLine) -> Void
+    private let batcher: ProcessLogBatcher
     private let lock = NSLock()
     private let accumulator = LogStreamAccumulator()
     private var isFinished = false
@@ -325,13 +332,13 @@ private final class ProcessLogStream: @unchecked Sendable {
         level: String,
         containerID: UUID,
         source: String,
-        onLog: @escaping @Sendable (LogLine) -> Void
+        batcher: ProcessLogBatcher
     ) {
         self.handle = handle
         self.level = level
         self.containerID = containerID
         self.source = source
-        self.onLog = onLog
+        self.batcher = batcher
     }
 
     func start() {
@@ -372,15 +379,105 @@ private final class ProcessLogStream: @unchecked Sendable {
     }
 
     private func emit(_ data: Data, finish: Bool) {
-        for line in accumulator.consume(data, finish: finish) {
-            onLog(
+        let logs = accumulator.consume(data, finish: finish).map { line in
+            LogLine(
+                containerID: containerID,
+                level: ProcessLogLevelPolicy.normalizedLevel(
+                    for: line,
+                    fallbackLevel: level
+                ),
+                source: source,
+                message: line
+            )
+        }
+        batcher.append(logs)
+    }
+}
+
+final class ProcessLogBatcher: @unchecked Sendable {
+    private let containerID: UUID
+    private let source: String
+    private let onLogs: @Sendable ([LogLine]) -> Void
+    private let flushInterval: TimeInterval
+    private let maximumPendingLineCount: Int
+    private let queue = DispatchQueue(label: "dev.switchyard.live-log-batcher", qos: .utility)
+    private var pending: [LogLine] = []
+    private var omittedLineCount = 0
+    private var isFlushScheduled = false
+    private var isFinished = false
+
+    init(
+        containerID: UUID,
+        source: String,
+        flushInterval: TimeInterval = 0.25,
+        maximumPendingLineCount: Int = 2_048,
+        onLogs: @escaping @Sendable ([LogLine]) -> Void
+    ) {
+        self.containerID = containerID
+        self.source = source
+        self.flushInterval = flushInterval
+        self.maximumPendingLineCount = max(1, maximumPendingLineCount)
+        self.onLogs = onLogs
+    }
+
+    func append(_ logs: [LogLine]) {
+        guard !logs.isEmpty else { return }
+        queue.async { [weak self] in
+            self?.enqueue(logs)
+        }
+    }
+
+    func finish() {
+        queue.sync {
+            isFinished = true
+            drain()
+        }
+    }
+
+    private func enqueue(_ logs: [LogLine]) {
+        guard !isFinished else { return }
+
+        let overflow = pending.count + logs.count - maximumPendingLineCount
+        if overflow > 0 {
+            var combined = pending
+            combined.append(contentsOf: logs)
+            omittedLineCount += overflow
+            pending = Array(combined.suffix(maximumPendingLineCount))
+        } else {
+            pending.append(contentsOf: logs)
+        }
+
+        let shouldScheduleFlush = !isFlushScheduled
+        isFlushScheduled = true
+
+        if shouldScheduleFlush {
+            queue.asyncAfter(
+                deadline: .now() + flushInterval
+            ) { [weak self] in
+                self?.drain()
+            }
+        }
+    }
+
+    private func drain() {
+        var logs = pending
+        pending.removeAll(keepingCapacity: true)
+        let omitted = omittedLineCount
+        omittedLineCount = 0
+        isFlushScheduled = false
+
+        if omitted > 0 {
+            logs.append(
                 LogLine(
                     containerID: containerID,
-                    level: level,
+                    level: "warning",
                     source: source,
-                    message: line
+                    message: "\(omitted) high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled."
                 )
             )
+        }
+        if !logs.isEmpty {
+            onLogs(logs)
         }
     }
 }
