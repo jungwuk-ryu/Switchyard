@@ -484,6 +484,45 @@ import Testing
     #expect(arguments == ["msiexec.exe", "/i", "/tmp/Epic Installer.msi", "/quiet"])
 }
 
+@Test func battleNetLaunchUsesOneToOneCEFDisplayScaling() {
+    let arguments = WindowsApplicationFileKind.executable.wineArguments(
+        for: "/tmp/Battle.net/Battle.net.exe"
+    )
+
+    #expect(arguments == [
+        "/tmp/Battle.net/Battle.net.exe",
+        "--high-dpi-support=1",
+        "--force-device-scale-factor=1",
+    ])
+}
+
+@Test func battleNetLaunchPreservesExplicitDisplayScalingArguments() {
+    let arguments = WindowsApplicationFileKind.executable.wineArguments(
+        for: #"C:\Program Files (x86)\Battle.net\BATTLE.NET LAUNCHER.EXE"#,
+        additionalArguments: [
+            "--high-dpi-support=0",
+            "--force-device-scale-factor=1.25",
+            "--locale=koKR",
+        ]
+    )
+
+    #expect(arguments == [
+        #"C:\Program Files (x86)\Battle.net\BATTLE.NET LAUNCHER.EXE"#,
+        "--high-dpi-support=0",
+        "--force-device-scale-factor=1.25",
+        "--locale=koKR",
+    ])
+}
+
+@Test func otherExecutableLaunchDoesNotReceiveBattleNetDisplayArguments() {
+    let arguments = WindowsApplicationFileKind.executable.wineArguments(
+        for: "/tmp/Steam/steam.exe",
+        additionalArguments: ["-silent"]
+    )
+
+    #expect(arguments == ["/tmp/Steam/steam.exe", "-silent"])
+}
+
 @Test func containerPathPolicyRelocatesOnlyPathsInsideRenamedContainer() {
     #expect(
         ContainerPathPolicy.relocatingPath(

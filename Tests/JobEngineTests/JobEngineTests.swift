@@ -69,6 +69,24 @@ import Testing
     #expect(plan.workingDirectory == "/tmp/Toolbox.container")
 }
 
+@Test func jobEngineAppliesBattleNetDisplayCompatibilityArguments() throws {
+    let container = Container(name: "Battle.net", path: "/tmp/BattleNet.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        executablePath: "/tmp/BattleNet.container/drive_c/Program Files (x86)/Battle.net/Battle.net.exe",
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.arguments == [
+        "/tmp/BattleNet.container/drive_c/Program Files (x86)/Battle.net/Battle.net.exe",
+        "--high-dpi-support=1",
+        "--force-device-scale-factor=1",
+    ])
+}
+
 @Test func jobEngineRunsAdHocWindowsInstallerWithArguments() throws {
     let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
