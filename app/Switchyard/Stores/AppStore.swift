@@ -35,6 +35,7 @@ private struct PendingLoginCallbackRecovery {
 
 private let debugRunLogRetentionInterval: TimeInterval = 14 * 24 * 60 * 60
 private let maximumRetainedDebugRunLogs = 50
+private let maximumLiveLogLines = 5_000
 private let recentProgramLaunchesDefaultsKey = "recentProgramLaunches.v1"
 private let maximumRecentProgramLaunches = 8
 private let onlineReleaseCacheInterval: TimeInterval = 15 * 60
@@ -228,8 +229,9 @@ final class AppStore: ObservableObject {
     @Published private(set) var containerStorageOperationIDs: Set<UUID> = []
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published var containers: [Container]
-    @Published var logLines: [LogLine] = []
+    @Published private(set) var logLines: [LogLine] = []
     @AppStorage("developerLogging") private var developerLogging = false
+    @AppStorage("verboseWineLogging") private var verboseWineLogging = false
 
     private let jobEngine = JobEngine()
     private let runnerClient = SwitchyardRunnerClient()
@@ -1939,9 +1941,9 @@ final class AppStore: ObservableObject {
                 plan,
                 containerID: container.id,
                 containerName: container.name,
-                onLog: { [weak self] line in
+                onLogs: { [weak self] lines in
                     Task { @MainActor in
-                        self?.logLines.insert(line, at: 0)
+                        self?.recordIncomingLogs(lines)
                     }
                 },
                 onExit: { [weak self] completedSession in
@@ -1989,7 +1991,7 @@ final class AppStore: ObservableObject {
                     LogLine(
                         level: "info",
                         source: container.name,
-                        message: "Debug run logging enabled (WINEDEBUG=\(debugEnvironmentOverrides["WINEDEBUG"] ?? "inherited"), file: \(debugLogPath))"
+                        message: "Debug run logging enabled (profile=\(verboseWineLogging ? "verbose" : "standard"), WINEDEBUG=\(debugEnvironmentOverrides["WINEDEBUG"] ?? "container override or inherited"), file: \(debugLogPath)). The live view is batched and retains its latest \(maximumLiveLogLines) entries; this file retains the complete run output."
                     ),
                     at: 0
                 )
@@ -2097,8 +2099,9 @@ final class AppStore: ObservableObject {
     private func debugRunEnvironmentOverrides(for container: Container) -> [String: String] {
         guard developerLogging else { return [:] }
         guard container.environmentOverrides["WINEDEBUG"] == nil else { return [:] }
+        let profile: WineDebugLoggingProfile = verboseWineLogging ? .verbose : .standard
         return [
-            "WINEDEBUG": "+timestamp,+seh,+warn,+err,+dcomp,+macdrv,+dxgi,+wined3d"
+            "WINEDEBUG": profile.environmentValue
         ]
     }
 
@@ -2231,9 +2234,9 @@ final class AppStore: ObservableObject {
                 plan,
                 containerID: container.id,
                 containerName: "\(container.name) Setup",
-                onLog: { [weak self] line in
+                onLogs: { [weak self] lines in
                     Task { @MainActor in
-                        self?.logLines.insert(line, at: 0)
+                        self?.recordIncomingLogs(lines)
                     }
                 }
             )
@@ -2280,6 +2283,14 @@ final class AppStore: ObservableObject {
 
     func clearLogs(for containerID: UUID? = nil) {
         logLines = LogClearPolicy.clearing(logLines, for: containerID)
+    }
+
+    private func recordIncomingLogs(_ logs: [LogLine]) {
+        logLines = LiveLogPolicy.merging(
+            chronological: logs,
+            before: logLines,
+            limit: maximumLiveLogLines
+        )
     }
 
     func stopAllRuns() {

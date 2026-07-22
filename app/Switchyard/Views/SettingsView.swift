@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
     @AppStorage("developerLogging") private var developerLogging = false
+    @AppStorage("verboseWineLogging") private var verboseWineLogging = false
 
     var body: some View {
         let runtime = store.currentRuntime
@@ -157,7 +158,12 @@ struct SettingsView: View {
 
             Form {
                 Toggle("Developer logging", isOn: $developerLogging)
-                Text("When enabled, launches include detailed Wine debug output. Per-run files omit argument values, are protected for your account only, and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.")
+                Text("When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Toggle("Verbose Wine logging", isOn: $verboseWineLogging)
+                    .disabled(!developerLogging)
+                Text("Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Button("Copy Diagnostic Bundle") {

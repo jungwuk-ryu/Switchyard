@@ -16,6 +16,7 @@ struct LogsView: View {
 
                 Picker("Level", selection: $levelFilter) {
                     Text("All").tag("all")
+                    Text("Debug").tag("debug")
                     Text("Info").tag("info")
                     Text("Warning").tag("warning")
                     Text("Error").tag("error")
@@ -106,13 +107,22 @@ private struct LogLineView: View {
             Text(switchyardDateFormatter.string(from: line.timestamp))
                 .foregroundStyle(.secondary)
             Text(line.level.uppercased())
-                .foregroundStyle(line.level == "error" ? .red : .secondary)
+                .foregroundStyle(levelColor)
                 .frame(width: 70, alignment: .leading)
             Text(line.source)
                 .foregroundStyle(.secondary)
                 .frame(width: 120, alignment: .leading)
             Text(line.message)
                 .textSelection(.enabled)
+        }
+    }
+
+    private var levelColor: Color {
+        switch line.level {
+        case "error": .red
+        case "warning": .orange
+        case "debug": .gray
+        default: .secondary
         }
     }
 }

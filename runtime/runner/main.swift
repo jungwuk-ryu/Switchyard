@@ -1437,7 +1437,10 @@ private func streamOutput(
             if let tail = accumulator.flush(), !tail.isEmpty {
                 emitLine(
                     source: source,
-                    level: level,
+                    level: ProcessLogLevelPolicy.normalizedLevel(
+                        for: tail,
+                        fallbackLevel: level
+                    ),
                     message: tail,
                     outputHandle: outputHandle,
                     logWriter: logWriter
@@ -1453,7 +1456,10 @@ private func streamOutput(
             for line in accumulator.consume(chunk) where !line.isEmpty {
                 emitLine(
                     source: source,
-                    level: level,
+                    level: ProcessLogLevelPolicy.normalizedLevel(
+                        for: line,
+                        fallbackLevel: level
+                    ),
                     message: line,
                     outputHandle: outputHandle,
                     logWriter: logWriter
