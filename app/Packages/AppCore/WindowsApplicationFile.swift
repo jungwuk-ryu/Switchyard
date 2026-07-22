@@ -18,7 +18,10 @@ public enum WindowsApplicationFileKind: String, CaseIterable, Equatable, Sendabl
     ) -> [String] {
         switch self {
         case .executable:
-            [applicationPath] + additionalArguments
+            [applicationPath] + WindowsApplicationLaunchPolicy.arguments(
+                for: applicationPath,
+                userArguments: additionalArguments
+            )
         case .installerPackage:
             ["msiexec.exe", "/i", applicationPath] + additionalArguments
         }
