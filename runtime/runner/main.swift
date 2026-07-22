@@ -7,6 +7,9 @@ private enum SwitchyardRunnerError: LocalizedError {
     case invalidURLCallbackRequest
     case urlCallbackTimedOut
     case urlCallbackCommandFailed(Int32)
+    case invalidDesktopShortcutRequest
+    case desktopShortcutTimedOut
+    case desktopShortcutCommandFailed(Int32)
     case wineServerCommandFailed(arguments: [String], status: Int32, output: String)
     case wineServerCommandTimedOut(arguments: [String])
     case wineProcessesCouldNotBeStopped([pid_t])
@@ -24,6 +27,12 @@ private enum SwitchyardRunnerError: LocalizedError {
             "The Wine URL callback did not finish within 15 seconds."
         case let .urlCallbackCommandFailed(status):
             "The Wine URL callback command failed with status \(status)."
+        case .invalidDesktopShortcutRequest:
+            "The Wine desktop shortcut request was invalid."
+        case .desktopShortcutTimedOut:
+            "The Wine desktop shortcut did not finish launching within 15 seconds."
+        case let .desktopShortcutCommandFailed(status):
+            "The Wine desktop shortcut command failed with status \(status)."
         case let .wineServerCommandFailed(arguments, status, output):
             "wineserver \(arguments.joined(separator: " ")) failed with status \(status): \(output)"
         case let .wineServerCommandTimedOut(arguments):
@@ -320,6 +329,13 @@ struct SwitchyardRunner {
                 FileHandle.standardError.write(Data("switchyard-runner failed to deliver a URL callback: \(error.localizedDescription)\n".utf8))
                 runnerExit(1)
             }
+        case "open-shortcut":
+            do {
+                try openDesktopShortcut(arguments: Array(arguments.dropFirst()))
+            } catch {
+                FileHandle.standardError.write(Data("switchyard-runner failed to open a desktop shortcut: \(error.localizedDescription)\n".utf8))
+                runnerExit(1)
+            }
         case "run":
             do {
                 try run(arguments: Array(arguments.dropFirst()))
@@ -361,6 +377,7 @@ struct SwitchyardRunner {
         if plan.terminateExistingPrefixSession == true {
             try terminateExistingPrefixSession(plan: plan)
         }
+        try preparePrivateDesktop(plan: plan)
         var protocolMonitor = try startProtocolAssociationMonitor(plan: plan)
         defer {
             stopProtocolAssociationMonitor(&protocolMonitor)
@@ -504,8 +521,70 @@ struct SwitchyardRunner {
         )
     }
 
+    private static func preparePrivateDesktop(plan: CommandPlan) throws {
+        guard plan.environment[WineDesktopShortcutFormat.privateDesktopEnvironmentKey] == "1",
+              let prefixPath = plan.environment["WINEPREFIX"],
+              !prefixPath.isEmpty else {
+            return
+        }
+
+        let fileManager = FileManager.default
+        let prefixURL = URL(fileURLWithPath: prefixPath, isDirectory: true)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let usersURL = prefixURL.appendingPathComponent("drive_c/users", isDirectory: true)
+        let resolvedUsersURL = usersURL.resolvingSymlinksInPath()
+        guard path(resolvedUsersURL.path, isWithin: prefixURL.path),
+              let userURLs = try? fileManager.contentsOfDirectory(
+                  at: usersURL,
+                  includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+                  options: [.skipsHiddenFiles]
+              ),
+              let hostDesktopURL = fileManager.urls(
+                  for: .desktopDirectory,
+                  in: .userDomainMask
+              ).first?.resolvingSymlinksInPath() else {
+            return
+        }
+
+        for userURL in userURLs {
+            let userValues = try userURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            guard userValues.isDirectory == true,
+                  userValues.isSymbolicLink != true,
+                  path(userURL.resolvingSymlinksInPath().path, isWithin: prefixURL.path) else {
+                continue
+            }
+
+            let desktopURL = userURL.appendingPathComponent("Desktop", isDirectory: true)
+            guard let desktopValues = try? desktopURL.resourceValues(forKeys: [.isSymbolicLinkKey]),
+                  desktopValues.isSymbolicLink == true,
+                  desktopURL.resolvingSymlinksInPath() == hostDesktopURL else {
+                continue
+            }
+
+            let linkTarget = try fileManager.destinationOfSymbolicLink(atPath: desktopURL.path)
+            try fileManager.removeItem(at: desktopURL)
+            do {
+                try fileManager.createDirectory(at: desktopURL, withIntermediateDirectories: false)
+                guard Darwin.chmod(desktopURL.path, mode_t(S_IRWXU)) == 0 else {
+                    throw POSIXError(.EACCES)
+                }
+            } catch {
+                try? fileManager.removeItem(at: desktopURL)
+                try? fileManager.createSymbolicLink(atPath: desktopURL.path, withDestinationPath: linkTarget)
+                throw error
+            }
+        }
+    }
+
     private static func startProtocolAssociationMonitor(plan: CommandPlan) throws -> Process? {
-        guard plan.environment[WineProtocolAssociationFormat.manifestEnvironmentKey]?.isEmpty == false else {
+        let exportsProtocols = plan.environment[
+            WineProtocolAssociationFormat.manifestEnvironmentKey
+        ]?.isEmpty == false
+        let exportsShortcuts = plan.environment[
+            WineDesktopShortcutFormat.manifestEnvironmentKey
+        ]?.isEmpty == false
+        guard exportsProtocols || exportsShortcuts else {
             return nil
         }
 
@@ -591,7 +670,11 @@ struct SwitchyardRunner {
 
         let environment = ProcessInfo.processInfo.environment.merging([
             "WINEPREFIX": request.prefixPath,
-            WineProtocolAssociationFormat.manifestEnvironmentKey: WineProtocolAssociationFormat.windowsManifestPath
+            WineProtocolAssociationFormat.manifestEnvironmentKey:
+                WineProtocolAssociationFormat.windowsManifestPath,
+            WineDesktopShortcutFormat.manifestEnvironmentKey:
+                WineDesktopShortcutFormat.windowsManifestPath,
+            WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
         ]) { _, new in new }
         if let handlerExecutablePath {
             let registrationExists = try protocolRegistrationExists(
@@ -659,6 +742,66 @@ struct SwitchyardRunner {
         }
         guard process.terminationStatus == 0 else {
             throw SwitchyardRunnerError.urlCallbackCommandFailed(process.terminationStatus)
+        }
+    }
+
+    private static func openDesktopShortcut(arguments: [String]) throws {
+        guard arguments.count == 2, arguments[0] == "--request" else {
+            throw SwitchyardRunnerError.invalidDesktopShortcutRequest
+        }
+
+        let requestURL = URL(fileURLWithPath: arguments[1])
+        let data = try Data(contentsOf: requestURL)
+        try? FileManager.default.removeItem(at: requestURL)
+        let request = try JSONDecoder().decode(WineDesktopShortcutRequest.self, from: data)
+        guard request.shortcutID.count == 64,
+              request.shortcutID.allSatisfy(\.isHexDigit),
+              let shortcutPath = WineDesktopShortcutFormat.normalizedShortcutPath(
+                  request.windowsShortcutPath
+              ) else {
+            throw SwitchyardRunnerError.invalidDesktopShortcutRequest
+        }
+
+        let prefixLock = try WinePrefixFileLock(prefixPath: request.prefixPath, mode: .shared)
+        defer { prefixLock.unlock() }
+        guard FileManager.default.isExecutableFile(atPath: request.winePath),
+              FileManager.default.fileExists(atPath: request.prefixPath),
+              let shortcutURL = WineDesktopShortcutFormat.hostShortcutURL(
+                  windowsPath: shortcutPath,
+                  prefixPath: request.prefixPath
+              ),
+              let values = try? shortcutURL.resourceValues(
+                  forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+              ),
+              values.isRegularFile == true,
+              values.isSymbolicLink != true else {
+            throw SwitchyardRunnerError.invalidDesktopShortcutRequest
+        }
+
+        let environment = ProcessInfo.processInfo.environment.merging([
+            "WINEPREFIX": request.prefixPath,
+            WineProtocolAssociationFormat.manifestEnvironmentKey:
+                WineProtocolAssociationFormat.windowsManifestPath,
+            WineDesktopShortcutFormat.manifestEnvironmentKey:
+                WineDesktopShortcutFormat.windowsManifestPath,
+            WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
+        ]) { _, new in new }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: request.winePath)
+        process.arguments = ["start", shortcutPath]
+        process.environment = environment
+        process.currentDirectoryURL = URL(fileURLWithPath: request.prefixPath, isDirectory: true)
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        defer { RunnerProcessRegistry.shared.clear(process) }
+        try RunnerProcessRegistry.shared.launch(process)
+
+        guard waitForExit(process, timeout: 15) else {
+            stopProcessWithinDeadline(process)
+            throw SwitchyardRunnerError.desktopShortcutTimedOut
+        }
+        guard process.terminationStatus == 0 else {
+            throw SwitchyardRunnerError.desktopShortcutCommandFailed(process.terminationStatus)
         }
     }
 
@@ -827,7 +970,7 @@ struct SwitchyardRunner {
 
     private static func printUsage() {
         FileHandle.standardError.write(
-            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | run --plan <command-plan.json>\n".utf8)
+            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
         )
     }
 }
