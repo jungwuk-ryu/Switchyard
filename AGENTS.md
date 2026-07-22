@@ -1,6 +1,6 @@
 # Switchyard Agent Rules
 
-Switchyard is an open-source-core macOS compatibility manager for running Windows game launchers on Apple Silicon. The project uses a patched Wine runtime and user-provided Apple Game Porting Toolkit components. Keep the licensing and runtime boundaries explicit.
+Switchyard is an open-source-core macOS compatibility manager for running Windows game launchers on Apple Silicon. The project uses a patched Wine runtime and separately licensed Apple Game Porting Toolkit components. Keep the licensing and runtime boundaries explicit.
 
 ## Non-trivial Work Gate
 
@@ -56,7 +56,9 @@ Do not remove user-managed containers, installed games, user-selected GPTK compo
 - Do not link the SwiftUI app directly against Wine.
 - Run Wine through the external runner boundary.
 - Do not add Apple GPTK binaries under `third_party/` or commit them anywhere.
-- GPTK must be user-selected, locally fingerprinted, and treated as user-provided software.
+- GPTK may come from a user-selected Apple download or a separate version-reviewed component channel, but it must always be locally fingerprinted and treated as separately licensed Apple software.
+- A GPTK component channel must satisfy every control in `docs/legal/gptk-3-redistribution-review.md`; unreviewed versions and commercial distribution stay disabled.
+- Never add GPTK to the app bundle, Wine runtime, container template, source repository, or combined release archive.
 - Wine source, compatibility commits, provenance, and runtime build tooling live in the separate public `switchyard-wine` repository.
 - This repository pins an immutable source commit in `config/switchyard-wine.env` and synchronizes it through `script/ensure_wine_runtime.sh`.
 - Wine source changes must be developed and reviewed in `switchyard-wine`; do not recreate a local patch queue or Wine submodule here.

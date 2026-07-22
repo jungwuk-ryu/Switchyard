@@ -28,7 +28,8 @@ See [Development](docs/development.md) for full-runtime setup and generated-data
 - Keep application-specific compatibility behavior out of the generic runner.
 - Keep UI state out of the portable packages under `app/Packages`.
 - Preserve the external Wine process boundary and immutable source pin.
-- Treat GPTK as user-provided local software; never add it to source or release artifacts.
+- Treat GPTK as separately licensed Apple software; never add it to source, the app bundle, Wine, container templates, or combined release artifacts.
+- Changes to a separate GPTK component channel must follow the version-specific gate in [`docs/legal/gptk-3-redistribution-review.md`](docs/legal/gptk-3-redistribution-review.md). Do not enable unreviewed versions or commercial distribution.
 
 Add or update tests for behavior changes. Use Conventional Commit subjects such as `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:`, or `chore:`.
 

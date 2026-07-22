@@ -275,7 +275,7 @@ struct SetupAssistantView: View {
             SetupStepHeading(
                 icon: "cube.transparent",
                 title: "Get Apple's graphics support",
-                detail: "Apple requires you to sign in and accept its terms before downloading Game Porting Toolkit. Switchyard cannot redistribute it."
+                detail: "This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import."
             )
 
             runningAppsBlocker

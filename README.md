@@ -41,10 +41,12 @@ The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher
 | --- | --- | --- |
 | Switchyard app and runner | This repository, [MIT](LICENSE) | Developer ID signed and notarized releases, or built locally from Swift source |
 | Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Signed release verified against the exact commit in [`config/switchyard-wine.env`](config/switchyard-wine.env), or built locally |
-| Apple Game Porting Toolkit components | User-provided Apple software | Never committed, downloaded, or bundled by Switchyard |
+| Apple Game Porting Toolkit components | Separately licensed Apple software | User-provided in the current release; never committed or bundled with Switchyard or Wine |
 | Open Font Pack | Official Noto projects, SIL OFL 1.1 | Downloaded to a user-local cache and verified before installation |
 
 The SwiftUI app does not link against Wine. Wine is replaceable and runs only through the external runner boundary. See [Licensing and redistribution](docs/licensing.md) for the complete policy.
+
+The GPTK 3 review conditionally permits implementing a future separate, non-commercial component channel. That channel is not implemented in the current release and must pass the [version-specific legal release gate](docs/legal/gptk-3-redistribution-review.md), including independent legal sign-off, before it can be enabled. GPTK 4 and other unreviewed versions remain blocked.
 
 ## Requirements
 
