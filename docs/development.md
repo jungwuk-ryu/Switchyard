@@ -24,7 +24,7 @@ SWITCHYARD_SKIP_RUNTIME_ENSURE=1 SWIFT_BUILD_JOBS="$jobs" ./script/build_and_run
 
 The last command assembles an ad-hoc signed `dist/Switchyard.app`, launches it, verifies that the process starts, and closes the verified instance. It does not synchronize or build Wine.
 
-The published-runtime integration test is opt-in because it downloads the complete release archive:
+The published-runtime integration test is opt-in because it downloads the complete release archive. It can only run after all `SWITCHYARD_WINE_RELEASE_*` attestation values for the pinned revision have been published in `config/switchyard-wine.env`; otherwise the test intentionally returns without downloading anything:
 
 ```sh
 SWITCHYARD_TEST_RUNTIME_RELEASE_MANIFEST_URL="$(awk -F= '/^SWITCHYARD_WINE_RELEASE_MANIFEST_URL=/{print $2}' config/switchyard-wine.env)" \
@@ -78,6 +78,8 @@ SWITCHYARD_BUILD_CONFIGURATION=release \
   --identity "Developer ID Application: Your Name (TEAMID)" \
   --notary-profile switchyard-notary
 ```
+
+Release assembly fails unless the pinned Wine revision has a complete published-runtime attestation in `config/switchyard-wine.env`. This prevents distributing an app that cannot install its compatible runtime on a new machine.
 
 The script signs every nested Mach-O with Hardened Runtime, signs the bundle, submits the ZIP to Apple, staples and validates the accepted ticket, runs Gatekeeper assessment, then recreates the final ZIP and checksum. Credentials remain in the user's Keychain and are never written to the repository.
 
