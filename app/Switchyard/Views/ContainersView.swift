@@ -45,16 +45,19 @@ struct ContainersView: View {
             presenting: deletionTarget
         ) { container in
             Button("Move to Trash", role: .destructive) {
-                presentedContainerID = nil
-                store.deleteContainer(container.id)
                 deletionTarget = nil
+                Task {
+                    if await store.deleteContainer(container.id) {
+                        presentedContainerID = nil
+                    }
+                }
             }
             Button("Cancel", role: .cancel) {
                 deletionTarget = nil
             }
         } message: { container in
             Text(
-                "\(container.name) will be removed from Switchyard and its folder will be moved to Trash.")
+                "Any remaining Windows processes for \(container.name) will be stopped before its folder is moved to Trash.")
         }
     }
 

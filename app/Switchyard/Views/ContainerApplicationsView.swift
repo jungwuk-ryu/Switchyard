@@ -28,6 +28,13 @@ struct ContainerApplicationsView: View {
                             )
                             .font(.callout.weight(.medium))
                             .foregroundStyle(.green)
+                        } else if store.sessionSnapshot(for: container.id).wineServerState == .orphaned {
+                            Label(
+                                "Wine processes need cleanup before this container changes",
+                                systemImage: "exclamationmark.triangle.fill"
+                            )
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(.orange)
                         }
                     }
 

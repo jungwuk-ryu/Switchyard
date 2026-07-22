@@ -316,6 +316,8 @@ struct ContainerDashboardView: View {
         switch store.sessionSnapshot(for: container.id).wineServerState {
         case .active:
             "Windows session active · launch more apps"
+        case .orphaned:
+            "Wine processes need cleanup"
         case .checking:
             "Checking Windows session"
         case .inactive, .unavailable:
@@ -326,6 +328,7 @@ struct ContainerDashboardView: View {
     private var containerSummarySymbol: String {
         switch store.sessionSnapshot(for: container.id).wineServerState {
         case .active: "play.circle.fill"
+        case .orphaned: "exclamationmark.triangle.fill"
         case .checking: "clock"
         case .inactive:
             container.executablePath?.isEmpty == false ? "checkmark.circle.fill" : "plus.circle"
@@ -337,6 +340,8 @@ struct ContainerDashboardView: View {
         switch store.sessionSnapshot(for: container.id).wineServerState {
         case .active, .inactive:
             container.executablePath?.isEmpty == false ? .green : .secondary
+        case .orphaned:
+            .orange
         case .checking, .unavailable:
             .secondary
         }
@@ -472,12 +477,7 @@ private struct ProgramHeroView: View {
                         .lineLimit(3)
                         .frame(maxWidth: 260, alignment: .trailing)
                 } else {
-                    Text(
-                        store.sessionSnapshot(for: container.id).wineServerState == .active
-                            ? "Add another app to the running Windows session"
-                            : program.map { "Start \($0.presentationName) in this container" }
-                                ?? "Choose or drop a Windows .exe or .msi file"
-                    )
+                    Text(launchHint)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -497,6 +497,18 @@ private struct ProgramHeroView: View {
     private var starterSetupIsBusy: Bool {
         isSteamStarterContainer
             && (store.isDownloadingSteamInstaller || store.steamInstallationState.isWorking)
+    }
+
+    private var launchHint: String {
+        switch store.sessionSnapshot(for: container.id).wineServerState {
+        case .active:
+            "Add another app to the running Windows session"
+        case .orphaned:
+            "Remaining Wine processes will be cleaned up before launch"
+        case .checking, .inactive, .unavailable:
+            program.map { "Start \($0.presentationName) in this container" }
+                ?? "Choose or drop a Windows .exe or .msi file"
+        }
     }
 }
 

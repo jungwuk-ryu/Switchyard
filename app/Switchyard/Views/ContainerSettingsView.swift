@@ -39,6 +39,7 @@ struct ContainerSettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+        .disabled(store.isChangingContainerStorage(container.id))
     }
 
     private var settingsHeader: some View {
@@ -154,7 +155,7 @@ struct ContainerSettingsView: View {
             Button(role: .destructive, action: onDelete) {
                 Label("Move Container to Trash", systemImage: "trash")
             }
-            .disabled(store.isContainerBusy(container.id))
+            .disabled(store.isContainerTransitioning(container.id))
         }
     }
 
@@ -184,12 +185,13 @@ private struct ContainerNameField: View {
 
     @FocusState private var isFocused: Bool
     @State private var draft = ""
+    @State private var isCommitting = false
 
     var body: some View {
         TextField("Name", text: $draft)
             .textFieldStyle(.roundedBorder)
             .focused($isFocused)
-            .disabled(store.isContainerBusy(containerID))
+            .disabled(store.isContainerBusy(containerID) || isCommitting)
             .onAppear {
                 draft = storedName
             }
@@ -217,6 +219,7 @@ private struct ContainerNameField: View {
     }
 
     private func commitRename() {
+        guard !isCommitting else { return }
         let requestedName = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !requestedName.isEmpty else {
             draft = storedName
@@ -227,8 +230,12 @@ private struct ContainerNameField: View {
             return
         }
 
-        store.renameContainer(containerID, to: requestedName)
-        draft = storedName
+        isCommitting = true
+        Task {
+            _ = await store.renameContainer(containerID, to: requestedName)
+            draft = storedName
+            isCommitting = false
+        }
     }
 }
 
