@@ -554,3 +554,18 @@ import Testing
         RecentProgramLaunchPolicy.recording(executablePath: "  ", in: result, limit: 2) == result
     )
 }
+
+@Test func winePrefixFileLockCreatesPrivateContainerLockFile() throws {
+    let prefixURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("switchyard-prefix-lock-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: prefixURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: prefixURL) }
+
+    let lock = try WinePrefixFileLock(prefixPath: prefixURL.path, mode: .exclusive)
+    let lockURL = prefixURL.appendingPathComponent(WinePrefixFileLock.fileName)
+    let attributes = try FileManager.default.attributesOfItem(atPath: lockURL.path)
+    let permissions = try #require(attributes[.posixPermissions] as? NSNumber)
+
+    #expect(permissions.intValue & 0o777 == 0o600)
+    lock.unlock()
+}

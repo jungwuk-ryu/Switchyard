@@ -3,8 +3,13 @@ import Foundation
 enum WineServerState: Equatable, Sendable {
     case checking
     case active
+    case orphaned
     case inactive
     case unavailable
+
+    var hasRunningProcesses: Bool {
+        self == .active || self == .orphaned
+    }
 }
 
 struct WindowsProcessSnapshot: Identifiable, Equatable, Sendable {

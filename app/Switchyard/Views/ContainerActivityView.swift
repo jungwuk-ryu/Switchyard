@@ -36,7 +36,7 @@ struct ContainerSessionPanel: View {
                     .disabled(isStoppingWineServer)
                     .help("Refresh Windows Session")
 
-                    if snapshot.wineServerState == .active || isStoppingWineServer {
+                    if snapshot.wineServerState.hasRunningProcesses || isStoppingWineServer {
                         Button(role: .destructive) {
                             isConfirmingStop = true
                         } label: {
@@ -55,12 +55,12 @@ struct ContainerSessionPanel: View {
                         .disabled(
                             isStoppingWineServer || store.isContainerLaunching(container.id)
                         )
-                        .help("Stop wineserver and close all Windows apps in this container")
+                        .help("Stop all Wine processes in this container")
                     }
                 }
 
                 HStack(spacing: 7) {
-                    Text("wineserver")
+                    Text(snapshot.wineServerState == .orphaned ? "Wine processes" : "wineserver")
                         .fontWeight(.semibold)
 
                     Label(sessionLabel, systemImage: sessionSymbol)
@@ -97,11 +97,11 @@ struct ContainerSessionPanel: View {
                     .frame(maxWidth: .infinity, minHeight: sessionContentMinimumHeight)
             } else if snapshot.processes.isEmpty {
                 VStack(spacing: 7) {
-                    Image(systemName: snapshot.wineServerState == .active ? "hourglass" : "moon.zzz")
+                    Image(systemName: emptyProcessesSymbol)
                         .font(.title2)
                         .foregroundStyle(.secondary)
                     Text(
-                        snapshot.wineServerState == .active
+                        snapshot.wineServerState.hasRunningProcesses
                             ? "No application details available" : "No Windows applications are running"
                     )
                     .font(.callout.weight(.medium))
@@ -179,6 +179,15 @@ struct ContainerSessionPanel: View {
         return max(baseHeight, (minimumHeight ?? 0) - chromeHeight)
     }
 
+    private var emptyProcessesSymbol: String {
+        switch snapshot.wineServerState {
+        case .orphaned: "exclamationmark.triangle"
+        case .active: "hourglass"
+        case .checking: "clock"
+        case .inactive, .unavailable: "moon.zzz"
+        }
+    }
+
     private var isStoppingWineServer: Bool {
         store.isStoppingWineServer(in: container.id)
     }
@@ -188,6 +197,7 @@ struct ContainerSessionPanel: View {
         return switch snapshot.wineServerState {
         case .checking: "Checking"
         case .active: "Running"
+        case .orphaned: "Cleanup needed"
         case .inactive: "Idle"
         case .unavailable: "Unavailable"
         }
@@ -198,6 +208,7 @@ struct ContainerSessionPanel: View {
         return switch snapshot.wineServerState {
         case .checking: "clock"
         case .active: "checkmark.circle.fill"
+        case .orphaned: "exclamationmark.triangle.fill"
         case .inactive: "pause.circle.fill"
         case .unavailable: "questionmark.circle.fill"
         }
@@ -207,6 +218,7 @@ struct ContainerSessionPanel: View {
         if isStoppingWineServer { return .orange }
         return switch snapshot.wineServerState {
         case .active: .green
+        case .orphaned: .orange
         case .checking, .inactive: .secondary
         case .unavailable: .orange
         }
@@ -222,6 +234,7 @@ struct ContainerSessionPanel: View {
         return switch snapshot.wineServerState {
         case .checking: "Inspecting the Wine prefix"
         case .active: "Responding normally"
+        case .orphaned: "Wine processes remain after wineserver exited"
         case .inactive: "Ready for the next application"
         case .unavailable: "Session status could not be read"
         }

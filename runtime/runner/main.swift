@@ -9,6 +9,7 @@ private enum SwitchyardRunnerError: LocalizedError {
     case urlCallbackCommandFailed(Int32)
     case wineServerCommandFailed(arguments: [String], status: Int32, output: String)
     case wineServerCommandTimedOut(arguments: [String])
+    case wineProcessesCouldNotBeStopped([pid_t])
     case processInspectionFailed(Int32)
     case processInspectionTimedOut
     case terminationRequested
@@ -27,6 +28,8 @@ private enum SwitchyardRunnerError: LocalizedError {
             "wineserver \(arguments.joined(separator: " ")) failed with status \(status): \(output)"
         case let .wineServerCommandTimedOut(arguments):
             "wineserver \(arguments.joined(separator: " ")) did not finish within 15 seconds."
+        case let .wineProcessesCouldNotBeStopped(processIDs):
+            "Wine processes for this prefix could not be stopped: \(processIDs.map(String.init).joined(separator: ", "))."
         case let .processInspectionFailed(status):
             "The Wine process list command failed with status \(status)."
         case .processInspectionTimedOut:
@@ -87,6 +90,15 @@ private let outputDrainTimeout: TimeInterval = {
           let seconds = TimeInterval(value),
           seconds > 0 else {
         return 1
+    }
+    return seconds
+}()
+
+private let prefixProcessTerminationTimeout: TimeInterval = {
+    guard let value = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_PREFIX_PROCESS_TIMEOUT"],
+          let seconds = TimeInterval(value),
+          seconds > 0 else {
+        return 2
     }
     return seconds
 }()
@@ -413,8 +425,17 @@ struct SwitchyardRunner {
     private static func listProcesses(arguments: [String]) throws {
         guard arguments.count == 4,
               arguments[0] == "--wine",
-              arguments[2] == "--prefix",
-              FileManager.default.isExecutableFile(atPath: arguments[1]),
+              arguments[2] == "--prefix" else {
+            printUsage()
+            runnerExit(2)
+        }
+
+        let prefixLock = try WinePrefixFileLock(
+            prefixPath: arguments[3],
+            mode: .shared
+        )
+        defer { prefixLock.unlock() }
+        guard FileManager.default.isExecutableFile(atPath: arguments[1]),
               FileManager.default.fileExists(atPath: arguments[3]) else {
             printUsage()
             runnerExit(2)
@@ -478,6 +499,7 @@ struct SwitchyardRunner {
         ]) { _, new in new }
         try stopWinePrefixSession(
             wineExecutablePath: arguments[1],
+            prefixPath: arguments[3],
             environment: environment
         )
     }
@@ -520,11 +542,12 @@ struct SwitchyardRunner {
         }
 
         do {
-            let isActive = try winePrefixSessionIsActive(
+            let result = try probeWinePrefixSession(
+                wineExecutablePath: arguments[1],
                 wineServerURL: wineServerURL,
                 prefixPath: arguments[3]
             )
-            runnerExit(isActive ? 0 : 1)
+            runnerExit(result.exitStatus)
         } catch {
             FileHandle.standardError.write(Data("Unable to inspect Wine prefix session: \(error)\n".utf8))
             runnerExit(2)
@@ -541,8 +564,16 @@ struct SwitchyardRunner {
         try? FileManager.default.removeItem(at: requestURL)
         let request = try JSONDecoder().decode(WineURLCallbackRequest.self, from: data)
         guard let scheme = WineProtocolAssociationFormat.scheme(inRawURL: request.rawURL),
-              scheme == request.scheme,
-              FileManager.default.isExecutableFile(atPath: request.winePath),
+              scheme == request.scheme else {
+            throw SwitchyardRunnerError.invalidURLCallbackRequest
+        }
+
+        let prefixLock = try WinePrefixFileLock(
+            prefixPath: request.prefixPath,
+            mode: .shared
+        )
+        defer { prefixLock.unlock() }
+        guard FileManager.default.isExecutableFile(atPath: request.winePath),
               FileManager.default.fileExists(atPath: request.prefixPath) else {
             throw SwitchyardRunnerError.invalidURLCallbackRequest
         }
@@ -809,12 +840,14 @@ private func terminateExistingPrefixSession(plan: CommandPlan) throws {
     let environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
     try stopWinePrefixSession(
         wineExecutablePath: plan.executable,
+        prefixPath: plan.environment["WINEPREFIX"] ?? plan.workingDirectory ?? "",
         environment: environment
     )
 }
 
 private func stopWinePrefixSession(
     wineExecutablePath: String,
+    prefixPath: String,
     environment: [String: String]
 ) throws {
     guard let wineServerURL = wineServerURL(forWineExecutable: wineExecutablePath) else {
@@ -828,6 +861,10 @@ private func stopWinePrefixSession(
         acceptedExitStatuses: [0, 1]
     )
     try runWineServer(at: wineServerURL, arguments: ["-w"], environment: environment)
+    try stopResidualWineProcesses(
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath
+    )
 }
 
 private func wineServerURL(forWineExecutable path: String) -> URL? {
@@ -840,7 +877,25 @@ private func wineServerURL(forWineExecutable path: String) -> URL? {
     return candidates.first { FileManager.default.isExecutableFile(atPath: $0.path) }
 }
 
-private func winePrefixSessionIsActive(wineServerURL: URL, prefixPath: String) throws -> Bool {
+private enum WinePrefixProbeResult {
+    case active
+    case inactive
+    case residualProcesses
+
+    var exitStatus: Int32 {
+        switch self {
+        case .active: 0
+        case .inactive: 1
+        case .residualProcesses: 3
+        }
+    }
+}
+
+private func probeWinePrefixSession(
+    wineExecutablePath: String,
+    wineServerURL: URL,
+    prefixPath: String
+) throws -> WinePrefixProbeResult {
     let process = Process()
     process.executableURL = wineServerURL
     process.arguments = ["-w"]
@@ -858,11 +913,277 @@ private func winePrefixSessionIsActive(wineServerURL: URL, prefixPath: String) t
                 output: ""
             )
         }
-        return false
+        let hasResidualProcesses = !wineProcessIDs(
+            wineExecutablePath: wineExecutablePath,
+            prefixPath: prefixPath
+        ).isEmpty
+        return hasResidualProcesses ? .residualProcesses : .inactive
     }
 
     stopProcessWithinDeadline(process)
-    return true
+    return .active
+}
+
+private let knownWineProcessExecutableNames: Set<String> = [
+    "switchyard-wine",
+    "wine",
+    "wine-preloader",
+    "wine64",
+    "wine64-preloader",
+    "wineserver"
+]
+
+private func wineProcessIDs(wineExecutablePath: String, prefixPath: String) -> [pid_t] {
+    guard !prefixPath.isEmpty else { return [] }
+
+    let prefixURL = URL(fileURLWithPath: prefixPath, isDirectory: true)
+        .standardizedFileURL
+        .resolvingSymlinksInPath()
+    let expectedExecutablePaths = Set(
+        [
+            URL(fileURLWithPath: wineExecutablePath).standardizedFileURL.path,
+            URL(fileURLWithPath: wineExecutablePath).resolvingSymlinksInPath().standardizedFileURL.path
+        ]
+    )
+    let currentProcessID = ProcessInfo.processInfo.processIdentifier
+
+    return allProcessIDs().filter { processID in
+        guard processID > 0,
+              processID != currentProcessID,
+              let executablePath = processExecutablePath(processID) else {
+            return false
+        }
+
+        let executableURL = URL(fileURLWithPath: executablePath).standardizedFileURL
+        let resolvedExecutablePath = executableURL.resolvingSymlinksInPath().path
+        let executableName = executableURL.lastPathComponent.lowercased()
+        guard expectedExecutablePaths.contains(executableURL.path)
+                || expectedExecutablePaths.contains(resolvedExecutablePath)
+                || knownWineProcessExecutableNames.contains(executableName) else {
+            return false
+        }
+
+        if let workingDirectoryPath = processWorkingDirectoryPath(processID) {
+            let workingDirectoryURL = URL(fileURLWithPath: workingDirectoryPath, isDirectory: true)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+            if path(workingDirectoryURL.path, isWithin: prefixURL.path) {
+                return true
+            }
+        }
+
+        guard let environmentPrefixPath = processEnvironmentValue(
+            processID,
+            key: "WINEPREFIX"
+        ) else {
+            return false
+        }
+        let environmentPrefixURL = URL(fileURLWithPath: environmentPrefixPath, isDirectory: true)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        return environmentPrefixURL.path == prefixURL.path
+    }.sorted()
+}
+
+private func allProcessIDs() -> [pid_t] {
+    let estimatedCount = proc_listallpids(nil, 0)
+    guard estimatedCount > 0 else { return [] }
+
+    var capacity = Int(estimatedCount) + 32
+    var latestProcessIDs: [pid_t] = []
+    for _ in 0..<4 {
+        var processIDs = [pid_t](repeating: 0, count: capacity)
+        let listedCount = processIDs.withUnsafeMutableBytes { buffer in
+            proc_listallpids(buffer.baseAddress, Int32(buffer.count))
+        }
+        guard listedCount > 0 else { return [] }
+        latestProcessIDs = Array(processIDs.prefix(Int(listedCount)))
+        if listedCount < capacity {
+            return latestProcessIDs
+        }
+        capacity *= 2
+    }
+    return latestProcessIDs
+}
+
+private func processExecutablePath(_ processID: pid_t) -> String? {
+    var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+    let length = buffer.withUnsafeMutableBytes { bytes in
+        proc_pidpath(processID, bytes.baseAddress, UInt32(bytes.count))
+    }
+    guard length > 0 else { return nil }
+    let pathBytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+    return String(decoding: pathBytes, as: UTF8.self)
+}
+
+private func processWorkingDirectoryPath(_ processID: pid_t) -> String? {
+    var pathInfo = proc_vnodepathinfo()
+    let expectedSize = Int32(MemoryLayout<proc_vnodepathinfo>.size)
+    guard proc_pidinfo(
+        processID,
+        PROC_PIDVNODEPATHINFO,
+        0,
+        &pathInfo,
+        expectedSize
+    ) == expectedSize else {
+        return nil
+    }
+
+    return withUnsafePointer(to: &pathInfo.pvi_cdir.vip_path) { pathPointer in
+        pathPointer.withMemoryRebound(to: CChar.self, capacity: Int(MAXPATHLEN)) {
+            String(cString: $0)
+        }
+    }
+}
+
+private func processEnvironmentValue(_ processID: pid_t, key: String) -> String? {
+    var managementInformationBase: [Int32] = [CTL_KERN, KERN_PROCARGS2, processID]
+    var byteCount = 0
+    guard sysctl(
+        &managementInformationBase,
+        UInt32(managementInformationBase.count),
+        nil,
+        &byteCount,
+        nil,
+        0
+    ) == 0,
+    byteCount > MemoryLayout<Int32>.size else {
+        return nil
+    }
+
+    var bytes = [UInt8](repeating: 0, count: byteCount)
+    guard bytes.withUnsafeMutableBytes({ buffer in
+        sysctl(
+            &managementInformationBase,
+            UInt32(managementInformationBase.count),
+            buffer.baseAddress,
+            &byteCount,
+            nil,
+            0
+        )
+    }) == 0 else {
+        return nil
+    }
+
+    let argumentCount = bytes.withUnsafeBytes {
+        $0.loadUnaligned(as: Int32.self)
+    }
+    var offset = MemoryLayout<Int32>.size
+
+    func skipString() {
+        while offset < byteCount && bytes[offset] != 0 {
+            offset += 1
+        }
+        if offset < byteCount {
+            offset += 1
+        }
+    }
+
+    skipString()
+    while offset < byteCount && bytes[offset] == 0 {
+        offset += 1
+    }
+    for _ in 0..<max(0, Int(argumentCount)) {
+        skipString()
+    }
+
+    let environmentKeyPrefix = key + "="
+    while offset < byteCount {
+        while offset < byteCount && bytes[offset] == 0 {
+            offset += 1
+        }
+        let entryStart = offset
+        while offset < byteCount && bytes[offset] != 0 {
+            offset += 1
+        }
+        guard entryStart < offset else { continue }
+
+        let entry = String(decoding: bytes[entryStart..<offset], as: UTF8.self)
+        if entry.hasPrefix(environmentKeyPrefix) {
+            return String(entry.dropFirst(environmentKeyPrefix.count))
+        }
+    }
+    return nil
+}
+
+private func path(_ candidatePath: String, isWithin directoryPath: String) -> Bool {
+    candidatePath == directoryPath || candidatePath.hasPrefix(directoryPath + "/")
+}
+
+private func stopResidualWineProcesses(
+    wineExecutablePath: String,
+    prefixPath: String
+) throws {
+    var remainingProcessIDs = wineProcessIDs(
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath
+    )
+    guard !remainingProcessIDs.isEmpty else { return }
+
+    signalWineProcesses(
+        remainingProcessIDs,
+        signal: SIGTERM,
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath
+    )
+    remainingProcessIDs = waitForWineProcessesToExit(
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath,
+        timeout: prefixProcessTerminationTimeout
+    )
+    guard !remainingProcessIDs.isEmpty else { return }
+
+    signalWineProcesses(
+        remainingProcessIDs,
+        signal: SIGKILL,
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath
+    )
+    remainingProcessIDs = waitForWineProcessesToExit(
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath,
+        timeout: 1
+    )
+    guard remainingProcessIDs.isEmpty else {
+        throw SwitchyardRunnerError.wineProcessesCouldNotBeStopped(remainingProcessIDs)
+    }
+}
+
+private func signalWineProcesses(
+    _ processIDs: [pid_t],
+    signal: Int32,
+    wineExecutablePath: String,
+    prefixPath: String
+) {
+    let currentlyAssociatedProcessIDs = Set(
+        wineProcessIDs(
+            wineExecutablePath: wineExecutablePath,
+            prefixPath: prefixPath
+        )
+    )
+    for processID in processIDs where currentlyAssociatedProcessIDs.contains(processID) {
+        _ = Darwin.kill(processID, signal)
+    }
+}
+
+private func waitForWineProcessesToExit(
+    wineExecutablePath: String,
+    prefixPath: String,
+    timeout: TimeInterval
+) -> [pid_t] {
+    let deadline = Date().addingTimeInterval(timeout)
+    var processIDs = wineProcessIDs(
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath
+    )
+    while !processIDs.isEmpty && Date() < deadline {
+        Thread.sleep(forTimeInterval: 0.05)
+        processIDs = wineProcessIDs(
+            wineExecutablePath: wineExecutablePath,
+            prefixPath: prefixPath
+        )
+    }
+    return processIDs
 }
 
 private func runWineServer(

@@ -15,11 +15,14 @@ private struct RuntimeRefreshResult {
 
 private enum LoginCallbackRecoveryError: LocalizedError {
     case noRunningApplication
+    case containerStorageChanging
 
     var errorDescription: String? {
         switch self {
         case .noRunningApplication:
             "Keep the Windows game open while recovering its copied login callback."
+        case .containerStorageChanging:
+            "Wait for the container folder operation to finish before recovering a login callback."
         }
     }
 }
@@ -222,6 +225,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var recentProgramLaunchesByContainerID: [UUID: [RecentProgramLaunch]] = [:]
     @Published private(set) var sessionSnapshotsByContainerID: [UUID: ContainerSessionSnapshot] = [:]
     @Published private(set) var stoppingWineServerContainerIDs: Set<UUID> = []
+    @Published private(set) var containerStorageOperationIDs: Set<UUID> = []
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published var containers: [Container]
     @Published var logLines: [LogLine] = []
@@ -868,6 +872,13 @@ final class AppStore: ObservableObject {
 
     func recoverCopiedLoginCallback(in containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard !isContainerTransitioning(containerID) else {
+            recordLoginCallbackRecoveryFailure(
+                LoginCallbackRecoveryError.containerStorageChanging,
+                containerID: containerID
+            )
+            return
+        }
         if isRecoveringLoginCallback(in: containerID) { return }
 
         guard let rawURL = NSPasteboard.general.string(forType: .string),
@@ -1000,6 +1011,9 @@ final class AppStore: ObservableObject {
         handlerExecutablePath: String?
     ) throws {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard !isContainerTransitioning(containerID) else {
+            throw LoginCallbackRecoveryError.containerStorageChanging
+        }
         let runnerPath = try runnerClient.runnerURL().path
         let request = try protocolBridge.makeCallbackRecoveryRequest(
             rawURL: rawURL,
@@ -1064,6 +1078,18 @@ final class AppStore: ObservableObject {
             LogLine(level: "warning", source: "protocols", message: message),
             at: 0
         )
+    }
+
+    private func cancelLoginCallbackRecoveryForStorageOperation(in containerID: UUID) async {
+        let recoveryTask = callbackRecoveryTasks.removeValue(forKey: containerID)
+        recoveryTask?.cancel()
+        await recoveryTask?.value
+        pendingLoginCallbackRecoveries.removeValue(forKey: containerID)
+        if isRecoveringLoginCallback(in: containerID) {
+            loginCallbackRecoveryStates[containerID] = .failed(
+                message: "Login callback recovery was cancelled because the container folder is changing."
+            )
+        }
     }
 
     func chooseExecutableAndRun(in containerID: UUID) {
@@ -1188,8 +1214,14 @@ final class AppStore: ObservableObject {
         stoppingWineServerContainerIDs.contains(containerID)
     }
 
+    func isChangingContainerStorage(_ containerID: UUID) -> Bool {
+        containerStorageOperationIDs.contains(containerID)
+    }
+
     func isContainerTransitioning(_ containerID: UUID) -> Bool {
-        isContainerLaunching(containerID) || isStoppingWineServer(in: containerID)
+        isContainerLaunching(containerID)
+            || isStoppingWineServer(in: containerID)
+            || containerStorageOperationIDs.contains(containerID)
     }
 
     func stopWineServer(in containerID: UUID) async {
@@ -1218,13 +1250,13 @@ final class AppStore: ObservableObject {
                     containerID: containerID,
                     level: "info",
                     source: container.name,
-                    message: "wineserver stopped for this container."
+                    message: "Wine processes stopped for this container."
                 ),
                 at: 0
             )
         } catch {
             await refreshContainerSession(for: containerID)
-            if sessionSnapshot(for: containerID).wineServerState == .active {
+            if sessionSnapshot(for: containerID).wineServerState.hasRunningProcesses {
                 userStoppedRunSessionIDs.subtract(targetedRunSessionIDs)
             }
             logLines.insert(
@@ -1232,7 +1264,7 @@ final class AppStore: ObservableObject {
                     containerID: containerID,
                     level: "error",
                     source: container.name,
-                    message: "Could not stop wineserver: \(Self.errorDescription(error))"
+                    message: "Could not stop Wine processes: \(Self.errorDescription(error))"
                 ),
                 at: 0
             )
@@ -1289,6 +1321,13 @@ final class AppStore: ObservableObject {
                         message: "Process details are temporarily unavailable."
                     )
                 }
+            case .orphaned:
+                return ContainerSessionSnapshot(
+                    wineServerState: .orphaned,
+                    processes: [],
+                    refreshedAt: Date(),
+                    message: "Wine processes remain after wineserver exited. Stop this session before changing its folder."
+                )
             case .inactive:
                 return ContainerSessionSnapshot(
                     wineServerState: .inactive,
@@ -1484,7 +1523,7 @@ final class AppStore: ObservableObject {
     }
 
     @discardableResult
-    func renameContainer(_ containerID: UUID, to name: String) -> Bool {
+    func renameContainer(_ containerID: UUID, to name: String) async -> Bool {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty,
               let index = containers.firstIndex(where: { $0.id == containerID }) else {
@@ -1504,6 +1543,69 @@ final class AppStore: ObservableObject {
         }
 
         let originalContainer = containers[index]
+        containerStorageOperationIDs.insert(containerID)
+        defer { containerStorageOperationIDs.remove(containerID) }
+        await cancelLoginCallbackRecoveryForStorageOperation(in: containerID)
+
+        let prefixLock: WinePrefixFileLock
+        do {
+            prefixLock = try await Task.detached(priority: .userInitiated) {
+                try WinePrefixFileLock(
+                    prefixPath: originalContainer.path,
+                    mode: .exclusive
+                )
+            }.value
+        } catch {
+            logLines.insert(
+                LogLine(
+                    level: "error",
+                    source: "containers",
+                    message: "Could not lock \(originalContainer.name) for a safe folder rename: \(Self.errorDescription(error))"
+                ),
+                at: 0
+            )
+            return false
+        }
+        defer { prefixLock.unlock() }
+
+        let winePath = currentRuntime.winePath
+        let runnerClient = runnerClient
+        let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
+            runnerClient.prefixSessionState(
+                winePath: winePath,
+                prefixPath: originalContainer.path
+            )
+        }.value
+        switch inspectedPrefixState {
+        case .active, .orphaned:
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: "Stop \(originalContainer.name) before renaming its folder. A Wine process is still using this container."
+                ),
+                at: 0
+            )
+            return false
+        case .unavailable:
+            logLines.insert(
+                LogLine(
+                    level: "error",
+                    source: "containers",
+                    message: "Could not verify that \(originalContainer.name) is idle, so its folder was not renamed."
+                ),
+                at: 0
+            )
+            return false
+        case .inactive:
+            break
+        }
+
+        guard let currentIndex = containers.firstIndex(where: { $0.id == containerID }),
+              containers[currentIndex].path == originalContainer.path else {
+            return false
+        }
+
         do {
             let occupiedDirectoryNames = ContainerPathPolicy.occupiedDirectoryNames(
                 containers: containers.filter { $0.id != containerID },
@@ -1517,7 +1619,7 @@ final class AppStore: ObservableObject {
                 occupiedDirectoryNames: occupiedDirectoryNames
             ) { proposedContainer in
                 var proposedContainers = containers
-                proposedContainers[index] = proposedContainer
+                proposedContainers[currentIndex] = proposedContainer
                 try libraryStore.save(
                     SwitchyardContainerSnapshot(containers: proposedContainers)
                 )
@@ -1526,7 +1628,7 @@ final class AppStore: ObservableObject {
             installedProgramTasks[containerID]?.cancel()
             installedProgramTasks.removeValue(forKey: containerID)
             installedProgramsByContainerID.removeValue(forKey: containerID)
-            containers[index] = renamedContainer
+            containers[currentIndex] = renamedContainer
 
             if var recentLaunches = recentProgramLaunchesByContainerID[containerID] {
                 for launchIndex in recentLaunches.indices {
@@ -1625,7 +1727,7 @@ final class AppStore: ObservableObject {
         if activeRunSessionIDsByContainerID[containerID]?.isEmpty == false {
             return true
         }
-        if sessionSnapshotsByContainerID[containerID]?.wineServerState == .active {
+        if sessionSnapshotsByContainerID[containerID]?.wineServerState.hasRunningProcesses == true {
             return true
         }
         return containers.contains { $0.id == containerID && $0.status == .running }
@@ -1648,27 +1750,52 @@ final class AppStore: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
-    func deleteContainer(_ containerID: UUID) {
-        guard let container = containers.first(where: { $0.id == containerID }) else { return }
-        guard !isContainerBusy(containerID) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Stop or wait for \(container.name) before deleting its container."), at: 0)
-            return
+    @discardableResult
+    func deleteContainer(_ containerID: UUID) async -> Bool {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return false }
+        guard !isContainerTransitioning(containerID) else {
+            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish its current action before deleting its container."), at: 0)
+            return false
         }
 
         let containerURL = URL(fileURLWithPath: container.path, isDirectory: true)
         if FileManager.default.fileExists(atPath: containerURL.path) {
             guard isSafeTrashTarget(containerURL) else {
                 logLines.insert(LogLine(level: "error", source: "containers", message: "Refusing to move \(container.name) to Trash because its path is outside Switchyard storage or has no Switchyard manifest."), at: 0)
-                return
+                return false
             }
 
+            containerStorageOperationIDs.insert(containerID)
+            defer { containerStorageOperationIDs.remove(containerID) }
+            await cancelLoginCallbackRecoveryForStorageOperation(in: containerID)
+
+            let winePath = currentRuntime.winePath
+            let prefixPath = container.path
+            let runnerClient = runnerClient
+            let targetedRunSessionIDs = activeRunSessionIDsByContainerID[containerID] ?? []
+            userStoppedRunSessionIDs.formUnion(targetedRunSessionIDs)
             do {
-                var trashedURL: NSURL?
-                try FileManager.default.trashItem(at: containerURL, resultingItemURL: &trashedURL)
+                try await Task.detached(priority: .userInitiated) {
+                    let prefixLock = try WinePrefixFileLock(
+                        prefixPath: prefixPath,
+                        mode: .exclusive
+                    )
+                    defer { prefixLock.unlock() }
+                    try runnerClient.stopWineServer(
+                        winePath: winePath,
+                        prefixPath: prefixPath
+                    )
+                    var trashedURL: NSURL?
+                    try FileManager.default.trashItem(
+                        at: containerURL,
+                        resultingItemURL: &trashedURL
+                    )
+                }.value
                 logLines.insert(LogLine(level: "info", source: "containers", message: "Moved \(container.name) to Trash."), at: 0)
             } catch {
-                logLines.insert(LogLine(level: "error", source: "containers", message: "Could not move \(container.name) to Trash: \(Self.errorDescription(error))"), at: 0)
-                return
+                userStoppedRunSessionIDs.subtract(targetedRunSessionIDs)
+                logLines.insert(LogLine(level: "error", source: "containers", message: "Could not stop \(container.name) safely and move it to Trash: \(Self.errorDescription(error))"), at: 0)
+                return false
             }
         } else {
             logLines.insert(LogLine(level: "warning", source: "containers", message: "\(container.name) was removed from Switchyard, but its folder was already missing."), at: 0)
@@ -1704,6 +1831,7 @@ final class AppStore: ObservableObject {
         selectedContainerID = containers.first?.id
         persistLibrary()
         persistRecentProgramLaunches()
+        return true
     }
 
     private func runSelectedContainer(containerID: UUID) async {
@@ -1741,8 +1869,13 @@ final class AppStore: ObservableObject {
         let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
             runnerClient.prefixSessionState(winePath: winePath, prefixPath: prefixPath)
         }.value
+        let prefixWasOrphaned = sessionSnapshotsByContainerID[containerID]?.wineServerState == .orphaned
+            || {
+                if case .orphaned = inspectedPrefixState { return true }
+                return false
+            }()
         let prefixWasActive: Bool = {
-            if sessionSnapshotsByContainerID[containerID]?.wineServerState == .active
+            if sessionSnapshotsByContainerID[containerID]?.wineServerState.hasRunningProcesses == true
                 || activeRunSessionIDsByContainerID[containerID]?.isEmpty == false
             {
                 return true
@@ -1750,10 +1883,13 @@ final class AppStore: ObservableObject {
             if case .active = inspectedPrefixState {
                 return true
             }
+            if case .orphaned = inspectedPrefixState {
+                return true
+            }
             return false
         }()
 
-        var terminateExistingPrefixSession = false
+        var terminateExistingPrefixSession = executablePath != nil && prefixWasOrphaned
         if executablePath == nil {
             if prefixWasActive {
                 guard confirmRestartOfExistingPrefixSession(for: container) else { return }
@@ -2127,7 +2263,7 @@ final class AppStore: ObservableObject {
 
         for _ in 0..<40 {
             for containerID in targetIDs where !isContainerTransitioning(containerID) {
-                let snapshotIsActive = sessionSnapshotsByContainerID[containerID]?.wineServerState == .active
+                let snapshotIsActive = sessionSnapshotsByContainerID[containerID]?.wineServerState.hasRunningProcesses == true
                 let statusIsRunning = containers.first(where: { $0.id == containerID })?.status == .running
                 if snapshotIsActive || statusIsRunning {
                     await stopWineServer(in: containerID)
@@ -2209,7 +2345,8 @@ final class AppStore: ObservableObject {
     }
 
     private func updateContainer(_ containerID: UUID, mutation: (inout Container) -> Void) {
-        guard let index = containers.firstIndex(where: { $0.id == containerID }) else { return }
+        guard !containerStorageOperationIDs.contains(containerID),
+              let index = containers.firstIndex(where: { $0.id == containerID }) else { return }
         mutation(&containers[index])
         containers[index].lastModified = Date()
         persistLibrary()

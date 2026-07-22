@@ -4,6 +4,7 @@ import Foundation
 
 enum WinePrefixSessionState {
     case active
+    case orphaned
     case inactive
     case unavailable
 }
@@ -59,6 +60,8 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
             return .active
         case 1:
             return .inactive
+        case 3:
+            return .orphaned
         default:
             return .unavailable
         }

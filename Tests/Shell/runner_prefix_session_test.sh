@@ -15,6 +15,7 @@ RUNNER="$BIN_PATH/switchyard-runner"
 TEST_ROOT="$(mktemp -d)"
 BIN_DIR="$TEST_ROOT/runtime/bin"
 PREFIX="$TEST_ROOT/Test.container"
+OTHER_PREFIX="$TEST_ROOT/Heartopia.container"
 EVENTS="$TEST_ROOT/events.log"
 
 cleanup() {
@@ -30,11 +31,23 @@ cleanup() {
   if [ -f "$TEST_ROOT/protocol-monitor.pid" ]; then
     kill "$(cat "$TEST_ROOT/protocol-monitor.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/orphan-wine.pid" ]; then
+    kill -KILL "$(cat "$TEST_ROOT/orphan-wine.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/unrelated-wine.pid" ]; then
+    kill -KILL "$(cat "$TEST_ROOT/unrelated-wine.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/environment-wine.pid" ]; then
+    kill -KILL "$(cat "$TEST_ROOT/environment-wine.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/prefix-lock-holder.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/prefix-lock-holder.pid")" >/dev/null 2>&1 || true
+  fi
   rm -rf "$TEST_ROOT"
 }
 trap cleanup EXIT
 
-mkdir -p "$BIN_DIR" "$PREFIX"
+mkdir -p "$BIN_DIR" "$PREFIX" "$OTHER_PREFIX"
 cat > "$BIN_DIR/wineserver" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -73,6 +86,9 @@ fi
 EOF
 chmod +x "$BIN_DIR/wineserver" "$BIN_DIR/switchyard-wine"
 
+cc -Os "$ROOT_DIR/Tests/Shell/Fixtures/prefix_wine_process.c" -o "$TEST_ROOT/wine"
+cc -Os "$ROOT_DIR/Tests/Shell/Fixtures/prefix_lock_holder.c" -o "$TEST_ROOT/prefix-lock-holder"
+
 TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
 if TEST_EVENTS="$EVENTS" "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"; then
   echo "probe should report an inactive prefix with status 1" >&2
@@ -81,6 +97,130 @@ elif [ "$?" -ne 1 ]; then
   echo "inactive prefix probe returned an unexpected status" >&2
   exit 1
 fi
+
+: > "$EVENTS"
+(
+  "$TEST_ROOT/prefix-lock-holder" "$PREFIX" "$TEST_ROOT/prefix-lock-holder.ready" &
+  wait "$!" >/dev/null 2>&1 || true
+) &
+prefix_lock_holder_reaper_pid=$!
+for _ in {1..50}; do
+  [ -s "$TEST_ROOT/prefix-lock-holder.ready" ] && break
+  sleep 0.02
+done
+if [ ! -s "$TEST_ROOT/prefix-lock-holder.ready" ]; then
+  echo "prefix lock fixture did not start" >&2
+  exit 1
+fi
+prefix_lock_holder_pid="$(cat "$TEST_ROOT/prefix-lock-holder.ready")"
+printf '%s\n' "$prefix_lock_holder_pid" > "$TEST_ROOT/prefix-lock-holder.pid"
+
+TEST_EVENTS="$EVENTS" \
+  "$RUNNER" list-processes --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX" \
+  >"$TEST_ROOT/locked-list.out" 2>"$TEST_ROOT/locked-list.err" &
+locked_list_pid=$!
+for _ in {1..50}; do
+  if lsof -a -p "$locked_list_pid" "$PREFIX/.switchyard-prefix.lock" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.02
+done
+if ! kill -0 "$locked_list_pid" >/dev/null 2>&1; then
+  echo "list-processes did not wait for the prefix storage lock" >&2
+  exit 1
+fi
+if grep -q '^wine ' "$EVENTS"; then
+  echo "list-processes launched Wine while a storage lock was held" >&2
+  exit 1
+fi
+
+MOVED_PREFIX="$TEST_ROOT/Renamed.container"
+mv "$PREFIX" "$MOVED_PREFIX"
+kill -TERM "$prefix_lock_holder_pid"
+wait "$prefix_lock_holder_reaper_pid"
+set +e
+wait "$locked_list_pid"
+locked_list_status=$?
+set -e
+if [ "$locked_list_status" -ne 2 ]; then
+  echo "list-processes should reject a prefix moved while it waited for the storage lock" >&2
+  exit 1
+fi
+if grep -q '^wine ' "$EVENTS"; then
+  echo "list-processes launched Wine after the locked prefix moved" >&2
+  exit 1
+fi
+mv "$MOVED_PREFIX" "$PREFIX"
+rm -f "$TEST_ROOT/prefix-lock-holder.pid"
+: > "$EVENTS"
+
+(
+  "$TEST_ROOT/wine" "$PREFIX" "$TEST_ROOT/orphan-wine.ready" ignore-term &
+  wait "$!" >/dev/null 2>&1 || true
+) &
+orphan_wine_reaper_pid=$!
+(
+  WINEPREFIX="$PREFIX" \
+    "$TEST_ROOT/wine" "$TEST_ROOT" "$TEST_ROOT/environment-wine.ready" default &
+  wait "$!" >/dev/null 2>&1 || true
+) &
+environment_wine_reaper_pid=$!
+(
+  WINEPREFIX="$OTHER_PREFIX" \
+    "$TEST_ROOT/wine" "$OTHER_PREFIX" "$TEST_ROOT/unrelated-wine.ready" default &
+  wait "$!" >/dev/null 2>&1 || true
+) &
+unrelated_wine_reaper_pid=$!
+for _ in {1..50}; do
+  if [ -s "$TEST_ROOT/orphan-wine.ready" ] \
+    && [ -s "$TEST_ROOT/environment-wine.ready" ] \
+    && [ -s "$TEST_ROOT/unrelated-wine.ready" ]; then
+    break
+  fi
+  sleep 0.02
+done
+if [ ! -s "$TEST_ROOT/orphan-wine.ready" ] \
+  || [ ! -s "$TEST_ROOT/environment-wine.ready" ] \
+  || [ ! -s "$TEST_ROOT/unrelated-wine.ready" ]; then
+  echo "Wine process fixtures did not start" >&2
+  exit 1
+fi
+orphan_wine_pid="$(cat "$TEST_ROOT/orphan-wine.ready")"
+environment_wine_pid="$(cat "$TEST_ROOT/environment-wine.ready")"
+unrelated_wine_pid="$(cat "$TEST_ROOT/unrelated-wine.ready")"
+printf '%s\n' "$orphan_wine_pid" > "$TEST_ROOT/orphan-wine.pid"
+printf '%s\n' "$environment_wine_pid" > "$TEST_ROOT/environment-wine.pid"
+printf '%s\n' "$unrelated_wine_pid" > "$TEST_ROOT/unrelated-wine.pid"
+
+set +e
+TEST_EVENTS="$EVENTS" "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+orphan_probe_status=$?
+set -e
+if [ "$orphan_probe_status" -ne 3 ]; then
+  echo "probe should distinguish orphaned Wine host processes with status 3" >&2
+  exit 1
+fi
+TEST_EVENTS="$EVENTS" SWITCHYARD_TEST_PREFIX_PROCESS_TIMEOUT=0.1 \
+  "$RUNNER" stop-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+wait "$orphan_wine_reaper_pid"
+wait "$environment_wine_reaper_pid"
+if kill -0 "$orphan_wine_pid" >/dev/null 2>&1; then
+  echo "stop-prefix left an orphaned Wine host process alive" >&2
+  exit 1
+fi
+if kill -0 "$environment_wine_pid" >/dev/null 2>&1; then
+  echo "stop-prefix left a Wine process with the selected WINEPREFIX alive" >&2
+  exit 1
+fi
+if ! kill -0 "$unrelated_wine_pid" >/dev/null 2>&1; then
+  echo "stop-prefix terminated a Wine process belonging to another prefix" >&2
+  exit 1
+fi
+kill -KILL "$unrelated_wine_pid" >/dev/null 2>&1 || true
+wait "$unrelated_wine_reaper_pid"
+rm -f "$TEST_ROOT/orphan-wine.pid" "$TEST_ROOT/environment-wine.pid" "$TEST_ROOT/unrelated-wine.pid"
+: > "$EVENTS"
+
 if TEST_EVENTS="$EVENTS" "$RUNNER" probe-prefix --wine "$TEST_ROOT/custom-wine" --prefix "$PREFIX"; then
   echo "probe should report an unsupported Wine layout" >&2
   exit 1
