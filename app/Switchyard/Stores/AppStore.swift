@@ -234,6 +234,7 @@ final class AppStore: ObservableObject {
     private let jobEngine = JobEngine()
     private let runnerClient = SwitchyardRunnerClient()
     private let protocolBridge = WineProtocolBridge()
+    private let desktopShortcutBridge = WineDesktopShortcutBridge()
     private let defaults = UserDefaults.standard
     private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
     private let debugLogFormatter: DateFormatter = {
@@ -258,6 +259,7 @@ final class AppStore: ObservableObject {
     private var pendingLoginCallbackRecoveries: [UUID: PendingLoginCallbackRecovery] = [:]
     private var protocolBridgeTask: Task<Void, Never>?
     private var lastProtocolBridgeError: String?
+    private var lastDesktopShortcutBridgeError: String?
 
     init() {
         let defaultLibrary = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
@@ -2012,6 +2014,7 @@ final class AppStore: ObservableObject {
         protocolBridgeTask = Task { [weak self] in
             while !Task.isCancelled {
                 self?.refreshProtocolAssociations()
+                self?.refreshDesktopShortcuts()
                 do {
                     try await Task.sleep(for: .seconds(1))
                 } catch {
@@ -2046,6 +2049,46 @@ final class AppStore: ObservableObject {
             lastProtocolBridgeError = description
             logLines.insert(
                 LogLine(level: "warning", source: "protocols", message: description),
+                at: 0
+            )
+        }
+    }
+
+    private func refreshDesktopShortcuts() {
+        do {
+            let runnerPath = try runnerClient.runnerURL().path
+            let result = try desktopShortcutBridge.refresh(
+                containers: containers,
+                winePath: currentRuntime.winePath,
+                runnerPath: runnerPath
+            )
+            lastDesktopShortcutBridgeError = nil
+            for name in result.createdShortcutNames {
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "shortcuts",
+                        message: "Created a native macOS desktop shortcut for \(name)."
+                    ),
+                    at: 0
+                )
+            }
+            for name in result.removedShortcutNames {
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "shortcuts",
+                        message: "Removed a stale macOS desktop shortcut for \(name)."
+                    ),
+                    at: 0
+                )
+            }
+        } catch {
+            let description = Self.errorDescription(error)
+            guard description != lastDesktopShortcutBridgeError else { return }
+            lastDesktopShortcutBridgeError = description
+            logLines.insert(
+                LogLine(level: "warning", source: "shortcuts", message: description),
                 at: 0
             )
         }

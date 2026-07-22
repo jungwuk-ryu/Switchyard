@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "Switchyard", targets: ["Switchyard"]),
         .executable(name: "switchyard-runner", targets: ["SwitchyardRunner"]),
         .executable(name: "switchyard-url-handler", targets: ["SwitchyardURLHandler"]),
+        .executable(name: "switchyard-shortcut-handler", targets: ["SwitchyardShortcutHandler"]),
         .library(name: "AppCore", targets: ["AppCore"]),
         .library(name: "JobEngine", targets: ["JobEngine"]),
         .library(name: "RuntimeCatalog", targets: ["RuntimeCatalog"]),
@@ -51,6 +52,11 @@ let package = Package(
             dependencies: ["AppCore"],
             path: "runtime/url-handler"
         ),
+        .executableTarget(
+            name: "SwitchyardShortcutHandler",
+            dependencies: ["AppCore"],
+            path: "runtime/shortcut-handler"
+        ),
         .testTarget(
             name: "AppCoreTests",
             dependencies: ["AppCore"],
@@ -70,6 +76,11 @@ let package = Package(
             name: "JobEngineTests",
             dependencies: ["AppCore", "JobEngine", "RuntimeCatalog"],
             path: "Tests/JobEngineTests"
+        ),
+        .testTarget(
+            name: "SwitchyardTests",
+            dependencies: ["AppCore", "Switchyard"],
+            path: "Tests/SwitchyardTests"
         )
     ]
 )

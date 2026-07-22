@@ -133,7 +133,9 @@ private func commandPlan(
         "WINEPREFIX": container.path,
         "SWITCHYARD_WINE_BUILD_ID": runtime.id,
         "SWITCHYARD_PATCHSET_ID": runtime.patchsetID,
-        WineProtocolAssociationFormat.manifestEnvironmentKey: WineProtocolAssociationFormat.windowsManifestPath
+        WineProtocolAssociationFormat.manifestEnvironmentKey: WineProtocolAssociationFormat.windowsManifestPath,
+        WineDesktopShortcutFormat.manifestEnvironmentKey: WineDesktopShortcutFormat.windowsManifestPath,
+        WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
     ]
 
     if let gptkPath, !gptkPath.isEmpty {

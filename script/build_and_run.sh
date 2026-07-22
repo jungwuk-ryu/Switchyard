@@ -23,6 +23,7 @@ APP_HELPERS="$APP_CONTENTS/Helpers"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 RUNNER_BINARY="$APP_HELPERS/switchyard-runner"
 URL_HANDLER_BINARY="$APP_HELPERS/switchyard-url-handler"
+SHORTCUT_HANDLER_BINARY="$APP_HELPERS/switchyard-shortcut-handler"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 APP_ICON_SOURCE="$ROOT_DIR/assets/branding/Switchyard.icns"
 APP_ICON="$APP_RESOURCES/Switchyard.icns"
@@ -48,16 +49,19 @@ pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product "$APP_NAME"
 swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-runner
 swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-url-handler
+swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-shortcut-handler
 BUILD_BIN_PATH="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
 BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
 BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
 BUILD_URL_HANDLER="$BUILD_BIN_PATH/switchyard-url-handler"
+BUILD_SHORTCUT_HANDLER="$BUILD_BIN_PATH/switchyard-shortcut-handler"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_RUNNER" "$RUNNER_BINARY"
 cp "$BUILD_URL_HANDLER" "$URL_HANDLER_BINARY"
+cp "$BUILD_SHORTCUT_HANDLER" "$SHORTCUT_HANDLER_BINARY"
 cp "$APP_ICON_SOURCE" "$APP_ICON"
 "$ROOT_DIR/script/bundle_wine_source_policy.sh" \
   "$ROOT_DIR/config/switchyard-wine.env" \
@@ -67,6 +71,7 @@ cp "$APP_ICON_SOURCE" "$APP_ICON"
 chmod +x "$APP_BINARY"
 chmod +x "$RUNNER_BINARY"
 chmod +x "$URL_HANDLER_BINARY"
+chmod +x "$SHORTCUT_HANDLER_BINARY"
 
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

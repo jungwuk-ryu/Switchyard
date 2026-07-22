@@ -21,6 +21,11 @@ import Testing
         plan.environment[WineProtocolAssociationFormat.manifestEnvironmentKey]
             == WineProtocolAssociationFormat.windowsManifestPath
     )
+    #expect(
+        plan.environment[WineDesktopShortcutFormat.manifestEnvironmentKey]
+            == WineDesktopShortcutFormat.windowsManifestPath
+    )
+    #expect(plan.environment[WineDesktopShortcutFormat.privateDesktopEnvironmentKey] == "1")
 }
 
 @Test func jobEngineCreatesWindowsInstallerPlan() throws {

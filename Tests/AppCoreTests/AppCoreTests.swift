@@ -268,6 +268,89 @@ import Testing
     #expect(index.route(forScheme: "https") == nil)
 }
 
+@Test func wineDesktopShortcutManifestDecodesOnlyPrivateDesktopEntries() throws {
+    func hex(_ value: String) -> String {
+        value.utf8.map { String(format: "%02x", $0) }.joined()
+    }
+
+    let validPath = #"C:\users\steamuser\Desktop\Heartopia.lnk"#
+    let validIcon = #"C:\windows\temp\switchyard-desktop-icons-v1\0123456789abcdef.png"#
+    let traversalPath = #"C:\users\steamuser\Desktop\..\Outside.lnk"#
+    let wrongKindPath = #"C:\users\steamuser\Desktop\Website.url"#
+    let manifest = """
+    \(WineDesktopShortcutFormat.manifestHeader)
+    lnk\t\(hex("Heartopia"))\t\(hex(validPath))\t\(hex(validIcon))
+    lnk\t\(hex("Outside"))\t\(hex(traversalPath))\t
+    lnk\t\(hex("Wrong kind"))\t\(hex(wrongKindPath))\t
+    """
+
+    #expect(
+        WineDesktopShortcutFormat.entries(inManifest: manifest)
+            == [
+                WineDesktopShortcutManifestEntry(
+                    kind: .lnk,
+                    displayName: "Heartopia",
+                    windowsShortcutPath: validPath,
+                    windowsIconPath: validIcon
+                )
+            ]
+    )
+    #expect(WineDesktopShortcutFormat.entries(inManifest: "# unknown\n").isEmpty)
+}
+
+@Test func wineDesktopShortcutPathsRejectDesktopLinksOutsideThePrefix() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("switchyard-shortcut-path-\(UUID().uuidString)", isDirectory: true)
+    let prefix = root.appendingPathComponent("Test.container", isDirectory: true)
+    let user = prefix.appendingPathComponent("drive_c/users/steamuser", isDirectory: true)
+    let externalDesktop = root.appendingPathComponent("ExternalDesktop", isDirectory: true)
+    let desktop = user.appendingPathComponent("Desktop", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: user, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: externalDesktop, withIntermediateDirectories: true)
+    try FileManager.default.createSymbolicLink(at: desktop, withDestinationURL: externalDesktop)
+
+    let windowsPath = #"C:\users\steamuser\Desktop\Heartopia.lnk"#
+    #expect(
+        WineDesktopShortcutFormat.hostShortcutURL(
+            windowsPath: windowsPath,
+            prefixPath: prefix.path
+        ) == nil
+    )
+
+    try FileManager.default.removeItem(at: desktop)
+    try FileManager.default.createDirectory(at: desktop, withIntermediateDirectories: false)
+    let shortcut = desktop.appendingPathComponent("Heartopia.lnk")
+    try Data("shortcut".utf8).write(to: shortcut)
+    #expect(
+        WineDesktopShortcutFormat.hostShortcutURL(
+            windowsPath: windowsPath,
+            prefixPath: prefix.path
+        )?.standardizedFileURL == shortcut.standardizedFileURL
+    )
+    #expect(
+        WineDesktopShortcutFormat.normalizedShortcutPath(
+            #"D:\users\steamuser\Desktop\Heartopia.lnk"#
+        ) == nil
+    )
+}
+
+@Test func wineDesktopShortcutRouteIndexRequiresTheCurrentVersionAndExactID() {
+    let id = String(repeating: "a", count: 64)
+    let route = WineDesktopShortcutRoute(
+        id: id,
+        containerID: UUID(),
+        prefixPath: "/tmp/Test.container",
+        winePath: "/opt/wine/bin/wine",
+        runnerPath: "/Applications/Switchyard.app/Contents/Helpers/switchyard-runner",
+        windowsShortcutPath: #"C:\users\steamuser\Desktop\Heartopia.lnk"#
+    )
+
+    #expect(WineDesktopShortcutRouteIndex(routes: [route]).route(forID: id) == route)
+    #expect(WineDesktopShortcutRouteIndex(version: 2, routes: [route]).route(forID: id) == nil)
+    #expect(WineDesktopShortcutRouteIndex(routes: [route]).route(forID: "missing") == nil)
+}
+
 @Test func learnedWineProtocolAssociationsNormalizeReplaceAndPruneRoutes() {
     let retainedContainerID = UUID()
     let removedContainerID = UUID()
