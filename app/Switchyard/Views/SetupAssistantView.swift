@@ -154,18 +154,36 @@ struct SetupAssistantView: View {
             VStack(alignment: .leading, spacing: 14) {
                 WelcomeFeature(
                     icon: "checkmark.shield",
-                    title: "Safe, matching runtime",
-                    detail: "The app verifies the exact signed runtime made for this version of Switchyard."
+                    title: String(
+                        localized: "Safe, matching runtime",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "The app verifies the exact signed runtime made for this version of Switchyard.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
                 WelcomeFeature(
                     icon: "folder.badge.gearshape",
-                    title: "Sensible defaults",
-                    detail: "Storage and technical paths are chosen automatically. You can change them under Advanced Options."
+                    title: String(
+                        localized: "Sensible defaults",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "Storage and technical paths are chosen automatically. You can change them under Advanced Options.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
                 WelcomeFeature(
                     icon: "gamecontroller",
-                    title: "Steam next",
-                    detail: "When Switchyard is ready, it can take you directly to the official Windows Steam installer."
+                    title: String(
+                        localized: "Steam next",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "When Switchyard is ready, it can take you directly to the official Windows Steam installer.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
             }
 
@@ -177,8 +195,14 @@ struct SetupAssistantView: View {
 
     private var checkingContent: some View {
         SetupCenteredProgress(
-            title: "Checking this Mac…",
-            detail: "This normally takes only a moment."
+            title: String(
+                localized: "Checking this Mac…",
+                bundle: SwitchyardStrings.bundle
+            ),
+            detail: String(
+                localized: "This normally takes only a moment.",
+                bundle: SwitchyardStrings.bundle
+            )
         )
     }
 
@@ -198,8 +222,14 @@ struct SetupAssistantView: View {
         VStack(alignment: .leading, spacing: 20) {
             SetupStepHeading(
                 icon: "apple.logo",
-                title: "Install Apple's compatibility support",
-                detail: "Rosetta 2 lets this Apple Silicon Mac open the Intel-based part of the Windows runtime."
+                title: String(
+                    localized: "Install Apple's compatibility support",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                detail: String(
+                    localized: "Rosetta 2 lets this Apple Silicon Mac open the Intel-based part of the Windows runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
 
             Text("Clicking Install opens Apple's Rosetta installer and accepts Apple's Rosetta software license. macOS handles any approval that is required.")
@@ -207,7 +237,13 @@ struct SetupAssistantView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             if let message = store.rosettaInstallationState.errorMessage {
-                ErrorBanner(title: "Rosetta was not installed", message: message)
+                ErrorBanner(
+                    title: String(
+                        localized: "Rosetta was not installed",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    message: message
+                )
             }
 
             Button {
@@ -232,14 +268,23 @@ struct SetupAssistantView: View {
         VStack(alignment: .leading, spacing: 20) {
             SetupStepHeading(
                 icon: "shippingbox.and.arrow.backward",
-                title: "Preparing Windows support",
-                detail: "Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes."
+                title: String(
+                    localized: "Preparing Windows support",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                detail: String(
+                    localized: "Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
 
             runningAppsBlocker
 
             SetupStatusLine(
-                title: "Windows compatibility files",
+                title: String(
+                    localized: "Windows compatibility files",
+                    bundle: SwitchyardStrings.bundle
+                ),
                 detail: runtimeStatusDetail,
                 status: store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok
                     ? .ok
@@ -249,14 +294,23 @@ struct SetupAssistantView: View {
             .accessibilityIdentifier("setup.runtime.progress")
 
             SetupStatusLine(
-                title: "Fonts for Korean, Japanese, and other languages",
+                title: String(
+                    localized: "Fonts for Korean, Japanese, and other languages",
+                    bundle: SwitchyardStrings.bundle
+                ),
                 detail: fontStatusDetail,
                 status: fontStatus,
                 showsProgress: store.fontPackPreparationState.isWorking
             )
 
             if case .failed(let message) = store.runtimeInstallationState {
-                ErrorBanner(title: "Download could not finish", message: message)
+                ErrorBanner(
+                    title: String(
+                        localized: "Download could not finish",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    message: message
+                )
                 Button("Try Again") {
                     store.installCompatibleWineRuntime()
                 }
@@ -274,21 +328,36 @@ struct SetupAssistantView: View {
         VStack(alignment: .leading, spacing: 20) {
             SetupStepHeading(
                 icon: "cube.transparent",
-                title: "Get Apple's graphics support",
-                detail: "This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import."
+                title: String(
+                    localized: "Get Apple's graphics support",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                detail: String(
+                    localized: "This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
 
             runningAppsBlocker
 
             if store.isImportingGPTK {
                 SetupCenteredProgress(
-                    title: "Checking and importing the Apple download…",
-                    detail: "Switchyard verifies the executable code before copying it into its private cache."
+                    title: String(
+                        localized: "Checking and importing the Apple download…",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "Switchyard verifies the executable code before copying it into its private cache.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
             } else if let downloadedPath = store.downloadedGPTKDiskImagePath {
                 SetupFoundDownload(
                     fileName: URL(fileURLWithPath: downloadedPath).lastPathComponent,
-                    detail: "The download is ready. Switchyard will verify Apple's signature before importing it."
+                    detail: String(
+                        localized: "The download is ready. Switchyard will verify Apple's signature before importing it.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
 
                 Button("Verify and Continue") {
@@ -342,9 +411,33 @@ struct SetupAssistantView: View {
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 12) {
-                SetupStatusLine(title: "This Mac", detail: "Compatible", status: .ok)
-                SetupStatusLine(title: "Windows support", detail: "Installed and verified", status: .ok)
-                SetupStatusLine(title: "Apple graphics support", detail: "Imported and verified", status: .ok)
+                SetupStatusLine(
+                    title: String(localized: "This Mac", bundle: SwitchyardStrings.bundle),
+                    detail: String(localized: "Compatible", bundle: SwitchyardStrings.bundle),
+                    status: .ok
+                )
+                SetupStatusLine(
+                    title: String(
+                        localized: "Windows support",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "Installed and verified",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    status: .ok
+                )
+                SetupStatusLine(
+                    title: String(
+                        localized: "Apple graphics support",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "Imported and verified",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    status: .ok
+                )
             }
 
             Button {
@@ -370,16 +463,28 @@ struct SetupAssistantView: View {
         VStack(alignment: .leading, spacing: 20) {
             SetupStepHeading(
                 icon: "gamecontroller.fill",
-                title: "Install Steam for Windows",
-                detail: "Steam will be kept in its own private Switchyard container. Games installed through Steam will stay there too."
+                title: String(
+                    localized: "Install Steam for Windows",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                detail: String(
+                    localized: "Steam will be kept in its own private Switchyard container. Games installed through Steam will stay there too.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
 
             if store.steamInstallationState.isWorking {
                 SetupCenteredProgress(
                     title: steamWorkingTitle,
                     detail: store.steamInstallationState.isInstallerOpen
-                        ? "Finish the standard Steam installer. Switchyard will detect Steam and continue automatically."
-                        : "The standard Windows installer will appear in a moment."
+                        ? String(
+                            localized: "Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                        : String(
+                            localized: "The standard Windows installer will appear in a moment.",
+                            bundle: SwitchyardStrings.bundle
+                        )
                 )
                 if store.steamInstallationState.isInstallerOpen {
                     Button("Stop Steam Setup") {
@@ -393,8 +498,14 @@ struct SetupAssistantView: View {
                 }
             } else if store.isDownloadingSteamInstaller {
                 SetupCenteredProgress(
-                    title: "Downloading securely from Valve…",
-                    detail: "Switchyard accepts only the official HTTPS download and keeps it in a private cache."
+                    title: String(
+                        localized: "Downloading securely from Valve…",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "Switchyard accepts only the official HTTPS download and keeps it in a private cache.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
 
                 HStack {
@@ -405,7 +516,10 @@ struct SetupAssistantView: View {
             } else if let downloadedPath = store.downloadedSteamInstallerPath {
                 SetupFoundDownload(
                     fileName: URL(fileURLWithPath: downloadedPath).lastPathComponent,
-                    detail: "This Windows installer is ready to open in Switchyard."
+                    detail: String(
+                        localized: "This Windows installer is ready to open in Switchyard.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
 
                 Button("Install Steam") {
@@ -430,7 +544,13 @@ struct SetupAssistantView: View {
             }
 
             if let message = store.steamInstallationState.errorMessage {
-                ErrorBanner(title: "Steam could not be started", message: message)
+                ErrorBanner(
+                    title: String(
+                        localized: "Steam could not be started",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    message: message
+                )
             } else if let message = store.steamSetupMessage {
                 Text(message)
                     .font(.callout)
@@ -448,15 +568,21 @@ struct SetupAssistantView: View {
         DisclosureGroup("Advanced Options") {
             VStack(alignment: .leading, spacing: 12) {
                 PathPickerRow(
-                    title: "Storage",
-                    message: "Choose where Switchyard stores containers and manifests.",
+                    title: String(localized: "Storage", bundle: SwitchyardStrings.bundle),
+                    message: String(
+                        localized: "Choose where Switchyard stores containers and manifests.",
+                        bundle: SwitchyardStrings.bundle
+                    ),
                     path: $store.libraryPath
                 ) {
                     store.persistPreferences()
                 }
                 PathPickerRow(
-                    title: "Toolkit",
-                    message: "Choose a local GPTK directory or disk image.",
+                    title: String(localized: "Toolkit", bundle: SwitchyardStrings.bundle),
+                    message: String(
+                        localized: "Choose a local GPTK directory or disk image.",
+                        bundle: SwitchyardStrings.bundle
+                    ),
                     path: $store.gptkPath
                 ) {
                     store.refreshRuntimeStatus()
@@ -469,8 +595,14 @@ struct SetupAssistantView: View {
                 }
 #if DEBUG
                 PathPickerRow(
-                    title: "Development Runtime",
-                    message: "Choose a locally built Wine executable or runtime folder.",
+                    title: String(
+                        localized: "Development Runtime",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    message: String(
+                        localized: "Choose a locally built Wine executable or runtime folder.",
+                        bundle: SwitchyardStrings.bundle
+                    ),
                     path: $store.winePath
                 ) {
                     store.useSelectedLocalDevelopmentRuntime()
@@ -492,12 +624,22 @@ struct SetupAssistantView: View {
         VStack(spacing: 10) {
             SetupStatusLine(
                 title: "Apple Silicon",
-                detail: store.runtimeStatus.architecture == .ok ? "Compatible" : "Required",
+                detail: store.runtimeStatus.architecture == .ok
+                    ? String(localized: "Compatible", bundle: SwitchyardStrings.bundle)
+                    : String(localized: "Required", bundle: SwitchyardStrings.bundle),
                 status: store.runtimeStatus.architecture
             )
             SetupStatusLine(
-                title: "macOS 14 or later",
-                detail: store.runtimeStatus.macOS == .ok ? "Compatible" : "Update macOS to continue",
+                title: String(
+                    localized: "macOS 14 or later",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                detail: store.runtimeStatus.macOS == .ok
+                    ? String(localized: "Compatible", bundle: SwitchyardStrings.bundle)
+                    : String(
+                        localized: "Update macOS to continue",
+                        bundle: SwitchyardStrings.bundle
+                    ),
                 status: store.runtimeStatus.macOS
             )
         }
@@ -567,20 +709,36 @@ struct SetupAssistantView: View {
 
     private var steamWorkingTitle: String {
         if store.steamInstallationState == .preparing {
-            return "Preparing a place for Steam…"
+            return String(
+                localized: "Preparing a place for Steam…",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         if store.steamInstallationState.isInstallerOpen {
-            return "Finish installing Steam…"
+            return String(
+                localized: "Finish installing Steam…",
+                bundle: SwitchyardStrings.bundle
+            )
         }
-        return "Opening the Steam installer…"
+        return String(
+            localized: "Opening the Steam installer…",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 
     private var runtimeStatusDetail: String {
         switch store.runtimeInstallationState {
-        case .idle: "Starting automatically…"
-        case .working: "Downloading and verifying about 700 MB…"
-        case .ready: "Installed and verified"
-        case .failed: "Needs another try"
+        case .idle:
+            String(localized: "Starting automatically…", bundle: SwitchyardStrings.bundle)
+        case .working:
+            String(
+                localized: "Downloading and verifying about 700 MB…",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .ready:
+            String(localized: "Installed and verified", bundle: SwitchyardStrings.bundle)
+        case .failed:
+            String(localized: "Needs another try", bundle: SwitchyardStrings.bundle)
         }
     }
 
@@ -594,21 +752,39 @@ struct SetupAssistantView: View {
 
     private var fontStatusDetail: String {
         switch store.fontPackPreparationState {
-        case .idle: "Preparing automatically…"
-        case .working: "Downloading open-licensed fonts…"
-        case .ready: "Ready"
-        case .failed: "Optional — Switchyard will try again before launch"
+        case .idle:
+            String(localized: "Preparing automatically…", bundle: SwitchyardStrings.bundle)
+        case .working:
+            String(
+                localized: "Downloading open-licensed fonts…",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .ready:
+            String(localized: "Ready", bundle: SwitchyardStrings.bundle)
+        case .failed:
+            String(
+                localized: "Optional — Switchyard will try again before launch",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 
     private var headerTitle: String {
-        isSettingUpSteam ? "One more step" : "Set Up Switchyard"
+        isSettingUpSteam
+            ? String(localized: "One more step", bundle: SwitchyardStrings.bundle)
+            : String(localized: "Set Up Switchyard", bundle: SwitchyardStrings.bundle)
     }
 
     private var headerSubtitle: String {
         isSettingUpSteam
-            ? "Install your first Windows app"
-            : "A guided setup with safe defaults"
+            ? String(
+                localized: "Install your first Windows app",
+                bundle: SwitchyardStrings.bundle
+            )
+            : String(
+                localized: "A guided setup with safe defaults",
+                bundle: SwitchyardStrings.bundle
+            )
     }
 
     private var progressValue: Double {
@@ -623,15 +799,25 @@ struct SetupAssistantView: View {
     }
 
     private var progressLabel: String {
-        guard hasStarted else { return "Ready to begin" }
-        if isSettingUpSteam { return "First app" }
+        guard hasStarted else {
+            return String(localized: "Ready to begin", bundle: SwitchyardStrings.bundle)
+        }
+        if isSettingUpSteam {
+            return String(localized: "First app", bundle: SwitchyardStrings.bundle)
+        }
         return switch requirement {
-        case .checking: "Checking Mac"
-        case .unsupportedMac: "Mac check"
-        case .rosetta: "Mac support"
-        case .runtime: "Windows support"
-        case .toolkit: "Apple graphics"
-        case .ready: "Ready"
+        case .checking:
+            String(localized: "Checking Mac", bundle: SwitchyardStrings.bundle)
+        case .unsupportedMac:
+            String(localized: "Mac check", bundle: SwitchyardStrings.bundle)
+        case .rosetta:
+            String(localized: "Mac support", bundle: SwitchyardStrings.bundle)
+        case .runtime:
+            String(localized: "Windows support", bundle: SwitchyardStrings.bundle)
+        case .toolkit:
+            String(localized: "Apple graphics", bundle: SwitchyardStrings.bundle)
+        case .ready:
+            String(localized: "Ready", bundle: SwitchyardStrings.bundle)
         }
     }
 
@@ -645,9 +831,17 @@ struct SetupAssistantView: View {
     private var runningAppsBlocker: some View {
         if store.hasRunningContainers {
             ErrorBanner(
-                title: "Close Windows apps to continue",
-                message: "Compatibility files cannot be changed while a Windows app is still running.",
-                actionTitle: isStoppingAppsForSetup ? "Stopping…" : "Stop and Continue"
+                title: String(
+                    localized: "Close Windows apps to continue",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                message: String(
+                    localized: "Compatibility files cannot be changed while a Windows app is still running.",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                actionTitle: isStoppingAppsForSetup
+                    ? String(localized: "Stopping…", bundle: SwitchyardStrings.bundle)
+                    : String(localized: "Stop and Continue", bundle: SwitchyardStrings.bundle)
             ) {
                 guard !isStoppingAppsForSetup else { return }
                 isConfirmingStopAll = true
@@ -656,7 +850,13 @@ struct SetupAssistantView: View {
         }
 
         if let setupStopError {
-            ErrorBanner(title: "Windows apps are still running", message: setupStopError)
+            ErrorBanner(
+                title: String(
+                    localized: "Windows apps are still running",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                message: setupStopError
+            )
         }
     }
 
@@ -669,7 +869,10 @@ struct SetupAssistantView: View {
             let stopped = await store.stopAllWindowsAppsForSetup()
             isStoppingAppsForSetup = false
             guard stopped else {
-                setupStopError = "Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again."
+                setupStopError = String(
+                    localized: "Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.",
+                    bundle: SwitchyardStrings.bundle
+                )
                 return
             }
 

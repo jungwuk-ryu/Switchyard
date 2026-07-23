@@ -31,8 +31,14 @@ struct LogsView: View {
 
                 Button("Copy Filtered Logs") {
                     ClipboardPrivacy.confirmAndCopy(
-                        title: "Copy filtered logs?",
-                        message: "Switchyard will redact common secrets and your home folder path before copying.",
+                        title: String(
+                            localized: "Copy filtered logs?",
+                            bundle: SwitchyardStrings.bundle
+                        ),
+                        message: String(
+                            localized: "Switchyard will redact common secrets and your home folder path before copying.",
+                            bundle: SwitchyardStrings.bundle
+                        ),
                         text: copyText
                     )
                 }

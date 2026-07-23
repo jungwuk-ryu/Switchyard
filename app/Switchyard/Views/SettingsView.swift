@@ -31,7 +31,17 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
-                PathPickerRow(title: "Storage", message: "Choose the Switchyard storage folder.", path: $store.libraryPath) {
+                PathPickerRow(
+                    title: String(
+                        localized: "Storage",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    message: String(
+                        localized: "Choose the Switchyard storage folder.",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    path: $store.libraryPath
+                ) {
                     store.persistPreferences()
                 }
                 Text("Containers and portable manifests stay in this user-selected folder. Runtime caches and logs remain in their documented user-local locations.")
@@ -60,7 +70,14 @@ struct SettingsView: View {
                     }
                     .disabled(store.isImportingGPTK)
                 }
-                PathPickerRow(title: "GPTK", message: "Choose your local Apple Game Porting Toolkit installation.", path: $store.gptkPath) {
+                PathPickerRow(
+                    title: "GPTK",
+                    message: String(
+                        localized: "Choose your local Apple Game Porting Toolkit installation.",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    path: $store.gptkPath
+                ) {
                     store.refreshRuntimeStatus()
                 }
                 if URL(fileURLWithPath: store.gptkPath).pathExtension.lowercased() == "dmg" {
@@ -122,8 +139,14 @@ struct SettingsView: View {
                     if let data = try? JSONEncoder().encode(bundle),
                        let text = String(data: data, encoding: .utf8) {
                         ClipboardPrivacy.confirmAndCopy(
-                            title: "Copy diagnostic bundle?",
-                            message: "Switchyard will redact common secrets and your home folder path before copying.",
+                            title: String(
+                                localized: "Copy diagnostic bundle?",
+                                bundle: SwitchyardStrings.bundle
+                            ),
+                            message: String(
+                                localized: "Switchyard will redact common secrets and your home folder path before copying.",
+                                bundle: SwitchyardStrings.bundle
+                            ),
                             text: text
                         )
                     }

@@ -9,9 +9,12 @@ enum SidebarSelection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .containers: "Containers"
-        case .logs: "Logs"
-        case .diagnostics: "Diagnostics"
+        case .containers:
+            String(localized: "Containers", bundle: SwitchyardStrings.bundle)
+        case .logs:
+            String(localized: "Logs", bundle: SwitchyardStrings.bundle)
+        case .diagnostics:
+            String(localized: "Diagnostics", bundle: SwitchyardStrings.bundle)
         }
     }
 

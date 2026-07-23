@@ -1,0 +1,1468 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ Notices: %@</key>
+	<string>%1$@ 公告：%2$@</string>
+	<key>%@ Runtime %@, source %@.</key>
+	<string>%1$@ 运行时 %2$@，来源 %3$@。</string>
+	<key>%@ Setup</key>
+	<string>%1$@ 设置</string>
+	<key>%@ Source %@.</key>
+	<string>%1$@ 来源 %2$@。</string>
+	<key>%@ checksum mismatch. Expected %@, got %@.</key>
+	<string>%1$@ 校验和不匹配。预期为 %2$@，得到 %3$@。</string>
+	<key>%@ contains GPTK markers, but its executable code is not fully Apple-signed: %@</key>
+	<string>%1$@ 包含 GPTK 标记，但其可执行代码未完全经过 Apple 签名：%2$@</string>
+	<key>%@ exists, but no known D3DMetal/GPTK marker files were found.</key>
+	<string>%1$@ 存在，但未找到已知的 D3DMetal/GPTK 标记文件。</string>
+	<key>%@ icon</key>
+	<string>%1$@ 图标</string>
+	<key>%@ in the Open Font Pack cache failed checksum validation. Expected %@, got %@.</key>
+	<string>开放字体包 缓存中的 %1$@ 校验和验证失败。预期为 %2$@，得到 %3$@。</string>
+	<key>%@ is already running</key>
+	<string>%1$@ 已在运行</string>
+	<key>%@ is missing from the Open Font Pack cache: %@</key>
+	<string>开放字体包 缓存中缺少 %1$@：%2$@</string>
+	<key>%@ is now the active app-wide runtime.</key>
+	<string>%1$@ 现已设为全局活动运行时。</string>
+	<key>%@ was removed from Switchyard, but its folder was already missing.</key>
+	<string>%1$@ 已从 Switchyard 中删除，但其文件夹已丢失。</string>
+	<key>%@ · %@ · source %@</key>
+	<string>%1$@ · %2$@ · 来源 %3$@</string>
+	<key>%@, %@</key>
+	<string>%1$@、%2$@</string>
+	<key>%lld</key>
+	<string>%1$lld</string>
+	<key>%lld Windows applications found in this container</key>
+	<string>在此容器中找到 %1$lld Windows 应用程序</string>
+	<key>%lld entries</key>
+	<string>%1$lld 条目</string>
+	<key>%lld high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled.</key>
+	<string>%1$lld高流量日志条目被从实时视图中省略;当启用开发者日志时，受保护的每次运行调试日志会保留完整的输出。</string>
+	<key>%lld more items</key>
+	<string>另有 %1$lld 项</string>
+	<key>1. Open Apple's download page</key>
+	<string>1.打开苹果的下载页面</string>
+	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
+	<string>2.登录并下载最新的Game Porting Toolkit .dmg</string>
+	<key>3. Return here — Switchyard will find it automatically</key>
+	<string>3. 返回这里 — Switchyard 会自动找到它</string>
+	<key>A Wine release does not include its runtime manifest.</key>
+	<string>Wine 版本不包含运行时清单。</string>
+	<key>A Wine release points to an untrusted runtime manifest.</key>
+	<string>Wine 版本指向了不受信任的运行时清单。</string>
+	<key>A Wine runtime manifest could not be verified: %@</key>
+	<string>无法验证 Wine 运行时清单：%1$@</string>
+	<key>A different GPTK import already exists at the immutable destination.</key>
+	<string>不可变目标中已存在不同的 GPTK 导入。</string>
+	<key>A different runtime already exists at the immutable release destination.</key>
+	<string>不可变的发布目的地已存在不同的运行时。</string>
+	<key>A guided setup with safe defaults</key>
+	<string>具有安全默认值的指导设置</string>
+	<key>A newer Switchyard release recommends the latest runtime. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>新版 Switchyard 建议使用最新运行时。你仍可在“Wine 运行时”设置中选择其他已签名的官方版本。</string>
+	<key>A published release is missing its publication date.</key>
+	<string>已发布版本缺少发布日期。</string>
+	<key>Accept and Install</key>
+	<string>接受并安装</string>
+	<key>Accept and Install Rosetta 2</key>
+	<string>接受并安装 Rosetta 2</string>
+	<key>Active</key>
+	<string>活动</string>
+	<key>Active Runtime</key>
+	<string>活动运行时</string>
+	<key>Active Wine Runtime</key>
+	<string>活动 Wine 运行时</string>
+	<key>Activity</key>
+	<string>活动</string>
+	<key>Add</key>
+	<string>添加</string>
+	<key>Add Container</key>
+	<string>添加容器</string>
+	<key>Add another app to the running Windows session</key>
+	<string>将另一个应用程序添加到正在运行的 Windows 会话</string>
+	<key>Advanced</key>
+	<string>高级</string>
+	<key>Advanced Options</key>
+	<string>高级选项</string>
+	<key>All</key>
+	<string>全部</string>
+	<key>All Applications</key>
+	<string>所有应用</string>
+	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
+	<string>%1$@ 中的所有 Windows 应用程序都将关闭。未保存的工作可能会丢失。</string>
+	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
+	<string>需要大约 5-15 分钟和大约 1 GB 的可用空间。下载时间取决于您的连接。</string>
+	<key>Another runtime installation is already in progress.</key>
+	<string>另一个运行时安装已经在进行中。</string>
+	<key>Any remaining Windows processes for %@ will be stopped before its folder is moved to Trash.</key>
+	<string>%1$@ 的任何剩余 Windows 进程都将在其文件夹移至垃圾箱之前停止。</string>
+	<key>App Update Required</key>
+	<string>需要更新应用程序</string>
+	<key>Apple Silicon</key>
+	<string>Apple Silicon</string>
+	<key>Apple compatibility support</key>
+	<string>苹果兼容性支持</string>
+	<key>Apple graphics</key>
+	<string>Apple 图形</string>
+	<key>Apple graphics support</key>
+	<string>苹果显卡支持</string>
+	<key>Apple's support for Intel-based apps is installed.</key>
+	<string>Apple 对基于 Intel 的应用程序的支持已安装。</string>
+	<key>Apple-signed GPTK code and markers found: %@.</key>
+	<string>发现 Apple 签名的 GPTK 代码和标记：%1$@。</string>
+	<key>Application</key>
+	<string>应用</string>
+	<key>Applications</key>
+	<string>应用</string>
+	<key>Back</key>
+	<string>返回</string>
+	<key>Back to Containers</key>
+	<string>返回容器</string>
+	<key>Build %@</key>
+	<string>构建版本 %1$@</string>
+	<key>Build Not Available</key>
+	<string>构建版本不可用</string>
+	<key>Build not available</key>
+	<string>构建版本不可用</string>
+	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
+	<string>日历版本号使用 UTC 格式的固定源修订时间，因此后面的数字表示较新的运行时。</string>
+	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
+	<string>回调 URL 和登录令牌只会通过受保护的一次性文件传递，不会保存或写入日志。</string>
+	<key>Cancel</key>
+	<string>取消</string>
+	<key>Cancel Download</key>
+	<string>取消下载</string>
+	<key>Check Failed</key>
+	<string>检查失败</string>
+	<key>Check for Releases</key>
+	<string>检查版本</string>
+	<key>Check this Mac, the selected runtime, and the latest online releases again</key>
+	<string>再次检查这台 Mac、所选的运行时以及最新的在线版本</string>
+	<key>Checked Online</key>
+	<string>网上查</string>
+	<key>Checking</key>
+	<string>检查</string>
+	<key>Checking Mac</key>
+	<string>检查Mac</string>
+	<key>Checking Online</key>
+	<string>网上查询</string>
+	<key>Checking Windows session</key>
+	<string>检查 Windows 会话</string>
+	<key>Checking and importing the Apple download…</key>
+	<string>检查并导入 Apple 下载...</string>
+	<key>Checking current configuration</key>
+	<string>检查当前配置</string>
+	<key>Checking latest online releases</key>
+	<string>检查最新的在线版本</string>
+	<key>Checking running applications…</key>
+	<string>检查正在运行的应用程序...</string>
+	<key>Checking the latest GitHub release…</key>
+	<string>检查最新的 GitHub 版本...</string>
+	<key>Checking the latest GitHub runtime…</key>
+	<string>正在检查最新的 GitHub 运行时...</string>
+	<key>Checking this Mac and online releases</key>
+	<string>检查此 Mac 和在线版本</string>
+	<key>Checking this Mac…</key>
+	<string>检查这台 Mac...</string>
+	<key>Choose Downloaded File…</key>
+	<string>选择下载的文件...</string>
+	<key>Choose Game Porting Toolkit</key>
+	<string>选择Game Porting Toolkit</string>
+	<key>Choose Windows App…</key>
+	<string>选择Windows应用程序...</string>
+	<key>Choose a GPTK disk image before importing.</key>
+	<string>导入前选择 GPTK 磁盘映像。</string>
+	<key>Choose a Windows app or installer (.exe or .msi) to open in %@.</key>
+	<string>选择要在 %1$@ 中打开的 Windows 应用程序或安装程序（.exe 或 .msi）。</string>
+	<key>Choose a Windows application</key>
+	<string>选择 Windows 应用</string>
+	<key>Choose a Windows executable for this container before running.</key>
+	<string>在运行之前为此容器选择 Windows 可执行文件。</string>
+	<key>Choose a Windows installer or app. Switchyard keeps it inside this container.</key>
+	<string>选择 Windows 安装程序或应用程序。 Switchyard 将其保存在该容器内。</string>
+	<key>Choose a Wine executable or Switchyard Wine runtime folder, then run diagnostics.</key>
+	<string>选择 Wine 可执行文件或 Switchyard Wine 运行时文件夹，然后运行诊断。</string>
+	<key>Choose a Wine executable or a Wine runtime folder.</key>
+	<string>选择 Wine 可执行文件或 Wine 运行时文件夹。</string>
+	<key>Choose a Wine executable or runtime folder manually.</key>
+	<string>手动选择 Wine 可执行文件或运行时文件夹。</string>
+	<key>Choose a local GPTK directory or disk image.</key>
+	<string>选择本地 GPTK 目录或磁盘映像。</string>
+	<key>Choose a locally built Wine executable or runtime folder.</key>
+	<string>请选择本地构建的 Wine 可执行文件或运行时文件夹。</string>
+	<key>Choose an .exe or .msi file, or drop one onto this container</key>
+	<string>选择一个 .exe 或 .msi 文件，或将一个文件拖放到此容器上</string>
+	<key>Choose an application</key>
+	<string>选择一个应用程序</string>
+	<key>Choose an existing Windows .exe or .msi file.</key>
+	<string>选择现有的 Windows .exe 或 .msi 文件。</string>
+	<key>Choose or drop a Windows .exe or .msi file</key>
+	<string>选择或删除 Windows .exe 或 .msi 文件</string>
+	<key>Choose the Game Porting Toolkit .dmg file you downloaded from Apple.</key>
+	<string>选择您从 Apple 下载的 Game Porting Toolkit .dmg 文件。</string>
+	<key>Choose the Switchyard storage folder.</key>
+	<string>选择 Switchyard 存储文件夹。</string>
+	<key>Choose the Windows application that requested the %@: sign-in.</key>
+	<string>选择请求 %1$@: 登录的 Windows 应用程序。</string>
+	<key>Choose the Windows executable to run by default in this container.</key>
+	<string>选择 Windows 可执行文件默认在此容器中运行。</string>
+	<key>Choose where Switchyard stores containers and manifests.</key>
+	<string>选择 Switchyard 存储容器和清单的位置。</string>
+	<key>Choose your local Apple Game Porting Toolkit installation.</key>
+	<string>请选择这台 Mac 上安装的 Apple Game Porting Toolkit。</string>
+	<key>Choose...</key>
+	<string>选择...</string>
+	<key>Cleanup needed</key>
+	<string>需要清理</string>
+	<key>Clear</key>
+	<string>清除</string>
+	<key>Clear Activity</key>
+	<string>清除活动</string>
+	<key>Clear Logs</key>
+	<string>清除日志</string>
+	<key>Clear all logs?</key>
+	<string>清除所有日志吗？</string>
+	<key>Clear this container's activity?</key>
+	<string>清除该容器的活动吗？</string>
+	<key>Clicking Install opens Apple's Rosetta installer and accepts Apple's Rosetta software license. macOS handles any approval that is required.</key>
+	<string>单击“安装”将打开 Apple 的 Rosetta 安装程序并接受 Apple 的 Rosetta 软件许可证。 macOS 处理所需的任何批准。</string>
+	<key>Close Windows apps to continue</key>
+	<string>关闭 Windows 应用程序以继续</string>
+	<key>Closing Windows apps and waiting for wineserver to exit</key>
+	<string>关闭 Windows 应用程序并等待 wineserver 退出</string>
+	<key>Command plan could not be serialized for the runner.</key>
+	<string>无法序列化 switchyard-runner 的命令计划。</string>
+	<key>Comparison unavailable</key>
+	<string>无法比较</string>
+	<key>Compatibility</key>
+	<string>兼容性</string>
+	<key>Compatibility Pending</key>
+	<string>兼容性待定</string>
+	<key>Compatibility files cannot be changed while a Windows app is still running.</key>
+	<string>当 Windows 应用程序仍在运行时，无法更改兼容性文件。</string>
+	<key>Compatible</key>
+	<string>兼容</string>
+	<key>Container Files</key>
+	<string>容器文件</string>
+	<key>Container Path</key>
+	<string>容器路径</string>
+	<key>Container Record</key>
+	<string>容器记录</string>
+	<key>Container Settings</key>
+	<string>容器设置</string>
+	<key>Container Setup</key>
+	<string>容器设置</string>
+	<key>Container Template</key>
+	<string>容器模板</string>
+	<key>Container names cannot be empty.</key>
+	<string>容器名称不能为空。</string>
+	<key>Container path is empty or invalid: %@</key>
+	<string>容器路径为空或无效：%1$@</string>
+	<key>Containers</key>
+	<string>容器</string>
+	<key>Containers and portable manifests stay in this user-selected folder. Runtime caches and logs remain in their documented user-local locations.</key>
+	<string>容器和便携式清单保留在这个用户选择的文件夹中。运行时缓存和日志保留在其记录的用户本地位置。</string>
+	<key>Continue Setup</key>
+	<string>继续设置</string>
+	<key>Continue Steam Setup</key>
+	<string>继续 Steam 设置</string>
+	<key>Continue in the same private container; Switchyard will not create a duplicate.</key>
+	<string>继续在同一个私人容器中； Switchyard 不会创建重复项。</string>
+	<key>Continuing Steam Setup…</key>
+	<string>继续 Steam 设置...</string>
+	<key>Copy Diagnostic Bundle</key>
+	<string>复制诊断包</string>
+	<key>Copy Filtered Logs</key>
+	<string>复制过滤的日志</string>
+	<key>Copy Redacted</key>
+	<string>隐去敏感信息后复制</string>
+	<key>Copy diagnostic bundle?</key>
+	<string>复制诊断包？</string>
+	<key>Copy filtered logs?</key>
+	<string>要复制筛选后的日志吗？</string>
+	<key>Copy the invalid callback address from Safari before recovering it.</key>
+	<string>在恢复之前从 Safari 复制无效的回调地址。</string>
+	<key>Could not choose a safe macOS desktop name for %@.</key>
+	<string>无法为 %1$@ 选择安全的 macOS 桌面名称。</string>
+	<key>Could not create a temporary download file.</key>
+	<string>无法创建临时下载文件。</string>
+	<key>Could not create debug log directory %@: %@</key>
+	<string>无法创建调试日志目录 %1$@：%2$@</string>
+	<key>Could not download %@.</key>
+	<string>无法下载 %1$@。</string>
+	<key>Could not import GPTK disk image: %@</key>
+	<string>无法导入 GPTK 磁盘映像：%1$@</string>
+	<key>Could not inspect this Wine runtime for an existing prefix session; launching without stopping it.</key>
+	<string>无法检查此 Wine 运行时是否存在现有前缀会话；启动而不停止。</string>
+	<key>Could not install %@: %@</key>
+	<string>无法安装 %1$@：%2$@</string>
+	<key>Could not install the compatible runtime: %@</key>
+	<string>无法安装兼容的运行时：%1$@</string>
+	<key>Could not lock %@ for a safe folder rename: %@</key>
+	<string>无法锁定 %1$@ 进行安全文件夹重命名：%2$@</string>
+	<key>Could not open the Apple Developer download page.</key>
+	<string>无法打开 Apple Developer 下载页面。</string>
+	<key>Could not prepare Open Font Pack: %@</key>
+	<string>无法准备 开放字体包：%1$@</string>
+	<key>Could not prepare container: %@</key>
+	<string>无法准备容器：%1$@</string>
+	<key>Could not recheck that %@ remained idle, so its folder was not renamed.</key>
+	<string>无法重新检查 %1$@ 是否仍处于空闲状态，因此其文件夹未重命名。</string>
+	<key>Could not register the generated macOS handler for the %@ URL scheme (status %d).</key>
+	<string>无法注册为 %1$@ URL 方案生成的 macOS 处理程序（状态 %2$d）。</string>
+	<key>Could not remove the runtime: %@</key>
+	<string>无法移除运行时：%1$@</string>
+	<key>Could not rename %@: %@</key>
+	<string>无法重命名 %1$@：%2$@</string>
+	<key>Could not save container manifest: %@</key>
+	<string>无法保存容器清单：%1$@</string>
+	<key>Could not sign the generated macOS handler for the %@ URL scheme.</key>
+	<string>无法对 %1$@ URL 方案生成的 macOS 处理程序进行签名。</string>
+	<key>Could not sign the generated macOS shortcut for %@.</key>
+	<string>无法签署 %1$@ 生成的 macOS 快捷方式。</string>
+	<key>Could not stop %@ safely and move it to Trash: %@</key>
+	<string>无法安全停止 %1$@ 并将其移至垃圾箱：%2$@</string>
+	<key>Could not stop Wine processes: %@</key>
+	<string>无法停止 Wine 进程：%1$@</string>
+	<key>Could not trust this official runtime: %@</key>
+	<string>无法信任此官方运行时：%1$@</string>
+	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
+	<string>无法验证 %1$@ 是否空闲，因此其文件夹未重命名。</string>
+	<key>Create a private space for a Windows app</key>
+	<string>为Windows应用程序创建私人空间</string>
+	<key>Create an Empty Container</key>
+	<string>创建空容器</string>
+	<key>Created a native macOS desktop shortcut for %@.</key>
+	<string>为 %1$@ 创建了本机 macOS 桌面快捷方式。</string>
+	<key>Current</key>
+	<string>当前</string>
+	<key>Dashboard</key>
+	<string>概览</string>
+	<key>Debug</key>
+	<string>调试</string>
+	<key>Debug run logging enabled (profile=%@, WINEDEBUG=%@, file: %@). The live view is batched and retains its latest %lld entries; this file retains the complete run output.</key>
+	<string>启用调试运行日志记录（配置文件 = %1$@，WINEDEBUG = %2$@，文件：%3$@）。实时查看是批量的，保留其最新的%4$lld条目；该文件保留完整的运行输出。</string>
+	<key>Default</key>
+	<string>默认</string>
+	<key>Default Application</key>
+	<string>默认应用程序</string>
+	<key>Default Executable</key>
+	<string>默认可执行文件</string>
+	<key>Detected macOS %@.</key>
+	<string>检测到 macOS %1$@。</string>
+	<key>Developer logging</key>
+	<string>开发者日志记录</string>
+	<key>Development Runtime</key>
+	<string>开发运行时</string>
+	<key>Development build</key>
+	<string>开发构建版本</string>
+	<key>Diagnostics</key>
+	<string>诊断</string>
+	<key>Different build recorded</key>
+	<string>记录不同的构建</string>
+	<key>Download</key>
+	<string>下载</string>
+	<key>Download Steam</key>
+	<string>下载Steam</string>
+	<key>Download and switch between signed Switchyard Wine releases.</key>
+	<string>下载并切换已签名的 Switchyard Wine 版本。</string>
+	<key>Download could not finish</key>
+	<string>下载无法完成</string>
+	<key>Download found</key>
+	<string>找到下载</string>
+	<key>Download from Apple</key>
+	<string>从苹果下载</string>
+	<key>Download the newest Game Porting Toolkit disk image, then return to Switchyard.</key>
+	<string>下载最新的Game Porting Toolkit磁盘映像，然后返回Switchyard。</string>
+	<key>Download the selected runtime before making it active.</key>
+	<string>请先下载所选运行时，再将其设为活动运行时。</string>
+	<key>Download, verify, and select the latest runtime supported by this Switchyard version</key>
+	<string>下载、验证并选择此 Switchyard 版本支持的最新运行时</string>
+	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
+	<string>下载 %1$lld 开放字体包 字体文件； %2$lld 文件已被缓存。</string>
+	<key>Downloading and verifying about 700 MB…</key>
+	<string>下载并验证大约 700 MB...</string>
+	<key>Downloading open-licensed fonts…</key>
+	<string>正在下载开放许可字体...</string>
+	<key>Downloading securely from Valve…</key>
+	<string>正在从 Valve 安全下载...</string>
+	<key>Downloading the Windows installer securely from Valve…</key>
+	<string>从 Valve 安全下载 Windows 安装程序...</string>
+	<key>Downloading, validating, and installing the selected official runtime…</key>
+	<string>正在下载、验证并安装所选官方运行时…</string>
+	<key>Downloading, validating, and installing the signed runtime…</key>
+	<string>下载、验证和安装签名的运行时...</string>
+	<key>Empty Folder</key>
+	<string>空文件夹</string>
+	<key>Environment Overrides</key>
+	<string>环境覆盖</string>
+	<key>Environment variable name is invalid or reserved: %@.</key>
+	<string>环境变量名称无效或保留：%1$@。</string>
+	<key>Error</key>
+	<string>错误</string>
+	<key>Executable</key>
+	<string>可执行文件</string>
+	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
+	<string>选择了外部 Wine 运行时，但它没有 Switchyard 清单，并且无法根据固定源修订进行验证。</string>
+	<key>External Wine runtime selected; no source revision policy was requested.</key>
+	<string>选择外部 Wine 运行时；没有要求源修订政策。</string>
+	<key>Failed</key>
+	<string>失败</string>
+	<key>Files</key>
+	<string>文件</string>
+	<key>Finding the Windows application waiting for the %@: callback…</key>
+	<string>查找正在等待 %1$@: 回调的 Windows 应用程序...</string>
+	<key>Finish Setting Up Switchyard</key>
+	<string>完成设置 Switchyard</string>
+	<key>Finish Switchyard setup before installing Steam.</key>
+	<string>在安装 Steam 之前完成 Switchyard 设置。</string>
+	<key>Finish Without Steam</key>
+	<string>不带 Steam 完成</string>
+	<key>Finish installing Steam…</key>
+	<string>完成安装 Steam...</string>
+	<key>Finish setting up Steam</key>
+	<string>完成设置 Steam</string>
+	<key>Finish setup before creating a container</key>
+	<string>创建容器之前完成设置</string>
+	<key>Finish the remaining setup step before completing setup.</key>
+	<string>在完成设置之前完成剩余的设置步骤。</string>
+	<key>Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.</key>
+	<string>完成标准 Steam 安装程序。 Switchyard 将检测 Steam 并自动继续。</string>
+	<key>First app</key>
+	<string>第一个应用程序</string>
+	<key>Folder Unavailable</key>
+	<string>文件夹不可用</string>
+	<key>Fonts for Korean, Japanese, and other languages</key>
+	<string>韩语、日语和其他语言的字体</string>
+	<key>Forwarding the %@: callback to Wine…</key>
+	<string>转发%1$@：回调至Wine…</string>
+	<key>Found %@; importing it into the local cache…</key>
+	<string>找到%1$@；将其导入本地缓存...</string>
+	<key>GPTK</key>
+	<string>GPTK</string>
+	<key>GPTK executable code has an invalid Apple signature: %@.</key>
+	<string>GPTK 可执行代码具有无效的 Apple 签名：%1$@。</string>
+	<key>GPTK import completed.</key>
+	<string>GPTK 导入完成。</string>
+	<key>Game Porting Toolkit</key>
+	<string>Game Porting Toolkit</string>
+	<key>General</key>
+	<string>通用</string>
+	<key>Get Apple's graphics support</key>
+	<string>获得 Apple 的图形支持</string>
+	<key>GitHub returned HTTP %lld.</key>
+	<string>GitHub 返回了 HTTP %1$lld。</string>
+	<key>GitHub returned an invalid response.</key>
+	<string>GitHub 返回无效响应。</string>
+	<key>GitHub returned an untrusted release link.</key>
+	<string>GitHub 返回了不受信任的发布链接。</string>
+	<key>GitHub returned release metadata that was too large.</key>
+	<string>GitHub 返回的发布元数据太大。</string>
+	<key>Idle</key>
+	<string>空闲</string>
+	<key>If Safari says the address is invalid after signing in, press Command-L and Command-C in Safari, then recover the copied callback here.</key>
+	<string>如果登录后 Safari 提示地址无效，请在 Safari 中按 Command-L 和 Command-C，然后在此处恢复复制的回调。</string>
+	<key>Import</key>
+	<string>导入</string>
+	<key>Import Downloaded GPTK</key>
+	<string>导入下载的GPTK</string>
+	<key>Import Selected GPTK</key>
+	<string>导入选定的 GPTK</string>
+	<key>Import Selected Toolkit</key>
+	<string>导入选定的工具包</string>
+	<key>Imported Apple-signed GPTK code into Switchyard's local cache.</key>
+	<string>将Apple签名的GPTK代码导入到Switchyard的本地缓存中。</string>
+	<key>Imported Entry</key>
+	<string>已导入的项目</string>
+	<key>Imported and verified</key>
+	<string>导入并验证</string>
+	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
+	<string>此记录来自旧版清单，未记录确切使用时间。</string>
+	<key>Info</key>
+	<string>信息</string>
+	<key>Initializing this Windows container before its first app opens.</key>
+	<string>在第一个应用程序打开之前初始化此 Windows 容器。</string>
+	<key>Inspecting the Wine prefix</key>
+	<string>检查 Wine 前缀</string>
+	<key>Install Apple's compatibility support</key>
+	<string>安装Apple的兼容性支持</string>
+	<key>Install Latest Runtime</key>
+	<string>安装最新的运行时</string>
+	<key>Install Open Font Pack</key>
+	<string>安装开放字体包</string>
+	<key>Install Rosetta 2</key>
+	<string>安装Rosetta 2</string>
+	<key>Install Rosetta 2?</key>
+	<string>安装Rosetta 2？</string>
+	<key>Install Steam</key>
+	<string>安装Steam</string>
+	<key>Install Steam for Windows</key>
+	<string>为 Windows 安装 Steam</string>
+	<key>Install Your First Windows App</key>
+	<string>安装您的第一个 Windows 应用程序</string>
+	<key>Install an official Switchyard runtime, then run diagnostics.</key>
+	<string>请安装官方 Switchyard 运行时，然后运行诊断。</string>
+	<key>Install or Run App…</key>
+	<string>安装或运行应用…</string>
+	<key>Install or Run a Windows App</key>
+	<string>安装或运行 Windows 应用程序</string>
+	<key>Install or Update Compatible Runtime</key>
+	<string>安装或更新兼容的运行时</string>
+	<key>Install or choose a Windows application to see it here.</key>
+	<string>安装或选择 Windows 应用程序以在此处查看。</string>
+	<key>Install your first Windows app</key>
+	<string>安装您的第一个 Windows 应用程序</string>
+	<key>Installed</key>
+	<string>已安装</string>
+	<key>Installed %@.</key>
+	<string>已安装 %1$@。</string>
+	<key>Installed Programs</key>
+	<string>已安装的程序</string>
+	<key>Installed Windows applications will appear here after setup.</key>
+	<string>安装后，已安装的 Windows 应用程序将出现在此处。</string>
+	<key>Installed and verified</key>
+	<string>安装并验证</string>
+	<key>Installed compatible runtime %@.</key>
+	<string>安装了兼容运行时 %1$@。</string>
+	<key>Installing Compatible Runtime…</key>
+	<string>正在安装兼容的运行时...</string>
+	<key>Installing Rosetta 2…</key>
+	<string>正在安装 Rosetta 2...</string>
+	<key>Installing…</key>
+	<string>正在安装...</string>
+	<key>Keep the Windows game open while recovering its copied login callback.</key>
+	<string>保持 Windows 游戏打开，同时恢复其复制的登录回调。</string>
+	<key>Last Runtime Use</key>
+	<string>上次使用运行时</string>
+	<key>Last checked %@</key>
+	<string>最后检查 %1$@</string>
+	<key>Last known online: %@ · %@</key>
+	<string>最后在线已知：%1$@·%2$@</string>
+	<key>Last known online: %@ · source %@</key>
+	<string>最后在线已知：%1$@ · 来源 %2$@</string>
+	<key>Last launched %@</key>
+	<string>上次启动：%1$@</string>
+	<key>Last used with active build</key>
+	<string>上次使用时与活动构建一致</string>
+	<key>Last used with another build</key>
+	<string>上次使用时为其他构建</string>
+	<key>Last-used GPTK</key>
+	<string>上次使用的 GPTK</string>
+	<key>Last-used Patch Set</key>
+	<string>上次使用的补丁集</string>
+	<key>Last-used Runtime ID</key>
+	<string>上次使用的运行时 ID</string>
+	<key>Last-used Source</key>
+	<string>上次使用的来源</string>
+	<key>Latest Online</key>
+	<string>最新在线</string>
+	<key>Latest online release not available</key>
+	<string>最新在线版本不可用</string>
+	<key>Latest online runtime not available</key>
+	<string>最新的在线运行时不可用</string>
+	<key>Latest online: %@ · %@</key>
+	<string>最新上线：%1$@·%2$@</string>
+	<key>Latest online: %@ · source %@</key>
+	<string>最新上线：%1$@·来源%2$@</string>
+	<key>Launch</key>
+	<string>启动</string>
+	<key>Launch %@</key>
+	<string>启动 %1$@</string>
+	<key>Launch Alongside</key>
+	<string>一同启动</string>
+	<key>Launch Arguments</key>
+	<string>启动参数</string>
+	<key>Launch alongside the running Windows apps</key>
+	<string>与正在运行的 Windows 应用程序一起启动</string>
+	<key>Launch an application to start this container's Windows session.</key>
+	<string>启动应用程序以启动此容器的 Windows 会话。</string>
+	<key>Launch behavior and advanced compatibility options for %@.</key>
+	<string>%1$@ 的启动行为和高级兼容性选项。</string>
+	<key>Launch command started through switchyard-runner: executable=%@ argumentCount=%lld</key>
+	<string>通过 switchyard-runner 启动的启动命令：executable=%1$@ argumentCount=%2$lld</string>
+	<key>Launch this Windows app</key>
+	<string>启动此 Windows 应用程序</string>
+	<key>Launches and container events will appear here.</key>
+	<string>发布和容器事件将出现在此处。</string>
+	<key>Learned Schemes</key>
+	<string>已识别的协议方案</string>
+	<key>Level</key>
+	<string>级别</string>
+	<key>Loading files…</key>
+	<string>正在加载文件...</string>
+	<key>Local Development Runtime</key>
+	<string>本地开发运行时</string>
+	<key>Local paths bypass the official release catalog but must still match this development build's pinned source revision.</key>
+	<string>本地路径会绕过官方版本目录，但仍必须与此开发构建固定的源代码修订版本一致。</string>
+	<key>Location</key>
+	<string>地点</string>
+	<key>Login Callback</key>
+	<string>登录回调</string>
+	<key>Login callback recovery was cancelled because the container folder is changing.</key>
+	<string>由于容器文件夹正在更改，登录回调恢复被取消。</string>
+	<key>Login callback recovery was cancelled.</key>
+	<string>登录回调恢复已取消。</string>
+	<key>Logs</key>
+	<string>日志</string>
+	<key>Mac check</key>
+	<string>苹果电脑检查</string>
+	<key>Mac support</key>
+	<string>苹果电脑支持</string>
+	<key>Make Default</key>
+	<string>设为默认</string>
+	<key>Matches active build</key>
+	<string>与当前构建版本一致</string>
+	<key>Missing</key>
+	<string>缺失</string>
+	<key>Modified</key>
+	<string>修改</string>
+	<key>More Container Actions</key>
+	<string>更多容器操作</string>
+	<key>Move Container to Trash</key>
+	<string>将容器移到废纸篓</string>
+	<key>Move Container to Trash?</key>
+	<string>要将容器移到废纸篓吗？</string>
+	<key>Move to Trash</key>
+	<string>移到废纸篓</string>
+	<key>Moved %@ to Trash.</key>
+	<string>已将 %1$@ 移至垃圾箱。</string>
+	<key>Name</key>
+	<string>名称</string>
+	<key>Needs Attention</key>
+	<string>需要注意</string>
+	<key>Needs Setup</key>
+	<string>需要设置</string>
+	<key>Needs another try</key>
+	<string>需要再次尝试</string>
+	<key>Never run</key>
+	<string>从未运行</string>
+	<key>New App Recommended</key>
+	<string>建议更新应用</string>
+	<key>New Container</key>
+	<string>新建容器</string>
+	<key>Newer Build</key>
+	<string>较新的构建版本</string>
+	<key>No Apple-signed GPTK executable code was found.</key>
+	<string>未找到 Apple 签名的 GPTK 可执行代码。</string>
+	<key>No GPTK path has been selected.</key>
+	<string>尚未选择 GPTK 路径。</string>
+	<key>No Game Porting Toolkit disk image was found in Downloads.</key>
+	<string>下载中未找到 Game Porting Toolkit 磁盘映像。</string>
+	<key>No Matching Logs</key>
+	<string>没有匹配的日志</string>
+	<key>No Programs Found</key>
+	<string>未找到程序</string>
+	<key>No Recent Activity</key>
+	<string>最近没有活动</string>
+	<key>No Windows applications are running</key>
+	<string>没有 Windows 应用程序正在运行</string>
+	<key>No Wine runtime has been selected. Expected Switchyard runtime cache under %@ or %@.</key>
+	<string>尚未选择 Wine 运行时。 %1$@ 或 %2$@ 下预期为 Switchyard 运行时缓存。</string>
+	<key>No Wine runtime is available to verify against the pinned Switchyard Wine source.</key>
+	<string>没有 Wine 运行时可用于验证固定的 Switchyard Wine 源。</string>
+	<key>No Wine runtime selected</key>
+	<string>未选择 Wine 运行时</string>
+	<key>No application details available</key>
+	<string>没有可用的应用程序详细信息</string>
+	<key>No eligible official runtime releases were found.</key>
+	<string>未找到符合条件的官方运行时版本。</string>
+	<key>No environment overrides.</key>
+	<string>没有环境覆盖。</string>
+	<key>No published runtime manifest could be loaded.</key>
+	<string>无法加载已发布的运行时清单。</string>
+	<key>Not Now</key>
+	<string>以后再说</string>
+	<key>Not Recommended</key>
+	<string>不建议使用</string>
+	<key>Not available</key>
+	<string>不可用</string>
+	<key>Not checked in this session</key>
+	<string>本次会话中未检查</string>
+	<key>Not recorded</key>
+	<string>未记录</string>
+	<key>Not selected</key>
+	<string>未选择</string>
+	<key>Not used yet</key>
+	<string>尚未使用</string>
+	<key>OK</key>
+	<string>好</string>
+	<key>Official Releases</key>
+	<string>官方版本</string>
+	<key>One more step</key>
+	<string>又一步</string>
+	<key>Online Unknown</key>
+	<string>在线未知</string>
+	<key>Online check failed: %@</key>
+	<string>在线检查失败：%1$@</string>
+	<key>Only .dmg disk images can be imported automatically.</key>
+	<string>仅 .dmg 磁盘映像可以自动导入。</string>
+	<key>Only the Switchyard-managed runtime cache will be deleted.</key>
+	<string>只会删除由 Switchyard 管理的运行时缓存。</string>
+	<key>Open</key>
+	<string>打开</string>
+	<key>Open All Logs</key>
+	<string>打开所有日志</string>
+	<key>Open Folder</key>
+	<string>打开文件夹</string>
+	<key>Open Font Pack</key>
+	<string>开放字体包</string>
+	<key>Open Font Pack could not be prepared; continuing launch without additional font fallback: %@</key>
+	<string>开放字体包 无法准备；继续发布，无需额外的字体后备：%1$@</string>
+	<key>Open Font Pack is already cached with %lld font files.</key>
+	<string>开放字体包 已与 %1$lld 字体文件一起缓存。</string>
+	<key>Open Font Pack is cached and ready for container installation.</key>
+	<string>开放字体包 已缓存并准备好进行容器安装。</string>
+	<key>Open Font Pack is missing %lld OFL font file(s). Switchyard will try to download them automatically.</key>
+	<string>开放字体包 缺少 %1$lld OFL 字体文件。 Switchyard 将尝试自动下载它们。</string>
+	<key>Open Font Pack registration was skipped while this Windows session is active.</key>
+	<string>当此 Windows 会话处于活动状态时，开放字体包 注册被跳过。</string>
+	<key>Open GPTK Settings</key>
+	<string>打开 GPTK 设置</string>
+	<key>Open Logs</key>
+	<string>打开日志</string>
+	<key>Open Settings</key>
+	<string>打开设置</string>
+	<key>Open Wine Settings</key>
+	<string>打开 Wine 设置</string>
+	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
+	<string>打开字体准备就绪：%1$lld 已复制，%2$lld 已存在，%3$lld 系列替代品已注册。</string>
+	<key>Open fonts skipped: %@</key>
+	<string>跳过打开字体：%1$@</string>
+	<key>Open in Finder</key>
+	<string>在“访达”中打开</string>
+	<key>Open the latest Switchyard release on GitHub</key>
+	<string>在GitHub上打开最新的Switchyard版本</string>
+	<key>Opening the Steam installer…</key>
+	<string>打开 Steam 安装程序...</string>
+	<key>Optional launch arguments</key>
+	<string>可选的启动参数</string>
+	<key>Optional — Switchyard will try again before launch</key>
+	<string>可选 — Switchyard 将在启动前重试</string>
+	<key>Other Managed Runtimes</key>
+	<string>其他托管运行时</string>
+	<key>Patch Set</key>
+	<string>补丁集</string>
+	<key>Path</key>
+	<string>路径</string>
+	<key>Preparing Windows support</key>
+	<string>准备 Windows 支持</string>
+	<key>Preparing a place for Steam…</key>
+	<string>正在为 Steam 准备地方……</string>
+	<key>Preparing automatically…</key>
+	<string>自动准备...</string>
+	<key>Preparing this Windows container for the active Switchyard runtime.</key>
+	<string>正在为活动的 Switchyard 运行时准备此 Windows 容器。</string>
+	<key>Press Return or leave the field to rename the container and its folder</key>
+	<string>按 Return 或保留该字段以重命名容器及其文件夹</string>
+	<key>Process details are temporarily unavailable.</key>
+	<string>暂时无法获取流程详细信息。</string>
+	<key>Processes</key>
+	<string>进程</string>
+	<key>Program Group</key>
+	<string>程序组</string>
+	<key>Programs</key>
+	<string>程序</string>
+	<key>Queued</key>
+	<string>排队</string>
+	<key>Re-run All Checks</key>
+	<string>重新运行所有检查</string>
+	<key>Re-run Diagnostics</key>
+	<string>重新运行诊断</string>
+	<key>Re-run Runtime Diagnostics</key>
+	<string>重新运行运行时诊断</string>
+	<key>Ready</key>
+	<string>准备好</string>
+	<key>Ready and matched to this version of Switchyard.</key>
+	<string>已准备好并与此版本的 Switchyard 匹配。</string>
+	<key>Ready for the next application</key>
+	<string>准备下一次申请</string>
+	<key>Ready to begin</key>
+	<string>准备开始</string>
+	<key>Ready to launch</key>
+	<string>准备启动</string>
+	<key>Ready to launch Windows executables in Switchyard containers.</key>
+	<string>准备在 Switchyard 容器中启动 Windows 可执行文件。</string>
+	<key>Recent</key>
+	<string>最近</string>
+	<key>Recent Activity</key>
+	<string>最近的活动</string>
+	<key>Recent Files</key>
+	<string>最近的文件</string>
+	<key>Recently Launched</key>
+	<string>最近启动</string>
+	<key>Recommended</key>
+	<string>推荐</string>
+	<key>Recorded %@.</key>
+	<string>记录于 %1$@。</string>
+	<key>Recorded GPTK</key>
+	<string>已记录的 GPTK</string>
+	<key>Recorded Patch Set</key>
+	<string>已记录的补丁集</string>
+	<key>Recorded Runtime ID</key>
+	<string>已记录的运行时 ID</string>
+	<key>Recover Copied Callback</key>
+	<string>恢复复制的回调</string>
+	<key>Recover Copied Login Callback</key>
+	<string>恢复复制的登录回调</string>
+	<key>Recovered the %@: callback for %@.</key>
+	<string>恢复了 %1$@：%2$@ 的回调。</string>
+	<key>Recovered the %@: callback. Future sign-ins can return automatically.</key>
+	<string>恢复了%1$@：回调。以后的登录可以自动返回。</string>
+	<key>Refresh</key>
+	<string>刷新</string>
+	<key>Refresh Windows Session</key>
+	<string>刷新 Windows 会话</string>
+	<key>Refusing to move %@ to Trash because its path is outside Switchyard storage or has no Switchyard manifest.</key>
+	<string>拒绝将 %1$@ 移至垃圾箱，因为其路径位于 Switchyard 存储之外或没有 Switchyard 清单。</string>
+	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
+	<string>为 Wine URL 方案注册了 macOS 回调桥：%1$@</string>
+	<key>Remaining Wine processes will be cleaned up before launch</key>
+	<string>剩余的 Wine 进程将在启动前清理</string>
+	<key>Remove %@</key>
+	<string>移除 %1$@</string>
+	<key>Remove %@?</key>
+	<string>移除 %1$@？</string>
+	<key>Remove Runtime</key>
+	<string>移除运行时</string>
+	<key>Remove Variable</key>
+	<string>删除变量</string>
+	<key>Remove this inactive managed runtime</key>
+	<string>移除此非活动托管运行时</string>
+	<key>Remove this inactive runtime</key>
+	<string>移除此非活动运行时</string>
+	<key>Remove this managed runtime?</key>
+	<string>移除此托管运行时？</string>
+	<key>Removed %@. It can be downloaded again later.</key>
+	<string>已移除 %1$@。以后可以重新下载。</string>
+	<key>Removed a stale macOS desktop shortcut for %@.</key>
+	<string>删除了 %1$@ 的过时 macOS 桌面快捷方式。</string>
+	<key>Removed duplicate container entries that pointed to an already-used folder: %@.</key>
+	<string>删除了指向已使用文件夹的重复容器条目：%1$@。</string>
+	<key>Removed reserved environment variable: %@.</key>
+	<string>删除了保留的环境变量：%1$@。</string>
+	<key>Removing the selected inactive runtime…</key>
+	<string>正在移除所选非活动运行时…</string>
+	<key>Renamed %@ and its folder to %@.</key>
+	<string>将%1$@及其文件夹重命名为%2$@。</string>
+	<key>Renderer</key>
+	<string>渲染器</string>
+	<key>Required</key>
+	<string>必需</string>
+	<key>Reset Cached Setup State</key>
+	<string>重置缓存的设置状态</string>
+	<key>Resolve missing runtime components before running Windows executables.</key>
+	<string>在运行 Windows 可执行文件之前解决缺少的运行时组件。</string>
+	<key>Resolved Wine selection to executable: %@</key>
+	<string>将 Wine 选择解析为可执行文件：%1$@</string>
+	<key>Responding normally</key>
+	<string>反应正常</string>
+	<key>Restart</key>
+	<string>重新启动</string>
+	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
+	<string>重新启动会关闭此容器中的所有 Windows 进程，包括游戏和安装程序。要以全新状态重新启动吗？</string>
+	<key>Rosetta 2</key>
+	<string>Rosetta 2</string>
+	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
+	<string>Rosetta 2 只能安装在 Apple Silicon Mac 上。</string>
+	<key>Rosetta 2 is available only on Apple Silicon Macs.</key>
+	<string>Rosetta 2 仅在 Apple Silicon Mac 上可用。</string>
+	<key>Rosetta 2 is required for the Windows compatibility runtime.</key>
+	<string>Windows 兼容性运行时需要 Rosetta 2。</string>
+	<key>Rosetta 2 lets this Apple Silicon Mac open the Intel-based part of the Windows runtime.</key>
+	<string>Rosetta 2 让这款 Apple Silicon Mac 打开 Windows 运行时的基于 Intel 的部分。</string>
+	<key>Rosetta 2 was not installed. Try again, or ask your Mac administrator if this Mac is managed.</key>
+	<string>Rosetta 2 未安装。请重试，或询问您的 Mac 管理员此 Mac 是否受管理。</string>
+	<key>Rosetta 2 was not installed: %@</key>
+	<string>未安装 Rosetta 2：%1$@</string>
+	<key>Rosetta was not installed</key>
+	<string>罗塞塔未安装</string>
+	<key>Run</key>
+	<string>运行</string>
+	<key>Run .exe or .msi in %@</key>
+	<string>在 %1$@ 中运行 .exe 或 .msi</string>
+	<key>Run Container</key>
+	<string>运行容器</string>
+	<key>Run Windows apps without learning Windows setup tools</key>
+	<string>无需学习 Windows 设置工具即可运行 Windows 应用程序</string>
+	<key>Run diagnostics, launch a Windows executable, or change the current filters.</key>
+	<string>运行诊断、启动 Windows 可执行文件或更改当前过滤器。</string>
+	<key>Runner exited with code %@.</key>
+	<string>switchyard-runner 已退出，代码为 %1$@。</string>
+	<key>Runner stopped at the user's request.</key>
+	<string>switchyard-runner 已按用户要求停止。</string>
+	<key>Running</key>
+	<string>运行中</string>
+	<key>Running Windows applications could not be inspected (exit code %d).</key>
+	<string>无法检查正在运行的 Windows 应用程序（退出代码 %1$d）。</string>
+	<key>Running on %@.</key>
+	<string>在 %1$@ 上运行。</string>
+	<key>Running…</key>
+	<string>正在运行…</string>
+	<key>Runtime</key>
+	<string>运行时</string>
+	<key>Runtime ID</key>
+	<string>运行时 ID</string>
+	<key>Runtime Management</key>
+	<string>运行时管理</string>
+	<key>Runtime Scope</key>
+	<string>运行时范围</string>
+	<key>Runtime Source</key>
+	<string>运行时源</string>
+	<key>Runtime Version</key>
+	<string>运行时版本</string>
+	<key>Runtime has not been checked yet.</key>
+	<string>尚未检查运行时间。</string>
+	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
+	<string>此容器首次使用 Wine 后会记录运行时来源。</string>
+	<key>Runtime release manifest version %lld is unsupported.</key>
+	<string>运行时发布清单版本 %1$lld 不受支持。</string>
+	<key>Runtime source verified at %@ revision %@.</key>
+	<string>运行时源在 %1$@ 修订版 %2$@ 上进行了验证。</string>
+	<key>Safe, matching runtime</key>
+	<string>经过验证的兼容运行时</string>
+	<key>Search logs</key>
+	<string>搜索日志</string>
+	<key>Select another active runtime before removing this one.</key>
+	<string>移除此运行时前，请先激活其他运行时。</string>
+	<key>Selected</key>
+	<string>已选择</string>
+	<key>Selected %@ as the active app-wide runtime.</key>
+	<string>已将 %1$@ 设为全局活动运行时。</string>
+	<key>Selected GPTK path does not exist.</key>
+	<string>所选的 GPTK 路径不存在。</string>
+	<key>Selected GPTK path is not a directory or supported .dmg disk image.</key>
+	<string>所选的 GPTK 路径不是目录或支持的 .dmg 磁盘映像。</string>
+	<key>Selected Wine Runtime</key>
+	<string>选定的 Wine 运行时</string>
+	<key>Selected Wine directory exists, but no executable wine or wine64 was found in expected locations: %@.</key>
+	<string>选定的 Wine 目录存在，但在预期位置 %1$@ 中未找到可执行 wine 或 wine64。</string>
+	<key>Selected Wine path does not exist: %@.</key>
+	<string>所选的 Wine 路径不存在：%1$@。</string>
+	<key>Selected Wine path exists but is not executable: %@.</key>
+	<string>选定的 Wine 路径存在但不可执行：%1$@。</string>
+	<key>Selected the local development runtime path.</key>
+	<string>已选择本地开发运行时路径。</string>
+	<key>Sensible defaults</key>
+	<string>合理的默认设置</string>
+	<key>Session status could not be read</key>
+	<string>无法读取会话状态</string>
+	<key>Set Up Later</key>
+	<string>稍后设置</string>
+	<key>Set Up Steam</key>
+	<string>设置 Steam</string>
+	<key>Set Up Switchyard</key>
+	<string>设置 Switchyard</string>
+	<key>Settings</key>
+	<string>设置</string>
+	<key>Setup is incomplete</key>
+	<string>设置不完整</string>
+	<key>Setup is incomplete. Resolve diagnostics before launching.</key>
+	<string>设置不完整。在启动之前解决诊断问题。</string>
+	<key>Setup progress</key>
+	<string>设置进度</string>
+	<key>Show Container in Finder</key>
+	<string>在“访达”中显示容器</string>
+	<key>Show Program in Finder</key>
+	<string>在“访达”中显示程序</string>
+	<key>Show in Finder</key>
+	<string>在“访达”中显示</string>
+	<key>Size</key>
+	<string>尺寸</string>
+	<key>Source %@</key>
+	<string>来源 %1$@</string>
+	<key>Source Revision</key>
+	<string>源代码修订版本</string>
+	<key>Source revision not available</key>
+	<string>源版本不可用</string>
+	<key>Start %@ in this container</key>
+	<string>在此容器中启动%1$@</string>
+	<key>Start another app in the same Windows session.</key>
+	<string>在同一 Windows 会话中启动另一个应用程序。</string>
+	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
+	<string>从 Steam 开始，或者为另一个 Windows 安装程序创建一个空的私人空间。</string>
+	<key>Starting automatically…</key>
+	<string>自动启动...</string>
+	<key>Starting…</key>
+	<string>开始…</string>
+	<key>Steam could not be started</key>
+	<string>Steam无法启动</string>
+	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
+	<string>Steam 安装未完成。选择继续 Steam 安装程序重试。</string>
+	<key>Steam is installed and ready to launch.</key>
+	<string>Steam 已安装并准备启动。</string>
+	<key>Steam is optional. You can finish now and install any Windows .exe later.</key>
+	<string>Steam 是可选的。您现在可以完成并稍后安装任何 Windows .exe。</string>
+	<key>Steam next</key>
+	<string>接下来安装 Steam</string>
+	<key>Steam setup is paused and can be continued safely.</key>
+	<string>Steam 设置已暂停，可以安全地继续。</string>
+	<key>Steam setup is paused. You can resume it whenever you are ready.</key>
+	<string>Steam 设置已暂停。只要您准备好，就可以恢复它。</string>
+	<key>Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container.</key>
+	<string>Steam 设置时间比预期要长。如果安装程序仍然打开，请完成它；否则在同一个容器中重试。</string>
+	<key>Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container.</key>
+	<string>Steam 设置已暂停。准备好后就继续； Switchyard 将重用此容器。</string>
+	<key>Steam was not detected yet. You can safely continue setup in this container.</key>
+	<string>尚未检测到 Steam。您可以安全地继续在此容器中进行设置。</string>
+	<key>Steam was not found after the installer closed. You can continue setup in the same container without losing anything.</key>
+	<string>安装程序关闭后未找到 Steam。您可以在同一个容器中继续设置，而不会丢失任何内容。</string>
+	<key>Steam will be kept in its own private Switchyard container. Games installed through Steam will stay there too.</key>
+	<string>Steam 会存放在专用的 Switchyard 容器中。通过 Steam 安装的游戏也会保存在这里。</string>
+	<key>Stop</key>
+	<string>停止</string>
+	<key>Stop %@ before renaming its folder. A Wine process is still using this container.</key>
+	<string>在重命名其文件夹之前停止 %1$@。 Wine 进程仍在使用此容器。</string>
+	<key>Stop %@ before renaming its folder. A Wine process started while Switchyard was locking this container.</key>
+	<string>在重命名其文件夹之前停止 %1$@。当 Switchyard 锁定此容器时，Wine 进程启动。</string>
+	<key>Stop All Runs</key>
+	<string>停止所有运行</string>
+	<key>Stop All Windows Apps</key>
+	<string>停止所有 Windows 应用程序</string>
+	<key>Stop Steam Setup</key>
+	<string>停止 Steam 设置</string>
+	<key>Stop all Windows apps?</key>
+	<string>要停止所有 Windows 应用吗？</string>
+	<key>Stop all Wine processes in this container</key>
+	<string>停止此容器中的所有 Wine 进程</string>
+	<key>Stop all running containers before changing the selected runtime.</key>
+	<string>在更改所选运行时之前停止所有正在运行的容器。</string>
+	<key>Stop all running containers before importing a toolkit.</key>
+	<string>在导入工具包之前停止所有正在运行的容器。</string>
+	<key>Stop and Continue</key>
+	<string>停止并继续</string>
+	<key>Stop or wait for %@ before renaming its folder.</key>
+	<string>在重命名其文件夹之前，停止或等待 %1$@。</string>
+	<key>Stop requested for this container.</key>
+	<string>请求停止此容器。</string>
+	<key>Stop wineserver</key>
+	<string>停止 wineserver</string>
+	<key>Stop wineserver?</key>
+	<string>停止wineserver？</string>
+	<key>Stopping</key>
+	<string>停止</string>
+	<key>Stopping…</key>
+	<string>停止…</string>
+	<key>Storage</key>
+	<string>存储</string>
+	<key>Storage and technical paths are chosen automatically. You can change them under Advanced Options.</key>
+	<string>存储位置和技术路径会自动选定，也可以在“高级选项”中更改。</string>
+	<key>Succeeded</key>
+	<string>成功</string>
+	<key>Support</key>
+	<string>支持</string>
+	<key>Supported</key>
+	<string>支持</string>
+	<key>Switchyard</key>
+	<string>Switchyard</string>
+	<key>Switchyard Wine runtime %@ (%@) found at %@. PE architectures: %@.</key>
+	<string>Switchyard Wine 运行时 %1$@ (%2$@) 在 %3$@ 中找到。 PE 架构：%4$@。</string>
+	<key>Switchyard Wine runtime %@ does not record a source revision. Rebuild it from the pinned switchyard-wine repository.</key>
+	<string>Switchyard Wine 运行时 %1$@ 不记录源修订。从固定的 switchyard-wine 存储库重建它。</string>
+	<key>Switchyard Wine runtime %@ is selected at %@, but it is missing PE architecture(s): %@. Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs.</key>
+	<string>在 %2$@ 处选择了 Switchyard Wine 运行时 %1$@，但缺少 PE 架构：%3$@。在运行 32 位 Windows 安装程序或程序之前重建 Switchyard WoW64 运行时。</string>
+	<key>Switchyard Wine runtime %@ was built from a dirty source tree at %@. Build a clean pinned revision before release use.</key>
+	<string>Switchyard Wine 运行时 %1$@ 是从 %2$@ 的脏源树构建的。在发布使用之前构建一个干净的固定修订版。</string>
+	<key>Switchyard Wine runtime %@ was built from source %@, but this Switchyard build pins %@. Rebuild the runtime from the pinned revision.</key>
+	<string>Switchyard Wine 运行时 %1$@ 是从源 %2$@ 构建的，但此 Switchyard 构建引脚 %3$@。从固定版本重建运行时。</string>
+	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
+	<string>Switchyard 仅接受官方 HTTPS 下载并将其保存在私人缓存中。</string>
+	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
+	<string>Switchyard 始终使用上方显示的全局活动运行时。容器不能单独选择或固定运行时版本。</string>
+	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
+	<string>Switchyard 只能移除直接存储在其托管缓存中的运行时。</string>
+	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
+	<string>Switchyard 无法关闭每个 Windows 应用程序。保存您的工作，关闭所有剩余的窗口，然后重试。</string>
+	<key>Switchyard could not inspect this Wine session.</key>
+	<string>Switchyard 无法检查此 Wine 会话。</string>
+	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
+	<string>Switchyard 无法保护其私有缓存中下载的安装程序：%1$@</string>
+	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
+	<string>Switchyard 当前启动具有上面显示的活动运行时的所有容器。</string>
+	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
+	<string>Switchyard 需要配备 Apple Silicon 且运行 macOS 14 或更高版本的 Mac。</string>
+	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
+	<string>Switchyard 不下载或捆绑 GPTK。 Apple 处理登录和许可接受； Switchyard 仅在检查 DMG 的可执行代码的 Apple 签名后导入。</string>
+	<key>Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.</key>
+	<string>Switchyard 通过 HTTPS 直接从 Valve 下载 SteamSetup.exe。</string>
+	<key>Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.</key>
+	<string>Switchyard 仅下载 Valve 的安装程序。普通的 Steam 屏幕处理游戏、更新和帐户登录。</string>
+	<key>Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.</key>
+	<string>Switchyard 将 OFL Noto 字体安装到容器中，并映射常见的 Windows 字体系列名称，而无需捆绑 Microsoft 字体。</string>
+	<key>Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.</key>
+	<string>Switchyard 正在下载并验证所需的文件。完成此操作后，保持应用程序打开。</string>
+	<key>Switchyard is ready</key>
+	<string>Switchyard 已准备好</string>
+	<key>Switchyard only installs a runtime after its online release matches this app's signed compatibility policy.</key>
+	<string>Switchyard 仅在其在线版本与此应用程序的签名兼容性策略匹配后安装运行时。</string>
+	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
+	<string>Switchyard 会为自动设置固定一个推荐运行时，并在安装前验证每个手动选择的官方版本。</string>
+	<key>Switchyard v1 supports Apple Silicon only.</key>
+	<string>Switchyard v1 仅支持 Apple Silicon。</string>
+	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
+	<string>Switchyard 在将可执行代码复制到其私有缓存之前对其进行验证。</string>
+	<key>Switchyard will check this Mac, download its compatibility files, and guide you through the one Apple download it cannot provide itself. Your apps and games stay on this Mac.</key>
+	<string>Switchyard 将检查此 Mac，下载其兼容性文件，并指导您完成 Apple 无法自行提供的下载。您的应用程序和游戏将保留在这台 Mac 上。</string>
+	<key>Switchyard will guide you through the remaining steps before installing a Windows app.</key>
+	<string>Switchyard 将引导您完成安装 Windows 应用程序之前的剩余步骤。</string>
+	<key>Switchyard will not browse a path outside this container.</key>
+	<string>Switchyard 不会浏览此容器之外的路径。</string>
+	<key>Switchyard will open Apple's Rosetta installer. Continuing accepts Apple's Rosetta software license; macOS handles any approval that is required.</key>
+	<string>Switchyard 将打开 Apple 的 Rosetta 安装程序。继续接受Apple的Rosetta软件许可； macOS 处理所需的任何批准。</string>
+	<key>Switchyard will redact common secrets and your home folder path before copying.</key>
+	<string>Switchyard 将在复制之前编辑常见机密和您的主文件夹路径。</string>
+	<key>System</key>
+	<string>系统</string>
+	<key>Technical Details</key>
+	<string>技术细节</string>
+	<key>The Apple code-signing requirement could not be created.</key>
+	<string>无法创建 Apple 代码签名要求。</string>
+	<key>The GPTK source contains a symbolic link outside its import directory.</key>
+	<string>GPTK 源在其导入目录之外包含一个符号链接。</string>
+	<key>The GitHub release information could not be read: %@</key>
+	<string>无法读取GitHub发布信息：%1$@</string>
+	<key>The Steam installer could not be opened. Check Logs for details, then try again.</key>
+	<string>无法打开 Steam 安装程序。检查日志以了解详细信息，然后重试。</string>
+	<key>The Steam installer is open. Follow its steps to finish installation.</key>
+	<string>Steam 安装程序已打开。按照其步骤完成安装。</string>
+	<key>The active runtime could not finish preparing this container; launch will continue and Wine can retry automatically: %@</key>
+	<string>活动运行时未能完成此容器的准备。启动将继续，Wine 可自动重试：%1$@</string>
+	<key>The active runtime is ready.</key>
+	<string>活动运行时已就绪。</string>
+	<key>The active runtime is used by every container.</key>
+	<string>所有容器都使用活动运行时。</string>
+	<key>The app verifies the exact signed runtime made for this version of Switchyard.</key>
+	<string>App 会验证运行时的签名，并确认它与当前 Switchyard 版本完全匹配。</string>
+	<key>The archive does not contain exactly one Switchyard runtime.</key>
+	<string>该存档不包含恰好一个 Switchyard 运行时。</string>
+	<key>The cached Steam installer changed or could not be verified. Download it again from Valve.</key>
+	<string>缓存的 Steam 安装程序已更改或无法验证。从Valve再次下载。</string>
+	<key>The callback reached Wine, but automatic recovery could not be saved: %@</key>
+	<string>回调到达Wine，但自动恢复无法保存：%1$@</string>
+	<key>The clipboard does not contain a supported custom callback URL.</key>
+	<string>剪贴板不包含受支持的自定义回调 URL。</string>
+	<key>The compatibility runtime and Apple's graphics support are ready. You can now install a Windows app.</key>
+	<string>兼容性运行时和 Apple 的图形支持已准备就绪。您现在可以安装 Windows 应用程序。</string>
+	<key>The container folder has no Switchyard manifest: %@</key>
+	<string>容器文件夹没有 Switchyard 清单：%1$@</string>
+	<key>The container folder is missing: %@</key>
+	<string>缺少容器文件夹：%1$@</string>
+	<key>The container folder is outside the active Switchyard library: %@</key>
+	<string>容器文件夹位于活动 Switchyard 库之外：%1$@</string>
+	<key>The disk image did not contain known D3DMetal/GPTK marker files.</key>
+	<string>磁盘映像不包含已知的 D3DMetal/GPTK 标记文件。</string>
+	<key>The download is ready. Switchyard will verify Apple's signature before importing it.</key>
+	<string>下载已准备就绪。 Switchyard在导入之前会验证Apple的签名。</string>
+	<key>The download left the official Valve download service, so Switchyard stopped it.</key>
+	<string>该下载离开了官方Valve下载服务，因此Switchyard停止了它。</string>
+	<key>The download was unexpectedly large, so Switchyard stopped before using it.</key>
+	<string>下载量出乎意料地大，因此 Switchyard 在使用之前停止了。</string>
+	<key>The downloaded file is not a complete Windows Steam installer.</key>
+	<string>下载的文件不是完整的 Windows Steam 安装程序。</string>
+	<key>The downloaded runtime checksum does not match its release manifest.</key>
+	<string>下载的运行时校验和与其发布清单不匹配。</string>
+	<key>The downloaded runtime size does not match its release manifest.</key>
+	<string>下载的运行时大小与其发布清单不匹配。</string>
+	<key>The expected Developer ID signing requirement is invalid.</key>
+	<string>预期的 Developer ID 签名要求无效。</string>
+	<key>The extracted runtime content digest is invalid.</key>
+	<string>提取的运行时内容摘要无效。</string>
+	<key>The extracted runtime does not match the requested release.</key>
+	<string>提取的运行时与请求的版本不匹配。</string>
+	<key>The file is checked and stored only on this Mac.</key>
+	<string>该文件仅在该 Mac 上检查和存储。</string>
+	<key>The first-run container preparation did not finish; the app will still open and Wine can retry automatically: %@</key>
+	<string>首轮容器准备工作未完成；该应用程序仍将打开，并且 Wine 可以自动重试：%1$@</string>
+	<key>The imported runtime did not contain known D3DMetal/GPTK marker files.</key>
+	<string>导入的运行时不包含已知的 D3DMetal/GPTK 标记文件。</string>
+	<key>The installed runtime has no runnable Wine launcher.</key>
+	<string>安装的运行时没有可运行的 Wine 启动程序。</string>
+	<key>The installed runtime manifest is invalid: %@</key>
+	<string>安装的运行时清单无效：%1$@</string>
+	<key>The installer cache contains an unexpected symbolic link.</key>
+	<string>安装程序缓存包含意外的符号链接。</string>
+	<key>The latest Wine release does not include its runtime manifest.</key>
+	<string>最新的 Wine 版本不包括其运行时清单。</string>
+	<key>The latest Wine release points to an untrusted runtime manifest.</key>
+	<string>最新的 Wine 版本指向不受信任的运行时清单。</string>
+	<key>The latest Wine runtime manifest could not be verified: %@</key>
+	<string>无法验证最新的 Wine 运行时清单：%1$@</string>
+	<key>The latest online runtime is not this app version's recommendation. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>最新在线运行时不是此应用版本的推荐版本。你仍可在“Wine 运行时”设置中选择其他已签名的官方版本。</string>
+	<key>The latest online runtime is not yet in this app's verified compatibility policy. A Switchyard release must approve it before installation.</key>
+	<string>最新的在线运行时尚未在此应用程序的已验证兼容性政策中。安装前必须获得 Switchyard 版本的批准。</string>
+	<key>The latest online runtime is outside this app's verified compatibility policy. Update Switchyard to get its current approved runtime before installing.</key>
+	<string>最新的在线运行时不在此 App 验证过的兼容范围内。请先更新 Switchyard，以获取当前批准的运行时。</string>
+	<key>The latest online runtime is the recommended revision for this Switchyard version and can be installed here.</key>
+	<string>最新在线运行时是此 Switchyard 版本的推荐修订版本，可在此安装。</string>
+	<key>The latest online runtime matches this app's verified compatibility policy and can be installed safely.</key>
+	<string>最新的在线运行时符合此应用程序经过验证的兼容性政策，可以安全安装。</string>
+	<key>The log entries shown for %@ will be removed from Switchyard.</key>
+	<string>%1$@ 显示的日志条目将从 Switchyard 中删除。</string>
+	<key>The log entries shown in Switchyard will be removed. Debug run files keep their configured retention period.</key>
+	<string>Switchyard 中显示的日志条目将被删除。调试运行文件保留其配置的保留期。</string>
+	<key>The main runtime download is about 700 MB. Switchyard checks its size, fingerprint, developer signature, and Apple notarization before using it.</key>
+	<string>主要运行时下载约为 700 MB。 Switchyard 在使用前检查其大小、指纹、开发者签名和 Apple 公证。</string>
+	<key>The release metadata is incomplete.</key>
+	<string>发布元数据不完整。</string>
+	<key>The runtime archive contains a symbolic link outside its installation directory.</key>
+	<string>运行时存档在其安装目录之外包含一个符号链接。</string>
+	<key>The runtime archive contains an unsafe entry: %@</key>
+	<string>运行时存档包含不安全条目：%1$@</string>
+	<key>The runtime archive contains no signed macOS executable code.</key>
+	<string>运行时存档不包含签名的 macOS 可执行代码。</string>
+	<key>The runtime archive could not be extracted: %@</key>
+	<string>无法提取运行时存档：%1$@</string>
+	<key>The runtime archive could not be inspected safely: %@</key>
+	<string>无法安全检查运行时存档：%1$@</string>
+	<key>The runtime cache will be deleted. You can download this official release again later.</key>
+	<string>运行时缓存将被删除。以后可以重新下载此官方版本。</string>
+	<key>The runtime code signature is invalid for %@.</key>
+	<string>运行时代码签名对于 %1$@ 无效。</string>
+	<key>The runtime does not include both 32-bit and 64-bit Windows support.</key>
+	<string>运行时不包括 32 位和 64 位 Windows 支持。</string>
+	<key>The runtime download server returned HTTP %lld.</key>
+	<string>运行时下载服务器返回 HTTP %1$lld。</string>
+	<key>The runtime has no valid full-content digest.</key>
+	<string>运行时没有有效的完整内容摘要。</string>
+	<key>The runtime installation lock could not be acquired: %@</key>
+	<string>无法获取运行时安装锁：%1$@</string>
+	<key>The runtime is runnable, but it does not match this version of Switchyard. Install the compatible runtime to continue.</key>
+	<string>运行时可以运行，但与此版本的 Switchyard 不匹配。安装兼容的运行时以继续。</string>
+	<key>The runtime is runnable, but its source identity could not be verified.</key>
+	<string>运行时可以运行，但无法验证其来源身份。</string>
+	<key>The runtime release does not match this app's compatible source revision.</key>
+	<string>运行时版本与此应用程序的兼容源版本不匹配。</string>
+	<key>The runtime release has an unsafe identifier.</key>
+	<string>运行时版本具有不安全的标识符。</string>
+	<key>The runtime release has not been accepted by Apple notarization.</key>
+	<string>该运行时版本尚未获得 Apple 公证。</string>
+	<key>The runtime release is not the supported x86_64 macOS build.</key>
+	<string>运行时版本不是受支持的 x86_64 macOS 版本。</string>
+	<key>The runtime release manifest has an invalid archive checksum.</key>
+	<string>运行时发布清单具有无效的存档校验和。</string>
+	<key>The runtime release manifest has an invalid archive size.</key>
+	<string>运行时发布清单的存档大小无效。</string>
+	<key>The runtime release manifest has an unsafe archive name.</key>
+	<string>运行时发布清单具有不安全的存档名称。</string>
+	<key>The runtime release manifest is invalid: %@</key>
+	<string>运行时发布清单无效：%1$@</string>
+	<key>The runtime release manifest is unexpectedly large.</key>
+	<string>运行时发布清单出乎意料地大。</string>
+	<key>The runtime release manifest must be an official switchyard-wine GitHub release asset.</key>
+	<string>运行时版本清单必须是 switchyard-wine 的官方 GitHub 版本资产。</string>
+	<key>The runtime release manifest must use GitHub over HTTPS.</key>
+	<string>运行时发布清单必须使用 GitHub 而不是 HTTPS。</string>
+	<key>The runtime release was not produced by the expected developer team.</key>
+	<string>运行时版本不是由预期的开发团队制作的。</string>
+	<key>The selected GPTK disk image has not been imported. Use Import Selected GPTK to verify Apple-signed code before mounting it.</key>
+	<string>尚未导入所选的 GPTK 磁盘映像。挂载前，请点按“导入所选 GPTK”以验证其中的代码是否由 Apple 签名。</string>
+	<key>The selected Wine container or runtime is not available.</key>
+	<string>所选的 Wine 容器或运行时不可用。</string>
+	<key>The selected Wine file is not executable, so its source identity cannot be verified.</key>
+	<string>所选的 Wine 文件不可执行，因此无法验证其源身份。</string>
+	<key>The selected Wine runtime does not exist, so its source identity cannot be verified.</key>
+	<string>所选的Wine运行时不存在，因此无法验证其源身份。</string>
+	<key>The selected directory is not a runnable Wine runtime, so its source identity cannot be verified.</key>
+	<string>所选目录不是可运行的 Wine 运行时，因此无法验证其源身份。</string>
+	<key>The selected managed runtime no longer exists.</key>
+	<string>所选托管运行时已不存在。</string>
+	<key>The selected path is not a folder.</key>
+	<string>所选路径不是文件夹。</string>
+	<key>The selected runtime is both the latest online release and the recommended revision for this Switchyard version.</key>
+	<string>所选运行时既是最新在线版本，也是此 Switchyard 版本的推荐修订版本。</string>
+	<key>The selected runtime is both the latest online release and the revision verified for this Switchyard version.</key>
+	<string>所选运行时既是最新的在线版本，也是为此 Switchyard 版本验证的修订版。</string>
+	<key>The standard Windows installer will appear in a moment.</key>
+	<string>标准的 Windows 安装程序很快就会出现。</string>
+	<key>The verified Valve download is ready to install.</key>
+	<string>经过验证的 Valve 下载已准备好安装。</string>
+	<key>There are no visible files in this folder.</key>
+	<string>此文件夹中没有可见文件。</string>
+	<key>These runtimes are in Switchyard's managed cache but do not match the currently loaded official release list.</key>
+	<string>这些运行时位于 Switchyard 的托管缓存中，但与当前加载的官方版本列表不匹配。</string>
+	<key>This Mac</key>
+	<string>这台Mac</string>
+	<key>This Mac is not supported</key>
+	<string>此 Mac 不受支持</string>
+	<key>This Windows installer is ready to open in Switchyard.</key>
+	<string>此 Windows 安装程序已准备好在 Switchyard 中打开。</string>
+	<key>This app build does not contain a published runtime channel.</key>
+	<string>此应用程序版本不包含已发布的运行时通道。</string>
+	<key>This app build does not trust the Developer ID team that signed the runtime.</key>
+	<string>此应用构建不信任签署该运行时的 Developer ID 团队。</string>
+	<key>This app build does not trust the selected official runtime.</key>
+	<string>此应用构建不信任所选官方运行时。</string>
+	<key>This development build has no official Developer ID trust configuration. Release browsing remains available, but downloads are disabled.</key>
+	<string>此开发构建未配置官方 Developer ID 信任设置。仍可浏览版本，但不能下载。</string>
+	<key>This link leaves the container and cannot be browsed in Switchyard.</key>
+	<string>此链接离开容器，无法在 Switchyard 中浏览。</string>
+	<key>This normally takes only a moment.</key>
+	<string>这通常只需要一点时间。</string>
+	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
+	<string>此版本会打开 Apple 的下载页面，以便您可以登录、查看其条款并选择要导入的工具包副本。</string>
+	<key>This runtime has no trusted source revision date for a calendar build number.</key>
+	<string>此运行时没有日历内部版本号的可信源修订日期。</string>
+	<key>Toolkit</key>
+	<string>工具包</string>
+	<key>Try Again</key>
+	<string>再试一次</string>
+	<key>Unavailable</key>
+	<string>不可用</string>
+	<key>Unknown</key>
+	<string>未知</string>
+	<key>Unknown error</key>
+	<string>未知错误</string>
+	<key>Unpinned</key>
+	<string>未固定</string>
+	<key>Unsaved work in Windows apps may be lost. Switchyard needs them closed before changing compatibility files.</key>
+	<string>Windows 应用程序中未保存的工作可能会丢失。 Switchyard 需要在更改兼容性文件之前关闭它们。</string>
+	<key>Unsupported</key>
+	<string>不支持</string>
+	<key>Update Available</key>
+	<string>可用更新</string>
+	<key>Update macOS to continue</key>
+	<string>更新 macOS 以继续</string>
+	<key>Updated %@</key>
+	<string>更新%1$@</string>
+	<key>Use</key>
+	<string>使用</string>
+	<key>Used by every container</key>
+	<string>供所有容器使用</string>
+	<key>Value</key>
+	<string>值</string>
+	<key>Valve's download service did not return a complete installer.</key>
+	<string>Valve的下载服务未返回完整的安装程序。</string>
+	<key>Variable</key>
+	<string>变量</string>
+	<key>Verbose Wine logging</key>
+	<string>详细 Wine 日志记录</string>
+	<key>Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.</key>
+	<string>详细日志模式还会记录 Wine fixme 输出以及指定的 SEH、图形和窗口系统跟踪。日志可能很大，因此界面只分批保留最新 5,000 条记录，受保护的文件则保存完整的运行输出。</string>
+	<key>Verified</key>
+	<string>已验证</string>
+	<key>Verify and Continue</key>
+	<string>验证并继续</string>
+	<key>Verifying and Importing…</key>
+	<string>验证和导入...</string>
+	<key>Version</key>
+	<string>版本</string>
+	<key>Version %@</key>
+	<string>版本 %1$@</string>
+	<key>Version %@ (%@)</key>
+	<string>版本 %1$@ (%2$@)</string>
+	<key>Version Date</key>
+	<string>版本日期</string>
+	<key>Versions &amp; Updates</key>
+	<string>版本与更新</string>
+	<key>View Update</key>
+	<string>查看更新</string>
+	<key>View activity</key>
+	<string>查看活动</string>
+	<key>View all</key>
+	<string>查看全部</string>
+	<key>View all processes</key>
+	<string>查看所有进程</string>
+	<key>Wait for %@ to finish its current action before deleting its container.</key>
+	<string>等待 %1$@ 完成当前操作，然后再删除其容器。</string>
+	<key>Wait for %@ to finish its current session action before starting another executable.</key>
+	<string>等待 %1$@ 完成其当前会话操作，然后再启动另一个可执行文件。</string>
+	<key>Wait for all container activity to stop before changing the active runtime.</key>
+	<string>更改活动运行时前，请等待所有容器任务结束。</string>
+	<key>Wait for all container activity to stop before removing a runtime.</key>
+	<string>移除运行时前，请等待所有容器任务结束。</string>
+	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
+	<string>等待容器文件夹操作完成，然后再恢复登录回调。</string>
+	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>
+	<string>等待当前的 Steam 设置完成，或停止它，然后重试。</string>
+	<key>Warning</key>
+	<string>警告</string>
+	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
+	<string>Switchyard 准备就绪后，可直接打开官方 Windows 版 Steam 安装程序。</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>启用后，启动在受保护的每次运行文件中记录 Wine 错误和警告。文件在 ~/Library/Application Support/Switchyard/Logs/DebugRuns 中省略参数值，并且在 14 天内限制为 50 个日志。</string>
+	<key>Windows Session</key>
+	<string>Windows 会话</string>
+	<key>Windows apps are still running</key>
+	<string>Windows 应用程序仍在运行</string>
+	<key>Windows compatibility files</key>
+	<string>Windows 兼容性文件</string>
+	<key>Windows session active · launch another app without stopping it</key>
+	<string>Windows 会话处于活动状态 · 启动另一个应用程序而不停止它</string>
+	<key>Windows session active · launch more apps</key>
+	<string>Windows 会话处于活动状态·启动更多应用程序</string>
+	<key>Windows support</key>
+	<string>Windows 支持</string>
+	<key>Wine Path</key>
+	<string>Wine 路径</string>
+	<key>Wine Runtime</key>
+	<string>Wine 运行时</string>
+	<key>Wine Runtime Source</key>
+	<string>Wine运行时源</string>
+	<key>Wine could not accept the copied %@: callback.</key>
+	<string>Wine 无法接受复制的 %1$@：回调。</string>
+	<key>Wine executable found at %@.</key>
+	<string>在 %1$@ 中找到 Wine 可执行文件。</string>
+	<key>Wine has not initialized this container yet.</key>
+	<string>Wine 尚未初始化此容器。</string>
+	<key>Wine initialization exited before finishing.</key>
+	<string>Wine 初始化在完成之前退出。</string>
+	<key>Wine processes</key>
+	<string>Wine 进程</string>
+	<key>Wine processes need cleanup</key>
+	<string>Wine 进程需要清理</string>
+	<key>Wine processes need cleanup before this container changes</key>
+	<string>Wine 进程需要在此容器更改之前进行清理</string>
+	<key>Wine processes remain after wineserver exited</key>
+	<string>Wine 进程在 wineserver 退出后仍保留</string>
+	<key>Wine processes remain after wineserver exited. Stop this session before changing its folder.</key>
+	<string>Wine 进程在 wineserver 退出后仍保留。在更改其文件夹之前停止此会话。</string>
+	<key>Wine processes stopped for this container.</key>
+	<string>Wine 进程已为此容器停止。</string>
+	<key>Wine runtime preparation exited before finishing.</key>
+	<string>Wine 运行时准备尚未完成便已退出。</string>
+	<key>configured executable</key>
+	<string>配置的可执行文件</string>
+	<key>container override or inherited</key>
+	<string>容器覆盖或继承</string>
+	<key>ditto failed</key>
+	<string>ditto 失败</string>
+	<key>empty</key>
+	<string>空的</string>
+	<key>hdiutil did not report a mounted volume.</key>
+	<string>hdiutil 未报告已安装的卷。</string>
+	<key>hdiutil exited with status %d</key>
+	<string>hdiutil 已退出，状态代码为 %1$d。</string>
+	<key>hdiutil returned an unexpected plist.</key>
+	<string>hdiutil 返回了意外的 plist。</string>
+	<key>hdiutil timed out while mounting the disk image.</key>
+	<string>hdiutil 装载磁盘映像时超时。</string>
+	<key>macOS 14 or later</key>
+	<string>macOS 14 或更高版本</string>
+	<key>macOS Version</key>
+	<string>macOS版本</string>
+	<key>standard</key>
+	<string>标准</string>
+	<key>switchyard-runner helper was not found in the app bundle or build directory.</key>
+	<string>在应用程序包或构建目录中找不到 switchyard-runner 帮助程序。</string>
+	<key>switchyard-shortcut-handler was not found in the app bundle or build directory.</key>
+	<string>在应用程序包或构建目录中找不到 switchyard-shortcut-handler。</string>
+	<key>switchyard-url-handler was not found in the app bundle or build directory.</key>
+	<string>在应用程序包或构建目录中找不到 switchyard-url-handler。</string>
+	<key>unknown</key>
+	<string>未知</string>
+	<key>unknown profile</key>
+	<string>未知配置</string>
+	<key>unrecorded repository</key>
+	<string>未记录的存储库</string>
+	<key>verbose</key>
+	<string>详细</string>
+	<key>wineserver could not be stopped (exit code %d).</key>
+	<string>wineserver 无法停止（退出代码 %1$d）。</string>
+	<key>wineserver could not be stopped (exit code %d): %@</key>
+	<string>wineserver 无法停止（退出代码 %1$d）：%2$@</string>
+	<key>zipinfo failed</key>
+	<string>zipinfo 失败</string>
+</dict>
+</plist>

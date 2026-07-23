@@ -8,8 +8,14 @@ enum RosettaInstallerError: LocalizedError {
         switch self {
         case .cancelledOrFailed(let detail):
             detail.isEmpty
-                ? "Rosetta 2 was not installed. Try again, or ask your Mac administrator if this Mac is managed."
-                : "Rosetta 2 was not installed: \(detail)"
+                ? String(
+                    localized: "Rosetta 2 was not installed. Try again, or ask your Mac administrator if this Mac is managed.",
+                    bundle: SwitchyardStrings.bundle
+                )
+                : String(
+                    localized: "Rosetta 2 was not installed: \(detail)",
+                    bundle: SwitchyardStrings.bundle
+                )
         }
     }
 }

@@ -80,7 +80,10 @@ public enum OfficialRuntimeReleaseError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case .untrustedDeveloperTeam:
-            "This app build does not trust the Developer ID team that signed the runtime."
+            String(
+                localized: "This app build does not trust the Developer ID team that signed the runtime.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }
@@ -177,7 +180,10 @@ public struct OnlineReleaseCatalog: Sendable {
         guard let appSummary = app.summary,
               let runtimeSummary = runtime.summary else {
             throw OnlineReleaseCatalogError.invalidReleaseResponse(
-                "A published release is missing its publication date."
+                String(
+                    localized: "A published release is missing its publication date.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
         }
         guard let manifestURL = runtime.assets.first(where: {
@@ -236,7 +242,10 @@ public struct OnlineReleaseCatalog: Sendable {
         }
         guard !loaded.isEmpty || candidates.isEmpty else {
             throw OnlineReleaseCatalogError.invalidRuntimeManifest(
-                "No published runtime manifest could be loaded."
+                String(
+                    localized: "No published runtime manifest could be loaded.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
         }
         return loaded
@@ -290,7 +299,10 @@ public struct OnlineReleaseCatalog: Sendable {
         }
         guard let summary = response.summary else {
             throw OnlineReleaseCatalogError.invalidReleaseResponse(
-                "A published runtime release is missing its publication date."
+                String(
+                    localized: "A published release is missing its publication date.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
         }
         guard let manifestURL = response.assets.first(where: {
@@ -327,7 +339,12 @@ public struct OnlineReleaseCatalog: Sendable {
             throw OnlineReleaseCatalogError.invalidRuntimeManifest(error.localizedDescription)
         }
         guard Self.isPlausibleRuntimeManifest(release) else {
-            throw OnlineReleaseCatalogError.invalidRuntimeManifest("The release metadata is incomplete.")
+            throw OnlineReleaseCatalogError.invalidRuntimeManifest(
+                String(
+                    localized: "The release metadata is incomplete.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
         }
         return release
     }
@@ -423,21 +440,36 @@ public enum OnlineReleaseCatalogError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalidHTTPResponse:
-            return "GitHub returned an invalid response."
+            return String(localized: "GitHub returned an invalid response.", bundle: SwitchyardStrings.bundle)
         case .httpFailure(let statusCode):
-            return "GitHub returned HTTP \(statusCode)."
+            return String(localized: "GitHub returned HTTP \(statusCode).", bundle: SwitchyardStrings.bundle)
         case .responseTooLarge:
-            return "GitHub returned release metadata that was too large."
+            return String(
+                localized: "GitHub returned release metadata that was too large.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .invalidReleaseResponse(let message):
-            return "The GitHub release information could not be read: \(message)"
+            return String(
+                localized: "The GitHub release information could not be read: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
         case .untrustedReleaseURL:
-            return "GitHub returned an untrusted release link."
+            return String(localized: "GitHub returned an untrusted release link.", bundle: SwitchyardStrings.bundle)
         case .runtimeManifestMissing:
-            return "A Wine release does not include its runtime manifest."
+            return String(
+                localized: "A Wine release does not include its runtime manifest.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .untrustedRuntimeManifestURL:
-            return "A Wine release points to an untrusted runtime manifest."
+            return String(
+                localized: "A Wine release points to an untrusted runtime manifest.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .invalidRuntimeManifest(let message):
-            return "A Wine runtime manifest could not be verified: \(message)"
+            return String(
+                localized: "A Wine runtime manifest could not be verified: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }

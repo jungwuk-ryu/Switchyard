@@ -68,9 +68,15 @@ public struct OpenFontPackDownloadResult: Codable, Equatable, Sendable {
 
     public var summary: String {
         if downloadedFonts.isEmpty {
-            return "Open Font Pack is already cached with \(cachedFonts.count) font files."
+            return String(
+                localized: "Open Font Pack is already cached with \(cachedFonts.count) font files.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
-        return "Downloaded \(downloadedFonts.count) Open Font Pack font file(s); \(cachedFonts.count) file(s) were already cached."
+        return String(
+            localized: "Downloaded \(downloadedFonts.count) Open Font Pack font file(s); \(cachedFonts.count) file(s) were already cached.",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 }
 
@@ -192,13 +198,19 @@ public enum OpenFontPackCatalog {
         if missing.isEmpty {
             return OpenFontPackStatus(
                 status: .ok,
-                message: "Open Font Pack is cached and ready for container installation."
+                message: String(
+                    localized: "Open Font Pack is cached and ready for container installation.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
         }
 
         return OpenFontPackStatus(
             status: .warning,
-            message: "Open Font Pack is missing \(missing.count) OFL font file(s). Switchyard will try to download them automatically.",
+            message: String(
+                localized: "Open Font Pack is missing \(missing.count) OFL font file(s). Switchyard will try to download them automatically.",
+                bundle: SwitchyardStrings.bundle
+            ),
             missingFonts: missing.map(\.displayName)
         )
     }
@@ -315,9 +327,15 @@ public enum OpenFontPackError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .downloadFailed(let fontName):
-            return "Could not download \(fontName)."
+            return String(
+                localized: "Could not download \(fontName).",
+                bundle: SwitchyardStrings.bundle
+            )
         case .checksumMismatch(let fontName, let expected, let actual):
-            return "\(fontName) checksum mismatch. Expected \(expected), got \(actual)."
+            return String(
+                localized: "\(fontName) checksum mismatch. Expected \(expected), got \(actual).",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }

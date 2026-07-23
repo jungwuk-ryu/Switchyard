@@ -227,7 +227,10 @@ private struct ContainerLibraryRow: View {
                 Text(
                     container.executablePath.map {
                         ContainerPathPresentation.relativePath(for: $0, in: container)
-                    } ?? "Choose a Windows application"
+                    } ?? String(
+                        localized: "Choose a Windows application",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -242,7 +245,10 @@ private struct ContainerLibraryRow: View {
                     .font(.callout)
                     .foregroundStyle(container.status.health.tint)
 
-                Text(container.lastRun.map { switchyardDateFormatter.string(from: $0) } ?? "Never run")
+                Text(
+                    container.lastRun.map { switchyardDateFormatter.string(from: $0) }
+                        ?? String(localized: "Never run", bundle: SwitchyardStrings.bundle)
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -264,7 +270,13 @@ private struct RuntimeStatusStrip: View {
         HStack(spacing: 10) {
             StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
             StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
-            StatusBadge(status: store.runtimeStatus.patchset, label: "Runtime Source")
+            StatusBadge(
+                status: store.runtimeStatus.patchset,
+                label: String(
+                    localized: "Runtime Source",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
 
             Divider()
                 .frame(height: 20)

@@ -456,7 +456,7 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
         gptk: HealthStatus = .unknown,
         wine: HealthStatus = .unknown,
         patchset: HealthStatus = .unknown,
-        summary: String = "Runtime has not been checked yet.",
+        summary: String? = nil,
         gptkFingerprint: String? = nil
     ) {
         self.architecture = architecture
@@ -466,6 +466,10 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
         self.wine = wine
         self.patchset = patchset
         self.summary = summary
+            ?? String(
+                localized: "Runtime has not been checked yet.",
+                bundle: SwitchyardStrings.bundle
+            )
         self.gptkFingerprint = gptkFingerprint
     }
 

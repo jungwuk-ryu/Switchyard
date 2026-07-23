@@ -13,11 +13,16 @@ private enum ContainerDashboardSection: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .dashboard: "Dashboard"
-        case .applications: "Applications"
-        case .files: "Files"
-        case .activity: "Activity"
-        case .settings: "Settings"
+        case .dashboard:
+            String(localized: "Dashboard", bundle: SwitchyardStrings.bundle)
+        case .applications:
+            String(localized: "Applications", bundle: SwitchyardStrings.bundle)
+        case .files:
+            String(localized: "Files", bundle: SwitchyardStrings.bundle)
+        case .activity:
+            String(localized: "Activity", bundle: SwitchyardStrings.bundle)
+        case .settings:
+            String(localized: "Settings", bundle: SwitchyardStrings.bundle)
         }
     }
 }
@@ -109,7 +114,13 @@ struct ContainerDashboardView: View {
 
                 StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
                 StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
-                StatusBadge(status: store.runtimeStatus.patchset, label: "Runtime Source")
+                StatusBadge(
+                    status: store.runtimeStatus.patchset,
+                    label: String(
+                        localized: "Runtime Source",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                )
 
                 Button("Re-run Diagnostics") {
                     store.refreshRuntimeStatus()
@@ -315,13 +326,18 @@ struct ContainerDashboardView: View {
     private var containerSummary: String {
         switch store.sessionSnapshot(for: container.id).wineServerState {
         case .active:
-            "Windows session active · launch more apps"
+            String(
+                localized: "Windows session active · launch more apps",
+                bundle: SwitchyardStrings.bundle
+            )
         case .orphaned:
-            "Wine processes need cleanup"
+            String(localized: "Wine processes need cleanup", bundle: SwitchyardStrings.bundle)
         case .checking:
-            "Checking Windows session"
+            String(localized: "Checking Windows session", bundle: SwitchyardStrings.bundle)
         case .inactive, .unavailable:
-            container.executablePath?.isEmpty == false ? "Ready to launch" : "Choose an application"
+            container.executablePath?.isEmpty == false
+                ? String(localized: "Ready to launch", bundle: SwitchyardStrings.bundle)
+                : String(localized: "Choose an application", bundle: SwitchyardStrings.bundle)
         }
     }
 
@@ -380,7 +396,17 @@ private struct ProgramHeroView: View {
                 HStack(spacing: 8) {
                     Text(
                         program?.presentationName
-                            ?? (isSteamStarterContainer ? "Finish setting up Steam" : "Choose an application")
+                            ?? (
+                                isSteamStarterContainer
+                                    ? String(
+                                        localized: "Finish setting up Steam",
+                                        bundle: SwitchyardStrings.bundle
+                                    )
+                                    : String(
+                                        localized: "Choose an application",
+                                        bundle: SwitchyardStrings.bundle
+                                    )
+                            )
                     )
                         .font(.title.weight(.semibold))
                         .lineLimit(1)
@@ -408,8 +434,14 @@ private struct ProgramHeroView: View {
                 } else {
                     Text(
                         isSteamStarterContainer
-                            ? "Continue in the same private container; Switchyard will not create a duplicate."
-                            : "Installed Windows applications will appear here after setup."
+                            ? String(
+                                localized: "Continue in the same private container; Switchyard will not create a duplicate.",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                            : String(
+                                localized: "Installed Windows applications will appear here after setup.",
+                                bundle: SwitchyardStrings.bundle
+                            )
                     )
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -457,8 +489,23 @@ private struct ProgramHeroView: View {
                         .frame(minWidth: 150)
                     } else {
                         Label(
-                            program.map { "Launch \($0.presentationName)" }
-                                ?? (isSteamStarterContainer ? "Continue Steam Setup" : "Install or Run App…"),
+                            program.map {
+                                String(
+                                    localized: "Launch \($0.presentationName)",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                            }
+                                ?? (
+                                    isSteamStarterContainer
+                                        ? String(
+                                            localized: "Continue Steam Setup",
+                                            bundle: SwitchyardStrings.bundle
+                                        )
+                                        : String(
+                                            localized: "Install or Run App…",
+                                            bundle: SwitchyardStrings.bundle
+                                        )
+                                ),
                             systemImage: "play.fill"
                         )
                         .frame(minWidth: 150)
@@ -502,12 +549,26 @@ private struct ProgramHeroView: View {
     private var launchHint: String {
         switch store.sessionSnapshot(for: container.id).wineServerState {
         case .active:
-            "Add another app to the running Windows session"
+            String(
+                localized: "Add another app to the running Windows session",
+                bundle: SwitchyardStrings.bundle
+            )
         case .orphaned:
-            "Remaining Wine processes will be cleaned up before launch"
+            String(
+                localized: "Remaining Wine processes will be cleaned up before launch",
+                bundle: SwitchyardStrings.bundle
+            )
         case .checking, .inactive, .unavailable:
-            program.map { "Start \($0.presentationName) in this container" }
-                ?? "Choose or drop a Windows .exe or .msi file"
+            program.map {
+                String(
+                    localized: "Start \($0.presentationName) in this container",
+                    bundle: SwitchyardStrings.bundle
+                )
+            }
+                ?? String(
+                    localized: "Choose or drop a Windows .exe or .msi file",
+                    bundle: SwitchyardStrings.bundle
+                )
         }
     }
 }
@@ -536,7 +597,14 @@ private struct InstalledProgramShelf: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(recentPrograms.isEmpty ? "Installed Programs" : "Programs")
+                Text(
+                    recentPrograms.isEmpty
+                        ? String(
+                            localized: "Installed Programs",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                        : String(localized: "Programs", bundle: SwitchyardStrings.bundle)
+                )
                     .font(.headline)
                 Spacer()
 
@@ -599,7 +667,17 @@ private struct InstalledProgramShelf: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            Button(store.isContainerRunning(container.id) ? "Launch Alongside" : "Launch") {
+                            Button(
+                                store.isContainerRunning(container.id)
+                                    ? String(
+                                        localized: "Launch Alongside",
+                                        bundle: SwitchyardStrings.bundle
+                                    )
+                                    : String(
+                                        localized: "Launch",
+                                        bundle: SwitchyardStrings.bundle
+                                    )
+                            ) {
                                 selectedProgramID = entry.program.id
                                 store.runInstalledProgram(entry.program, in: container.id)
                             }

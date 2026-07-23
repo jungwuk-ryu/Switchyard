@@ -25,9 +25,15 @@ public struct ContainerFontInstallResult: Codable, Equatable, Sendable {
 
     public var summary: String {
         if let skippedReason {
-            return "Open fonts skipped: \(skippedReason)"
+            return String(
+                localized: "Open fonts skipped: \(skippedReason)",
+                bundle: SwitchyardStrings.bundle
+            )
         }
-        return "Open fonts ready: \(installedFonts.count) copied, \(reusedFonts.count) already present, \(registeredReplacements) family replacements registered."
+        return String(
+            localized: "Open fonts ready: \(installedFonts.count) copied, \(reusedFonts.count) already present, \(registeredReplacements) family replacements registered.",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 }
 
@@ -39,11 +45,20 @@ public enum ContainerFontInstallerError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .missingCachedFont(let fontName, let path):
-            return "\(fontName) is missing from the Open Font Pack cache: \(path)"
+            return String(
+                localized: "\(fontName) is missing from the Open Font Pack cache: \(path)",
+                bundle: SwitchyardStrings.bundle
+            )
         case .invalidCachedFont(let fontName, let expected, let actual):
-            return "\(fontName) in the Open Font Pack cache failed checksum validation. Expected \(expected), got \(actual)."
+            return String(
+                localized: "\(fontName) in the Open Font Pack cache failed checksum validation. Expected \(expected), got \(actual).",
+                bundle: SwitchyardStrings.bundle
+            )
         case .invalidContainerPath(let path):
-            return "Container path is empty or invalid: \(path)"
+            return String(
+                localized: "Container path is empty or invalid: \(path)",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }
@@ -79,7 +94,10 @@ public struct ContainerFontInstaller {
                 reusedFonts: [],
                 registeredFontEntries: 0,
                 registeredReplacements: 0,
-                skippedReason: "Wine has not initialized this container yet."
+                skippedReason: String(
+                    localized: "Wine has not initialized this container yet.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
         }
 

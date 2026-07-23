@@ -29,11 +29,15 @@ struct RuntimeBuildSummaryView: View {
     }
 
     private var versionLabel: String {
-        runtime.buildNumber.map { "Build \($0)" } ?? "Build Not Available"
+        runtime.buildNumber.map {
+            String(localized: "Build \($0)", bundle: SwitchyardStrings.bundle)
+        } ?? String(localized: "Build Not Available", bundle: SwitchyardStrings.bundle)
     }
 
     private var versionDateLabel: String {
-        guard let versionDate = runtime.versionDate else { return "Not available" }
+        guard let versionDate = runtime.versionDate else {
+            return String(localized: "Not available", bundle: SwitchyardStrings.bundle)
+        }
 
         let formatter = DateFormatter()
         formatter.locale = .current
@@ -50,13 +54,24 @@ struct RuntimeBuildTechnicalDetailsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            technicalValue("Runtime ID", runtime.id)
-            technicalValue("Patch Set", runtime.patchsetID)
             technicalValue(
-                "Source Revision",
-                runtime.sourceRevision.isEmpty ? "Unpinned" : runtime.sourceRevision
+                String(localized: "Runtime ID", bundle: SwitchyardStrings.bundle),
+                runtime.id
             )
-            technicalValue("Executable", runtime.winePath)
+            technicalValue(
+                String(localized: "Patch Set", bundle: SwitchyardStrings.bundle),
+                runtime.patchsetID
+            )
+            technicalValue(
+                String(localized: "Source Revision", bundle: SwitchyardStrings.bundle),
+                runtime.sourceRevision.isEmpty
+                    ? String(localized: "Unpinned", bundle: SwitchyardStrings.bundle)
+                    : runtime.sourceRevision
+            )
+            technicalValue(
+                String(localized: "Executable", bundle: SwitchyardStrings.bundle),
+                runtime.winePath
+            )
         }
     }
 

@@ -1,0 +1,1468 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ Notices: %@</key>
+	<string>%1$@ 通知: %2$@</string>
+	<key>%@ Runtime %@, source %@.</key>
+	<string>%1$@ ランタイム %2$@、ソース %3$@。</string>
+	<key>%@ Setup</key>
+	<string>%1$@ セットアップ</string>
+	<key>%@ Source %@.</key>
+	<string>%1$@ ソース %2$@。</string>
+	<key>%@ checksum mismatch. Expected %@, got %@.</key>
+	<string>%1$@ チェックサムが一致しません。 %2$@ を期待していましたが、%3$@ を取得しました。</string>
+	<key>%@ contains GPTK markers, but its executable code is not fully Apple-signed: %@</key>
+	<string>%1$@ には GPTK マーカーが含まれていますが、その実行可能コードは完全に Apple 署名されていません: %2$@</string>
+	<key>%@ exists, but no known D3DMetal/GPTK marker files were found.</key>
+	<string>%1$@ は存在しますが、既知の D3DMetal/GPTK マーカー ファイルが見つかりませんでした。</string>
+	<key>%@ icon</key>
+	<string>%1$@ アイコン</string>
+	<key>%@ in the Open Font Pack cache failed checksum validation. Expected %@, got %@.</key>
+	<string>オープンフォントパック キャッシュの %1$@ がチェックサム検証に失敗しました。 %2$@ を期待していましたが、%3$@ を取得しました。</string>
+	<key>%@ is already running</key>
+	<string>%1$@ はすでに実行されています</string>
+	<key>%@ is missing from the Open Font Pack cache: %@</key>
+	<string>%1$@ が オープンフォントパック キャッシュにありません: %2$@</string>
+	<key>%@ is now the active app-wide runtime.</key>
+	<string>%1$@ をアプリ全体のアクティブなランタイムに設定しました。</string>
+	<key>%@ was removed from Switchyard, but its folder was already missing.</key>
+	<string>%1$@ は Switchyard から削除されましたが、そのフォルダーはすでに見つかりませんでした。</string>
+	<key>%@ · %@ · source %@</key>
+	<string>%1$@ · %2$@ · ソース %3$@</string>
+	<key>%@, %@</key>
+	<string>%1$@、%2$@</string>
+	<key>%lld</key>
+	<string>%1$lld</string>
+	<key>%lld Windows applications found in this container</key>
+	<string>このコンテナ内で %1$lld Windows アプリケーションが見つかりました</string>
+	<key>%lld entries</key>
+	<string>%1$lld エントリ</string>
+	<key>%lld high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled.</key>
+	<string>%1$lld大量のログエントリはライブビューから除外され、開発者ログが有効化されている場合でも、保護された実行ごとのデバッグログは完全な出力を保持します。</string>
+	<key>%lld more items</key>
+	<string>ほか %1$lld 項目</string>
+	<key>1. Open Apple's download page</key>
+	<string>1. Appleのダウンロードページを開きます</string>
+	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
+	<string>2. サインインして、最新の Game Porting Toolkit .dmg をダウンロードします。</string>
+	<key>3. Return here — Switchyard will find it automatically</key>
+	<string>3. ここに戻ります — Switchyard が自動的に見つけます</string>
+	<key>A Wine release does not include its runtime manifest.</key>
+	<string>Wine リリースにランタイムマニフェストが含まれていません。</string>
+	<key>A Wine release points to an untrusted runtime manifest.</key>
+	<string>Wine リリースが信頼できないランタイムマニフェストを参照しています。</string>
+	<key>A Wine runtime manifest could not be verified: %@</key>
+	<string>Wine ランタイムマニフェストを検証できませんでした：%1$@</string>
+	<key>A different GPTK import already exists at the immutable destination.</key>
+	<string>別の GPTK インポートが不変の宛先にすでに存在します。</string>
+	<key>A different runtime already exists at the immutable release destination.</key>
+	<string>不変のリリース先には、別のランタイムがすでに存在します。</string>
+	<key>A guided setup with safe defaults</key>
+	<string>安全なデフォルトを使用したガイド付きセットアップ</string>
+	<key>A newer Switchyard release recommends the latest runtime. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>新しい Switchyard リリースでは最新のランタイムが推奨されています。署名済みのほかの公式バージョンは「Wine ランタイム」設定から選択できます。</string>
+	<key>A published release is missing its publication date.</key>
+	<string>公開済みリリースに公開日がありません。</string>
+	<key>Accept and Install</key>
+	<string>同意してインストールする</string>
+	<key>Accept and Install Rosetta 2</key>
+	<string>Rosetta 2 を受け入れてインストールします</string>
+	<key>Active</key>
+	<string>使用中</string>
+	<key>Active Runtime</key>
+	<string>使用中のランタイム</string>
+	<key>Active Wine Runtime</key>
+	<string>使用中の Wine ランタイム</string>
+	<key>Activity</key>
+	<string>アクティビティ</string>
+	<key>Add</key>
+	<string>追加</string>
+	<key>Add Container</key>
+	<string>コンテナを追加</string>
+	<key>Add another app to the running Windows session</key>
+	<string>実行中の Windows セッションに別のアプリを追加します</string>
+	<key>Advanced</key>
+	<string>詳細</string>
+	<key>Advanced Options</key>
+	<string>詳細オプション</string>
+	<key>All</key>
+	<string>すべて</string>
+	<key>All Applications</key>
+	<string>すべてのアプリ</string>
+	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
+	<string>%1$@ 内のすべての Windows アプリが終了します。保存されていない作業内容は失われる可能性があります。</string>
+	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
+	<string>約 5 ～ 15 分かかり、約 1 GB の空き容量が必要になります。ダウンロード時間は接続によって異なります。</string>
+	<key>Another runtime installation is already in progress.</key>
+	<string>別のランタイムのインストールがすでに進行中です。</string>
+	<key>Any remaining Windows processes for %@ will be stopped before its folder is moved to Trash.</key>
+	<string>%1$@ の残りの Windows プロセスは、フォルダーがゴミ箱に移動される前に停止されます。</string>
+	<key>App Update Required</key>
+	<string>アプリのアップデートが必要です</string>
+	<key>Apple Silicon</key>
+	<string>Apple Silicon</string>
+	<key>Apple compatibility support</key>
+	<string>Apple互換性サポート</string>
+	<key>Apple graphics</key>
+	<string>Apple グラフィックス</string>
+	<key>Apple graphics support</key>
+	<string>Apple グラフィックスのサポート</string>
+	<key>Apple's support for Intel-based apps is installed.</key>
+	<string>Apple の Intel ベースのアプリのサポートがインストールされています。</string>
+	<key>Apple-signed GPTK code and markers found: %@.</key>
+	<string>Apple 署名付き GPTK コードとマーカーが見つかりました: %1$@。</string>
+	<key>Application</key>
+	<string>アプリ</string>
+	<key>Applications</key>
+	<string>アプリ</string>
+	<key>Back</key>
+	<string>戻る</string>
+	<key>Back to Containers</key>
+	<string>コンテナに戻る</string>
+	<key>Build %@</key>
+	<string>ビルド %1$@</string>
+	<key>Build Not Available</key>
+	<string>ビルドは利用できません</string>
+	<key>Build not available</key>
+	<string>ビルドは利用できません</string>
+	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
+	<string>カレンダーのビルド番号は、固定されたソース リビジョン時刻 (UTC) を使用するため、後の番号は新しいランタイムを示します。</string>
+	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
+	<string>コールバックURLとサインイントークンは、保護された一時ファイルでのみ受け渡され、保存もログ記録もされません。</string>
+	<key>Cancel</key>
+	<string>キャンセル</string>
+	<key>Cancel Download</key>
+	<string>ダウンロードのキャンセル</string>
+	<key>Check Failed</key>
+	<string>チェックに失敗しました</string>
+	<key>Check for Releases</key>
+	<string>リリースを確認</string>
+	<key>Check this Mac, the selected runtime, and the latest online releases again</key>
+	<string>この Mac、選択したランタイム、最新のオンライン リリースを再度確認してください</string>
+	<key>Checked Online</key>
+	<string>オンラインで確認済み</string>
+	<key>Checking</key>
+	<string>チェック中</string>
+	<key>Checking Mac</key>
+	<string>Macをチェックする</string>
+	<key>Checking Online</key>
+	<string>オンラインで確認する</string>
+	<key>Checking Windows session</key>
+	<string>Windows セッションを確認しています</string>
+	<key>Checking and importing the Apple download…</key>
+	<string>Apple ダウンロードを確認してインポートしています…</string>
+	<key>Checking current configuration</key>
+	<string>現在の構成を確認する</string>
+	<key>Checking latest online releases</key>
+	<string>最新のオンライン リリースを確認する</string>
+	<key>Checking running applications…</key>
+	<string>実行中のアプリケーションを確認しています…</string>
+	<key>Checking the latest GitHub release…</key>
+	<string>最新の GitHub リリースを確認しています…</string>
+	<key>Checking the latest GitHub runtime…</key>
+	<string>最新の GitHub ランタイムを確認しています…</string>
+	<key>Checking this Mac and online releases</key>
+	<string>この Mac とオンライン リリースを確認する</string>
+	<key>Checking this Mac…</key>
+	<string>このMacをチェック中…</string>
+	<key>Choose Downloaded File…</key>
+	<string>ダウンロードしたファイルを選択してください…</string>
+	<key>Choose Game Porting Toolkit</key>
+	<string>Game Porting Toolkit を選択してください</string>
+	<key>Choose Windows App…</key>
+	<string>Windows アプリを選択してください…</string>
+	<key>Choose a GPTK disk image before importing.</key>
+	<string>インポートする前に、GPTK ディスク イメージを選択してください。</string>
+	<key>Choose a Windows app or installer (.exe or .msi) to open in %@.</key>
+	<string>%1$@ で開く Windows アプリまたはインストーラー (.exe または .msi) を選択します。</string>
+	<key>Choose a Windows application</key>
+	<string>Windowsアプリを選択</string>
+	<key>Choose a Windows executable for this container before running.</key>
+	<string>実行する前に、このコンテナーの Windows 実行可能ファイルを選択してください。</string>
+	<key>Choose a Windows installer or app. Switchyard keeps it inside this container.</key>
+	<string>Windows インストーラーまたはアプリを選択します。 Switchyard はそれをこのコンテナー内に保持します。</string>
+	<key>Choose a Wine executable or Switchyard Wine runtime folder, then run diagnostics.</key>
+	<string>Wine 実行可能ファイルまたは Switchyard Wine ランタイム フォルダーを選択し、診断を実行します。</string>
+	<key>Choose a Wine executable or a Wine runtime folder.</key>
+	<string>Wine 実行可能ファイルまたは Wine ランタイム フォルダーを選択します。</string>
+	<key>Choose a Wine executable or runtime folder manually.</key>
+	<string>Wine 実行可能ファイルまたはランタイム フォルダーを手動で選択します。</string>
+	<key>Choose a local GPTK directory or disk image.</key>
+	<string>ローカルの GPTK ディレクトリまたはディスク イメージを選択します。</string>
+	<key>Choose a locally built Wine executable or runtime folder.</key>
+	<string>ローカルでビルドした Wine 実行ファイルまたはランタイムフォルダを選択してください。</string>
+	<key>Choose an .exe or .msi file, or drop one onto this container</key>
+	<string>.exe または .msi ファイルを選択するか、このコンテナにファイルをドロップします</string>
+	<key>Choose an application</key>
+	<string>アプリケーションを選択してください</string>
+	<key>Choose an existing Windows .exe or .msi file.</key>
+	<string>既存の Windows .exe または .msi ファイルを選択します。</string>
+	<key>Choose or drop a Windows .exe or .msi file</key>
+	<string>Windows .exe または .msi ファイルを選択またはドロップします</string>
+	<key>Choose the Game Porting Toolkit .dmg file you downloaded from Apple.</key>
+	<string>Apple からダウンロードした Game Porting Toolkit .dmg ファイルを選択します。</string>
+	<key>Choose the Switchyard storage folder.</key>
+	<string>Switchyard ストレージ フォルダーを選択します。</string>
+	<key>Choose the Windows application that requested the %@: sign-in.</key>
+	<string>%1$@: サインインを要求した Windows アプリケーションを選択します。</string>
+	<key>Choose the Windows executable to run by default in this container.</key>
+	<string>このコンテナーでデフォルトで実行する Windows 実行可能ファイルを選択します。</string>
+	<key>Choose where Switchyard stores containers and manifests.</key>
+	<string>Switchyard がコンテナーとマニフェストを保存する場所を選択します。</string>
+	<key>Choose your local Apple Game Porting Toolkit installation.</key>
+	<string>このMacにインストールしたApple Game Porting Toolkitを選択してください。</string>
+	<key>Choose...</key>
+	<string>選択してください...</string>
+	<key>Cleanup needed</key>
+	<string>クリーンアップが必要です</string>
+	<key>Clear</key>
+	<string>消去</string>
+	<key>Clear Activity</key>
+	<string>アクティビティをクリアする</string>
+	<key>Clear Logs</key>
+	<string>ログをクリアする</string>
+	<key>Clear all logs?</key>
+	<string>すべてのログをクリアしますか?</string>
+	<key>Clear this container's activity?</key>
+	<string>このコンテナのアクティビティをクリアしますか?</string>
+	<key>Clicking Install opens Apple's Rosetta installer and accepts Apple's Rosetta software license. macOS handles any approval that is required.</key>
+	<string>「インストール」をクリックすると、Apple の Rosetta インストーラーが開き、Apple の Rosetta ソフトウェア ライセンスに同意します。 macOS は、必要な承認を処理します。</string>
+	<key>Close Windows apps to continue</key>
+	<string>続行するには、Windows アプリを閉じてください</string>
+	<key>Closing Windows apps and waiting for wineserver to exit</key>
+	<string>Windows アプリを閉じて、wineserver が終了するのを待ちます</string>
+	<key>Command plan could not be serialized for the runner.</key>
+	<string>switchyard-runner 用のコマンドプランをシリアル化できませんでした。</string>
+	<key>Comparison unavailable</key>
+	<string>比較できません</string>
+	<key>Compatibility</key>
+	<string>互換性</string>
+	<key>Compatibility Pending</key>
+	<string>互換性保留中</string>
+	<key>Compatibility files cannot be changed while a Windows app is still running.</key>
+	<string>Windows アプリの実行中は、互換性ファイルを変更できません。</string>
+	<key>Compatible</key>
+	<string>互換性のある</string>
+	<key>Container Files</key>
+	<string>コンテナファイル</string>
+	<key>Container Path</key>
+	<string>コンテナパス</string>
+	<key>Container Record</key>
+	<string>コンテナ情報</string>
+	<key>Container Settings</key>
+	<string>コンテナの設定</string>
+	<key>Container Setup</key>
+	<string>コンテナのセットアップ</string>
+	<key>Container Template</key>
+	<string>コンテナテンプレート</string>
+	<key>Container names cannot be empty.</key>
+	<string>コンテナ名を空にすることはできません。</string>
+	<key>Container path is empty or invalid: %@</key>
+	<string>コンテナパスが空か無効です: %1$@</string>
+	<key>Containers</key>
+	<string>コンテナ</string>
+	<key>Containers and portable manifests stay in this user-selected folder. Runtime caches and logs remain in their documented user-local locations.</key>
+	<string>コンテナーとポータブル マニフェストは、ユーザーが選択したこのフォルダーに残ります。実行時のキャッシュとログは、文書化されたユーザーのローカルの場所に残ります。</string>
+	<key>Continue Setup</key>
+	<string>セットアップを続行する</string>
+	<key>Continue Steam Setup</key>
+	<string>Steam セットアップを続行</string>
+	<key>Continue in the same private container; Switchyard will not create a duplicate.</key>
+	<string>同じプライベートコンテナ内で続行します。 Switchyard は重複を作成しません。</string>
+	<key>Continuing Steam Setup…</key>
+	<string>Steam セットアップを続行しています…</string>
+	<key>Copy Diagnostic Bundle</key>
+	<string>診断バンドルのコピー</string>
+	<key>Copy Filtered Logs</key>
+	<string>フィルタリングされたログをコピーする</string>
+	<key>Copy Redacted</key>
+	<string>機密情報を伏せてコピー</string>
+	<key>Copy diagnostic bundle?</key>
+	<string>診断バンドルをコピーしますか?</string>
+	<key>Copy filtered logs?</key>
+	<string>絞り込んだログをコピーしますか？</string>
+	<key>Copy the invalid callback address from Safari before recovering it.</key>
+	<string>無効なコールバック アドレスを回復する前に、Safari からコピーしてください。</string>
+	<key>Could not choose a safe macOS desktop name for %@.</key>
+	<string>%1$@ の安全な macOS デスクトップ名を選択できませんでした。</string>
+	<key>Could not create a temporary download file.</key>
+	<string>一時ダウンロードファイルを作成できませんでした。</string>
+	<key>Could not create debug log directory %@: %@</key>
+	<string>デバッグ ログ ディレクトリ %1$@ を作成できませんでした: %2$@</string>
+	<key>Could not download %@.</key>
+	<string>%1$@をダウンロードできませんでした。</string>
+	<key>Could not import GPTK disk image: %@</key>
+	<string>GPTK ディスク イメージをインポートできませんでした: %1$@</string>
+	<key>Could not inspect this Wine runtime for an existing prefix session; launching without stopping it.</key>
+	<string>この Wine ランタイムの既存のプレフィックス セッションを検査できませんでした。止めずに起動します。</string>
+	<key>Could not install %@: %@</key>
+	<string>%1$@ をインストールできませんでした：%2$@</string>
+	<key>Could not install the compatible runtime: %@</key>
+	<string>互換性のあるランタイムをインストールできませんでした: %1$@</string>
+	<key>Could not lock %@ for a safe folder rename: %@</key>
+	<string>安全なフォルダー名変更のために %1$@ をロックできませんでした: %2$@</string>
+	<key>Could not open the Apple Developer download page.</key>
+	<string>Apple Developer ダウンロード ページを開けませんでした。</string>
+	<key>Could not prepare Open Font Pack: %@</key>
+	<string>オープンフォントパック を準備できませんでした: %1$@</string>
+	<key>Could not prepare container: %@</key>
+	<string>コンテナを準備できませんでした: %1$@</string>
+	<key>Could not recheck that %@ remained idle, so its folder was not renamed.</key>
+	<string>%1$@ がアイドル状態のままであることを再確認できなかったため、そのフォルダーの名前が変更されませんでした。</string>
+	<key>Could not register the generated macOS handler for the %@ URL scheme (status %d).</key>
+	<string>生成された macOS ハンドラーを %1$@ URL スキームに登録できませんでした (ステータス %2$d)。</string>
+	<key>Could not remove the runtime: %@</key>
+	<string>ランタイムを削除できませんでした：%1$@</string>
+	<key>Could not rename %@: %@</key>
+	<string>%1$@ の名前を変更できませんでした: %2$@</string>
+	<key>Could not save container manifest: %@</key>
+	<string>コンテナマニフェストを保存できませんでした: %1$@</string>
+	<key>Could not sign the generated macOS handler for the %@ URL scheme.</key>
+	<string>%1$@ URL スキーム用に生成された macOS ハンドラーに署名できませんでした。</string>
+	<key>Could not sign the generated macOS shortcut for %@.</key>
+	<string>%1$@ に対して生成された macOS ショートカットに署名できませんでした。</string>
+	<key>Could not stop %@ safely and move it to Trash: %@</key>
+	<string>%1$@ を安全に停止してゴミ箱に移動できませんでした: %2$@</string>
+	<key>Could not stop Wine processes: %@</key>
+	<string>Wine プロセスを停止できませんでした: %1$@</string>
+	<key>Could not trust this official runtime: %@</key>
+	<string>この公式ランタイムを信頼できません：%1$@</string>
+	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
+	<string>%1$@ がアイドル状態であることを確認できなかったため、そのフォルダーの名前は変更されませんでした。</string>
+	<key>Create a private space for a Windows app</key>
+	<string>Windows アプリのプライベート スペースを作成する</string>
+	<key>Create an Empty Container</key>
+	<string>空のコンテナを作成</string>
+	<key>Created a native macOS desktop shortcut for %@.</key>
+	<string>%1$@ のネイティブ macOS デスクトップ ショートカットを作成しました。</string>
+	<key>Current</key>
+	<string>現在</string>
+	<key>Dashboard</key>
+	<string>概要</string>
+	<key>Debug</key>
+	<string>デバッグ</string>
+	<key>Debug run logging enabled (profile=%@, WINEDEBUG=%@, file: %@). The live view is batched and retains its latest %lld entries; this file retains the complete run output.</key>
+	<string>デバッグ実行ログが有効になっています (プロファイル=%1$@、WINEDEBUG=%2$@、ファイル: %3$@)。ライブ ビューはバッチ処理され、最新の %4$lld エントリが保持されます。このファイルには完全な実行出力が保持されます。</string>
+	<key>Default</key>
+	<string>デフォルト</string>
+	<key>Default Application</key>
+	<string>デフォルトのアプリケーション</string>
+	<key>Default Executable</key>
+	<string>デフォルトの実行可能ファイル</string>
+	<key>Detected macOS %@.</key>
+	<string>macOS %1$@ が検出されました。</string>
+	<key>Developer logging</key>
+	<string>開発者のログ記録</string>
+	<key>Development Runtime</key>
+	<string>開発用ランタイム</string>
+	<key>Development build</key>
+	<string>開発ビルド</string>
+	<key>Diagnostics</key>
+	<string>診断</string>
+	<key>Different build recorded</key>
+	<string>異なるビルドが記録されました</string>
+	<key>Download</key>
+	<string>ダウンロード</string>
+	<key>Download Steam</key>
+	<string>Steam をダウンロード</string>
+	<key>Download and switch between signed Switchyard Wine releases.</key>
+	<string>署名済みの Switchyard Wine リリースをダウンロードして切り替えます。</string>
+	<key>Download could not finish</key>
+	<string>ダウンロードを完了できませんでした</string>
+	<key>Download found</key>
+	<string>ダウンロードが見つかりました</string>
+	<key>Download from Apple</key>
+	<string>Appleからダウンロード</string>
+	<key>Download the newest Game Porting Toolkit disk image, then return to Switchyard.</key>
+	<string>最新の Game Porting Toolkit ディスク イメージをダウンロードし、Switchyard に戻ります。</string>
+	<key>Download the selected runtime before making it active.</key>
+	<string>選択したランタイムをダウンロードしてから使用してください。</string>
+	<key>Download, verify, and select the latest runtime supported by this Switchyard version</key>
+	<string>この Switchyard バージョンでサポートされている最新のランタイムをダウンロード、確認、選択します</string>
+	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
+	<string>%1$lld オープンフォントパック フォント ファイルをダウンロードしました。 %2$lld ファイルはすでにキャッシュされています。</string>
+	<key>Downloading and verifying about 700 MB…</key>
+	<string>約700MBをダウンロードして確認中…</string>
+	<key>Downloading open-licensed fonts…</key>
+	<string>オープンライセンスのフォントをダウンロードしています…</string>
+	<key>Downloading securely from Valve…</key>
+	<string>Valve から安全にダウンロードしています…</string>
+	<key>Downloading the Windows installer securely from Valve…</key>
+	<string>Valve から Windows インストーラーを安全にダウンロードしています…</string>
+	<key>Downloading, validating, and installing the selected official runtime…</key>
+	<string>選択した公式ランタイムをダウンロード、検証、インストールしています…</string>
+	<key>Downloading, validating, and installing the signed runtime…</key>
+	<string>署名付きランタイムをダウンロード、検証、インストールしています…</string>
+	<key>Empty Folder</key>
+	<string>空のフォルダー</string>
+	<key>Environment Overrides</key>
+	<string>環境オーバーライド</string>
+	<key>Environment variable name is invalid or reserved: %@.</key>
+	<string>環境変数名が無効または予約されています: %1$@。</string>
+	<key>Error</key>
+	<string>エラー</string>
+	<key>Executable</key>
+	<string>実行ファイル</string>
+	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
+	<string>外部 Wine ランタイムが選択されましたが、Switchyard マニフェストがないため、固定されたソース リビジョンに対して検証できません。</string>
+	<key>External Wine runtime selected; no source revision policy was requested.</key>
+	<string>外部 Wine ランタイムが選択されました。ソース リビジョン ポリシーは要求されませんでした。</string>
+	<key>Failed</key>
+	<string>失敗しました</string>
+	<key>Files</key>
+	<string>ファイル</string>
+	<key>Finding the Windows application waiting for the %@: callback…</key>
+	<string>%1$@: コールバックを待機している Windows アプリケーションを見つけています…</string>
+	<key>Finish Setting Up Switchyard</key>
+	<string>Switchyard のセットアップを完了する</string>
+	<key>Finish Switchyard setup before installing Steam.</key>
+	<string>Steam をインストールする前に、Switchyard のセットアップを完了してください。</string>
+	<key>Finish Without Steam</key>
+	<string>Steam なしで終了</string>
+	<key>Finish installing Steam…</key>
+	<string>Steam のインストールを終了します…</string>
+	<key>Finish setting up Steam</key>
+	<string>Steam のセットアップを完了する</string>
+	<key>Finish setup before creating a container</key>
+	<string>コンテナを作成する前にセットアップを完了してください</string>
+	<key>Finish the remaining setup step before completing setup.</key>
+	<string>セットアップを完了する前に、残りのセットアップ手順を完了してください。</string>
+	<key>Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.</key>
+	<string>標準の Steam インストーラーを終了します。 Switchyard は Steam を検出し、自動的に続行します。</string>
+	<key>First app</key>
+	<string>最初のアプリ</string>
+	<key>Folder Unavailable</key>
+	<string>フォルダーが使用できません</string>
+	<key>Fonts for Korean, Japanese, and other languages</key>
+	<string>韓国語、日本語、その他の言語のフォント</string>
+	<key>Forwarding the %@: callback to Wine…</key>
+	<string>%1$@: コールバックを Wine に転送しています…</string>
+	<key>Found %@; importing it into the local cache…</key>
+	<string>%1$@ が見つかりました。ローカルキャッシュにインポート中…</string>
+	<key>GPTK</key>
+	<string>GPTK</string>
+	<key>GPTK executable code has an invalid Apple signature: %@.</key>
+	<string>GPTK 実行可能コードには無効な Apple 署名があります: %1$@。</string>
+	<key>GPTK import completed.</key>
+	<string>GPTK インポートが完了しました。</string>
+	<key>Game Porting Toolkit</key>
+	<string>Game Porting Toolkit</string>
+	<key>General</key>
+	<string>一般</string>
+	<key>Get Apple's graphics support</key>
+	<string>Apple のグラフィックス サポートを利用する</string>
+	<key>GitHub returned HTTP %lld.</key>
+	<string>GitHub は HTTP %1$lld を返しました。</string>
+	<key>GitHub returned an invalid response.</key>
+	<string>GitHub が無効な応答を返しました。</string>
+	<key>GitHub returned an untrusted release link.</key>
+	<string>GitHub は信頼できないリリース リンクを返しました。</string>
+	<key>GitHub returned release metadata that was too large.</key>
+	<string>GitHub から返されたリリース メタデータが大きすぎました。</string>
+	<key>Idle</key>
+	<string>アイドル状態</string>
+	<key>If Safari says the address is invalid after signing in, press Command-L and Command-C in Safari, then recover the copied callback here.</key>
+	<string>サインイン後に Safari でアドレスが無効であると表示された場合は、Safari で Command-L キーと Command-C キーを押して、ここでコピーしたコールバックを復元します。</string>
+	<key>Import</key>
+	<string>インポート</string>
+	<key>Import Downloaded GPTK</key>
+	<string>ダウンロード済みのインポート GPTK</string>
+	<key>Import Selected GPTK</key>
+	<string>選択した GPTK をインポート</string>
+	<key>Import Selected Toolkit</key>
+	<string>選択したツールキットをインポート</string>
+	<key>Imported Apple-signed GPTK code into Switchyard's local cache.</key>
+	<string>Apple 署名付き GPTK コードを Switchyard のローカル キャッシュにインポートしました。</string>
+	<key>Imported Entry</key>
+	<string>読み込んだ項目</string>
+	<key>Imported and verified</key>
+	<string>インポートおよび検証済み</string>
+	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
+	<string>旧形式のマニフェストから読み込まれたため、正確な使用日時は記録されていません。</string>
+	<key>Info</key>
+	<string>情報</string>
+	<key>Initializing this Windows container before its first app opens.</key>
+	<string>最初のアプリが開く前に、この Windows コンテナを初期化します。</string>
+	<key>Inspecting the Wine prefix</key>
+	<string>Wine プレフィックスの検査</string>
+	<key>Install Apple's compatibility support</key>
+	<string>Apple の互換性サポートをインストールする</string>
+	<key>Install Latest Runtime</key>
+	<string>最新のランタイムをインストールする</string>
+	<key>Install Open Font Pack</key>
+	<string>オープンフォントパックをインストールする</string>
+	<key>Install Rosetta 2</key>
+	<string>Rosetta 2をインストールする</string>
+	<key>Install Rosetta 2?</key>
+	<string>Rosetta 2 をインストールしますか?</string>
+	<key>Install Steam</key>
+	<string>Steamをインストールする</string>
+	<key>Install Steam for Windows</key>
+	<string>Windows に Steam をインストールする</string>
+	<key>Install Your First Windows App</key>
+	<string>最初の Windows アプリをインストールする</string>
+	<key>Install an official Switchyard runtime, then run diagnostics.</key>
+	<string>公式の Switchyard ランタイムをインストールしてから診断を実行してください。</string>
+	<key>Install or Run App…</key>
+	<string>アプリをインストールまたは実行…</string>
+	<key>Install or Run a Windows App</key>
+	<string>Windows アプリをインストールまたは実行する</string>
+	<key>Install or Update Compatible Runtime</key>
+	<string>互換性のあるランタイムのインストールまたは更新</string>
+	<key>Install or choose a Windows application to see it here.</key>
+	<string>ここで表示するには、Windows アプリケーションをインストールまたは選択します。</string>
+	<key>Install your first Windows app</key>
+	<string>最初の Windows アプリをインストールする</string>
+	<key>Installed</key>
+	<string>インストール済み</string>
+	<key>Installed %@.</key>
+	<string>%1$@ をインストールしました。</string>
+	<key>Installed Programs</key>
+	<string>インストールされているプログラム</string>
+	<key>Installed Windows applications will appear here after setup.</key>
+	<string>インストールされた Windows アプリケーションは、セットアップ後にここに表示されます。</string>
+	<key>Installed and verified</key>
+	<string>インストールおよび検証済み</string>
+	<key>Installed compatible runtime %@.</key>
+	<string>互換性のあるランタイム %1$@ がインストールされています。</string>
+	<key>Installing Compatible Runtime…</key>
+	<string>互換性のあるランタイムをインストールしています…</string>
+	<key>Installing Rosetta 2…</key>
+	<string>Rosetta 2 をインストールしています…</string>
+	<key>Installing…</key>
+	<string>インストール中…</string>
+	<key>Keep the Windows game open while recovering its copied login callback.</key>
+	<string>コピーされたログイン コールバックを回復している間、Windows ゲームを開いたままにします。</string>
+	<key>Last Runtime Use</key>
+	<string>前回使用したランタイム</string>
+	<key>Last checked %@</key>
+	<string>最終チェック日 %1$@</string>
+	<key>Last known online: %@ · %@</key>
+	<string>最後にオンラインで確認されたもの: %1$@ · %2$@</string>
+	<key>Last known online: %@ · source %@</key>
+	<string>最後にオンラインで確認されたもの: %1$@ · ソース %2$@</string>
+	<key>Last launched %@</key>
+	<string>前回の起動：%1$@</string>
+	<key>Last used with active build</key>
+	<string>現在のビルドで前回使用</string>
+	<key>Last used with another build</key>
+	<string>別のビルドで前回使用</string>
+	<key>Last-used GPTK</key>
+	<string>前回使用した GPTK</string>
+	<key>Last-used Patch Set</key>
+	<string>前回使用したパッチセット</string>
+	<key>Last-used Runtime ID</key>
+	<string>前回使用したランタイム ID</string>
+	<key>Last-used Source</key>
+	<string>前回使用したソース</string>
+	<key>Latest Online</key>
+	<string>最新のオンライン</string>
+	<key>Latest online release not available</key>
+	<string>最新のオンライン リリースは利用できません</string>
+	<key>Latest online runtime not available</key>
+	<string>最新のオンライン ランタイムは利用できません</string>
+	<key>Latest online: %@ · %@</key>
+	<string>最新オンライン: %1$@ · %2$@</string>
+	<key>Latest online: %@ · source %@</key>
+	<string>最新のオンライン: %1$@ · ソース %2$@</string>
+	<key>Launch</key>
+	<string>起動</string>
+	<key>Launch %@</key>
+	<string>%1$@ を起動</string>
+	<key>Launch Alongside</key>
+	<string>同時に起動</string>
+	<key>Launch Arguments</key>
+	<string>起動引数</string>
+	<key>Launch alongside the running Windows apps</key>
+	<string>実行中の Windows アプリと一緒に起動します</string>
+	<key>Launch an application to start this container's Windows session.</key>
+	<string>アプリケーションを起動して、このコンテナの Windows セッションを開始します。</string>
+	<key>Launch behavior and advanced compatibility options for %@.</key>
+	<string>%1$@ の起動動作と高度な互換性オプション。</string>
+	<key>Launch command started through switchyard-runner: executable=%@ argumentCount=%lld</key>
+	<string>switchyard-runner を通じて開始された起動コマンド: executable=%1$@ argumentCount=%2$lld</string>
+	<key>Launch this Windows app</key>
+	<string>この Windows アプリを起動します</string>
+	<key>Launches and container events will appear here.</key>
+	<string>起動とコンテナ イベントがここに表示されます。</string>
+	<key>Learned Schemes</key>
+	<string>検出済み URL スキーム</string>
+	<key>Level</key>
+	<string>レベル</string>
+	<key>Loading files…</key>
+	<string>ファイルをロード中…</string>
+	<key>Local Development Runtime</key>
+	<string>ローカル開発用ランタイム</string>
+	<key>Local paths bypass the official release catalog but must still match this development build's pinned source revision.</key>
+	<string>ローカルパスは公式リリースカタログを経由しませんが、この開発ビルドに固定されたソースリビジョンと一致する必要があります。</string>
+	<key>Location</key>
+	<string>場所</string>
+	<key>Login Callback</key>
+	<string>ログインコールバック</string>
+	<key>Login callback recovery was cancelled because the container folder is changing.</key>
+	<string>コンテナ フォルダが変更中であるため、ログイン コールバックの回復がキャンセルされました。</string>
+	<key>Login callback recovery was cancelled.</key>
+	<string>ログイン コールバックの回復がキャンセルされました。</string>
+	<key>Logs</key>
+	<string>ログ</string>
+	<key>Mac check</key>
+	<string>マックチェック</string>
+	<key>Mac support</key>
+	<string>Macのサポート</string>
+	<key>Make Default</key>
+	<string>デフォルトにする</string>
+	<key>Matches active build</key>
+	<string>アクティブなビルドと一致します</string>
+	<key>Missing</key>
+	<string>不足</string>
+	<key>Modified</key>
+	<string>修正済み</string>
+	<key>More Container Actions</key>
+	<string>その他のコンテナアクション</string>
+	<key>Move Container to Trash</key>
+	<string>コンテナをゴミ箱に入れる</string>
+	<key>Move Container to Trash?</key>
+	<string>コンテナをゴミ箱に入れますか？</string>
+	<key>Move to Trash</key>
+	<string>ゴミ箱に入れる</string>
+	<key>Moved %@ to Trash.</key>
+	<string>%1$@ をゴミ箱に移動しました。</string>
+	<key>Name</key>
+	<string>名前</string>
+	<key>Needs Attention</key>
+	<string>注意が必要です</string>
+	<key>Needs Setup</key>
+	<string>セットアップが必要です</string>
+	<key>Needs another try</key>
+	<string>もう一度試す必要があります</string>
+	<key>Never run</key>
+	<string>実行履歴なし</string>
+	<key>New App Recommended</key>
+	<string>アプリのアップデートを推奨</string>
+	<key>New Container</key>
+	<string>新規コンテナ</string>
+	<key>Newer Build</key>
+	<string>新しいビルド</string>
+	<key>No Apple-signed GPTK executable code was found.</key>
+	<string>Apple 署名付き GPTK 実行可能コードが見つかりませんでした。</string>
+	<key>No GPTK path has been selected.</key>
+	<string>GPTK パスが選択されていません。</string>
+	<key>No Game Porting Toolkit disk image was found in Downloads.</key>
+	<string>ダウンロードに Game Porting Toolkit ディスク イメージが見つかりませんでした。</string>
+	<key>No Matching Logs</key>
+	<string>一致するログがありません</string>
+	<key>No Programs Found</key>
+	<string>プログラムが見つかりませんでした</string>
+	<key>No Recent Activity</key>
+	<string>最近のアクティビティはありません</string>
+	<key>No Windows applications are running</key>
+	<string>Windows アプリケーションが実行されていません</string>
+	<key>No Wine runtime has been selected. Expected Switchyard runtime cache under %@ or %@.</key>
+	<string>Wine ランタイムが選択されていません。 %1$@ または %2$@ の下に Switchyard ランタイム キャッシュが必要です。</string>
+	<key>No Wine runtime is available to verify against the pinned Switchyard Wine source.</key>
+	<string>固定された Switchyard Wine ソースに対して検証できる Wine ランタイムはありません。</string>
+	<key>No Wine runtime selected</key>
+	<string>Wine ランタイムが選択されていません</string>
+	<key>No application details available</key>
+	<string>アプリケーションの詳細はありません</string>
+	<key>No eligible official runtime releases were found.</key>
+	<string>利用可能な公式ランタイムリリースが見つかりませんでした。</string>
+	<key>No environment overrides.</key>
+	<string>環境の上書きはありません。</string>
+	<key>No published runtime manifest could be loaded.</key>
+	<string>公開済みのランタイムマニフェストを読み込めませんでした。</string>
+	<key>Not Now</key>
+	<string>今はしない</string>
+	<key>Not Recommended</key>
+	<string>非推奨</string>
+	<key>Not available</key>
+	<string>利用できません</string>
+	<key>Not checked in this session</key>
+	<string>このセッションではチェックされていません</string>
+	<key>Not recorded</key>
+	<string>記録なし</string>
+	<key>Not selected</key>
+	<string>未選択</string>
+	<key>Not used yet</key>
+	<string>未使用</string>
+	<key>OK</key>
+	<string>OK</string>
+	<key>Official Releases</key>
+	<string>公式リリース</string>
+	<key>One more step</key>
+	<string>もう一歩</string>
+	<key>Online Unknown</key>
+	<string>オンライン不明</string>
+	<key>Online check failed: %@</key>
+	<string>オンラインチェックに失敗しました: %1$@</string>
+	<key>Only .dmg disk images can be imported automatically.</key>
+	<string>自動的にインポートできるのは、.dmg ディスク イメージのみです。</string>
+	<key>Only the Switchyard-managed runtime cache will be deleted.</key>
+	<string>Switchyard が管理するランタイムキャッシュだけが削除されます。</string>
+	<key>Open</key>
+	<string>開く</string>
+	<key>Open All Logs</key>
+	<string>すべてのログを開く</string>
+	<key>Open Folder</key>
+	<string>フォルダーを開く</string>
+	<key>Open Font Pack</key>
+	<string>オープンフォントパック</string>
+	<key>Open Font Pack could not be prepared; continuing launch without additional font fallback: %@</key>
+	<string>オープンフォントパック を準備できませんでした。追加のフォント フォールバックなしで起動を続行: %1$@</string>
+	<key>Open Font Pack is already cached with %lld font files.</key>
+	<string>オープンフォントパック は、すでに %1$lld フォント ファイルとともにキャッシュされています。</string>
+	<key>Open Font Pack is cached and ready for container installation.</key>
+	<string>オープンフォントパック はキャッシュされており、コンテナーをインストールする準備ができています。</string>
+	<key>Open Font Pack is missing %lld OFL font file(s). Switchyard will try to download them automatically.</key>
+	<string>オープンフォントパック には、%1$lld OFL フォント ファイルがありません。 Switchyard はそれらを自動的にダウンロードしようとします。</string>
+	<key>Open Font Pack registration was skipped while this Windows session is active.</key>
+	<string>この Windows セッションがアクティブである間、オープンフォントパック 登録はスキップされました。</string>
+	<key>Open GPTK Settings</key>
+	<string>GPTK 設定を開く</string>
+	<key>Open Logs</key>
+	<string>ログを開く</string>
+	<key>Open Settings</key>
+	<string>設定を開く</string>
+	<key>Open Wine Settings</key>
+	<string>Wine 設定を開く</string>
+	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
+	<string>オープン フォントの準備ができました: %1$lld がコピーされ、%2$lld はすでに存在し、%3$lld ファミリの代替が登録されています。</string>
+	<key>Open fonts skipped: %@</key>
+	<string>スキップされたオープンフォント: %1$@</string>
+	<key>Open in Finder</key>
+	<string>Finderで開く</string>
+	<key>Open the latest Switchyard release on GitHub</key>
+	<string>GitHub で最新の Switchyard リリースを開きます</string>
+	<key>Opening the Steam installer…</key>
+	<string>Steam インストーラーを開いています…</string>
+	<key>Optional launch arguments</key>
+	<string>オプションの起動引数</string>
+	<key>Optional — Switchyard will try again before launch</key>
+	<string>オプション — Switchyard は起動前に再試行します</string>
+	<key>Other Managed Runtimes</key>
+	<string>その他の管理対象ランタイム</string>
+	<key>Patch Set</key>
+	<string>パッチセット</string>
+	<key>Path</key>
+	<string>パス</string>
+	<key>Preparing Windows support</key>
+	<string>Windows サポートを準備しています</string>
+	<key>Preparing a place for Steam…</key>
+	<string>Steam の場所を準備しています…</string>
+	<key>Preparing automatically…</key>
+	<string>自動的に準備しています…</string>
+	<key>Preparing this Windows container for the active Switchyard runtime.</key>
+	<string>アクティブな Switchyard ランタイム向けにこの Windows コンテナを準備しています。</string>
+	<key>Press Return or leave the field to rename the container and its folder</key>
+	<string>Return キーを押すか、フィールドを離れてコンテナとそのフォルダの名前を変更します。</string>
+	<key>Process details are temporarily unavailable.</key>
+	<string>プロセスの詳細は一時的に利用できなくなります。</string>
+	<key>Processes</key>
+	<string>プロセス</string>
+	<key>Program Group</key>
+	<string>プログラムグループ</string>
+	<key>Programs</key>
+	<string>プログラム</string>
+	<key>Queued</key>
+	<string>キューに入れられました</string>
+	<key>Re-run All Checks</key>
+	<string>すべてのチェックを再実行する</string>
+	<key>Re-run Diagnostics</key>
+	<string>診断を再実行する</string>
+	<key>Re-run Runtime Diagnostics</key>
+	<string>ランタイム診断を再実行する</string>
+	<key>Ready</key>
+	<string>準備完了</string>
+	<key>Ready and matched to this version of Switchyard.</key>
+	<string>準備が整い、Switchyard のこのバージョンに一致します。</string>
+	<key>Ready for the next application</key>
+	<string>次のアプリケーションの準備ができました</string>
+	<key>Ready to begin</key>
+	<string>始める準備完了</string>
+	<key>Ready to launch</key>
+	<string>起動準備完了</string>
+	<key>Ready to launch Windows executables in Switchyard containers.</key>
+	<string>Switchyard コンテナーで Windows 実行可能ファイルを起動する準備ができました。</string>
+	<key>Recent</key>
+	<string>最近の</string>
+	<key>Recent Activity</key>
+	<string>最近の活動</string>
+	<key>Recent Files</key>
+	<string>最近のファイル</string>
+	<key>Recently Launched</key>
+	<string>最近起動した項目</string>
+	<key>Recommended</key>
+	<string>推奨</string>
+	<key>Recorded %@.</key>
+	<string>%1$@ に記録。</string>
+	<key>Recorded GPTK</key>
+	<string>記録済みGPTK</string>
+	<key>Recorded Patch Set</key>
+	<string>記録済みパッチセット</string>
+	<key>Recorded Runtime ID</key>
+	<string>記録済みランタイムID</string>
+	<key>Recover Copied Callback</key>
+	<string>コピーされたコールバックを回復する</string>
+	<key>Recover Copied Login Callback</key>
+	<string>コピーされたログインコールバックを復元する</string>
+	<key>Recovered the %@: callback for %@.</key>
+	<string>%1$@: %2$@ のコールバックを回復しました。</string>
+	<key>Recovered the %@: callback. Future sign-ins can return automatically.</key>
+	<string>%1$@: コールバックを回復しました。今後のサインインは自動的に戻ることができます。</string>
+	<key>Refresh</key>
+	<string>更新</string>
+	<key>Refresh Windows Session</key>
+	<string>Windows セッションを更新</string>
+	<key>Refusing to move %@ to Trash because its path is outside Switchyard storage or has no Switchyard manifest.</key>
+	<string>パスがSwitchyardの保存領域外にあるか、Switchyardマニフェストがないため、%1$@をゴミ箱に入れられません。</string>
+	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
+	<string>Wine URL スキームの macOS コールバック ブリッジを登録しました: %1$@</string>
+	<key>Remaining Wine processes will be cleaned up before launch</key>
+	<string>残りの Wine プロセスは起動前にクリーンアップされます</string>
+	<key>Remove %@</key>
+	<string>%1$@ を削除</string>
+	<key>Remove %@?</key>
+	<string>%1$@ を削除しますか？</string>
+	<key>Remove Runtime</key>
+	<string>ランタイムを削除</string>
+	<key>Remove Variable</key>
+	<string>変数の削除</string>
+	<key>Remove this inactive managed runtime</key>
+	<string>この非アクティブな管理対象ランタイムを削除</string>
+	<key>Remove this inactive runtime</key>
+	<string>この非アクティブなランタイムを削除</string>
+	<key>Remove this managed runtime?</key>
+	<string>この管理対象ランタイムを削除しますか？</string>
+	<key>Removed %@. It can be downloaded again later.</key>
+	<string>%1$@ を削除しました。後で再ダウンロードできます。</string>
+	<key>Removed a stale macOS desktop shortcut for %@.</key>
+	<string>%1$@ の古い macOS デスクトップ ショートカットを削除しました。</string>
+	<key>Removed duplicate container entries that pointed to an already-used folder: %@.</key>
+	<string>すでに使用されているフォルダー %1$@ を指す重複したコンテナー エントリを削除しました。</string>
+	<key>Removed reserved environment variable: %@.</key>
+	<string>予約された環境変数: %1$@ が削除されました。</string>
+	<key>Removing the selected inactive runtime…</key>
+	<string>選択した非アクティブなランタイムを削除しています…</string>
+	<key>Renamed %@ and its folder to %@.</key>
+	<string>%1$@ とそのフォルダーの名前を %2$@ に変更しました。</string>
+	<key>Renderer</key>
+	<string>レンダラー</string>
+	<key>Required</key>
+	<string>必須</string>
+	<key>Reset Cached Setup State</key>
+	<string>キャッシュされたセットアップ状態をリセット</string>
+	<key>Resolve missing runtime components before running Windows executables.</key>
+	<string>Windows 実行可能ファイルを実行する前に、不足しているランタイム コンポーネントを解決してください。</string>
+	<key>Resolved Wine selection to executable: %@</key>
+	<string>Wine の選択を実行可能ファイルに解決しました: %1$@</string>
+	<key>Responding normally</key>
+	<string>正常に応答します</string>
+	<key>Restart</key>
+	<string>再起動</string>
+	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
+	<string>再起動すると、ゲームやインストーラを含む、このコンテナ内のすべてのWindowsプロセスが終了します。新しい状態で再起動しますか？</string>
+	<key>Rosetta 2</key>
+	<string>Rosetta 2</string>
+	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
+	<string>Rosetta 2 は、Apple Silicon Mac にのみインストールできます。</string>
+	<key>Rosetta 2 is available only on Apple Silicon Macs.</key>
+	<string>Rosetta 2 は、Apple Silicon Mac でのみ使用できます。</string>
+	<key>Rosetta 2 is required for the Windows compatibility runtime.</key>
+	<string>Rosetta 2 は、Windows 互換ランタイムに必要です。</string>
+	<key>Rosetta 2 lets this Apple Silicon Mac open the Intel-based part of the Windows runtime.</key>
+	<string>Rosetta 2 を使用すると、この Apple Silicon Mac で Windows ランタイムの Intel ベースの部分を開くことができます。</string>
+	<key>Rosetta 2 was not installed. Try again, or ask your Mac administrator if this Mac is managed.</key>
+	<string>Rosetta 2 がインストールされていませんでした。もう一度試すか、この Mac が管理されているかどうか Mac 管理者に問い合わせてください。</string>
+	<key>Rosetta 2 was not installed: %@</key>
+	<string>Rosetta 2 がインストールされていません: %1$@</string>
+	<key>Rosetta was not installed</key>
+	<string>ロゼッタはインストールされていませんでした</string>
+	<key>Run</key>
+	<string>実行</string>
+	<key>Run .exe or .msi in %@</key>
+	<string>%1$@ で .exe または .msi を実行します</string>
+	<key>Run Container</key>
+	<string>コンテナの実行</string>
+	<key>Run Windows apps without learning Windows setup tools</key>
+	<string>Windows セットアップ ツールを学習せずに Windows アプリを実行する</string>
+	<key>Run diagnostics, launch a Windows executable, or change the current filters.</key>
+	<string>診断を実行するか、Windows 実行可能ファイルを起動するか、現在のフィルターを変更します。</string>
+	<key>Runner exited with code %@.</key>
+	<string>switchyard-runner が終了コード %1$@ で終了しました。</string>
+	<key>Runner stopped at the user's request.</key>
+	<string>ユーザーの操作により switchyard-runner を停止しました。</string>
+	<key>Running</key>
+	<string>実行中</string>
+	<key>Running Windows applications could not be inspected (exit code %d).</key>
+	<string>実行中の Windows アプリケーションを検査できませんでした (終了コード %1$d)。</string>
+	<key>Running on %@.</key>
+	<string>%1$@ で実行されています。</string>
+	<key>Running…</key>
+	<string>実行中…</string>
+	<key>Runtime</key>
+	<string>ランタイム</string>
+	<key>Runtime ID</key>
+	<string>ランタイムID</string>
+	<key>Runtime Management</key>
+	<string>ランタイム管理</string>
+	<key>Runtime Scope</key>
+	<string>ランタイムの適用範囲</string>
+	<key>Runtime Source</key>
+	<string>ランタイムソース</string>
+	<key>Runtime Version</key>
+	<string>ランタイムバージョン</string>
+	<key>Runtime has not been checked yet.</key>
+	<string>ランタイムはまだチェックしていません。</string>
+	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
+	<string>このコンテナで初めて Wine を使用すると、ランタイムの来歴が記録されます。</string>
+	<key>Runtime release manifest version %lld is unsupported.</key>
+	<string>ランタイム リリース マニフェスト バージョン %1$lld はサポートされていません。</string>
+	<key>Runtime source verified at %@ revision %@.</key>
+	<string>ランタイム ソースは %1$@ リビジョン %2$@ で検証されました。</string>
+	<key>Safe, matching runtime</key>
+	<string>検証済みの互換ランタイム</string>
+	<key>Search logs</key>
+	<string>ログを検索</string>
+	<key>Select another active runtime before removing this one.</key>
+	<string>このランタイムを削除する前に、別のランタイムをアクティブにしてください。</string>
+	<key>Selected</key>
+	<string>選択済み</string>
+	<key>Selected %@ as the active app-wide runtime.</key>
+	<string>%1$@ をアプリ全体のアクティブなランタイムに設定しました。</string>
+	<key>Selected GPTK path does not exist.</key>
+	<string>選択された GPTK パスは存在しません。</string>
+	<key>Selected GPTK path is not a directory or supported .dmg disk image.</key>
+	<string>選択した GPTK パスは、ディレクトリまたはサポートされている .dmg ディスク イメージではありません。</string>
+	<key>Selected Wine Runtime</key>
+	<string>選択された Wine ランタイム</string>
+	<key>Selected Wine directory exists, but no executable wine or wine64 was found in expected locations: %@.</key>
+	<string>選択した Wine ディレクトリは存在しますが、実行可能なワインまたは wine64 が予期された場所 (%1$@) に見つかりませんでした。</string>
+	<key>Selected Wine path does not exist: %@.</key>
+	<string>選択された Wine パスは存在しません: %1$@。</string>
+	<key>Selected Wine path exists but is not executable: %@.</key>
+	<string>選択された Wine パスは存在しますが、実行可能ではありません: %1$@。</string>
+	<key>Selected the local development runtime path.</key>
+	<string>ローカル開発用ランタイムのパスを選択しました。</string>
+	<key>Sensible defaults</key>
+	<string>使いやすい初期設定</string>
+	<key>Session status could not be read</key>
+	<string>セッションステータスを読み取れませんでした</string>
+	<key>Set Up Later</key>
+	<string>後でセットアップする</string>
+	<key>Set Up Steam</key>
+	<string>Steam のセットアップ</string>
+	<key>Set Up Switchyard</key>
+	<string>Switchyard のセットアップ</string>
+	<key>Settings</key>
+	<string>設定</string>
+	<key>Setup is incomplete</key>
+	<string>セットアップが不完全です</string>
+	<key>Setup is incomplete. Resolve diagnostics before launching.</key>
+	<string>セットアップが不完全です。起動する前に診断を解決してください。</string>
+	<key>Setup progress</key>
+	<string>セットアップの進行状況</string>
+	<key>Show Container in Finder</key>
+	<string>コンテナをFinderに表示</string>
+	<key>Show Program in Finder</key>
+	<string>プログラムをFinderに表示</string>
+	<key>Show in Finder</key>
+	<string>Finderに表示</string>
+	<key>Size</key>
+	<string>サイズ</string>
+	<key>Source %@</key>
+	<string>ソース %1$@</string>
+	<key>Source Revision</key>
+	<string>ソースリビジョン</string>
+	<key>Source revision not available</key>
+	<string>ソース リビジョンが利用できません</string>
+	<key>Start %@ in this container</key>
+	<string>このコンテナで %1$@ を開始します</string>
+	<key>Start another app in the same Windows session.</key>
+	<string>同じ Windows セッションで別のアプリを起動します。</string>
+	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
+	<string>Steam から始めるか、別の Windows インストーラー用の空のプライベート スペースを作成します。</string>
+	<key>Starting automatically…</key>
+	<string>自動的に起動します…</string>
+	<key>Starting…</key>
+	<string>開始中…</string>
+	<key>Steam could not be started</key>
+	<string>Steam を開始できませんでした</string>
+	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
+	<string>Steam インストールが完了しませんでした。 [Continue Steam Setup] を選択して、再試行します。</string>
+	<key>Steam is installed and ready to launch.</key>
+	<string>Steam がインストールされ、起動する準備ができました。</string>
+	<key>Steam is optional. You can finish now and install any Windows .exe later.</key>
+	<string>Steam はオプションです。ここで終了し、後で Windows .exe をインストールすることができます。</string>
+	<key>Steam next</key>
+	<string>次はSteam</string>
+	<key>Steam setup is paused and can be continued safely.</key>
+	<string>Steam セットアップは一時停止されていますが、安全に続行できます。</string>
+	<key>Steam setup is paused. You can resume it whenever you are ready.</key>
+	<string>Steam セットアップは一時停止されています。準備ができたらいつでも再開できます。</string>
+	<key>Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container.</key>
+	<string>Steam のセットアップに予想より時間がかかりました。インストーラーがまだ開いている場合は、終了します。それ以外の場合は、同じコンテナーで再試行してください。</string>
+	<key>Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container.</key>
+	<string>Steam セットアップは一時停止されました。準備ができたらいつでも続行してください。 Switchyard はこのコンテナを再利用します。</string>
+	<key>Steam was not detected yet. You can safely continue setup in this container.</key>
+	<string>Steam はまだ検出されていません。このコンテナで安全にセットアップを続行できます。</string>
+	<key>Steam was not found after the installer closed. You can continue setup in the same container without losing anything.</key>
+	<string>インストーラーを閉じた後、Steam が見つかりませんでした。何も失うことなく、同じコンテナ内でセットアップを続行できます。</string>
+	<key>Steam will be kept in its own private Switchyard container. Games installed through Steam will stay there too.</key>
+	<string>Steamは専用のSwitchyardコンテナに保存されます。Steam経由でインストールしたゲームも同じ場所に保存されます。</string>
+	<key>Stop</key>
+	<string>停止</string>
+	<key>Stop %@ before renaming its folder. A Wine process is still using this container.</key>
+	<string>フォルダーの名前を変更する前に、%1$@ を停止してください。 Wine プロセスはまだこのコンテナーを使用しています。</string>
+	<key>Stop %@ before renaming its folder. A Wine process started while Switchyard was locking this container.</key>
+	<string>フォルダーの名前を変更する前に、%1$@ を停止してください。 Switchyard がこのコンテナーをロックしているときに、Wine プロセスが開始されました。</string>
+	<key>Stop All Runs</key>
+	<string>すべての実行を停止</string>
+	<key>Stop All Windows Apps</key>
+	<string>すべての Windows アプリを停止する</string>
+	<key>Stop Steam Setup</key>
+	<string>Steam セットアップの停止</string>
+	<key>Stop all Windows apps?</key>
+	<string>すべてのWindowsアプリを停止しますか？</string>
+	<key>Stop all Wine processes in this container</key>
+	<string>このコンテナ内のすべての Wine プロセスを停止します</string>
+	<key>Stop all running containers before changing the selected runtime.</key>
+	<string>選択したランタイムを変更する前に、実行中のコンテナをすべて停止してください。</string>
+	<key>Stop all running containers before importing a toolkit.</key>
+	<string>ツールキットをインポートする前に、実行中のすべてのコンテナを停止します。</string>
+	<key>Stop and Continue</key>
+	<string>停止して続行</string>
+	<key>Stop or wait for %@ before renaming its folder.</key>
+	<string>フォルダーの名前を変更する前に、停止するか、%1$@ まで待ってください。</string>
+	<key>Stop requested for this container.</key>
+	<string>このコンテナに対して停止が要求されました。</string>
+	<key>Stop wineserver</key>
+	<string>wineserver を停止します</string>
+	<key>Stop wineserver?</key>
+	<string>wineserver を停止しますか?</string>
+	<key>Stopping</key>
+	<string>停止中</string>
+	<key>Stopping…</key>
+	<string>停止中…</string>
+	<key>Storage</key>
+	<string>ストレージ</string>
+	<key>Storage and technical paths are chosen automatically. You can change them under Advanced Options.</key>
+	<string>保存先と技術的なパスは自動で選択されます。必要に応じて「詳細オプション」で変更できます。</string>
+	<key>Succeeded</key>
+	<string>成功</string>
+	<key>Support</key>
+	<string>サポート</string>
+	<key>Supported</key>
+	<string>サポートされています</string>
+	<key>Switchyard</key>
+	<string>Switchyard</string>
+	<key>Switchyard Wine runtime %@ (%@) found at %@. PE architectures: %@.</key>
+	<string>Switchyard Wine ランタイム %1$@ (%2$@) が %3$@ で見つかりました。 PE アーキテクチャ: %4$@。</string>
+	<key>Switchyard Wine runtime %@ does not record a source revision. Rebuild it from the pinned switchyard-wine repository.</key>
+	<string>Switchyard Wine ランタイム %1$@ はソース リビジョンを記録しません。固定された switchyard-wine リポジトリから再構築します。</string>
+	<key>Switchyard Wine runtime %@ is selected at %@, but it is missing PE architecture(s): %@. Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs.</key>
+	<string>Switchyard Wine ランタイム %1$@ が %2$@ で選択されていますが、PE アーキテクチャ: %3$@ がありません。 32 ビット Windows インストーラーまたはプログラムを実行する前に、Switchyard WoW64 ランタイムを再構築します。</string>
+	<key>Switchyard Wine runtime %@ was built from a dirty source tree at %@. Build a clean pinned revision before release use.</key>
+	<string>Switchyard Wine ランタイム %1$@ は、%2$@ のダーティ ソース ツリーから構築されました。リリースで使用する前に、クリーンな固定リビジョンをビルドします。</string>
+	<key>Switchyard Wine runtime %@ was built from source %@, but this Switchyard build pins %@. Rebuild the runtime from the pinned revision.</key>
+	<string>Switchyard Wine ランタイム %1$@ はソース %2$@ からビルドされましたが、この Switchyard ビルドは %3$@ を固定します。固定されたリビジョンからランタイムを再構築します。</string>
+	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
+	<string>Switchyard は、公式の HTTPS ダウンロードのみを受け入れ、プライベート キャッシュに保持します。</string>
+	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
+	<string>Switchyard は常に上に表示されたアプリ全体のアクティブなランタイムを使用します。コンテナごとにランタイムのバージョンを選択または固定することはできません。</string>
+	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
+	<string>Switchyard が直接管理するキャッシュに保存されたランタイムだけを削除できます。</string>
+	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
+	<string>Switchyard はすべての Windows アプリを閉じることができませんでした。作業内容を保存し、残っているウィンドウを閉じて、もう一度試してください。</string>
+	<key>Switchyard could not inspect this Wine session.</key>
+	<string>Switchyard は、この Wine セッションを検査できませんでした。</string>
+	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
+	<string>Switchyard は、プライベート キャッシュ内のダウンロードされたインストーラーを保護できませんでした: %1$@</string>
+	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
+	<string>Switchyard は現在、上記のアクティブなランタイムを使用してすべてのコンテナを起動します。</string>
+	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
+	<string>Switchyardを使用するには、Apple Silicon搭載MacとmacOS 14以降が必要です。</string>
+	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
+	<string>Switchyard は、GPTK をダウンロードまたはバンドルしません。 Apple がサインインとライセンスの受け入れを処理します。 Switchyard は、DMG の実行可能コードで Apple 署名を確認した後にのみインポートします。</string>
+	<key>Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.</key>
+	<string>Switchyard は、HTTPS を介して Valve から SteamSetup.exe を直接ダウンロードします。</string>
+	<key>Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.</key>
+	<string>Switchyard は、Valve のインストーラーのみをダウンロードします。通常の Steam 画面は、ゲーム、アップデート、アカウントのサインインを処理します。</string>
+	<key>Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.</key>
+	<string>Switchyard は、OFL Noto フォントをコンテナーにインストールし、Microsoft フォントをバンドルせずに一般的な Windows フォント ファミリ名をマップします。</string>
+	<key>Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.</key>
+	<string>Switchyard は、必要なファイルをダウンロードして確認しています。これが完了するまでアプリを開いたままにしてください。</string>
+	<key>Switchyard is ready</key>
+	<string>Switchyard の準備ができました</string>
+	<key>Switchyard only installs a runtime after its online release matches this app's signed compatibility policy.</key>
+	<string>Switchyard は、オンライン リリースがこのアプリの署名済み互換性ポリシーと一致した場合にのみランタイムをインストールします。</string>
+	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
+	<string>Switchyard は自動セットアップ用に推奨ランタイムを 1 つ固定し、手動で選択した公式リリースはインストール前に必ず検証します。</string>
+	<key>Switchyard v1 supports Apple Silicon only.</key>
+	<string>Switchyard v1 は Apple Silicon のみをサポートします。</string>
+	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
+	<string>Switchyard は、実行可能コードをプライベート キャッシュにコピーする前に検証します。</string>
+	<key>Switchyard will check this Mac, download its compatibility files, and guide you through the one Apple download it cannot provide itself. Your apps and games stay on this Mac.</key>
+	<string>Switchyard は、この Mac をチェックし、互換性ファイルをダウンロードし、Apple 自体が提供できないダウンロード方法を案内します。アプリとゲームはこの Mac 上に残ります。</string>
+	<key>Switchyard will guide you through the remaining steps before installing a Windows app.</key>
+	<string>Switchyard では、Windows アプリをインストールする前の残りの手順について説明します。</string>
+	<key>Switchyard will not browse a path outside this container.</key>
+	<string>Switchyard は、このコンテナーの外部のパスを参照しません。</string>
+	<key>Switchyard will open Apple's Rosetta installer. Continuing accepts Apple's Rosetta software license; macOS handles any approval that is required.</key>
+	<string>Switchyard は Apple の Rosetta インストーラーを開きます。続行すると、Apple の Rosetta ソフトウェア ライセンスが受け入れられます。 macOS は、必要な承認を処理します。</string>
+	<key>Switchyard will redact common secrets and your home folder path before copying.</key>
+	<string>Switchyard は、コピーする前に共通のシークレットとホーム フォルダーのパスを編集します。</string>
+	<key>System</key>
+	<string>システム</string>
+	<key>Technical Details</key>
+	<string>技術的な詳細</string>
+	<key>The Apple code-signing requirement could not be created.</key>
+	<string>Apple コード署名要件を作成できませんでした。</string>
+	<key>The GPTK source contains a symbolic link outside its import directory.</key>
+	<string>GPTK ソースには、インポート ディレクトリの外にシンボリック リンクが含まれています。</string>
+	<key>The GitHub release information could not be read: %@</key>
+	<string>GitHub リリース情報を読み取れませんでした: %1$@</string>
+	<key>The Steam installer could not be opened. Check Logs for details, then try again.</key>
+	<string>Steam インストーラーを開けませんでした。詳細についてはログを確認し、再試行してください。</string>
+	<key>The Steam installer is open. Follow its steps to finish installation.</key>
+	<string>Steam インストーラーが開いています。手順に従ってインストールを完了します。</string>
+	<key>The active runtime could not finish preparing this container; launch will continue and Wine can retry automatically: %@</key>
+	<string>アクティブなランタイム向けのコンテナ準備を完了できませんでした。起動は続行され、Wine が自動的に再試行できます：%1$@</string>
+	<key>The active runtime is ready.</key>
+	<string>アクティブなランタイムの準備ができました。</string>
+	<key>The active runtime is used by every container.</key>
+	<string>すべてのコンテナでアクティブなランタイムが使用されます。</string>
+	<key>The app verifies the exact signed runtime made for this version of Switchyard.</key>
+	<string>署名を検証し、このSwitchyardバージョン専用のランタイムであることを確認します。</string>
+	<key>The archive does not contain exactly one Switchyard runtime.</key>
+	<string>アーカイブには、Switchyard ランタイムが 1 つだけ含まれているわけではありません。</string>
+	<key>The cached Steam installer changed or could not be verified. Download it again from Valve.</key>
+	<string>キャッシュされた Steam インストーラーが変更されたか、検証できませんでした。 Valve から再度ダウンロードしてください。</string>
+	<key>The callback reached Wine, but automatic recovery could not be saved: %@</key>
+	<string>コールバックは Wine に到達しましたが、自動リカバリを保存できませんでした: %1$@</string>
+	<key>The clipboard does not contain a supported custom callback URL.</key>
+	<string>クリップボードには、サポートされているカスタム コールバック URL が含まれていません。</string>
+	<key>The compatibility runtime and Apple's graphics support are ready. You can now install a Windows app.</key>
+	<string>互換性ランタイムと Apple のグラフィックス サポートが準備されています。 Windows アプリをインストールできるようになりました。</string>
+	<key>The container folder has no Switchyard manifest: %@</key>
+	<string>コンテナフォルダーには Switchyard マニフェストがありません: %1$@</string>
+	<key>The container folder is missing: %@</key>
+	<string>コンテナフォルダーが見つかりません: %1$@</string>
+	<key>The container folder is outside the active Switchyard library: %@</key>
+	<string>コンテナ フォルダーはアクティブな Switchyard ライブラリの外にあります: %1$@</string>
+	<key>The disk image did not contain known D3DMetal/GPTK marker files.</key>
+	<string>ディスク イメージには、既知の D3DMetal/GPTK マーカー ファイルが含まれていませんでした。</string>
+	<key>The download is ready. Switchyard will verify Apple's signature before importing it.</key>
+	<string>ダウンロードの準備ができました。 Switchyard は、インポートする前に Apple の署名を検証します。</string>
+	<key>The download left the official Valve download service, so Switchyard stopped it.</key>
+	<string>ダウンロードにより公式の Valve ダウンロード サービスが終了したため、Switchyard がサービスを停止しました。</string>
+	<key>The download was unexpectedly large, so Switchyard stopped before using it.</key>
+	<string>ダウンロードが予想外に大きかったため、Switchyard は使用する前に停止しました。</string>
+	<key>The downloaded file is not a complete Windows Steam installer.</key>
+	<string>ダウンロードされたファイルは、完全な Windows Steam インストーラーではありません。</string>
+	<key>The downloaded runtime checksum does not match its release manifest.</key>
+	<string>ダウンロードされたランタイム チェックサムがリリース マニフェストと一致しません。</string>
+	<key>The downloaded runtime size does not match its release manifest.</key>
+	<string>ダウンロードされたランタイムのサイズがリリース マニフェストと一致しません。</string>
+	<key>The expected Developer ID signing requirement is invalid.</key>
+	<string>予期された Developer ID 署名要件は無効です。</string>
+	<key>The extracted runtime content digest is invalid.</key>
+	<string>抽出されたランタイム コンテンツ ダイジェストが無効です。</string>
+	<key>The extracted runtime does not match the requested release.</key>
+	<string>抽出されたランタイムは、要求されたリリースと一致しません。</string>
+	<key>The file is checked and stored only on this Mac.</key>
+	<string>ファイルはこの Mac 上でのみチェックされ、保存されます。</string>
+	<key>The first-run container preparation did not finish; the app will still open and Wine can retry automatically: %@</key>
+	<string>初回実行コンテナの準備が完了していません。アプリは引き続き開き、Wine は自動的に再試行できます: %1$@</string>
+	<key>The imported runtime did not contain known D3DMetal/GPTK marker files.</key>
+	<string>インポートされたランタイムには、既知の D3DMetal/GPTK マーカー ファイルが含まれていませんでした。</string>
+	<key>The installed runtime has no runnable Wine launcher.</key>
+	<string>インストールされているランタイムには、実行可能な Wine ランチャーがありません。</string>
+	<key>The installed runtime manifest is invalid: %@</key>
+	<string>インストールされているランタイム マニフェストが無効です: %1$@</string>
+	<key>The installer cache contains an unexpected symbolic link.</key>
+	<string>インストーラー キャッシュに予期しないシンボリック リンクが含まれています。</string>
+	<key>The latest Wine release does not include its runtime manifest.</key>
+	<string>最新の Wine リリースには、ランタイム マニフェストが含まれていません。</string>
+	<key>The latest Wine release points to an untrusted runtime manifest.</key>
+	<string>最新の Wine リリースは、信頼できないランタイム マニフェストを指しています。</string>
+	<key>The latest Wine runtime manifest could not be verified: %@</key>
+	<string>最新の Wine ランタイム マニフェストを検証できませんでした: %1$@</string>
+	<key>The latest online runtime is not this app version's recommendation. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>最新のオンラインランタイムは、このアプリバージョンの推奨ランタイムではありません。署名済みのほかの公式バージョンは「Wine ランタイム」設定から選択できます。</string>
+	<key>The latest online runtime is not yet in this app's verified compatibility policy. A Switchyard release must approve it before installation.</key>
+	<string>最新のオンライン ランタイムは、このアプリの検証済み互換性ポリシーにまだ含まれていません。 Switchyard リリースは、インストール前に承認する必要があります。</string>
+	<key>The latest online runtime is outside this app's verified compatibility policy. Update Switchyard to get its current approved runtime before installing.</key>
+	<string>最新のオンラインランタイムは、このアプリで検証済みの互換範囲外です。インストールする前にSwitchyardをアップデートし、現在承認されているランタイムを取得してください。</string>
+	<key>The latest online runtime is the recommended revision for this Switchyard version and can be installed here.</key>
+	<string>最新のオンラインランタイムは、この Switchyard バージョンの推奨リビジョンで、ここからインストールできます。</string>
+	<key>The latest online runtime matches this app's verified compatibility policy and can be installed safely.</key>
+	<string>最新のオンライン ランタイムは、このアプリの検証済み互換性ポリシーに一致しており、安全にインストールできます。</string>
+	<key>The log entries shown for %@ will be removed from Switchyard.</key>
+	<string>%1$@ に表示されるログ エントリは、Switchyard から削除されます。</string>
+	<key>The log entries shown in Switchyard will be removed. Debug run files keep their configured retention period.</key>
+	<string>Switchyard に表示されるログ エントリは削除されます。デバッグ実行ファイルは、設定された保存期間を維持します。</string>
+	<key>The main runtime download is about 700 MB. Switchyard checks its size, fingerprint, developer signature, and Apple notarization before using it.</key>
+	<string>メインのランタイムのダウンロードは約 700 MB です。 Switchyard は、使用前にサイズ、指紋、開発者の署名、Apple の公証をチェックします。</string>
+	<key>The release metadata is incomplete.</key>
+	<string>リリースメタデータが不完全です。</string>
+	<key>The runtime archive contains a symbolic link outside its installation directory.</key>
+	<string>ランタイム アーカイブには、インストール ディレクトリの外にシンボリック リンクが含まれています。</string>
+	<key>The runtime archive contains an unsafe entry: %@</key>
+	<string>ランタイム アーカイブに安全でないエントリが含まれています: %1$@</string>
+	<key>The runtime archive contains no signed macOS executable code.</key>
+	<string>ランタイム アーカイブには、署名された macOS 実行可能コードは含まれません。</string>
+	<key>The runtime archive could not be extracted: %@</key>
+	<string>ランタイム アーカイブを抽出できませんでした: %1$@</string>
+	<key>The runtime archive could not be inspected safely: %@</key>
+	<string>ランタイム アーカイブを安全に検査できませんでした: %1$@</string>
+	<key>The runtime cache will be deleted. You can download this official release again later.</key>
+	<string>ランタイムキャッシュが削除されます。この公式リリースは後で再ダウンロードできます。</string>
+	<key>The runtime code signature is invalid for %@.</key>
+	<string>実行時コード署名は、%1$@ では無効です。</string>
+	<key>The runtime does not include both 32-bit and 64-bit Windows support.</key>
+	<string>ランタイムには、32 ビットと 64 ビットの両方の Windows サポートは含まれていません。</string>
+	<key>The runtime download server returned HTTP %lld.</key>
+	<string>ランタイム ダウンロード サーバーは、HTTP %1$lld を返しました。</string>
+	<key>The runtime has no valid full-content digest.</key>
+	<string>ランタイムには有効なフルコンテンツ ダイジェストがありません。</string>
+	<key>The runtime installation lock could not be acquired: %@</key>
+	<string>ランタイム インストール ロックを取得できませんでした: %1$@</string>
+	<key>The runtime is runnable, but it does not match this version of Switchyard. Install the compatible runtime to continue.</key>
+	<string>ランタイムは実行可能ですが、このバージョンの Switchyard と一致しません。続行するには、互換性のあるランタイムをインストールしてください。</string>
+	<key>The runtime is runnable, but its source identity could not be verified.</key>
+	<string>ランタイムは実行できますが、ソースの識別情報を検証できませんでした。</string>
+	<key>The runtime release does not match this app's compatible source revision.</key>
+	<string>ランタイム リリースは、このアプリの互換性のあるソース リビジョンと一致しません。</string>
+	<key>The runtime release has an unsafe identifier.</key>
+	<string>ランタイム リリースには安全でない識別子が含まれています。</string>
+	<key>The runtime release has not been accepted by Apple notarization.</key>
+	<string>ランタイム リリースは Apple の公証によって受理されていません。</string>
+	<key>The runtime release is not the supported x86_64 macOS build.</key>
+	<string>ランタイム リリースは、サポートされている x86_64 macOS ビルドではありません。</string>
+	<key>The runtime release manifest has an invalid archive checksum.</key>
+	<string>ランタイム リリース マニフェストに無効なアーカイブ チェックサムが含まれています。</string>
+	<key>The runtime release manifest has an invalid archive size.</key>
+	<string>ランタイム リリース マニフェストのアーカイブ サイズが無効です。</string>
+	<key>The runtime release manifest has an unsafe archive name.</key>
+	<string>ランタイム リリース マニフェストに安全でないアーカイブ名が含まれています。</string>
+	<key>The runtime release manifest is invalid: %@</key>
+	<string>ランタイム リリース マニフェストが無効です: %1$@</string>
+	<key>The runtime release manifest is unexpectedly large.</key>
+	<string>ランタイム リリース マニフェストは予想外に大きくなります。</string>
+	<key>The runtime release manifest must be an official switchyard-wine GitHub release asset.</key>
+	<string>ランタイムリリースマニフェストは、switchyard-wine の公式 GitHub リリースアセットである必要があります。</string>
+	<key>The runtime release manifest must use GitHub over HTTPS.</key>
+	<string>ランタイム リリース マニフェストでは、HTTPS ではなく GitHub を使用する必要があります。</string>
+	<key>The runtime release was not produced by the expected developer team.</key>
+	<string>ランタイム リリースは、予期された開発者チームによって作成されませんでした。</string>
+	<key>The selected GPTK disk image has not been imported. Use Import Selected GPTK to verify Apple-signed code before mounting it.</key>
+	<string>選択したGPTKディスクイメージはまだインポートされていません。マウントする前に「選択したGPTKをインポート」をクリックし、Apple署名済みコードを確認してください。</string>
+	<key>The selected Wine container or runtime is not available.</key>
+	<string>選択した Wine コンテナーまたはランタイムは使用できません。</string>
+	<key>The selected Wine file is not executable, so its source identity cannot be verified.</key>
+	<string>選択した Wine ファイルは実行可能ではないため、そのソース ID を検証できません。</string>
+	<key>The selected Wine runtime does not exist, so its source identity cannot be verified.</key>
+	<string>選択した Wine ランタイムは存在しないため、ソース ID を検証できません。</string>
+	<key>The selected directory is not a runnable Wine runtime, so its source identity cannot be verified.</key>
+	<string>選択したディレクトリは実行可能な Wine ランタイムではないため、ソース ID を検証できません。</string>
+	<key>The selected managed runtime no longer exists.</key>
+	<string>選択した管理対象ランタイムは存在しません。</string>
+	<key>The selected path is not a folder.</key>
+	<string>選択したパスはフォルダーではありません。</string>
+	<key>The selected runtime is both the latest online release and the recommended revision for this Switchyard version.</key>
+	<string>選択したランタイムは、最新のオンラインリリースであり、この Switchyard バージョンの推奨リビジョンでもあります。</string>
+	<key>The selected runtime is both the latest online release and the revision verified for this Switchyard version.</key>
+	<string>選択したランタイムは、最新のオンライン リリースと、この Switchyard バージョンに対して検証されたリビジョンの両方です。</string>
+	<key>The standard Windows installer will appear in a moment.</key>
+	<string>標準の Windows インストーラーがすぐに表示されます。</string>
+	<key>The verified Valve download is ready to install.</key>
+	<string>検証済みの Valve ダウンロードをインストールする準備ができました。</string>
+	<key>There are no visible files in this folder.</key>
+	<string>このフォルダーには表示されるファイルはありません。</string>
+	<key>These runtimes are in Switchyard's managed cache but do not match the currently loaded official release list.</key>
+	<string>これらのランタイムは Switchyard の管理キャッシュにありますが、現在読み込まれている公式リリース一覧とは一致しません。</string>
+	<key>This Mac</key>
+	<string>この Mac</string>
+	<key>This Mac is not supported</key>
+	<string>この Mac はサポートされていません</string>
+	<key>This Windows installer is ready to open in Switchyard.</key>
+	<string>この Windows インストーラーは、Switchyard で開く準備ができています。</string>
+	<key>This app build does not contain a published runtime channel.</key>
+	<string>このアプリのビルドには、公開されたランタイム チャネルが含まれていません。</string>
+	<key>This app build does not trust the Developer ID team that signed the runtime.</key>
+	<string>このアプリビルドは、ランタイムに署名した Developer ID チームを信頼していません。</string>
+	<key>This app build does not trust the selected official runtime.</key>
+	<string>このアプリビルドは、選択した公式ランタイムを信頼していません。</string>
+	<key>This development build has no official Developer ID trust configuration. Release browsing remains available, but downloads are disabled.</key>
+	<string>この開発ビルドには公式の Developer ID 信頼設定がありません。リリースの閲覧はできますが、ダウンロードは無効です。</string>
+	<key>This link leaves the container and cannot be browsed in Switchyard.</key>
+	<string>このリンクはコンテナから離れるため、Switchyard で参照できません。</string>
+	<key>This normally takes only a moment.</key>
+	<string>通常、これにはほんの一瞬しかかかりません。</string>
+	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
+	<string>このリリースでは Apple のダウンロード ページが開き、サインインして規約を確認し、インポートするツールキットのコピーを選択できます。</string>
+	<key>This runtime has no trusted source revision date for a calendar build number.</key>
+	<string>このランタイムには、カレンダー ビルド番号の信頼できるソース リビジョン日付がありません。</string>
+	<key>Toolkit</key>
+	<string>ツールキット</string>
+	<key>Try Again</key>
+	<string>もう一度試す</string>
+	<key>Unavailable</key>
+	<string>利用不可</string>
+	<key>Unknown</key>
+	<string>不明</string>
+	<key>Unknown error</key>
+	<string>不明なエラー</string>
+	<key>Unpinned</key>
+	<string>未固定</string>
+	<key>Unsaved work in Windows apps may be lost. Switchyard needs them closed before changing compatibility files.</key>
+	<string>Windows アプリの保存されていない作業は失われる可能性があります。 Switchyard では、互換性ファイルを変更する前にそれらを閉じる必要があります。</string>
+	<key>Unsupported</key>
+	<string>サポートされていません</string>
+	<key>Update Available</key>
+	<string>利用可能なアップデート</string>
+	<key>Update macOS to continue</key>
+	<string>続行するには、macOS を更新してください</string>
+	<key>Updated %@</key>
+	<string>%1$@ を更新しました</string>
+	<key>Use</key>
+	<string>使用</string>
+	<key>Used by every container</key>
+	<string>すべてのコンテナで使用</string>
+	<key>Value</key>
+	<string>値</string>
+	<key>Valve's download service did not return a complete installer.</key>
+	<string>Valve のダウンロード サービスは、完全なインストーラーを返しませんでした。</string>
+	<key>Variable</key>
+	<string>変数</string>
+	<key>Verbose Wine logging</key>
+	<string>詳細な Wine ログ</string>
+	<key>Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.</key>
+	<string>詳細ログモードでは、Wine fixme出力に加え、指定したSEH、グラフィックス、ウインドウシステムのトレースも記録します。ログが非常に大きくなる可能性があるため、画面には最新5,000件のみを分割して表示し、保護されたファイルには実行ログ全体を保存します。</string>
+	<key>Verified</key>
+	<string>確認済み</string>
+	<key>Verify and Continue</key>
+	<string>確認して続行</string>
+	<key>Verifying and Importing…</key>
+	<string>検証とインポート中…</string>
+	<key>Version</key>
+	<string>バージョン</string>
+	<key>Version %@</key>
+	<string>バージョン %1$@</string>
+	<key>Version %@ (%@)</key>
+	<string>バージョン %1$@ (%2$@)</string>
+	<key>Version Date</key>
+	<string>バージョンの日付</string>
+	<key>Versions &amp; Updates</key>
+	<string>バージョンとアップデート</string>
+	<key>View Update</key>
+	<string>アップデートを見る</string>
+	<key>View activity</key>
+	<string>アクティビティの表示</string>
+	<key>View all</key>
+	<string>すべて表示</string>
+	<key>View all processes</key>
+	<string>すべてのプロセスを表示</string>
+	<key>Wait for %@ to finish its current action before deleting its container.</key>
+	<string>%1$@ が現在のアクションを完了するまで待ってから、コンテナを削除します。</string>
+	<key>Wait for %@ to finish its current session action before starting another executable.</key>
+	<string>%1$@ が現在のセッション アクションを終了するまで待ってから、別の実行可能ファイルを開始します。</string>
+	<key>Wait for all container activity to stop before changing the active runtime.</key>
+	<string>アクティブなランタイムを変更する前に、すべてのコンテナ処理が終了するまでお待ちください。</string>
+	<key>Wait for all container activity to stop before removing a runtime.</key>
+	<string>ランタイムを削除する前に、すべてのコンテナ処理が終了するまでお待ちください。</string>
+	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
+	<string>コンテナ フォルダの操作が完了するまで待ってから、ログイン コールバックを回復します。</string>
+	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>
+	<string>現在の Steam セットアップが完了するまで待つか、再試行する前に停止してください。</string>
+	<key>Warning</key>
+	<string>警告</string>
+	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
+	<string>Switchyardの準備が完了したら、Windows版Steamの公式インストーラをすぐに開けます。</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>有効にすると、保護された実行ごとのファイルに Wine エラーと警告が記録されます。ファイルでは引数値が省略され、~/Library/Application Support/Switchyard/Logs/DebugRuns では 14 日間で 50 ログに制限されます。</string>
+	<key>Windows Session</key>
+	<string>Windows セッション</string>
+	<key>Windows apps are still running</key>
+	<string>Windows アプリはまだ実行中です</string>
+	<key>Windows compatibility files</key>
+	<string>Windows 互換性ファイル</string>
+	<key>Windows session active · launch another app without stopping it</key>
+	<string>Windows セッションがアクティブです · 停止せずに別のアプリを起動します</string>
+	<key>Windows session active · launch more apps</key>
+	<string>Windows セッションがアクティブです · さらにアプリを起動します</string>
+	<key>Windows support</key>
+	<string>Windows サポート</string>
+	<key>Wine Path</key>
+	<string>Wine のパス</string>
+	<key>Wine Runtime</key>
+	<string>Wine ランタイム</string>
+	<key>Wine Runtime Source</key>
+	<string>Wine ランタイム ソース</string>
+	<key>Wine could not accept the copied %@: callback.</key>
+	<string>Wine は、コピーされた %1$@: コールバックを受け入れることができませんでした。</string>
+	<key>Wine executable found at %@.</key>
+	<string>Wine 実行可能ファイルが %1$@ で見つかりました。</string>
+	<key>Wine has not initialized this container yet.</key>
+	<string>Wine はこのコンテナをまだ初期化していません。</string>
+	<key>Wine initialization exited before finishing.</key>
+	<string>Wine 初期化が完了する前に終了しました。</string>
+	<key>Wine processes</key>
+	<string>Wine プロセス</string>
+	<key>Wine processes need cleanup</key>
+	<string>Wine プロセスはクリーンアップが必要です</string>
+	<key>Wine processes need cleanup before this container changes</key>
+	<string>Wine プロセスは、このコンテナを変更する前にクリーンアップする必要があります</string>
+	<key>Wine processes remain after wineserver exited</key>
+	<string>wineserver が終了した後も、Wine プロセスが残ります</string>
+	<key>Wine processes remain after wineserver exited. Stop this session before changing its folder.</key>
+	<string>wineserver が終了した後も、Wine プロセスが残ります。フォルダーを変更する前に、このセッションを停止してください。</string>
+	<key>Wine processes stopped for this container.</key>
+	<string>Wine プロセスがこのコンテナーに対して停止しました。</string>
+	<key>Wine runtime preparation exited before finishing.</key>
+	<string>Wine ランタイムの準備が完了する前に終了しました。</string>
+	<key>configured executable</key>
+	<string>構成された実行可能ファイル</string>
+	<key>container override or inherited</key>
+	<string>コンテナのオーバーライドまたは継承</string>
+	<key>ditto failed</key>
+	<string>ditto が失敗しました</string>
+	<key>empty</key>
+	<string>空の</string>
+	<key>hdiutil did not report a mounted volume.</key>
+	<string>hdiutil はマウントされたボリュームを報告しませんでした。</string>
+	<key>hdiutil exited with status %d</key>
+	<string>hdiutilがステータス%1$dで終了しました。</string>
+	<key>hdiutil returned an unexpected plist.</key>
+	<string>hdiutil が予期しない plist を返しました。</string>
+	<key>hdiutil timed out while mounting the disk image.</key>
+	<string>hdiutil は、ディスク イメージのマウント中にタイムアウトになりました。</string>
+	<key>macOS 14 or later</key>
+	<string>macOS 14 以降</string>
+	<key>macOS Version</key>
+	<string>macOS バージョン</string>
+	<key>standard</key>
+	<string>標準</string>
+	<key>switchyard-runner helper was not found in the app bundle or build directory.</key>
+	<string>switchyard-runner ヘルパーがアプリ バンドルまたはビルド ディレクトリに見つかりませんでした。</string>
+	<key>switchyard-shortcut-handler was not found in the app bundle or build directory.</key>
+	<string>switchyard-shortcut-handler がアプリ バンドルまたはビルド ディレクトリに見つかりませんでした。</string>
+	<key>switchyard-url-handler was not found in the app bundle or build directory.</key>
+	<string>switchyard-url-handler がアプリ バンドルまたはビルド ディレクトリに見つかりませんでした。</string>
+	<key>unknown</key>
+	<string>不明</string>
+	<key>unknown profile</key>
+	<string>不明なプロフィール</string>
+	<key>unrecorded repository</key>
+	<string>未記録のリポジトリ</string>
+	<key>verbose</key>
+	<string>冗長な</string>
+	<key>wineserver could not be stopped (exit code %d).</key>
+	<string>wineserver を停止できませんでした (終了コード %1$d)。</string>
+	<key>wineserver could not be stopped (exit code %d): %@</key>
+	<string>wineserver を停止できませんでした (終了コード %1$d): %2$@</string>
+	<key>zipinfo failed</key>
+	<string>zipinfo が失敗しました</string>
+</dict>
+</plist>

@@ -24,6 +24,7 @@ APP_BINARY="$APP_MACOS/$APP_NAME"
 RUNNER_BINARY="$APP_HELPERS/switchyard-runner"
 URL_HANDLER_BINARY="$APP_HELPERS/switchyard-url-handler"
 SHORTCUT_HANDLER_BINARY="$APP_HELPERS/switchyard-shortcut-handler"
+LOCALIZATION_BUNDLE_NAME="Switchyard_SwitchyardLocalization.bundle"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
 APP_ICON_SOURCE="$ROOT_DIR/assets/branding/Switchyard.icns"
 APP_ICON="$APP_RESOURCES/Switchyard.icns"
@@ -55,6 +56,12 @@ BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
 BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
 BUILD_URL_HANDLER="$BUILD_BIN_PATH/switchyard-url-handler"
 BUILD_SHORTCUT_HANDLER="$BUILD_BIN_PATH/switchyard-shortcut-handler"
+LOCALIZATION_BUNDLE="$BUILD_BIN_PATH/$LOCALIZATION_BUNDLE_NAME"
+
+[ -d "$LOCALIZATION_BUNDLE" ] || {
+  echo "missing localization resource bundle: $LOCALIZATION_BUNDLE" >&2
+  exit 1
+}
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
@@ -63,6 +70,11 @@ cp "$BUILD_RUNNER" "$RUNNER_BINARY"
 cp "$BUILD_URL_HANDLER" "$URL_HANDLER_BINARY"
 cp "$BUILD_SHORTCUT_HANDLER" "$SHORTCUT_HANDLER_BINARY"
 cp "$APP_ICON_SOURCE" "$APP_ICON"
+cp -R "$LOCALIZATION_BUNDLE" "$APP_RESOURCES/$LOCALIZATION_BUNDLE_NAME"
+for localization_directory in "$LOCALIZATION_BUNDLE"/*.lproj; do
+  [ -d "$localization_directory" ] || continue
+  cp -R "$localization_directory" "$APP_RESOURCES/"
+done
 "$ROOT_DIR/script/bundle_wine_source_policy.sh" \
   "$ROOT_DIR/config/switchyard-wine.env" \
   "$APP_RESOURCES/switchyard-wine.env" \
@@ -86,6 +98,21 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>
   <string>$APP_NAME</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>ko</string>
+    <string>zh-Hans</string>
+    <string>zh-Hant</string>
+    <string>ja</string>
+    <string>ru</string>
+    <string>de</string>
+    <string>fr</string>
+    <string>es</string>
+    <string>pt-BR</string>
+  </array>
   <key>CFBundleIconFile</key>
   <string>Switchyard.icns</string>
   <key>CFBundleShortVersionString</key>

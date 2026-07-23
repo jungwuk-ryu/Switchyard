@@ -13,8 +13,14 @@ struct RuntimeSettingsView: View {
                     StatusBadge(
                         status: runtimeCompatibilityStatus,
                         label: runtimeCompatibilityStatus == .ok
-                            ? "Compatible"
-                            : "Needs Attention"
+                            ? String(
+                                localized: "Compatible",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                            : String(
+                                localized: "Needs Attention",
+                                bundle: SwitchyardStrings.bundle
+                            )
                     )
                 }
                 Text(runtimeCompatibilityMessage)
@@ -98,8 +104,14 @@ struct RuntimeSettingsView: View {
 #if DEBUG
             Section("Local Development Runtime") {
                 PathPickerRow(
-                    title: "Wine Path",
-                    message: "Choose a locally built Wine executable or runtime folder.",
+                    title: String(
+                        localized: "Wine Path",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    message: String(
+                        localized: "Choose a locally built Wine executable or runtime folder.",
+                        bundle: SwitchyardStrings.bundle
+                    ),
                     path: $store.winePath
                 ) {
                     store.useSelectedLocalDevelopmentRuntime()
@@ -146,7 +158,10 @@ struct RuntimeSettingsView: View {
 
     private var wineRuntimeMessage: String {
         store.diagnostics.first { $0.id == "wine-runtime" }?.result
-            ?? "Install an official Switchyard runtime, then run diagnostics."
+            ?? String(
+                localized: "Install an official Switchyard runtime, then run diagnostics.",
+                bundle: SwitchyardStrings.bundle
+            )
     }
 
     private var runtimeCompatibilityStatus: HealthStatus {
@@ -157,10 +172,16 @@ struct RuntimeSettingsView: View {
 
     private var runtimeCompatibilityMessage: String {
         if store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok {
-            return "The active runtime is ready."
+            return String(
+                localized: "The active runtime is ready.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         if store.runtimeStatus.wine == .ok {
-            return "The runtime is runnable, but its source identity could not be verified."
+            return String(
+                localized: "The runtime is runnable, but its source identity could not be verified.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         return wineRuntimeMessage
     }
@@ -178,13 +199,22 @@ private struct OfficialRuntimeReleaseRow: View {
                     Text(release.release.tagName)
                         .font(.body.weight(.medium))
                     if store.isRecommendedRuntime(release) {
-                        runtimeBadge("Recommended", color: .accentColor)
+                        runtimeBadge(
+                            String(localized: "Recommended", bundle: SwitchyardStrings.bundle),
+                            color: .accentColor
+                        )
                     }
                     if installation != nil {
-                        runtimeBadge("Installed", color: .secondary)
+                        runtimeBadge(
+                            String(localized: "Installed", bundle: SwitchyardStrings.bundle),
+                            color: .secondary
+                        )
                     }
                     if isActive {
-                        runtimeBadge("Active", color: .green)
+                        runtimeBadge(
+                            String(localized: "Active", bundle: SwitchyardStrings.bundle),
+                            color: .green
+                        )
                     }
                 }
                 Text(releaseDetail)
@@ -269,7 +299,10 @@ private struct OfficialRuntimeReleaseRow: View {
             fromByteCount: Int64(release.manifest.archiveSize),
             countStyle: .file
         )
-        return "\(published) · \(size) · source \(release.manifest.sourceRevision.prefix(12))"
+        return String(
+            localized: "\(published) · \(size) · source \(release.manifest.sourceRevision.prefix(12))",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 
     private func runtimeBadge(_ title: String, color: Color) -> some View {
@@ -290,8 +323,14 @@ private struct ManagedRuntimeInstallationRow: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(installation.runtime.buildNumber.map { "Build \($0)" }
-                    ?? installation.runtime.id)
+                Text(
+                    installation.runtime.buildNumber.map {
+                        String(
+                            localized: "Build \($0)",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    } ?? installation.runtime.id
+                )
                     .font(.body.weight(.medium))
                 Text("Source \(installation.runtime.sourceRevision.prefix(12))")
                     .font(.caption)

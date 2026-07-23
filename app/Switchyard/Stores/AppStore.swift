@@ -20,9 +20,15 @@ private enum LoginCallbackRecoveryError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noRunningApplication:
-            "Keep the Windows game open while recovering its copied login callback."
+            String(
+                localized: "Keep the Windows game open while recovering its copied login callback.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .containerStorageChanging:
-            "Wait for the container folder operation to finish before recovering a login callback."
+            String(
+                localized: "Wait for the container folder operation to finish before recovering a login callback.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }
@@ -122,7 +128,11 @@ enum RuntimeInstallationState: Equatable {
     var message: String? {
         switch self {
         case .idle: nil
-        case .working: "Downloading, validating, and installing the signed runtime…"
+        case .working:
+            String(
+                localized: "Downloading, validating, and installing the signed runtime…",
+                bundle: SwitchyardStrings.bundle
+            )
         case .ready(let message), .failed(let message): message
         }
     }
@@ -158,9 +168,15 @@ enum RuntimeManagementState: Equatable {
         case .idle:
             nil
         case .installing:
-            "Downloading, validating, and installing the selected official runtime…"
+            String(
+                localized: "Downloading, validating, and installing the selected official runtime…",
+                bundle: SwitchyardStrings.bundle
+            )
         case .removing:
-            "Removing the selected inactive runtime…"
+            String(
+                localized: "Removing the selected inactive runtime…",
+                bundle: SwitchyardStrings.bundle
+            )
         case .ready(let message), .failed(let message):
             message
         }
@@ -504,7 +520,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "warning",
                     source: "setup",
-                    message: "Finish the remaining setup step before completing setup."
+                    message: String(
+                        localized: "Finish the remaining setup step before completing setup.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -531,7 +550,12 @@ final class AppStore: ObservableObject {
     func installRosetta(licenseNoticeAccepted: Bool = false) {
         guard !rosettaInstallationState.isWorking else { return }
         guard runtimeStatus.architecture == .ok else {
-            rosettaInstallationState = .failed("Rosetta 2 can only be installed on an Apple Silicon Mac.")
+            rosettaInstallationState = .failed(
+                String(
+                    localized: "Rosetta 2 can only be installed on an Apple Silicon Mac.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
             return
         }
         guard licenseNoticeAccepted || confirmRosettaLicenseNotice() else { return }
@@ -556,10 +580,23 @@ final class AppStore: ObservableObject {
     private func confirmRosettaLicenseNotice() -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "Install Rosetta 2?"
-        alert.informativeText = "Switchyard will open Apple's Rosetta installer. Continuing accepts Apple's Rosetta software license; macOS handles any approval that is required."
-        alert.addButton(withTitle: "Accept and Install")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(
+            localized: "Install Rosetta 2?",
+            bundle: SwitchyardStrings.bundle
+        )
+        alert.informativeText = String(
+            localized: "Switchyard will open Apple's Rosetta installer. Continuing accepts Apple's Rosetta software license; macOS handles any approval that is required.",
+            bundle: SwitchyardStrings.bundle
+        )
+        alert.addButton(
+            withTitle: String(
+                localized: "Accept and Install",
+                bundle: SwitchyardStrings.bundle
+            )
+        )
+        alert.addButton(
+            withTitle: String(localized: "Cancel", bundle: SwitchyardStrings.bundle)
+        )
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -578,11 +615,21 @@ final class AppStore: ObservableObject {
             return
         }
         guard canChangeActiveRuntime else {
-            runtimeInstallationState = .failed("Wait for all container activity to stop before changing the active runtime.")
+            runtimeInstallationState = .failed(
+                String(
+                    localized: "Wait for all container activity to stop before changing the active runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
             return
         }
         guard let policy = wineSourcePolicy.publishedRuntimePolicy else {
-            runtimeInstallationState = .failed("This app build does not contain a published runtime channel.")
+            runtimeInstallationState = .failed(
+                String(
+                    localized: "This app build does not contain a published runtime channel.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
             return
         }
 
@@ -600,21 +647,32 @@ final class AppStore: ObservableObject {
                     versionSourceRevision: wineSourcePolicy.revision,
                     versionDate: wineSourcePolicy.revisionDate
                 )
-                let runtimeName = installedRuntime.buildNumber.map { "Build \($0)" }
+                let runtimeName = installedRuntime.buildNumber.map {
+                    String(localized: "Build \($0)", bundle: SwitchyardStrings.bundle)
+                }
                     ?? result.runtimeID
-                let message = "Installed compatible runtime \(runtimeName)."
+                let message = String(
+                    localized: "Installed compatible runtime \(runtimeName).",
+                    bundle: SwitchyardStrings.bundle
+                )
                 runtimeInstallationState = .ready(message)
                 logLines.insert(
                     LogLine(
                         level: "info",
                         source: "runtime",
-                        message: "\(message) Source \(result.sourceRevision.prefix(12))."
+                        message: String(
+                            localized: "\(message) Source \(result.sourceRevision.prefix(12)).",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ),
                     at: 0
                 )
                 refreshRuntimeStatus()
             } catch {
-                let message = "Could not install the compatible runtime: \(error.localizedDescription)"
+                let message = String(
+                    localized: "Could not install the compatible runtime: \(error.localizedDescription)",
+                    bundle: SwitchyardStrings.bundle
+                )
                 runtimeInstallationState = .failed(message)
                 logLines.insert(LogLine(level: "warning", source: "runtime", message: message), at: 0)
             }
@@ -634,7 +692,10 @@ final class AppStore: ObservableObject {
             )
         } catch {
             runtimeManagementState = .failed(
-                "Could not trust this official runtime: \(Self.errorDescription(error))"
+                String(
+                    localized: "Could not trust this official runtime: \(Self.errorDescription(error))",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
             return
         }
@@ -646,18 +707,27 @@ final class AppStore: ObservableObject {
                     policy: policy
                 )
                 refreshInstalledManagedRuntimes()
-                let message = "Installed \(release.release.tagName)."
+                let message = String(
+                    localized: "Installed \(release.release.tagName).",
+                    bundle: SwitchyardStrings.bundle
+                )
                 runtimeManagementState = .ready(message)
                 logLines.insert(
                     LogLine(
                         level: "info",
                         source: "runtime",
-                        message: "\(message) Runtime \(result.runtimeID), source \(result.sourceRevision.prefix(12))."
+                        message: String(
+                            localized: "\(message) Runtime \(result.runtimeID), source \(result.sourceRevision.prefix(12)).",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ),
                     at: 0
                 )
             } catch {
-                let message = "Could not install \(release.release.tagName): \(Self.errorDescription(error))"
+                let message = String(
+                    localized: "Could not install \(release.release.tagName): \(Self.errorDescription(error))",
+                    bundle: SwitchyardStrings.bundle
+                )
                 runtimeManagementState = .failed(message)
                 logLines.insert(
                     LogLine(level: "warning", source: "runtime", message: message),
@@ -674,19 +744,28 @@ final class AppStore: ObservableObject {
         }
         guard canChangeActiveRuntime else {
             runtimeManagementState = .failed(
-                "Wait for all container activity to stop before changing the active runtime."
+                String(
+                    localized: "Wait for all container activity to stop before changing the active runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
             return
         }
         guard canInstallOfficialRuntime(release) else {
             runtimeManagementState = .failed(
-                "This app build does not trust the selected official runtime."
+                String(
+                    localized: "This app build does not trust the selected official runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
             return
         }
         guard let installation = installedRuntime(for: release) else {
             runtimeManagementState = .failed(
-                "Download the selected runtime before making it active."
+                String(
+                    localized: "Download the selected runtime before making it active.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
             return
         }
@@ -696,13 +775,19 @@ final class AppStore: ObservableObject {
             sourceRevision: release.manifest.sourceRevision
         )
         runtimeManagementState = .ready(
-            "\(release.release.tagName) is now the active app-wide runtime."
+            String(
+                localized: "\(release.release.tagName) is now the active app-wide runtime.",
+                bundle: SwitchyardStrings.bundle
+            )
         )
         logLines.insert(
             LogLine(
                 level: "info",
                 source: "runtime",
-                message: "Selected \(release.release.tagName) as the active app-wide runtime."
+                message: String(
+                    localized: "Selected \(release.release.tagName) as the active app-wide runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
             ),
             at: 0
         )
@@ -716,13 +801,19 @@ final class AppStore: ObservableObject {
         }
         guard canChangeActiveRuntime else {
             runtimeManagementState = .failed(
-                "Wait for all container activity to stop before removing a runtime."
+                String(
+                    localized: "Wait for all container activity to stop before removing a runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
             return
         }
         guard !isActiveRuntime(installation) else {
             runtimeManagementState = .failed(
-                "Select another active runtime before removing this one."
+                String(
+                    localized: "Select another active runtime before removing this one.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
             return
         }
@@ -736,14 +827,20 @@ final class AppStore: ObservableObject {
                 refreshInstalledManagedRuntimes()
                 let name = officialRelease(for: installation)?.release.tagName
                     ?? installation.runtime.id
-                let message = "Removed \(name). It can be downloaded again later."
+                let message = String(
+                    localized: "Removed \(name). It can be downloaded again later.",
+                    bundle: SwitchyardStrings.bundle
+                )
                 runtimeManagementState = .ready(message)
                 logLines.insert(
                     LogLine(level: "info", source: "runtime", message: message),
                     at: 0
                 )
             } catch {
-                let message = "Could not remove the runtime: \(Self.errorDescription(error))"
+                let message = String(
+                    localized: "Could not remove the runtime: \(Self.errorDescription(error))",
+                    bundle: SwitchyardStrings.bundle
+                )
                 runtimeManagementState = .failed(message)
                 logLines.insert(
                     LogLine(level: "warning", source: "runtime", message: message),
@@ -760,14 +857,20 @@ final class AppStore: ObservableObject {
         }
         guard canChangeActiveRuntime else {
             runtimeManagementState = .failed(
-                "Wait for all container activity to stop before changing the active runtime."
+                String(
+                    localized: "Wait for all container activity to stop before changing the active runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
             return
         }
         defaults.removeObject(forKey: activeRuntimeSourceRevisionDefaultsKey)
         persistPreferences()
         runtimeManagementState = .ready(
-            "Selected the local development runtime path."
+            String(
+                localized: "Selected the local development runtime path.",
+                bundle: SwitchyardStrings.bundle
+            )
         )
         refreshRuntimeStatus()
     }
@@ -801,9 +904,15 @@ final class AppStore: ObservableObject {
     func openGPTKDownloadPage() {
         guard let url = URL(string: "https://developer.apple.com/download/all/?q=game+porting+toolkit") else { return }
         if NSWorkspace.shared.open(url) {
-            gptkSetupMessage = "Download the newest Game Porting Toolkit disk image, then return to Switchyard."
+            gptkSetupMessage = String(
+                localized: "Download the newest Game Porting Toolkit disk image, then return to Switchyard.",
+                bundle: SwitchyardStrings.bundle
+            )
         } else {
-            gptkSetupMessage = "Could not open the Apple Developer download page."
+            gptkSetupMessage = String(
+                localized: "Could not open the Apple Developer download page.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 
@@ -811,7 +920,10 @@ final class AppStore: ObservableObject {
         guard !isImportingGPTK else { return }
         refreshDownloadedInstallers()
         guard let downloadedPath = downloadedGPTKDiskImagePath else {
-            gptkSetupMessage = "No Game Porting Toolkit disk image was found in Downloads."
+            gptkSetupMessage = String(
+                localized: "No Game Porting Toolkit disk image was found in Downloads.",
+                bundle: SwitchyardStrings.bundle
+            )
             return
         }
         importGPTKDiskImage(at: downloadedPath)
@@ -820,9 +932,15 @@ final class AppStore: ObservableObject {
     func chooseGPTKDiskImageAndImport() {
         guard !isImportingGPTK else { return }
         let panel = NSOpenPanel()
-        panel.title = "Choose Game Porting Toolkit"
-        panel.message = "Choose the Game Porting Toolkit .dmg file you downloaded from Apple."
-        panel.prompt = "Import"
+        panel.title = String(
+            localized: "Choose Game Porting Toolkit",
+            bundle: SwitchyardStrings.bundle
+        )
+        panel.message = String(
+            localized: "Choose the Game Porting Toolkit .dmg file you downloaded from Apple.",
+            bundle: SwitchyardStrings.bundle
+        )
+        panel.prompt = String(localized: "Import", bundle: SwitchyardStrings.bundle)
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
@@ -844,7 +962,10 @@ final class AppStore: ObservableObject {
         guard !isImportingGPTK else { return }
         let selectedPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard URL(fileURLWithPath: selectedPath).pathExtension.lowercased() == "dmg" else {
-            gptkSetupMessage = "Choose a GPTK disk image before importing."
+            gptkSetupMessage = String(
+                localized: "Choose a GPTK disk image before importing.",
+                bundle: SwitchyardStrings.bundle
+            )
             return
         }
         importGPTKDiskImage(at: selectedPath)
@@ -852,11 +973,17 @@ final class AppStore: ObservableObject {
 
     private func importGPTKDiskImage(at downloadedPath: String) {
         guard !hasRunningContainers else {
-            gptkSetupMessage = "Stop all running containers before importing a toolkit."
+            gptkSetupMessage = String(
+                localized: "Stop all running containers before importing a toolkit.",
+                bundle: SwitchyardStrings.bundle
+            )
             return
         }
         isImportingGPTK = true
-        gptkSetupMessage = "Found \(URL(fileURLWithPath: downloadedPath).lastPathComponent); importing it into the local cache…"
+        gptkSetupMessage = String(
+            localized: "Found \(URL(fileURLWithPath: downloadedPath).lastPathComponent); importing it into the local cache…",
+            bundle: SwitchyardStrings.bundle
+        )
         let importRoot = gptkImportRoot
         gptkImportTask = Task {
             let result: (path: String?, error: String?) = await Task.detached(priority: .userInitiated) {
@@ -872,11 +999,30 @@ final class AppStore: ObservableObject {
             if let importedPath = result.path {
                 gptkPath = importedPath
                 persistPreferences()
-                gptkSetupMessage = "Imported Apple-signed GPTK code into Switchyard's local cache."
-                logLines.insert(LogLine(level: "info", source: "runtime", message: gptkSetupMessage ?? "GPTK import completed."), at: 0)
+                gptkSetupMessage = String(
+                    localized: "Imported Apple-signed GPTK code into Switchyard's local cache.",
+                    bundle: SwitchyardStrings.bundle
+                )
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "runtime",
+                        message: gptkSetupMessage
+                            ?? String(
+                                localized: "GPTK import completed.",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                    ),
+                    at: 0
+                )
                 refreshRuntimeStatus()
             } else {
-                let message = "Could not import GPTK disk image: \(result.error ?? "Unknown error")"
+                let error = result.error
+                    ?? String(localized: "Unknown error", bundle: SwitchyardStrings.bundle)
+                let message = String(
+                    localized: "Could not import GPTK disk image: \(error)",
+                    bundle: SwitchyardStrings.bundle
+                )
                 gptkSetupMessage = message
                 logLines.insert(LogLine(level: "warning", source: "runtime", message: message), at: 0)
             }
@@ -900,7 +1046,10 @@ final class AppStore: ObservableObject {
         steamDownloadTask?.cancel()
         downloadedSteamInstallerPath = nil
         isDownloadingSteamInstaller = true
-        steamSetupMessage = "Downloading the Windows installer securely from Valve…"
+        steamSetupMessage = String(
+            localized: "Downloading the Windows installer securely from Valve…",
+            bundle: SwitchyardStrings.bundle
+        )
 
         steamDownloadTask = Task {
             do {
@@ -911,7 +1060,10 @@ final class AppStore: ObservableObject {
                 if case .failed = steamInstallationState {
                     steamInstallationState = .idle
                 }
-                steamSetupMessage = "The verified Valve download is ready to install."
+                steamSetupMessage = String(
+                    localized: "The verified Valve download is ready to install.",
+                    bundle: SwitchyardStrings.bundle
+                )
             } catch {
                 guard !Task.isCancelled else { return }
                 isDownloadingSteamInstaller = false
@@ -928,7 +1080,10 @@ final class AppStore: ObservableObject {
         steamDownloadTask = nil
         isDownloadingSteamInstaller = false
         if downloadedSteamInstallerPath == nil {
-            steamSetupMessage = "Steam setup is paused. You can resume it whenever you are ready."
+            steamSetupMessage = String(
+                localized: "Steam setup is paused. You can resume it whenever you are ready.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 
@@ -947,7 +1102,12 @@ final class AppStore: ObservableObject {
     func installSteam() {
         guard !steamInstallationState.isWorking else { return }
         guard runtimeStatus.canLaunch else {
-            steamInstallationState = .failed("Finish Switchyard setup before installing Steam.")
+            steamInstallationState = .failed(
+                String(
+                    localized: "Finish Switchyard setup before installing Steam.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
             requestSetupAssistant()
             return
         }
@@ -967,12 +1127,22 @@ final class AppStore: ObservableObject {
             .trustedCachedInstaller(for: StarterApplicationCatalog.steam)?
             .standardizedFileURL == installerURL.standardizedFileURL else {
             downloadedSteamInstallerPath = nil
-            steamInstallationState = .failed("The cached Steam installer changed or could not be verified. Download it again from Valve.")
+            steamInstallationState = .failed(
+                String(
+                    localized: "The cached Steam installer changed or could not be verified. Download it again from Valve.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
             return
         }
 
         if let guidedSteamContainerID, isContainerBusy(guidedSteamContainerID) {
-            steamInstallationState = .failed("Wait for the current Steam setup to finish, or stop it before trying again.")
+            steamInstallationState = .failed(
+                String(
+                    localized: "Wait for the current Steam setup to finish, or stop it before trying again.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
             return
         }
 
@@ -1000,10 +1170,18 @@ final class AppStore: ObservableObject {
             )
             if containers.first(where: { $0.id == containerID })?.status == .running {
                 steamInstallationState = .installerStarted(containerID)
-                steamSetupMessage = "The Steam installer is open. Follow its steps to finish installation."
+                steamSetupMessage = String(
+                    localized: "The Steam installer is open. Follow its steps to finish installation.",
+                    bundle: SwitchyardStrings.bundle
+                )
                 monitorSteamInstallation(in: containerID)
             } else {
-                steamInstallationState = .failed("The Steam installer could not be opened. Check Logs for details, then try again.")
+                steamInstallationState = .failed(
+                    String(
+                        localized: "The Steam installer could not be opened. Check Logs for details, then try again.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                )
             }
         }
     }
@@ -1015,9 +1193,15 @@ final class AppStore: ObservableObject {
         Task {
             await stopWineServer(in: containerID)
             steamInstallationState = .failed(
-                "Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container."
+                String(
+                    localized: "Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
-            steamSetupMessage = "Steam setup is paused and can be continued safely."
+            steamSetupMessage = String(
+                localized: "Steam setup is paused and can be continued safely.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 
@@ -1062,7 +1246,17 @@ final class AppStore: ObservableObject {
                self.winePath == winePath {
                 self.winePath = result.resolvedWinePath
                 persistPreferences()
-                logLines.insert(LogLine(level: "info", source: "runtime", message: "Resolved Wine selection to executable: \(result.resolvedWinePath)"), at: 0)
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "runtime",
+                        message: String(
+                            localized: "Resolved Wine selection to executable: \(result.resolvedWinePath)",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    ),
+                    at: 0
+                )
             }
             runtimeStatus = result.status
             diagnostics = result.diagnostics
@@ -1167,7 +1361,13 @@ final class AppStore: ObservableObject {
                     let result = try await OpenFontPackDownloader().ensureFontPack(
                         in: URL(fileURLWithPath: fontCacheRoot, isDirectory: true)
                     )
-                    return ("\(result.summary) Notices: \(result.noticePath)", nil)
+                    return (
+                        String(
+                            localized: "\(result.summary) Notices: \(result.noticePath)",
+                            bundle: SwitchyardStrings.bundle
+                        ),
+                        nil
+                    )
                 } catch {
                     return (nil, error.localizedDescription)
                 }
@@ -1177,7 +1377,12 @@ final class AppStore: ObservableObject {
                 fontPackPreparationState = .ready
                 logLines.insert(LogLine(level: "info", source: "fonts", message: message), at: 0)
             } else {
-                let message = "Could not prepare Open Font Pack: \(result.error ?? "Unknown error")"
+                let error = result.error
+                    ?? String(localized: "Unknown error", bundle: SwitchyardStrings.bundle)
+                let message = String(
+                    localized: "Could not prepare Open Font Pack: \(error)",
+                    bundle: SwitchyardStrings.bundle
+                )
                 fontPackPreparationState = .failed(message)
                 logLines.insert(LogLine(level: "warning", source: "fonts", message: message), at: 0)
             }
@@ -1186,7 +1391,9 @@ final class AppStore: ObservableObject {
     }
 
     func addContainer() {
-        _ = addContainer(named: "New Container")
+        _ = addContainer(
+            named: String(localized: "New Container", bundle: SwitchyardStrings.bundle)
+        )
     }
 
     @discardableResult
@@ -1243,7 +1450,10 @@ final class AppStore: ObservableObject {
 
         guard let rawURL = NSPasteboard.general.string(forType: .string),
               !rawURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            let message = "Copy the invalid callback address from Safari before recovering it."
+            let message = String(
+                localized: "Copy the invalid callback address from Safari before recovering it.",
+                bundle: SwitchyardStrings.bundle
+            )
             loginCallbackRecoveryStates[containerID] = .failed(message: message)
             logLines.insert(LogLine(level: "warning", source: "protocols", message: message), at: 0)
             return
@@ -1344,7 +1554,12 @@ final class AppStore: ObservableObject {
 
     func cancelLoginCallbackTargetSelection(in containerID: UUID) {
         pendingLoginCallbackRecoveries.removeValue(forKey: containerID)
-        loginCallbackRecoveryStates[containerID] = .failed(message: "Login callback recovery was cancelled.")
+        loginCallbackRecoveryStates[containerID] = .failed(
+            message: String(
+                localized: "Login callback recovery was cancelled.",
+                bundle: SwitchyardStrings.bundle
+            )
+        )
     }
 
     func loginCallbackRecoveryState(for containerID: UUID) -> LoginCallbackRecoveryState? {
@@ -1393,7 +1608,10 @@ final class AppStore: ObservableObject {
                     return
                 }
                 guard exitCode == 0 else {
-                    let message = "Wine could not accept the copied \(request.scheme): callback."
+                    let message = String(
+                        localized: "Wine could not accept the copied \(request.scheme): callback.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                     self.loginCallbackRecoveryStates[containerID] = .failed(message: message)
                     self.logLines.insert(
                         LogLine(level: "warning", source: "protocols", message: message),
@@ -1414,12 +1632,19 @@ final class AppStore: ObservableObject {
                         LogLine(
                             level: "info",
                             source: "protocols",
-                            message: "Recovered the \(request.scheme): callback for \(container.name)."
+                            message: String(
+                                localized: "Recovered the \(request.scheme): callback for \(container.name).",
+                                bundle: SwitchyardStrings.bundle
+                            )
                         ),
                         at: 0
                     )
                 } catch {
-                    let message = "The callback reached Wine, but automatic recovery could not be saved: \(Self.errorDescription(error))"
+                    let errorDescription = Self.errorDescription(error)
+                    let message = String(
+                        localized: "The callback reached Wine, but automatic recovery could not be saved: \(errorDescription)",
+                        bundle: SwitchyardStrings.bundle
+                    )
                     self.loginCallbackRecoveryStates[containerID] = .failed(message: message)
                     self.logLines.insert(
                         LogLine(level: "warning", source: "protocols", message: message),
@@ -1447,7 +1672,10 @@ final class AppStore: ObservableObject {
         pendingLoginCallbackRecoveries.removeValue(forKey: containerID)
         if isRecoveringLoginCallback(in: containerID) {
             loginCallbackRecoveryStates[containerID] = .failed(
-                message: "Login callback recovery was cancelled because the container folder is changing."
+                message: String(
+                    localized: "Login callback recovery was cancelled because the container folder is changing.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
         }
     }
@@ -1455,14 +1683,30 @@ final class AppStore: ObservableObject {
     func chooseExecutableAndRun(in containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         guard !isContainerTransitioning(containerID) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish its current session action before starting another executable."), at: 0)
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: String(
+                        localized: "Wait for \(container.name) to finish its current session action before starting another executable.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
             return
         }
 
         let panel = NSOpenPanel()
-        panel.title = "Install or Run a Windows App"
-        panel.message = "Choose a Windows app or installer (.exe or .msi) to open in \(container.name)."
-        panel.prompt = "Open"
+        panel.title = String(
+            localized: "Install or Run a Windows App",
+            bundle: SwitchyardStrings.bundle
+        )
+        panel.message = String(
+            localized: "Choose a Windows app or installer (.exe or .msi) to open in \(container.name).",
+            bundle: SwitchyardStrings.bundle
+        )
+        panel.prompt = String(localized: "Open", bundle: SwitchyardStrings.bundle)
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
@@ -1504,7 +1748,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "warning",
                     source: container.name,
-                    message: "Choose an existing Windows .exe or .msi file."
+                    message: String(
+                        localized: "Choose an existing Windows .exe or .msi file.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1610,7 +1857,10 @@ final class AppStore: ObservableObject {
                     containerID: containerID,
                     level: "info",
                     source: container.name,
-                    message: "Wine processes stopped for this container."
+                    message: String(
+                        localized: "Wine processes stopped for this container.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1624,7 +1874,10 @@ final class AppStore: ObservableObject {
                     containerID: containerID,
                     level: "error",
                     source: container.name,
-                    message: "Could not stop Wine processes: \(Self.errorDescription(error))"
+                    message: String(
+                        localized: "Could not stop Wine processes: \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1678,7 +1931,10 @@ final class AppStore: ObservableObject {
                         wineServerState: .active,
                         processes: [],
                         refreshedAt: Date(),
-                        message: "Process details are temporarily unavailable."
+                        message: String(
+                            localized: "Process details are temporarily unavailable.",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     )
                 }
             case .orphaned:
@@ -1686,7 +1942,10 @@ final class AppStore: ObservableObject {
                     wineServerState: .orphaned,
                     processes: [],
                     refreshedAt: Date(),
-                    message: "Wine processes remain after wineserver exited. Stop this session before changing its folder."
+                    message: String(
+                        localized: "Wine processes remain after wineserver exited. Stop this session before changing its folder.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
             case .inactive:
                 return ContainerSessionSnapshot(
@@ -1700,7 +1959,10 @@ final class AppStore: ObservableObject {
                     wineServerState: .unavailable,
                     processes: [],
                     refreshedAt: Date(),
-                    message: "Switchyard could not inspect this Wine session."
+                    message: String(
+                        localized: "Switchyard could not inspect this Wine session.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
             }
         }.value
@@ -1821,7 +2083,10 @@ final class AppStore: ObservableObject {
 
         updateDefaultExecutable(for: containerID, to: steam.executablePath, arguments: [])
         steamInstallationState = .installed(containerID)
-        steamSetupMessage = "Steam is installed and ready to launch."
+        steamSetupMessage = String(
+            localized: "Steam is installed and ready to launch.",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 
     private func monitorSteamInstallation(in containerID: UUID) {
@@ -1851,9 +2116,15 @@ final class AppStore: ObservableObject {
                 if !isContainerRunning(containerID)
                     && !isContainerTransitioning(containerID) {
                     steamInstallationState = .failed(
-                        "Steam was not found after the installer closed. You can continue setup in the same container without losing anything."
+                        String(
+                            localized: "Steam was not found after the installer closed. You can continue setup in the same container without losing anything.",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     )
-                    steamSetupMessage = "Steam installation did not finish. Choose Continue Steam Setup to try again."
+                    steamSetupMessage = String(
+                        localized: "Steam installation did not finish. Choose Continue Steam Setup to try again.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                     return
                 }
 
@@ -1867,9 +2138,15 @@ final class AppStore: ObservableObject {
             if case .installerStarted(let activeID) = steamInstallationState,
                activeID == containerID {
                 steamInstallationState = .failed(
-                    "Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container."
+                    String(
+                        localized: "Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
-                steamSetupMessage = "Steam was not detected yet. You can safely continue setup in this container."
+                steamSetupMessage = String(
+                    localized: "Steam was not detected yet. You can safely continue setup in this container.",
+                    bundle: SwitchyardStrings.bundle
+                )
             }
         }
     }
@@ -1895,7 +2172,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "warning",
                     source: "containers",
-                    message: "Stop or wait for \(containers[index].name) before renaming its folder."
+                    message: String(
+                        localized: "Stop or wait for \(containers[index].name) before renaming its folder.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1921,7 +2201,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "warning",
                     source: "containers",
-                    message: "Stop \(originalContainer.name) before renaming its folder. A Wine process is still using this container."
+                    message: String(
+                        localized: "Stop \(originalContainer.name) before renaming its folder. A Wine process is still using this container.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1931,7 +2214,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "error",
                     source: "containers",
-                    message: "Could not verify that \(originalContainer.name) is idle, so its folder was not renamed."
+                    message: String(
+                        localized: "Could not verify that \(originalContainer.name) is idle, so its folder was not renamed.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1953,7 +2239,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "error",
                     source: "containers",
-                    message: "Could not lock \(originalContainer.name) for a safe folder rename: \(Self.errorDescription(error))"
+                    message: String(
+                        localized: "Could not lock \(originalContainer.name) for a safe folder rename: \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1973,7 +2262,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "warning",
                     source: "containers",
-                    message: "Stop \(originalContainer.name) before renaming its folder. A Wine process started while Switchyard was locking this container."
+                    message: String(
+                        localized: "Stop \(originalContainer.name) before renaming its folder. A Wine process started while Switchyard was locking this container.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -1983,7 +2275,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "error",
                     source: "containers",
-                    message: "Could not recheck that \(originalContainer.name) remained idle, so its folder was not renamed."
+                    message: String(
+                        localized: "Could not recheck that \(originalContainer.name) remained idle, so its folder was not renamed.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -2041,7 +2336,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "info",
                     source: "containers",
-                    message: "Renamed \(originalContainer.name) and its folder to \(renamedContainer.name)."
+                    message: String(
+                        localized: "Renamed \(originalContainer.name) and its folder to \(renamedContainer.name).",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -2051,7 +2349,10 @@ final class AppStore: ObservableObject {
                 LogLine(
                     level: "error",
                     source: "containers",
-                    message: "Could not rename \(originalContainer.name): \(Self.errorDescription(error))"
+                    message: String(
+                        localized: "Could not rename \(originalContainer.name): \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -2089,7 +2390,20 @@ final class AppStore: ObservableObject {
     func addEnvironmentOverride(for containerID: UUID, key: String, value: String) {
         let trimmedKey = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard EnvironmentOverridePolicy.isAllowedKey(trimmedKey) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Environment variable name is invalid or reserved: \(trimmedKey.isEmpty ? "empty" : trimmedKey)."), at: 0)
+            let displayedKey = trimmedKey.isEmpty
+                ? String(localized: "empty", bundle: SwitchyardStrings.bundle)
+                : trimmedKey
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: String(
+                        localized: "Environment variable name is invalid or reserved: \(displayedKey).",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
             return
         }
         updateContainer(containerID) { container in
@@ -2100,7 +2414,17 @@ final class AppStore: ObservableObject {
     func updateEnvironmentOverride(for containerID: UUID, key: String, value: String) {
         guard EnvironmentOverridePolicy.isAllowedKey(key) else {
             removeEnvironmentOverride(for: containerID, key: key)
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Removed reserved environment variable: \(key)."), at: 0)
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: String(
+                        localized: "Removed reserved environment variable: \(key).",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
             return
         }
         updateContainer(containerID) { container in
@@ -2149,14 +2473,34 @@ final class AppStore: ObservableObject {
     func deleteContainer(_ containerID: UUID) async -> Bool {
         guard let container = containers.first(where: { $0.id == containerID }) else { return false }
         guard !isContainerTransitioning(containerID) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish its current action before deleting its container."), at: 0)
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: String(
+                        localized: "Wait for \(container.name) to finish its current action before deleting its container.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
             return false
         }
 
         let containerURL = URL(fileURLWithPath: container.path, isDirectory: true)
         if FileManager.default.fileExists(atPath: containerURL.path) {
             guard isSafeTrashTarget(containerURL) else {
-                logLines.insert(LogLine(level: "error", source: "containers", message: "Refusing to move \(container.name) to Trash because its path is outside Switchyard storage or has no Switchyard manifest."), at: 0)
+                logLines.insert(
+                    LogLine(
+                        level: "error",
+                        source: "containers",
+                        message: String(
+                            localized: "Refusing to move \(container.name) to Trash because its path is outside Switchyard storage or has no Switchyard manifest.",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    ),
+                    at: 0
+                )
                 return false
             }
 
@@ -2186,14 +2530,44 @@ final class AppStore: ObservableObject {
                         resultingItemURL: &trashedURL
                     )
                 }.value
-                logLines.insert(LogLine(level: "info", source: "containers", message: "Moved \(container.name) to Trash."), at: 0)
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "containers",
+                        message: String(
+                            localized: "Moved \(container.name) to Trash.",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    ),
+                    at: 0
+                )
             } catch {
                 userStoppedRunSessionIDs.subtract(targetedRunSessionIDs)
-                logLines.insert(LogLine(level: "error", source: "containers", message: "Could not stop \(container.name) safely and move it to Trash: \(Self.errorDescription(error))"), at: 0)
+                logLines.insert(
+                    LogLine(
+                        level: "error",
+                        source: "containers",
+                        message: String(
+                            localized: "Could not stop \(container.name) safely and move it to Trash: \(Self.errorDescription(error))",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    ),
+                    at: 0
+                )
                 return false
             }
         } else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "\(container.name) was removed from Switchyard, but its folder was already missing."), at: 0)
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: String(
+                        localized: "\(container.name) was removed from Switchyard, but its folder was already missing.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
         }
 
         containers.removeAll { $0.id == containerID }
@@ -2236,7 +2610,17 @@ final class AppStore: ObservableObject {
     private func runContainer(containerID: UUID, executablePath: String?, executableArguments: [String]) async {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         guard !isContainerTransitioning(containerID) else {
-            logLines.insert(LogLine(level: "warning", source: "containers", message: "Wait for \(container.name) to finish its current session action before starting another executable."), at: 0)
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: String(
+                        localized: "Wait for \(container.name) to finish its current session action before starting another executable.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
             return
         }
 
@@ -2296,7 +2680,10 @@ final class AppStore: ObservableObject {
                     LogLine(
                         level: "warning",
                         source: container.name,
-                        message: "Could not inspect this Wine runtime for an existing prefix session; launching without stopping it."
+                        message: String(
+                            localized: "Could not inspect this Wine runtime for an existing prefix session; launching without stopping it.",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ),
                     at: 0
                 )
@@ -2375,38 +2762,72 @@ final class AppStore: ObservableObject {
                 .replacingOccurrences(of: "\\", with: "/")
                 .split(separator: "/")
                 .last
-                .map(String.init) ?? "configured executable"
+                .map(String.init)
+                ?? String(
+                    localized: "configured executable",
+                    bundle: SwitchyardStrings.bundle
+                )
             logLines.insert(
                 LogLine(
                     containerID: container.id,
                     level: "info",
                     source: container.name,
-                    message: "Launch command started through switchyard-runner: executable=\(executableName) argumentCount=\(plan.arguments.count)"
+                    message: String(
+                        localized: "Launch command started through switchyard-runner: executable=\(executableName) argumentCount=\(plan.arguments.count)",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
             if let debugLogPath {
+                let profileDescription = verboseWineLogging
+                    ? String(localized: "verbose", bundle: SwitchyardStrings.bundle)
+                    : String(localized: "standard", bundle: SwitchyardStrings.bundle)
+                let wineDebugDescription = debugEnvironmentOverrides["WINEDEBUG"]
+                    ?? String(
+                        localized: "container override or inherited",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 logLines.insert(
                     LogLine(
                         level: "info",
                         source: container.name,
-                        message: "Debug run logging enabled (profile=\(verboseWineLogging ? "verbose" : "standard"), WINEDEBUG=\(debugEnvironmentOverrides["WINEDEBUG"] ?? "container override or inherited"), file: \(debugLogPath)). The live view is batched and retains its latest \(maximumLiveLogLines) entries; this file retains the complete run output."
+                        message: String(
+                            localized: "Debug run logging enabled (profile=\(profileDescription), WINEDEBUG=\(wineDebugDescription), file: \(debugLogPath)). The live view is batched and retains its latest \(maximumLiveLogLines) entries; this file retains the complete run output.",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ),
                     at: 0
                 )
             }
         } catch {
-            appendFailedRun(for: container, message: "Could not prepare container: \(Self.errorDescription(error))")
+            appendFailedRun(
+                for: container,
+                message: String(
+                    localized: "Could not prepare container: \(Self.errorDescription(error))",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
         }
     }
 
     private func confirmRestartOfExistingPrefixSession(for container: Container) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "\(container.name) is already running"
-        alert.informativeText = "Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?"
-        alert.addButton(withTitle: "Restart")
-        alert.addButton(withTitle: "Cancel")
+        alert.messageText = String(
+            localized: "\(container.name) is already running",
+            bundle: SwitchyardStrings.bundle
+        )
+        alert.informativeText = String(
+            localized: "Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?",
+            bundle: SwitchyardStrings.bundle
+        )
+        alert.addButton(
+            withTitle: String(localized: "Restart", bundle: SwitchyardStrings.bundle)
+        )
+        alert.addButton(
+            withTitle: String(localized: "Cancel", bundle: SwitchyardStrings.bundle)
+        )
         return alert.runModal() == .alertFirstButtonReturn
     }
 
@@ -2439,7 +2860,10 @@ final class AppStore: ObservableObject {
                     LogLine(
                         level: "info",
                         source: "protocols",
-                        message: "Registered a macOS callback bridge for a Wine URL scheme: \(scheme)"
+                        message: String(
+                            localized: "Registered a macOS callback bridge for a Wine URL scheme: \(scheme)",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ),
                     at: 0
                 )
@@ -2469,7 +2893,10 @@ final class AppStore: ObservableObject {
                     LogLine(
                         level: "info",
                         source: "shortcuts",
-                        message: "Created a native macOS desktop shortcut for \(name)."
+                        message: String(
+                            localized: "Created a native macOS desktop shortcut for \(name).",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ),
                     at: 0
                 )
@@ -2479,7 +2906,10 @@ final class AppStore: ObservableObject {
                     LogLine(
                         level: "info",
                         source: "shortcuts",
-                        message: "Removed a stale macOS desktop shortcut for \(name)."
+                        message: String(
+                            localized: "Removed a stale macOS desktop shortcut for \(name).",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ),
                     at: 0
                 )
@@ -2523,7 +2953,14 @@ final class AppStore: ObservableObject {
             return fileURL.path
         } catch {
             logLines.insert(
-                LogLine(level: "warning", source: "containers", message: "Could not create debug log directory \(logsRoot.path): \(Self.errorDescription(error))"),
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: String(
+                        localized: "Could not create debug log directory \(logsRoot.path): \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
                 at: 0
             )
             return nil
@@ -2583,7 +3020,10 @@ final class AppStore: ObservableObject {
             return LogLine(
                 level: "info",
                 source: "fonts",
-                message: "Open Font Pack registration was skipped while this Windows session is active."
+                message: String(
+                    localized: "Open Font Pack registration was skipped while this Windows session is active.",
+                    bundle: SwitchyardStrings.bundle
+                )
             )
         }
 
@@ -2599,7 +3039,10 @@ final class AppStore: ObservableObject {
                 return LogLine(
                     level: "warning",
                     source: "fonts",
-                    message: "Open Font Pack could not be prepared; continuing launch without additional font fallback: \(Self.errorDescription(error))"
+                    message: String(
+                        localized: "Open Font Pack could not be prepared; continuing launch without additional font fallback: \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
             }
         }.value
@@ -2622,8 +3065,14 @@ final class AppStore: ObservableObject {
                 level: "info",
                 source: container.name,
                 message: preparation == .initialize
-                    ? "Initializing this Windows container before its first app opens."
-                    : "Preparing this Windows container for the active Switchyard runtime."
+                    ? String(
+                        localized: "Initializing this Windows container before its first app opens.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                    : String(
+                        localized: "Preparing this Windows container for the active Switchyard runtime.",
+                        bundle: SwitchyardStrings.bundle
+                    )
             ),
             at: 0
         )
@@ -2639,7 +3088,10 @@ final class AppStore: ObservableObject {
             let session = try await runnerClient.launchAndWait(
                 plan,
                 containerID: container.id,
-                containerName: "\(container.name) Setup",
+                containerName: String(
+                    localized: "\(container.name) Setup",
+                    bundle: SwitchyardStrings.bundle
+                ),
                 onLogs: { [weak self] lines in
                     Task { @MainActor in
                         self?.recordIncomingLogs(lines)
@@ -2652,8 +3104,14 @@ final class AppStore: ObservableObject {
                     code: Int(session.exitCode ?? -1),
                     userInfo: [
                         NSLocalizedDescriptionKey: preparation == .initialize
-                            ? "Wine initialization exited before finishing."
-                            : "Wine runtime preparation exited before finishing."
+                            ? String(
+                                localized: "Wine initialization exited before finishing.",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                            : String(
+                                localized: "Wine runtime preparation exited before finishing.",
+                                bundle: SwitchyardStrings.bundle
+                            )
                     ]
                 )
             }
@@ -2677,8 +3135,14 @@ final class AppStore: ObservableObject {
                     level: "warning",
                     source: container.name,
                     message: preparation == .initialize
-                        ? "The first-run container preparation did not finish; the app will still open and Wine can retry automatically: \(Self.errorDescription(error))"
-                        : "The active runtime could not finish preparing this container; launch will continue and Wine can retry automatically: \(Self.errorDescription(error))"
+                        ? String(
+                            localized: "The first-run container preparation did not finish; the app will still open and Wine can retry automatically: \(Self.errorDescription(error))",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                        : String(
+                            localized: "The active runtime could not finish preparing this container; launch will continue and Wine can retry automatically: \(Self.errorDescription(error))",
+                            bundle: SwitchyardStrings.bundle
+                        )
                 ),
                 at: 0
             )
@@ -2722,7 +3186,10 @@ final class AppStore: ObservableObject {
                     containerID: container.id,
                     level: "warning",
                     source: container.name,
-                    message: "Stop requested for this container."
+                    message: String(
+                        localized: "Stop requested for this container.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 ),
                 at: 0
             )
@@ -2795,14 +3262,23 @@ final class AppStore: ObservableObject {
         Task {
             await refreshContainerSession(for: session.containerID)
         }
+        let exitCodeDescription = session.exitCode.map(String.init)
+            ?? String(localized: "unknown", bundle: SwitchyardStrings.bundle)
+        let completionMessage = wasStoppedByUser
+            ? String(
+                localized: "Runner stopped at the user's request.",
+                bundle: SwitchyardStrings.bundle
+            )
+            : String(
+                localized: "Runner exited with code \(exitCodeDescription).",
+                bundle: SwitchyardStrings.bundle
+            )
         logLines.insert(
             LogLine(
                 containerID: session.containerID,
                 level: normalizedOutcome == .failed ? "error" : "info",
                 source: session.containerName,
-                message: wasStoppedByUser
-                    ? "Runner stopped at the user's request."
-                    : "Runner exited with code \(session.exitCode.map(String.init) ?? "unknown")."
+                message: completionMessage
             ),
             at: 0
         )
@@ -2850,7 +3326,7 @@ final class AppStore: ObservableObject {
         persistLibrary()
     }
 
-    private func nextContainerName(baseName: String = "New Container") -> String {
+    private func nextContainerName(baseName: String) -> String {
         guard containers.contains(where: { $0.name == baseName }) else {
             return baseName
         }
@@ -2903,7 +3379,10 @@ final class AppStore: ObservableObject {
             LogLine(
                 level: "warning",
                 source: "containers",
-                message: "Removed duplicate container entries that pointed to an already-used folder: \(result.removedNames.joined(separator: ", "))."
+                message: String(
+                    localized: "Removed duplicate container entries that pointed to an already-used folder: \(result.removedNames.joined(separator: ", ")).",
+                    bundle: SwitchyardStrings.bundle
+                )
             ),
             at: 0
         )
@@ -2939,7 +3418,18 @@ final class AppStore: ObservableObject {
         do {
             try libraryStore.save(SwitchyardContainerSnapshot(containers: containers))
         } catch {
-            logLines.insert(LogLine(level: "error", source: "persistence", message: "Could not save container manifest: \(error)"), at: 0)
+            let errorDescription = error.localizedDescription
+            logLines.insert(
+                LogLine(
+                    level: "error",
+                    source: "persistence",
+                    message: String(
+                        localized: "Could not save container manifest: \(errorDescription)",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
         }
     }
 

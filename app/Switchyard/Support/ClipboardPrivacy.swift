@@ -27,8 +27,12 @@ enum ClipboardPrivacy {
         alert.alertStyle = .warning
         alert.messageText = title
         alert.informativeText = message
-        alert.addButton(withTitle: "Copy Redacted")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(
+            withTitle: String(localized: "Copy Redacted", bundle: SwitchyardStrings.bundle)
+        )
+        alert.addButton(
+            withTitle: String(localized: "Cancel", bundle: SwitchyardStrings.bundle)
+        )
 
         guard alert.runModal() == .alertFirstButtonReturn else {
             return

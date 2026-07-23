@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "Switchyard",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -15,31 +16,49 @@ let package = Package(
         .library(name: "AppCore", targets: ["AppCore"]),
         .library(name: "JobEngine", targets: ["JobEngine"]),
         .library(name: "RuntimeCatalog", targets: ["RuntimeCatalog"]),
-        .library(name: "Persistence", targets: ["Persistence"])
+        .library(name: "Persistence", targets: ["Persistence"]),
+        .library(name: "SwitchyardLocalization", targets: ["SwitchyardLocalization"])
     ],
     targets: [
         .target(
+            name: "SwitchyardLocalization",
+            path: "app/Packages/SwitchyardLocalization",
+            exclude: [
+                "Resources/Localizable.xcstrings"
+            ],
+            resources: [
+                .process("Resources")
+            ]
+        ),
+        .target(
             name: "AppCore",
+            dependencies: ["SwitchyardLocalization"],
             path: "app/Packages/AppCore"
         ),
         .target(
             name: "RuntimeCatalog",
-            dependencies: ["AppCore"],
+            dependencies: ["AppCore", "SwitchyardLocalization"],
             path: "app/Packages/RuntimeCatalog"
         ),
         .target(
             name: "Persistence",
-            dependencies: ["AppCore"],
+            dependencies: ["AppCore", "SwitchyardLocalization"],
             path: "app/Packages/Persistence"
         ),
         .target(
             name: "JobEngine",
-            dependencies: ["AppCore", "RuntimeCatalog"],
+            dependencies: ["AppCore", "RuntimeCatalog", "SwitchyardLocalization"],
             path: "app/Packages/JobEngine"
         ),
         .executableTarget(
             name: "Switchyard",
-            dependencies: ["AppCore", "JobEngine", "RuntimeCatalog", "Persistence"],
+            dependencies: [
+                "AppCore",
+                "JobEngine",
+                "RuntimeCatalog",
+                "Persistence",
+                "SwitchyardLocalization"
+            ],
             path: "app/Switchyard"
         ),
         .executableTarget(
@@ -79,8 +98,13 @@ let package = Package(
         ),
         .testTarget(
             name: "SwitchyardTests",
-            dependencies: ["AppCore", "Switchyard"],
+            dependencies: ["AppCore", "Switchyard", "SwitchyardLocalization"],
             path: "Tests/SwitchyardTests"
+        ),
+        .testTarget(
+            name: "SwitchyardLocalizationTests",
+            dependencies: ["SwitchyardLocalization"],
+            path: "Tests/SwitchyardLocalizationTests"
         )
     ]
 )

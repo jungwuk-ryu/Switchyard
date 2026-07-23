@@ -10,7 +10,10 @@ extension JobEngineError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .missingExecutable:
-            "Choose a Windows executable for this container before running."
+            String(
+                localized: "Choose a Windows executable for this container before running.",
+                bundle: SwitchyardStrings.bundle
+            )
         case let .runtimeNotRunnable(status):
             status.summary
         }

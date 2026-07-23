@@ -120,7 +120,8 @@ private struct LegacyRunTarget: Decodable, Equatable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? "Imported Entry"
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+            ?? String(localized: "Imported Entry", bundle: SwitchyardStrings.bundle)
         if let decodedContainerID = try container.decodeIfPresent(UUID.self, forKey: .containerID) {
             containerID = decodedContainerID
         } else {

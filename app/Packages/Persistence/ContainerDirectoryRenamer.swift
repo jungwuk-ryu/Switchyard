@@ -10,13 +10,22 @@ public enum ContainerDirectoryRenameError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .emptyName:
-            "Container names cannot be empty."
+            String(localized: "Container names cannot be empty.", bundle: SwitchyardStrings.bundle)
         case .sourceOutsideLibrary(let url):
-            "The container folder is outside the active Switchyard library: \(url.path)"
+            String(
+                localized: "The container folder is outside the active Switchyard library: \(url.path)",
+                bundle: SwitchyardStrings.bundle
+            )
         case .sourceMissing(let url):
-            "The container folder is missing: \(url.path)"
+            String(
+                localized: "The container folder is missing: \(url.path)",
+                bundle: SwitchyardStrings.bundle
+            )
         case .sourceHasNoManifest(let url):
-            "The container folder has no Switchyard manifest: \(url.path)"
+            String(
+                localized: "The container folder has no Switchyard manifest: \(url.path)",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }

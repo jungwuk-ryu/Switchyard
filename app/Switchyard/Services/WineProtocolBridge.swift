@@ -15,15 +15,30 @@ enum WineProtocolBridgeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingURLHandler:
-            "switchyard-url-handler was not found in the app bundle or build directory."
+            String(
+                localized: "switchyard-url-handler was not found in the app bundle or build directory.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .invalidCallbackURL:
-            "The clipboard does not contain a supported custom callback URL."
+            String(
+                localized: "The clipboard does not contain a supported custom callback URL.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .missingCallbackContainer:
-            "The selected Wine container or runtime is not available."
+            String(
+                localized: "The selected Wine container or runtime is not available.",
+                bundle: SwitchyardStrings.bundle
+            )
         case let .couldNotSignHandler(scheme):
-            "Could not sign the generated macOS handler for the \(scheme) URL scheme."
+            String(
+                localized: "Could not sign the generated macOS handler for the \(scheme) URL scheme.",
+                bundle: SwitchyardStrings.bundle
+            )
         case let .couldNotRegisterHandler(scheme, status):
-            "Could not register the generated macOS handler for the \(scheme) URL scheme (status \(status))."
+            String(
+                localized: "Could not register the generated macOS handler for the \(scheme) URL scheme (status \(status)).",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }

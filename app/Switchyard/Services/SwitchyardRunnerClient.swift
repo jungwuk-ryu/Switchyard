@@ -18,15 +18,30 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .missingRunner:
-            "switchyard-runner helper was not found in the app bundle or build directory."
+            String(
+                localized: "switchyard-runner helper was not found in the app bundle or build directory.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .couldNotEncodePlan:
-            "Command plan could not be serialized for the runner."
+            String(
+                localized: "Command plan could not be serialized for the runner.",
+                bundle: SwitchyardStrings.bundle
+            )
         case let .couldNotListWindowsProcesses(status):
-            "Running Windows applications could not be inspected (exit code \(status))."
+            String(
+                localized: "Running Windows applications could not be inspected (exit code \(status)).",
+                bundle: SwitchyardStrings.bundle
+            )
         case let .couldNotStopWineServer(status, detail):
             detail.isEmpty
-                ? "wineserver could not be stopped (exit code \(status))."
-                : "wineserver could not be stopped (exit code \(status)): \(detail)"
+                ? String(
+                    localized: "wineserver could not be stopped (exit code \(status)).",
+                    bundle: SwitchyardStrings.bundle
+                )
+                : String(
+                    localized: "wineserver could not be stopped (exit code \(status)): \(detail)",
+                    bundle: SwitchyardStrings.bundle
+                )
         }
     }
 }
@@ -496,12 +511,16 @@ final class ProcessLogBatcher: @unchecked Sendable {
         isFlushScheduled = false
 
         if omitted > 0 {
+            let omittedEntryMessage = String(
+                localized: "\(omitted) high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled.",
+                bundle: SwitchyardStrings.bundle
+            )
             logs.append(
                 LogLine(
                     containerID: containerID,
                     level: "warning",
                     source: source,
-                    message: "\(omitted) high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled."
+                    message: omittedEntryMessage
                 )
             )
         }

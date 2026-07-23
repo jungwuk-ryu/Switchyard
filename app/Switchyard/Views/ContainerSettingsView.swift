@@ -61,8 +61,14 @@ struct ContainerSettingsView: View {
                 }
 
                 PathPickerRow(
-                    title: "Default Executable",
-                    message: "Choose the Windows executable to run by default in this container.",
+                    title: String(
+                        localized: "Default Executable",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    message: String(
+                        localized: "Choose the Windows executable to run by default in this container.",
+                        bundle: SwitchyardStrings.bundle
+                    ),
                     initialDirectoryURL: URL(fileURLWithPath: container.path, isDirectory: true),
                     path: executablePathBinding
                 ) {
@@ -139,15 +145,41 @@ struct ContainerSettingsView: View {
                         RuntimeBuildTechnicalDetailsView(runtime: runtime)
                         if let lastRuntime = container.lastRuntime {
                             Divider()
-                            runtimeHistoryValue("Last-used Runtime ID", lastRuntime.runtimeID)
-                            runtimeHistoryValue("Last-used Patch Set", lastRuntime.patchsetID)
                             runtimeHistoryValue(
-                                "Last-used Source",
-                                lastRuntime.sourceRevision ?? "Not recorded"
+                                String(
+                                    localized: "Last-used Runtime ID",
+                                    bundle: SwitchyardStrings.bundle
+                                ),
+                                lastRuntime.runtimeID
                             )
                             runtimeHistoryValue(
-                                "Last-used GPTK",
-                                lastRuntime.gptkFingerprint ?? "Not recorded"
+                                String(
+                                    localized: "Last-used Patch Set",
+                                    bundle: SwitchyardStrings.bundle
+                                ),
+                                lastRuntime.patchsetID
+                            )
+                            runtimeHistoryValue(
+                                String(
+                                    localized: "Last-used Source",
+                                    bundle: SwitchyardStrings.bundle
+                                ),
+                                lastRuntime.sourceRevision
+                                    ?? String(
+                                        localized: "Not recorded",
+                                        bundle: SwitchyardStrings.bundle
+                                    )
+                            )
+                            runtimeHistoryValue(
+                                String(
+                                    localized: "Last-used GPTK",
+                                    bundle: SwitchyardStrings.bundle
+                                ),
+                                lastRuntime.gptkFingerprint
+                                    ?? String(
+                                        localized: "Not recorded",
+                                        bundle: SwitchyardStrings.bundle
+                                    )
                             )
                         }
                     }
@@ -160,12 +192,21 @@ struct ContainerSettingsView: View {
 
     private var lastRuntimeUseDetail: String {
         guard let lastRuntime = container.lastRuntime else {
-            return "Runtime provenance will be recorded after this container first uses Wine."
+            return String(
+                localized: "Runtime provenance will be recorded after this container first uses Wine.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         guard let usedAt = lastRuntime.usedAt else {
-            return "Imported from a legacy manifest; the exact usage time was not recorded."
+            return String(
+                localized: "Imported from a legacy manifest; the exact usage time was not recorded.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
-        return "Recorded \(usedAt.formatted(date: .abbreviated, time: .shortened))."
+        return String(
+            localized: "Recorded \(usedAt.formatted(date: .abbreviated, time: .shortened)).",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 
     private var environmentSection: some View {
@@ -275,9 +316,12 @@ private struct ContainerNameField: View {
 private extension RuntimeIdentityComparison {
     var label: String {
         switch self {
-        case .matches: "Last used with active build"
-        case .differs: "Last used with another build"
-        case .unavailable: "Comparison unavailable"
+        case .matches:
+            String(localized: "Last used with active build", bundle: SwitchyardStrings.bundle)
+        case .differs:
+            String(localized: "Last used with another build", bundle: SwitchyardStrings.bundle)
+        case .unavailable:
+            String(localized: "Comparison unavailable", bundle: SwitchyardStrings.bundle)
         }
     }
 

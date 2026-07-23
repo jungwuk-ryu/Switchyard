@@ -8,9 +8,12 @@ public enum ContainerDirectoryCatalogError: Error, Equatable, LocalizedError, Se
     public var errorDescription: String? {
         switch self {
         case .outsideContainer:
-            "Switchyard will not browse a path outside this container."
+            String(
+                localized: "Switchyard will not browse a path outside this container.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .notDirectory:
-            "The selected path is not a folder."
+            String(localized: "The selected path is not a folder.", bundle: SwitchyardStrings.bundle)
         }
     }
 }

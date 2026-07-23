@@ -12,15 +12,30 @@ enum StarterApplicationDownloadError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .untrustedURL:
-            "The download left the official Valve download service, so Switchyard stopped it."
+            String(
+                localized: "The download left the official Valve download service, so Switchyard stopped it.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .invalidResponse:
-            "Valve's download service did not return a complete installer."
+            String(
+                localized: "Valve's download service did not return a complete installer.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .downloadTooLarge:
-            "The download was unexpectedly large, so Switchyard stopped before using it."
+            String(
+                localized: "The download was unexpectedly large, so Switchyard stopped before using it.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .invalidInstaller:
-            "The downloaded file is not a complete Windows Steam installer."
+            String(
+                localized: "The downloaded file is not a complete Windows Steam installer.",
+                bundle: SwitchyardStrings.bundle
+            )
         case .cacheWriteFailed(let detail):
-            "Switchyard could not protect the downloaded installer in its private cache: \(detail)"
+            String(
+                localized: "Switchyard could not protect the downloaded installer in its private cache: \(detail)",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }
@@ -100,7 +115,12 @@ struct StarterApplicationDownloader {
         let temporaryURL = fileManager.temporaryDirectory
             .appendingPathComponent("switchyard-installer-\(UUID().uuidString).download")
         guard fileManager.createFile(atPath: temporaryURL.path, contents: nil) else {
-            throw StarterApplicationDownloadError.cacheWriteFailed("Could not create a temporary download file.")
+            throw StarterApplicationDownloadError.cacheWriteFailed(
+                String(
+                    localized: "Could not create a temporary download file.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
         }
         defer { try? fileManager.removeItem(at: temporaryURL) }
 
@@ -153,7 +173,10 @@ struct StarterApplicationDownloader {
             guard directory.standardizedFileURL.resolvingSymlinksInPath()
                     == directory.standardizedFileURL else {
                 throw StarterApplicationDownloadError.cacheWriteFailed(
-                    "The installer cache contains an unexpected symbolic link."
+                    String(
+                        localized: "The installer cache contains an unexpected symbolic link.",
+                        bundle: SwitchyardStrings.bundle
+                    )
                 )
             }
             try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: directory.path)

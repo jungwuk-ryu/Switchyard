@@ -56,9 +56,18 @@ struct DiagnosticsView: View {
 
                 if !store.runtimeStatus.canLaunch {
                     ErrorBanner(
-                        title: "Setup is incomplete",
-                        message: "Resolve missing runtime components before running Windows executables.",
-                        actionTitle: "Open Settings"
+                        title: String(
+                            localized: "Setup is incomplete",
+                            bundle: SwitchyardStrings.bundle
+                        ),
+                        message: String(
+                            localized: "Resolve missing runtime components before running Windows executables.",
+                            bundle: SwitchyardStrings.bundle
+                        ),
+                        actionTitle: String(
+                            localized: "Open Settings",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ) {
                         openSettingsTab(preferredSettingsTab)
                     }
@@ -66,9 +75,15 @@ struct DiagnosticsView: View {
 
                 if let message = store.rosettaInstallationState.errorMessage {
                     ErrorBanner(
-                        title: "Rosetta was not installed",
+                        title: String(
+                            localized: "Rosetta was not installed",
+                            bundle: SwitchyardStrings.bundle
+                        ),
                         message: message,
-                        actionTitle: "Try Again"
+                        actionTitle: String(
+                            localized: "Try Again",
+                            bundle: SwitchyardStrings.bundle
+                        )
                     ) {
                         store.installRosetta()
                     }
@@ -114,10 +129,17 @@ struct DiagnosticsView: View {
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
 
         switch (version, build) {
-        case let (.some(version), .some(build)): return "Version \(version) (\(build))"
-        case let (.some(version), .none): return "Version \(version)"
-        case let (.none, .some(build)): return "Build \(build)"
-        case (.none, .none): return "Development build"
+        case let (.some(version), .some(build)):
+            return String(
+                localized: "Version \(version) (\(build))",
+                bundle: SwitchyardStrings.bundle
+            )
+        case let (.some(version), .none):
+            return String(localized: "Version \(version)", bundle: SwitchyardStrings.bundle)
+        case let (.none, .some(build)):
+            return String(localized: "Build \(build)", bundle: SwitchyardStrings.bundle)
+        case (.none, .none):
+            return String(localized: "Development build", bundle: SwitchyardStrings.bundle)
         }
     }
 
@@ -131,22 +153,37 @@ struct DiagnosticsView: View {
 
     private var diagnosticsActivityLabel: String {
         if store.isRefreshingDiagnostics && store.isCheckingOnlineReleases {
-            return "Checking this Mac and online releases"
+            return String(
+                localized: "Checking this Mac and online releases",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         if store.isRefreshingDiagnostics {
-            return "Checking current configuration"
+            return String(
+                localized: "Checking current configuration",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         if store.isCheckingOnlineReleases {
-            return "Checking latest online releases"
+            return String(
+                localized: "Checking latest online releases",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         let refreshDates = [
             store.lastDiagnosticsRefreshDate,
             store.lastOnlineReleaseCheckDate
         ].compactMap { $0 }
         guard let lastRefresh = refreshDates.max() else {
-            return "Not checked in this session"
+            return String(
+                localized: "Not checked in this session",
+                bundle: SwitchyardStrings.bundle
+            )
         }
-        return "Last checked \(lastRefresh.formatted(date: .omitted, time: .standard))"
+        return String(
+            localized: "Last checked \(lastRefresh.formatted(date: .omitted, time: .standard))",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 
     private func performRecovery(for check: DiagnosticCheck) {
@@ -301,17 +338,30 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var runtimeVersionLabel: String {
-        runtime.buildNumber.map { "Build \($0)" } ?? "Build not available"
+        runtime.buildNumber.map {
+            String(localized: "Build \($0)", bundle: SwitchyardStrings.bundle)
+        } ?? String(localized: "Build not available", bundle: SwitchyardStrings.bundle)
     }
 
     private var runtimeSourceLabel: String {
         runtime.sourceRevision.isEmpty
-            ? "Source revision not available"
-            : "Source \(runtime.sourceRevision.prefix(12))"
+            ? String(
+                localized: "Source revision not available",
+                bundle: SwitchyardStrings.bundle
+            )
+            : String(
+                localized: "Source \(runtime.sourceRevision.prefix(12))",
+                bundle: SwitchyardStrings.bundle
+            )
     }
 
     private var runtimePathLabel: String {
-        runtime.winePath.isEmpty ? "No Wine runtime selected" : runtime.winePath
+        runtime.winePath.isEmpty
+            ? String(
+                localized: "No Wine runtime selected",
+                bundle: SwitchyardStrings.bundle
+            )
+            : runtime.winePath
     }
 
     private var runtime: RuntimeBuild {
@@ -321,21 +371,49 @@ private struct DiagnosticsVersionOverview: View {
     private var appOnlineDetail: String {
         guard let release = store.onlineReleaseSnapshot?.appRelease else {
             return store.isCheckingOnlineReleases
-                ? "Checking the latest GitHub release…"
-                : "Latest online release not available"
+                ? String(
+                    localized: "Checking the latest GitHub release…",
+                    bundle: SwitchyardStrings.bundle
+                )
+                : String(
+                    localized: "Latest online release not available",
+                    bundle: SwitchyardStrings.bundle
+                )
         }
-        let prefix = store.onlineReleaseError == nil ? "Latest online" : "Last known online"
-        return "\(prefix): \(release.tagName) · \(release.publishedAt.formatted(date: .abbreviated, time: .omitted))"
+        if store.onlineReleaseError == nil {
+            return String(
+                localized: "Latest online: \(release.tagName) · \(release.publishedAt.formatted(date: .abbreviated, time: .omitted))",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return String(
+            localized: "Last known online: \(release.tagName) · \(release.publishedAt.formatted(date: .abbreviated, time: .omitted))",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 
     private var runtimeOnlineDetail: String {
         guard let snapshot = store.onlineReleaseSnapshot else {
             return store.isCheckingOnlineReleases
-                ? "Checking the latest GitHub runtime…"
-                : "Latest online runtime not available"
+                ? String(
+                    localized: "Checking the latest GitHub runtime…",
+                    bundle: SwitchyardStrings.bundle
+                )
+                : String(
+                    localized: "Latest online runtime not available",
+                    bundle: SwitchyardStrings.bundle
+                )
         }
-        let prefix = store.onlineReleaseError == nil ? "Latest online" : "Last known online"
-        return "\(prefix): \(snapshot.runtimeRelease.tagName) · source \(snapshot.runtimeManifest.sourceRevision.prefix(12))"
+        if store.onlineReleaseError == nil {
+            return String(
+                localized: "Latest online: \(snapshot.runtimeRelease.tagName) · source \(snapshot.runtimeManifest.sourceRevision.prefix(12))",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return String(
+            localized: "Last known online: \(snapshot.runtimeRelease.tagName) · source \(snapshot.runtimeManifest.sourceRevision.prefix(12))",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 
     private var currentReleaseVersion: ReleaseVersion? {
@@ -360,12 +438,24 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var appUpdateLabel: String {
-        if store.isCheckingOnlineReleases { return "Checking Online" }
-        if store.onlineReleaseError != nil { return "Check Failed" }
-        guard store.onlineReleaseSnapshot != nil else { return "Online Unknown" }
-        if appUpdateAvailable { return "Update Available" }
-        guard let currentReleaseVersion, let latestReleaseVersion else { return "Checked Online" }
-        return currentReleaseVersion > latestReleaseVersion ? "Newer Build" : "Latest Online"
+        if store.isCheckingOnlineReleases {
+            return String(localized: "Checking Online", bundle: SwitchyardStrings.bundle)
+        }
+        if store.onlineReleaseError != nil {
+            return String(localized: "Check Failed", bundle: SwitchyardStrings.bundle)
+        }
+        guard store.onlineReleaseSnapshot != nil else {
+            return String(localized: "Online Unknown", bundle: SwitchyardStrings.bundle)
+        }
+        if appUpdateAvailable {
+            return String(localized: "Update Available", bundle: SwitchyardStrings.bundle)
+        }
+        guard let currentReleaseVersion, let latestReleaseVersion else {
+            return String(localized: "Checked Online", bundle: SwitchyardStrings.bundle)
+        }
+        return currentReleaseVersion > latestReleaseVersion
+            ? String(localized: "Newer Build", bundle: SwitchyardStrings.bundle)
+            : String(localized: "Latest Online", bundle: SwitchyardStrings.bundle)
     }
 
     private var latestRuntimeMatchesAppPolicy: Bool {
@@ -402,30 +492,59 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var runtimeUpdateLabel: String {
-        if store.isCheckingOnlineReleases { return "Checking Online" }
-        if store.onlineReleaseError != nil { return "Check Failed" }
-        guard store.onlineReleaseSnapshot != nil else { return "Online Unknown" }
+        if store.isCheckingOnlineReleases {
+            return String(localized: "Checking Online", bundle: SwitchyardStrings.bundle)
+        }
+        if store.onlineReleaseError != nil {
+            return String(localized: "Check Failed", bundle: SwitchyardStrings.bundle)
+        }
+        guard store.onlineReleaseSnapshot != nil else {
+            return String(localized: "Online Unknown", bundle: SwitchyardStrings.bundle)
+        }
         if !latestRuntimeMatchesAppPolicy {
-            return appUpdateAvailable ? "New App Recommended" : "Not Recommended"
+            return appUpdateAvailable
+                ? String(
+                    localized: "New App Recommended",
+                    bundle: SwitchyardStrings.bundle
+                )
+                : String(
+                    localized: "Not Recommended",
+                    bundle: SwitchyardStrings.bundle
+                )
         }
         return selectedRuntimeMatchesLatest && selectedRuntimeIsUsable
-            ? "Latest Online"
-            : "Update Available"
+            ? String(localized: "Latest Online", bundle: SwitchyardStrings.bundle)
+            : String(localized: "Update Available", bundle: SwitchyardStrings.bundle)
     }
 
     private var runtimeCompatibilityExplanation: String {
         guard store.onlineReleaseSnapshot != nil else {
-            return "Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation."
+            return String(
+                localized: "Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         if latestRuntimeMatchesAppPolicy {
             if selectedRuntimeMatchesLatest && selectedRuntimeIsUsable {
-                return "The selected runtime is both the latest online release and the recommended revision for this Switchyard version."
+                return String(
+                    localized: "The selected runtime is both the latest online release and the recommended revision for this Switchyard version.",
+                    bundle: SwitchyardStrings.bundle
+                )
             }
-            return "The latest online runtime is the recommended revision for this Switchyard version and can be installed here."
+            return String(
+                localized: "The latest online runtime is the recommended revision for this Switchyard version and can be installed here.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         if appUpdateAvailable {
-            return "A newer Switchyard release recommends the latest runtime. Other signed official versions remain available under Wine Runtime settings."
+            return String(
+                localized: "A newer Switchyard release recommends the latest runtime. Other signed official versions remain available under Wine Runtime settings.",
+                bundle: SwitchyardStrings.bundle
+            )
         }
-        return "The latest online runtime is not this app version's recommendation. Other signed official versions remain available under Wine Runtime settings."
+        return String(
+            localized: "The latest online runtime is not this app version's recommendation. Other signed official versions remain available under Wine Runtime settings.",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 }

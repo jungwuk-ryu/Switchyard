@@ -24,12 +24,18 @@ struct WindowsProcessSnapshot: Identifiable, Equatable, Sendable {
             .map(String.init) ?? executablePath
     }
 
-    var kind: String {
+    var isSystemProcess: Bool {
         let systemProcesses = [
             "explorer.exe", "services.exe", "rpcss.exe", "plugplay.exe",
             "svchost.exe", "winedevice.exe", "wineboot.exe",
         ]
-        return systemProcesses.contains(name.lowercased()) ? "System" : "Application"
+        return systemProcesses.contains(name.lowercased())
+    }
+
+    var kind: String {
+        isSystemProcess
+            ? String(localized: "System", bundle: SwitchyardStrings.bundle)
+            : String(localized: "Application", bundle: SwitchyardStrings.bundle)
     }
 }
 

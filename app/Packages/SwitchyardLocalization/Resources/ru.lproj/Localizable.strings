@@ -1,0 +1,1468 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ Notices: %@</key>
+	<string>%1$@ Уведомления: %2$@</string>
+	<key>%@ Runtime %@, source %@.</key>
+	<string>%1$@ Среда выполнения %2$@, источник %3$@.</string>
+	<key>%@ Setup</key>
+	<string>Настройка %1$@</string>
+	<key>%@ Source %@.</key>
+	<string>%1$@ Источник %2$@.</string>
+	<key>%@ checksum mismatch. Expected %@, got %@.</key>
+	<string>%1$@ несоответствие контрольной суммы. Ожидал %2$@, получил %3$@.</string>
+	<key>%@ contains GPTK markers, but its executable code is not fully Apple-signed: %@</key>
+	<string>%1$@ содержит маркеры GPTK, но его исполняемый код не полностью подписан Apple: %2$@</string>
+	<key>%@ exists, but no known D3DMetal/GPTK marker files were found.</key>
+	<string>%1$@ существует, но известные файлы маркеров D3DMetal/GPTK не найдены.</string>
+	<key>%@ icon</key>
+	<string>Значок %1$@</string>
+	<key>%@ in the Open Font Pack cache failed checksum validation. Expected %@, got %@.</key>
+	<string>%1$@ в кэше пакет открытых шрифтов не прошел проверку контрольной суммы. Ожидал %2$@, получил %3$@.</string>
+	<key>%@ is already running</key>
+	<string>%1$@ уже запущен</string>
+	<key>%@ is missing from the Open Font Pack cache: %@</key>
+	<string>%1$@ отсутствует в кеше пакет открытых шрифтов: %2$@</string>
+	<key>%@ is now the active app-wide runtime.</key>
+	<string>%1$@ теперь используется как активная среда выполнения во всём приложении.</string>
+	<key>%@ was removed from Switchyard, but its folder was already missing.</key>
+	<string>%1$@ был удален из Switchyard, но его папка уже отсутствовала.</string>
+	<key>%@ · %@ · source %@</key>
+	<string>%1$@ · %2$@ · источник %3$@</string>
+	<key>%@, %@</key>
+	<string>%1$@, %2$@</string>
+	<key>%lld</key>
+	<string>%1$lld</string>
+	<key>%lld Windows applications found in this container</key>
+	<string>%1$lld Windows приложения, найденные в этом контейнере</string>
+	<key>%lld entries</key>
+	<string>Записи %1$lld</string>
+	<key>%lld high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled.</key>
+	<string>%1$lld записи в журнале с большим объёмом были опущены в прямом эфире; Защищённый журнал отладки за запуск сохраняет полный результат при включении логирования разработчика.</string>
+	<key>%lld more items</key>
+	<string>Ещё %1$lld</string>
+	<key>1. Open Apple's download page</key>
+	<string>1. Откройте страницу загрузки Apple.</string>
+	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
+	<string>2. Войдите в систему и загрузите новейшую версию Game Porting Toolkit .dmg.</string>
+	<key>3. Return here — Switchyard will find it automatically</key>
+	<string>3. Вернитесь сюда — Switchyard найдет его автоматически.</string>
+	<key>A Wine release does not include its runtime manifest.</key>
+	<string>В выпуске Wine отсутствует манифест среды выполнения.</string>
+	<key>A Wine release points to an untrusted runtime manifest.</key>
+	<string>Выпуск Wine ссылается на недоверенный манифест среды выполнения.</string>
+	<key>A Wine runtime manifest could not be verified: %@</key>
+	<string>Не удалось проверить манифест среды выполнения Wine: %1$@</string>
+	<key>A different GPTK import already exists at the immutable destination.</key>
+	<string>Другой импорт GPTK уже существует в неизменяемом месте назначения.</string>
+	<key>A different runtime already exists at the immutable release destination.</key>
+	<string>В неизменяемом месте выпуска уже существует другая среда выполнения.</string>
+	<key>A guided setup with safe defaults</key>
+	<string>Пошаговая настройка с безопасными настройками по умолчанию</string>
+	<key>A newer Switchyard release recommends the latest runtime. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>Новая версия Switchyard рекомендует последнюю среду выполнения. Другие подписанные официальные версии доступны в настройках среды выполнения Wine.</string>
+	<key>A published release is missing its publication date.</key>
+	<string>У опубликованного выпуска отсутствует дата публикации.</string>
+	<key>Accept and Install</key>
+	<string>Примите и установите</string>
+	<key>Accept and Install Rosetta 2</key>
+	<string>Примите и установите Rosetta 2</string>
+	<key>Active</key>
+	<string>Активная</string>
+	<key>Active Runtime</key>
+	<string>Активная среда выполнения</string>
+	<key>Active Wine Runtime</key>
+	<string>Активная среда выполнения Wine</string>
+	<key>Activity</key>
+	<string>Активность</string>
+	<key>Add</key>
+	<string>Добавить</string>
+	<key>Add Container</key>
+	<string>Добавить контейнер</string>
+	<key>Add another app to the running Windows session</key>
+	<string>Добавьте еще одно приложение в работающий сеанс Windows.</string>
+	<key>Advanced</key>
+	<string>Дополнительно</string>
+	<key>Advanced Options</key>
+	<string>Дополнительные параметры</string>
+	<key>All</key>
+	<string>Все</string>
+	<key>All Applications</key>
+	<string>Все приложения</string>
+	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
+	<string>Все приложения Windows в %1$@ закроются. Несохраненная работа может быть потеряна.</string>
+	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
+	<string>Выделите около 5–15 минут и примерно 1 ГБ свободного места. Время загрузки зависит от вашего соединения.</string>
+	<key>Another runtime installation is already in progress.</key>
+	<string>Другая установка среды выполнения уже выполняется.</string>
+	<key>Any remaining Windows processes for %@ will be stopped before its folder is moved to Trash.</key>
+	<string>Все оставшиеся процессы Windows для %1$@ будут остановлены до того, как его папка будет перемещена в корзину.</string>
+	<key>App Update Required</key>
+	<string>Требуется обновление приложения</string>
+	<key>Apple Silicon</key>
+	<string>Apple Silicon</string>
+	<key>Apple compatibility support</key>
+	<string>Поддержка совместимости Apple</string>
+	<key>Apple graphics</key>
+	<string>Графика Apple</string>
+	<key>Apple graphics support</key>
+	<string>Поддержка графики Apple</string>
+	<key>Apple's support for Intel-based apps is installed.</key>
+	<string>Установлена поддержка Apple для приложений на базе Intel.</string>
+	<key>Apple-signed GPTK code and markers found: %@.</key>
+	<string>Обнаружен подписанный Apple код GPTK и маркеры: %1$@.</string>
+	<key>Application</key>
+	<string>Приложение</string>
+	<key>Applications</key>
+	<string>Приложения</string>
+	<key>Back</key>
+	<string>Назад</string>
+	<key>Back to Containers</key>
+	<string>Назад к контейнерам</string>
+	<key>Build %@</key>
+	<string>Сборка %1$@</string>
+	<key>Build Not Available</key>
+	<string>Сборка недоступна</string>
+	<key>Build not available</key>
+	<string>Сборка недоступна</string>
+	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
+	<string>В номерах сборок календаря используется время версии закрепленного исходного кода в формате UTC, поэтому более поздние номера указывают на более новые среды выполнения.</string>
+	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
+	<string>URL обратного вызова и токены входа передаются только через защищённый одноразовый файл; они не сохраняются и не попадают в журнал.</string>
+	<key>Cancel</key>
+	<string>Отмена</string>
+	<key>Cancel Download</key>
+	<string>Отменить загрузку</string>
+	<key>Check Failed</key>
+	<string>Проверка не удалась</string>
+	<key>Check for Releases</key>
+	<string>Проверить выпуски</string>
+	<key>Check this Mac, the selected runtime, and the latest online releases again</key>
+	<string>Еще раз проверьте этот Mac, выбранную среду выполнения и последние онлайн-релизы.</string>
+	<key>Checked Online</key>
+	<string>Проверено онлайн</string>
+	<key>Checking</key>
+	<string>Проверка</string>
+	<key>Checking Mac</key>
+	<string>Проверка Mac</string>
+	<key>Checking Online</key>
+	<string>Проверка онлайн</string>
+	<key>Checking Windows session</key>
+	<string>Проверка сеанса Windows</string>
+	<key>Checking and importing the Apple download…</key>
+	<string>Проверка и импорт загрузки Apple…</string>
+	<key>Checking current configuration</key>
+	<string>Проверка текущей конфигурации</string>
+	<key>Checking latest online releases</key>
+	<string>Проверка последних онлайн-релизов</string>
+	<key>Checking running applications…</key>
+	<string>Проверка запущенных приложений…</string>
+	<key>Checking the latest GitHub release…</key>
+	<string>Проверяем последнюю версию GitHub…</string>
+	<key>Checking the latest GitHub runtime…</key>
+	<string>Проверка последней версии среды выполнения GitHub…</string>
+	<key>Checking this Mac and online releases</key>
+	<string>Проверка этого Mac и онлайн-релизов</string>
+	<key>Checking this Mac…</key>
+	<string>Проверяю этот Mac…</string>
+	<key>Choose Downloaded File…</key>
+	<string>Выберите загруженный файл…</string>
+	<key>Choose Game Porting Toolkit</key>
+	<string>Выберите Game Porting Toolkit</string>
+	<key>Choose Windows App…</key>
+	<string>Выберите приложение Windows…</string>
+	<key>Choose a GPTK disk image before importing.</key>
+	<string>Перед импортом выберите образ диска GPTK.</string>
+	<key>Choose a Windows app or installer (.exe or .msi) to open in %@.</key>
+	<string>Выберите приложение или установщик Windows (.exe или .msi), чтобы открыть его в %1$@.</string>
+	<key>Choose a Windows application</key>
+	<string>Выберите приложение Windows</string>
+	<key>Choose a Windows executable for this container before running.</key>
+	<string>Перед запуском выберите исполняемый файл Windows для этого контейнера.</string>
+	<key>Choose a Windows installer or app. Switchyard keeps it inside this container.</key>
+	<string>Выберите установщик или приложение Windows. Switchyard сохраняет его внутри этого контейнера.</string>
+	<key>Choose a Wine executable or Switchyard Wine runtime folder, then run diagnostics.</key>
+	<string>Выберите исполняемый файл Wine или папку времени выполнения Switchyard Wine, затем запустите диагностику.</string>
+	<key>Choose a Wine executable or a Wine runtime folder.</key>
+	<string>Выберите исполняемый файл Wine или папку времени выполнения Wine.</string>
+	<key>Choose a Wine executable or runtime folder manually.</key>
+	<string>Выберите исполняемый файл Wine или папку времени выполнения вручную.</string>
+	<key>Choose a local GPTK directory or disk image.</key>
+	<string>Выберите локальный каталог GPTK или образ диска.</string>
+	<key>Choose a locally built Wine executable or runtime folder.</key>
+	<string>Выберите локально собранный исполняемый файл Wine или папку среды выполнения.</string>
+	<key>Choose an .exe or .msi file, or drop one onto this container</key>
+	<string>Выберите файл .exe или .msi или перетащите его в этот контейнер.</string>
+	<key>Choose an application</key>
+	<string>Выберите приложение</string>
+	<key>Choose an existing Windows .exe or .msi file.</key>
+	<string>Выберите существующий файл Windows .exe или .msi.</string>
+	<key>Choose or drop a Windows .exe or .msi file</key>
+	<string>Выберите или перетащите файл Windows .exe или .msi.</string>
+	<key>Choose the Game Porting Toolkit .dmg file you downloaded from Apple.</key>
+	<string>Выберите файл Game Porting Toolkit .dmg, который вы скачали с Apple.</string>
+	<key>Choose the Switchyard storage folder.</key>
+	<string>Выберите папку хранения Switchyard.</string>
+	<key>Choose the Windows application that requested the %@: sign-in.</key>
+	<string>Выберите приложение Windows, которое запросило вход %1$@:.</string>
+	<key>Choose the Windows executable to run by default in this container.</key>
+	<string>Выберите исполняемый файл Windows, который будет запускаться по умолчанию в этом контейнере.</string>
+	<key>Choose where Switchyard stores containers and manifests.</key>
+	<string>Выберите, где Switchyard будет хранить контейнеры и манифесты.</string>
+	<key>Choose your local Apple Game Porting Toolkit installation.</key>
+	<string>Выберите Apple Game Porting Toolkit, установленный на этом Mac.</string>
+	<key>Choose...</key>
+	<string>Выбирайте...</string>
+	<key>Cleanup needed</key>
+	<string>Требуется очистка</string>
+	<key>Clear</key>
+	<string>Очистить</string>
+	<key>Clear Activity</key>
+	<string>Очистить активность</string>
+	<key>Clear Logs</key>
+	<string>Очистить журналы</string>
+	<key>Clear all logs?</key>
+	<string>Очистить все журналы?</string>
+	<key>Clear this container's activity?</key>
+	<string>Очистить активность этого контейнера?</string>
+	<key>Clicking Install opens Apple's Rosetta installer and accepts Apple's Rosetta software license. macOS handles any approval that is required.</key>
+	<string>При нажатии кнопки «Установить» открывается установщик Apple Rosetta и принимается лицензия на программное обеспечение Apple Rosetta. macOS обрабатывает все необходимые утверждения.</string>
+	<key>Close Windows apps to continue</key>
+	<string>Закройте приложения Windows, чтобы продолжить.</string>
+	<key>Closing Windows apps and waiting for wineserver to exit</key>
+	<string>Закрытие приложений Windows и ожидание выхода wineserver.</string>
+	<key>Command plan could not be serialized for the runner.</key>
+	<string>Не удалось сериализовать план команд для switchyard-runner.</string>
+	<key>Comparison unavailable</key>
+	<string>Сравнение недоступно</string>
+	<key>Compatibility</key>
+	<string>Совместимость</string>
+	<key>Compatibility Pending</key>
+	<string>Ожидается совместимость</string>
+	<key>Compatibility files cannot be changed while a Windows app is still running.</key>
+	<string>Файлы совместимости нельзя изменить, пока приложение Windows все еще работает.</string>
+	<key>Compatible</key>
+	<string>Совместимый</string>
+	<key>Container Files</key>
+	<string>Файлы контейнера</string>
+	<key>Container Path</key>
+	<string>Путь контейнера</string>
+	<key>Container Record</key>
+	<string>Запись контейнера</string>
+	<key>Container Settings</key>
+	<string>Настройки контейнера</string>
+	<key>Container Setup</key>
+	<string>Настройка контейнера</string>
+	<key>Container Template</key>
+	<string>Шаблон контейнера</string>
+	<key>Container names cannot be empty.</key>
+	<string>Имена контейнеров не могут быть пустыми.</string>
+	<key>Container path is empty or invalid: %@</key>
+	<string>Путь к контейнеру пуст или недействителен: %1$@.</string>
+	<key>Containers</key>
+	<string>Контейнеры</string>
+	<key>Containers and portable manifests stay in this user-selected folder. Runtime caches and logs remain in their documented user-local locations.</key>
+	<string>Контейнеры и переносимые манифесты остаются в этой папке, выбранной пользователем. Кэши и журналы среды выполнения остаются в своих задокументированных локальных расположениях у пользователя.</string>
+	<key>Continue Setup</key>
+	<string>Продолжить настройку</string>
+	<key>Continue Steam Setup</key>
+	<string>Продолжить настройку Steam</string>
+	<key>Continue in the same private container; Switchyard will not create a duplicate.</key>
+	<string>Продолжайте в том же личном контейнере; Switchyard не будет создавать дубликат.</string>
+	<key>Continuing Steam Setup…</key>
+	<string>Продолжаем настройку Steam…</string>
+	<key>Copy Diagnostic Bundle</key>
+	<string>Копировать диагностический пакет</string>
+	<key>Copy Filtered Logs</key>
+	<string>Копировать отфильтрованные журналы</string>
+	<key>Copy Redacted</key>
+	<string>Копировать с маскированием данных</string>
+	<key>Copy diagnostic bundle?</key>
+	<string>Копировать диагностический пакет?</string>
+	<key>Copy filtered logs?</key>
+	<string>Скопировать отфильтрованные журналы?</string>
+	<key>Copy the invalid callback address from Safari before recovering it.</key>
+	<string>Скопируйте неверный адрес обратного вызова из Safari перед его восстановлением.</string>
+	<key>Could not choose a safe macOS desktop name for %@.</key>
+	<string>Не удалось выбрать безопасное имя рабочего стола macOS для %1$@.</string>
+	<key>Could not create a temporary download file.</key>
+	<string>Не удалось создать временный файл загрузки.</string>
+	<key>Could not create debug log directory %@: %@</key>
+	<string>Не удалось создать каталог журнала отладки %1$@: %2$@.</string>
+	<key>Could not download %@.</key>
+	<string>Не удалось загрузить %1$@.</string>
+	<key>Could not import GPTK disk image: %@</key>
+	<string>Не удалось импортировать образ диска GPTK: %1$@.</string>
+	<key>Could not inspect this Wine runtime for an existing prefix session; launching without stopping it.</key>
+	<string>Не удалось проверить эту среду выполнения Wine на наличие существующего сеанса префикса; запуск без остановки.</string>
+	<key>Could not install %@: %@</key>
+	<string>Не удалось установить %1$@: %2$@</string>
+	<key>Could not install the compatible runtime: %@</key>
+	<string>Не удалось установить совместимую среду выполнения: %1$@.</string>
+	<key>Could not lock %@ for a safe folder rename: %@</key>
+	<string>Не удалось заблокировать %1$@ для безопасного переименования папки: %2$@.</string>
+	<key>Could not open the Apple Developer download page.</key>
+	<string>Не удалось открыть страницу загрузки Apple Developer.</string>
+	<key>Could not prepare Open Font Pack: %@</key>
+	<string>Не удалось подготовить пакет открытых шрифтов: %1$@.</string>
+	<key>Could not prepare container: %@</key>
+	<string>Не удалось подготовить контейнер: %1$@.</string>
+	<key>Could not recheck that %@ remained idle, so its folder was not renamed.</key>
+	<string>Не удалось перепроверить, что %1$@ простаивал, поэтому его папка не была переименована.</string>
+	<key>Could not register the generated macOS handler for the %@ URL scheme (status %d).</key>
+	<string>Не удалось зарегистрировать сгенерированный обработчик macOS для схемы URL-адресов %1$@ (статус %2$d).</string>
+	<key>Could not remove the runtime: %@</key>
+	<string>Не удалось удалить среду выполнения: %1$@</string>
+	<key>Could not rename %@: %@</key>
+	<string>Не удалось переименовать %1$@: %2$@.</string>
+	<key>Could not save container manifest: %@</key>
+	<string>Не удалось сохранить манифест контейнера: %1$@.</string>
+	<key>Could not sign the generated macOS handler for the %@ URL scheme.</key>
+	<string>Не удалось подписать сгенерированный обработчик macOS для схемы URL-адресов %1$@.</string>
+	<key>Could not sign the generated macOS shortcut for %@.</key>
+	<string>Не удалось подписать сгенерированный ярлык macOS для %1$@.</string>
+	<key>Could not stop %@ safely and move it to Trash: %@</key>
+	<string>Не удалось безопасно остановить %1$@ и переместить его в корзину: %2$@.</string>
+	<key>Could not stop Wine processes: %@</key>
+	<string>Не удалось остановить процессы Wine: %1$@.</string>
+	<key>Could not trust this official runtime: %@</key>
+	<string>Не удалось подтвердить доверие к официальной среде выполнения: %1$@</string>
+	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
+	<string>Не удалось проверить, что %1$@ простаивает, поэтому его папка не была переименована.</string>
+	<key>Create a private space for a Windows app</key>
+	<string>Создайте личное пространство для приложения Windows.</string>
+	<key>Create an Empty Container</key>
+	<string>Создать пустой контейнер</string>
+	<key>Created a native macOS desktop shortcut for %@.</key>
+	<string>Создан собственный ярлык macOS на рабочем столе для %1$@.</string>
+	<key>Current</key>
+	<string>Текущий</string>
+	<key>Dashboard</key>
+	<string>Обзор</string>
+	<key>Debug</key>
+	<string>Отладка</string>
+	<key>Debug run logging enabled (profile=%@, WINEDEBUG=%@, file: %@). The live view is batched and retains its latest %lld entries; this file retains the complete run output.</key>
+	<string>Ведение журнала отладки включено (профиль=%1$@, WINEDEBUG=%2$@, файл: %3$@). Просмотр в реальном времени группируется и сохраняет последние записи %4$lld; этот файл сохраняет полный результат выполнения.</string>
+	<key>Default</key>
+	<string>По умолчанию</string>
+	<key>Default Application</key>
+	<string>Приложение по умолчанию</string>
+	<key>Default Executable</key>
+	<string>Исполняемый файл по умолчанию</string>
+	<key>Detected macOS %@.</key>
+	<string>Обнаружен macOS %1$@.</string>
+	<key>Developer logging</key>
+	<string>Регистрация разработчиков</string>
+	<key>Development Runtime</key>
+	<string>Среда выполнения для разработки</string>
+	<key>Development build</key>
+	<string>Сборка для разработки</string>
+	<key>Diagnostics</key>
+	<string>Диагностика</string>
+	<key>Different build recorded</key>
+	<string>Записаны разные сборки</string>
+	<key>Download</key>
+	<string>Скачать</string>
+	<key>Download Steam</key>
+	<string>Скачать Steam</string>
+	<key>Download and switch between signed Switchyard Wine releases.</key>
+	<string>Скачивайте подписанные выпуски Switchyard Wine и переключайтесь между ними.</string>
+	<key>Download could not finish</key>
+	<string>Загрузка не может быть завершена</string>
+	<key>Download found</key>
+	<string>Загрузка найдена</string>
+	<key>Download from Apple</key>
+	<string>Скачать с Apple</string>
+	<key>Download the newest Game Porting Toolkit disk image, then return to Switchyard.</key>
+	<string>Загрузите новейший образ диска Game Porting Toolkit, затем вернитесь к Switchyard.</string>
+	<key>Download the selected runtime before making it active.</key>
+	<string>Сначала скачайте выбранную среду выполнения, затем сделайте её активной.</string>
+	<key>Download, verify, and select the latest runtime supported by this Switchyard version</key>
+	<string>Загрузите, проверьте и выберите последнюю версию среды выполнения, поддерживаемую этой версией Switchyard.</string>
+	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
+	<string>Загруженные файлы шрифтов %1$lld пакет открытых шрифтов; Файлы %2$lld уже были кэшированы.</string>
+	<key>Downloading and verifying about 700 MB…</key>
+	<string>Скачиваем и проверяем около 700 МБ…</string>
+	<key>Downloading open-licensed fonts…</key>
+	<string>Загрузка шрифтов с открытой лицензией…</string>
+	<key>Downloading securely from Valve…</key>
+	<string>Безопасная загрузка с Valve…</string>
+	<key>Downloading the Windows installer securely from Valve…</key>
+	<string>Безопасная загрузка установщика Windows с Valve…</string>
+	<key>Downloading, validating, and installing the selected official runtime…</key>
+	<string>Скачивание, проверка и установка выбранной официальной среды выполнения…</string>
+	<key>Downloading, validating, and installing the signed runtime…</key>
+	<string>Загрузка, проверка и установка подписанной среды выполнения…</string>
+	<key>Empty Folder</key>
+	<string>Пустая папка</string>
+	<key>Environment Overrides</key>
+	<string>Переопределения среды</string>
+	<key>Environment variable name is invalid or reserved: %@.</key>
+	<string>Имя переменной среды недопустимо или зарезервировано: %1$@.</string>
+	<key>Error</key>
+	<string>Ошибка</string>
+	<key>Executable</key>
+	<string>Исполняемый файл</string>
+	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
+	<string>Выбрана внешняя среда выполнения Wine, но она не имеет манифеста Switchyard и не может быть проверена по закрепленной исходной версии.</string>
+	<key>External Wine runtime selected; no source revision policy was requested.</key>
+	<string>Выбрана внешняя среда выполнения Wine; политика пересмотра исходного кода не запрашивалась.</string>
+	<key>Failed</key>
+	<string>Не удалось</string>
+	<key>Files</key>
+	<string>Файлы</string>
+	<key>Finding the Windows application waiting for the %@: callback…</key>
+	<string>Обнаружение приложения Windows, ожидающего %1$@: обратный вызов…</string>
+	<key>Finish Setting Up Switchyard</key>
+	<string>Завершите настройку Switchyard</string>
+	<key>Finish Switchyard setup before installing Steam.</key>
+	<string>Завершите настройку Switchyard перед установкой Steam.</string>
+	<key>Finish Without Steam</key>
+	<string>Завершить без Steam</string>
+	<key>Finish installing Steam…</key>
+	<string>Завершите установку Steam…</string>
+	<key>Finish setting up Steam</key>
+	<string>Завершите настройку Steam.</string>
+	<key>Finish setup before creating a container</key>
+	<string>Завершите настройку перед созданием контейнера.</string>
+	<key>Finish the remaining setup step before completing setup.</key>
+	<string>Прежде чем завершить настройку, завершите оставшийся шаг настройки.</string>
+	<key>Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.</key>
+	<string>Завершите стандартную установку Steam. Switchyard обнаружит Steam и продолжит работу автоматически.</string>
+	<key>First app</key>
+	<string>Первое приложение</string>
+	<key>Folder Unavailable</key>
+	<string>Папка недоступна</string>
+	<key>Fonts for Korean, Japanese, and other languages</key>
+	<string>Шрифты для корейского, японского и других языков.</string>
+	<key>Forwarding the %@: callback to Wine…</key>
+	<string>Пересылка %1$@: обратный вызов на Wine…</string>
+	<key>Found %@; importing it into the local cache…</key>
+	<string>Найден %1$@; импортируем его в локальный кеш…</string>
+	<key>GPTK</key>
+	<string>GPTK</string>
+	<key>GPTK executable code has an invalid Apple signature: %@.</key>
+	<string>Исполняемый код GPTK имеет недопустимую подпись Apple: %1$@.</string>
+	<key>GPTK import completed.</key>
+	<string>Импорт GPTK завершен.</string>
+	<key>Game Porting Toolkit</key>
+	<string>Game Porting Toolkit</string>
+	<key>General</key>
+	<string>Основные</string>
+	<key>Get Apple's graphics support</key>
+	<string>Получите поддержку графики Apple</string>
+	<key>GitHub returned HTTP %lld.</key>
+	<string>GitHub вернул HTTP %1$lld.</string>
+	<key>GitHub returned an invalid response.</key>
+	<string>GitHub вернул неверный ответ.</string>
+	<key>GitHub returned an untrusted release link.</key>
+	<string>GitHub вернул ненадежную ссылку на выпуск.</string>
+	<key>GitHub returned release metadata that was too large.</key>
+	<string>GitHub вернул слишком большие метаданные выпуска.</string>
+	<key>Idle</key>
+	<string>Простой</string>
+	<key>If Safari says the address is invalid after signing in, press Command-L and Command-C in Safari, then recover the copied callback here.</key>
+	<string>Если после входа в систему Safari сообщает, что адрес недействителен, нажмите Command-L и Command-C в Safari, а затем восстановите скопированный обратный вызов здесь.</string>
+	<key>Import</key>
+	<string>Импорт</string>
+	<key>Import Downloaded GPTK</key>
+	<string>Импортировать загруженный GPTK</string>
+	<key>Import Selected GPTK</key>
+	<string>Импортировать выбранное GPTK</string>
+	<key>Import Selected Toolkit</key>
+	<string>Импортировать выбранный набор инструментов</string>
+	<key>Imported Apple-signed GPTK code into Switchyard's local cache.</key>
+	<string>Импортирован подписанный Apple код GPTK в локальный кеш Switchyard.</string>
+	<key>Imported Entry</key>
+	<string>Импортированная запись</string>
+	<key>Imported and verified</key>
+	<string>Импортировано и проверено</string>
+	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
+	<string>Импортировано из устаревшего манифеста; точное время использования не записано.</string>
+	<key>Info</key>
+	<string>Информация</string>
+	<key>Initializing this Windows container before its first app opens.</key>
+	<string>Инициализация этого контейнера Windows до открытия его первого приложения.</string>
+	<key>Inspecting the Wine prefix</key>
+	<string>Проверка префикса Wine</string>
+	<key>Install Apple's compatibility support</key>
+	<string>Установите поддержку совместимости Apple.</string>
+	<key>Install Latest Runtime</key>
+	<string>Установить последнюю версию среды выполнения</string>
+	<key>Install Open Font Pack</key>
+	<string>Установить пакет открытых шрифтов</string>
+	<key>Install Rosetta 2</key>
+	<string>Установить Rosetta 2</string>
+	<key>Install Rosetta 2?</key>
+	<string>Установить Rosetta 2?</string>
+	<key>Install Steam</key>
+	<string>Установите Steam.</string>
+	<key>Install Steam for Windows</key>
+	<string>Установите Steam для Windows.</string>
+	<key>Install Your First Windows App</key>
+	<string>Установите свое первое приложение Windows</string>
+	<key>Install an official Switchyard runtime, then run diagnostics.</key>
+	<string>Установите официальную среду выполнения Switchyard, затем запустите диагностику.</string>
+	<key>Install or Run App…</key>
+	<string>Установить или запустить приложение…</string>
+	<key>Install or Run a Windows App</key>
+	<string>Установите или запустите приложение Windows.</string>
+	<key>Install or Update Compatible Runtime</key>
+	<string>Установите или обновите совместимую среду выполнения</string>
+	<key>Install or choose a Windows application to see it here.</key>
+	<string>Установите или выберите приложение Windows, чтобы увидеть его здесь.</string>
+	<key>Install your first Windows app</key>
+	<string>Установите свое первое приложение Windows.</string>
+	<key>Installed</key>
+	<string>Установлено</string>
+	<key>Installed %@.</key>
+	<string>%1$@ установлено.</string>
+	<key>Installed Programs</key>
+	<string>Установленные программы</string>
+	<key>Installed Windows applications will appear here after setup.</key>
+	<string>Установленные приложения Windows появятся здесь после установки.</string>
+	<key>Installed and verified</key>
+	<string>Установлено и проверено</string>
+	<key>Installed compatible runtime %@.</key>
+	<string>Установлена совместимая среда выполнения %1$@.</string>
+	<key>Installing Compatible Runtime…</key>
+	<string>Установка совместимой среды выполнения…</string>
+	<key>Installing Rosetta 2…</key>
+	<string>Установка Rosetta 2…</string>
+	<key>Installing…</key>
+	<string>Установка…</string>
+	<key>Keep the Windows game open while recovering its copied login callback.</key>
+	<string>Оставьте игру Windows открытой, пока восстанавливается скопированный обратный вызов для входа в систему.</string>
+	<key>Last Runtime Use</key>
+	<string>Последнее использование среды выполнения</string>
+	<key>Last checked %@</key>
+	<string>Последняя проверка %1$@</string>
+	<key>Last known online: %@ · %@</key>
+	<string>Последний раз был в сети: %1$@ · %2$@</string>
+	<key>Last known online: %@ · source %@</key>
+	<string>Последнее известное в сети: %1$@ · источник %2$@</string>
+	<key>Last launched %@</key>
+	<string>Последний запуск %1$@</string>
+	<key>Last used with active build</key>
+	<string>Последний раз использовалась с активной сборкой</string>
+	<key>Last used with another build</key>
+	<string>Последний раз использовалась с другой сборкой</string>
+	<key>Last-used GPTK</key>
+	<string>Последний использованный GPTK</string>
+	<key>Last-used Patch Set</key>
+	<string>Последний использованный набор патчей</string>
+	<key>Last-used Runtime ID</key>
+	<string>ID последней среды выполнения</string>
+	<key>Last-used Source</key>
+	<string>Последний использованный источник</string>
+	<key>Latest Online</key>
+	<string>Последние онлайн</string>
+	<key>Latest online release not available</key>
+	<string>Последняя онлайн-версия недоступна</string>
+	<key>Latest online runtime not available</key>
+	<string>Последняя онлайн-среда выполнения недоступна.</string>
+	<key>Latest online: %@ · %@</key>
+	<string>Последний онлайн: %1$@ · %2$@</string>
+	<key>Latest online: %@ · source %@</key>
+	<string>Последние новости в сети: %1$@ · источник %2$@</string>
+	<key>Launch</key>
+	<string>Запустить</string>
+	<key>Launch %@</key>
+	<string>Запустить %1$@</string>
+	<key>Launch Alongside</key>
+	<string>Запустить вместе</string>
+	<key>Launch Arguments</key>
+	<string>Аргументы запуска</string>
+	<key>Launch alongside the running Windows apps</key>
+	<string>Запускайте вместе с запущенными приложениями Windows.</string>
+	<key>Launch an application to start this container's Windows session.</key>
+	<string>Запустите приложение, чтобы запустить сеанс Windows этого контейнера.</string>
+	<key>Launch behavior and advanced compatibility options for %@.</key>
+	<string>Поведение при запуске и расширенные параметры совместимости для %1$@.</string>
+	<key>Launch command started through switchyard-runner: executable=%@ argumentCount=%lld</key>
+	<string>Команда запуска запущена через switchyard-runner: executable=%1$@ аргументCount=%2$lld</string>
+	<key>Launch this Windows app</key>
+	<string>Запустите это приложение Windows.</string>
+	<key>Launches and container events will appear here.</key>
+	<string>Здесь будут появляться запуски и контейнерные события.</string>
+	<key>Learned Schemes</key>
+	<string>Изученные схемы</string>
+	<key>Level</key>
+	<string>Уровень</string>
+	<key>Loading files…</key>
+	<string>Загрузка файлов…</string>
+	<key>Local Development Runtime</key>
+	<string>Локальная среда выполнения для разработки</string>
+	<key>Local paths bypass the official release catalog but must still match this development build's pinned source revision.</key>
+	<string>Локальные пути обходят официальный каталог выпусков, но должны соответствовать версии исходного кода, закреплённой в этой сборке для разработки.</string>
+	<key>Location</key>
+	<string>Расположение</string>
+	<key>Login Callback</key>
+	<string>Вход в систему</string>
+	<key>Login callback recovery was cancelled because the container folder is changing.</key>
+	<string>Восстановление обратного вызова для входа было отменено, поскольку папка контейнера изменилась.</string>
+	<key>Login callback recovery was cancelled.</key>
+	<string>Восстановление обратного вызова для входа было отменено.</string>
+	<key>Logs</key>
+	<string>Журналы</string>
+	<key>Mac check</key>
+	<string>Проверка Mac</string>
+	<key>Mac support</key>
+	<string>Поддержка Mac</string>
+	<key>Make Default</key>
+	<string>Сделать по умолчанию</string>
+	<key>Matches active build</key>
+	<string>Соответствует активной сборке</string>
+	<key>Missing</key>
+	<string>Отсутствует</string>
+	<key>Modified</key>
+	<string>Модифицированный</string>
+	<key>More Container Actions</key>
+	<string>Дополнительные действия с контейнером</string>
+	<key>Move Container to Trash</key>
+	<string>Переместить контейнер в Корзину</string>
+	<key>Move Container to Trash?</key>
+	<string>Переместить контейнер в Корзину?</string>
+	<key>Move to Trash</key>
+	<string>Переместить в Корзину</string>
+	<key>Moved %@ to Trash.</key>
+	<string>%1$@ перемещён в корзину.</string>
+	<key>Name</key>
+	<string>Имя</string>
+	<key>Needs Attention</key>
+	<string>Требует внимания</string>
+	<key>Needs Setup</key>
+	<string>Требуется установка</string>
+	<key>Needs another try</key>
+	<string>Нужна еще одна попытка</string>
+	<key>Never run</key>
+	<string>Ещё не запускалось</string>
+	<key>New App Recommended</key>
+	<string>Рекомендуется обновить приложение</string>
+	<key>New Container</key>
+	<string>Новый контейнер</string>
+	<key>Newer Build</key>
+	<string>Новая сборка</string>
+	<key>No Apple-signed GPTK executable code was found.</key>
+	<string>Исполняемый код GPTK, подписанный Apple, не найден.</string>
+	<key>No GPTK path has been selected.</key>
+	<string>Путь GPTK не выбран.</string>
+	<key>No Game Porting Toolkit disk image was found in Downloads.</key>
+	<string>В разделе «Загрузки» не найден образ диска Game Porting Toolkit.</string>
+	<key>No Matching Logs</key>
+	<string>Нет соответствующих журналов</string>
+	<key>No Programs Found</key>
+	<string>Программы не найдены</string>
+	<key>No Recent Activity</key>
+	<string>Нет недавней активности</string>
+	<key>No Windows applications are running</key>
+	<string>Ни одно приложение Windows не запущено.</string>
+	<key>No Wine runtime has been selected. Expected Switchyard runtime cache under %@ or %@.</key>
+	<string>Среда выполнения Wine не выбрана. Ожидается кэш времени выполнения Switchyard под %1$@ или %2$@.</string>
+	<key>No Wine runtime is available to verify against the pinned Switchyard Wine source.</key>
+	<string>Среда выполнения Wine недоступна для проверки на соответствие закрепленному источнику Switchyard Wine.</string>
+	<key>No Wine runtime selected</key>
+	<string>Среда выполнения Wine не выбрана.</string>
+	<key>No application details available</key>
+	<string>Сведения о приложении отсутствуют.</string>
+	<key>No eligible official runtime releases were found.</key>
+	<string>Подходящие официальные выпуски среды выполнения не найдены.</string>
+	<key>No environment overrides.</key>
+	<string>Никакая среда не переопределяет.</string>
+	<key>No published runtime manifest could be loaded.</key>
+	<string>Не удалось загрузить опубликованный манифест среды выполнения.</string>
+	<key>Not Now</key>
+	<string>Не сейчас</string>
+	<key>Not Recommended</key>
+	<string>Не рекомендуется</string>
+	<key>Not available</key>
+	<string>Недоступно</string>
+	<key>Not checked in this session</key>
+	<string>Не проверено в этом сеансе</string>
+	<key>Not recorded</key>
+	<string>Нет записи</string>
+	<key>Not selected</key>
+	<string>Не выбрано</string>
+	<key>Not used yet</key>
+	<string>Ещё не использовалась</string>
+	<key>OK</key>
+	<string>ОК</string>
+	<key>Official Releases</key>
+	<string>Официальные выпуски</string>
+	<key>One more step</key>
+	<string>Еще один шаг</string>
+	<key>Online Unknown</key>
+	<string>Онлайн Неизвестно</string>
+	<key>Online check failed: %@</key>
+	<string>Онлайн-проверка не удалась: %1$@.</string>
+	<key>Only .dmg disk images can be imported automatically.</key>
+	<string>Автоматически можно импортировать только образы дисков .dmg.</string>
+	<key>Only the Switchyard-managed runtime cache will be deleted.</key>
+	<string>Будет удалён только кэш среды выполнения, управляемый Switchyard.</string>
+	<key>Open</key>
+	<string>Открыть</string>
+	<key>Open All Logs</key>
+	<string>Открыть все журналы</string>
+	<key>Open Folder</key>
+	<string>Открыть папку</string>
+	<key>Open Font Pack</key>
+	<string>пакет открытых шрифтов</string>
+	<key>Open Font Pack could not be prepared; continuing launch without additional font fallback: %@</key>
+	<string>пакет открытых шрифтов не удалось подготовить; продолжение запуска без дополнительного резервного шрифта: %1$@</string>
+	<key>Open Font Pack is already cached with %lld font files.</key>
+	<string>пакет открытых шрифтов уже кэширован с файлами шрифтов %1$lld.</string>
+	<key>Open Font Pack is cached and ready for container installation.</key>
+	<string>пакет открытых шрифтов кэширован и готов к установке в контейнер.</string>
+	<key>Open Font Pack is missing %lld OFL font file(s). Switchyard will try to download them automatically.</key>
+	<string>В пакет открытых шрифтов отсутствуют файлы шрифтов %1$lld OFL. Switchyard попытается загрузить их автоматически.</string>
+	<key>Open Font Pack registration was skipped while this Windows session is active.</key>
+	<string>Регистрация пакет открытых шрифтов была пропущена, пока этот сеанс Windows активен.</string>
+	<key>Open GPTK Settings</key>
+	<string>Откройте настройки GPTK.</string>
+	<key>Open Logs</key>
+	<string>Открыть журналы</string>
+	<key>Open Settings</key>
+	<string>Открыть настройки</string>
+	<key>Open Wine Settings</key>
+	<string>Откройте настройки Wine.</string>
+	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
+	<string>Готовые открытые шрифты: %1$lld скопирован, %2$lld уже присутствует, зарегистрированы замены семейства %3$lld.</string>
+	<key>Open fonts skipped: %@</key>
+	<string>Открытые шрифты пропущены: %1$@.</string>
+	<key>Open in Finder</key>
+	<string>Открыть в Finder</string>
+	<key>Open the latest Switchyard release on GitHub</key>
+	<string>Откройте последнюю версию Switchyard на GitHub.</string>
+	<key>Opening the Steam installer…</key>
+	<string>Открываем установщик Steam…</string>
+	<key>Optional launch arguments</key>
+	<string>Необязательные аргументы запуска</string>
+	<key>Optional — Switchyard will try again before launch</key>
+	<string>Необязательно — Switchyard повторит попытку перед запуском.</string>
+	<key>Other Managed Runtimes</key>
+	<string>Другие управляемые среды выполнения</string>
+	<key>Patch Set</key>
+	<string>Набор патчей</string>
+	<key>Path</key>
+	<string>Путь</string>
+	<key>Preparing Windows support</key>
+	<string>Подготовка поддержки Windows</string>
+	<key>Preparing a place for Steam…</key>
+	<string>Готовим место для Steam…</string>
+	<key>Preparing automatically…</key>
+	<string>Автоматическая подготовка…</string>
+	<key>Preparing this Windows container for the active Switchyard runtime.</key>
+	<string>Подготовка этого контейнера Windows для активной среды выполнения Switchyard.</string>
+	<key>Press Return or leave the field to rename the container and its folder</key>
+	<string>Нажмите Return или оставьте поле, чтобы переименовать контейнер и его папку.</string>
+	<key>Process details are temporarily unavailable.</key>
+	<string>Подробности процесса временно недоступны.</string>
+	<key>Processes</key>
+	<string>Процессы</string>
+	<key>Program Group</key>
+	<string>Программная группа</string>
+	<key>Programs</key>
+	<string>Программы</string>
+	<key>Queued</key>
+	<string>В очереди</string>
+	<key>Re-run All Checks</key>
+	<string>Повторно выполнить все проверки</string>
+	<key>Re-run Diagnostics</key>
+	<string>Повторный запуск диагностики</string>
+	<key>Re-run Runtime Diagnostics</key>
+	<string>Перезапустите диагностику времени выполнения.</string>
+	<key>Ready</key>
+	<string>Готово</string>
+	<key>Ready and matched to this version of Switchyard.</key>
+	<string>Готов и соответствует этой версии Switchyard.</string>
+	<key>Ready for the next application</key>
+	<string>Готов к следующему приложению</string>
+	<key>Ready to begin</key>
+	<string>Готов начать</string>
+	<key>Ready to launch</key>
+	<string>Готов к запуску</string>
+	<key>Ready to launch Windows executables in Switchyard containers.</key>
+	<string>Готов к запуску исполняемых файлов Windows в контейнерах Switchyard.</string>
+	<key>Recent</key>
+	<string>Недавние</string>
+	<key>Recent Activity</key>
+	<string>Недавняя активность</string>
+	<key>Recent Files</key>
+	<string>Последние файлы</string>
+	<key>Recently Launched</key>
+	<string>Недавно запущенный</string>
+	<key>Recommended</key>
+	<string>Рекомендуется</string>
+	<key>Recorded %@.</key>
+	<string>Записано %1$@.</string>
+	<key>Recorded GPTK</key>
+	<string>Сохранённый GPTK</string>
+	<key>Recorded Patch Set</key>
+	<string>Сохранённый набор патчей</string>
+	<key>Recorded Runtime ID</key>
+	<string>Сохранённый ID среды выполнения</string>
+	<key>Recover Copied Callback</key>
+	<string>Восстановить скопированный обратный вызов</string>
+	<key>Recover Copied Login Callback</key>
+	<string>Восстановить скопированный обратный вызов входа в систему</string>
+	<key>Recovered the %@: callback for %@.</key>
+	<string>Восстановлен %1$@: обратный вызов для %2$@.</string>
+	<key>Recovered the %@: callback. Future sign-ins can return automatically.</key>
+	<string>Восстановлен обратный вызов %1$@:. Последующие входы в систему могут вернуться автоматически.</string>
+	<key>Refresh</key>
+	<string>Обновить</string>
+	<key>Refresh Windows Session</key>
+	<string>Обновить сеанс Windows</string>
+	<key>Refusing to move %@ to Trash because its path is outside Switchyard storage or has no Switchyard manifest.</key>
+	<string>Отказ в перемещении %1$@ в корзину, поскольку его путь находится за пределами хранилища Switchyard или не имеет манифеста Switchyard.</string>
+	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
+	<string>Зарегистрирован мост обратного вызова macOS для схемы URL-адресов Wine: %1$@.</string>
+	<key>Remaining Wine processes will be cleaned up before launch</key>
+	<string>Остальные процессы Wine будут очищены перед запуском.</string>
+	<key>Remove %@</key>
+	<string>Удалить %1$@</string>
+	<key>Remove %@?</key>
+	<string>Удалить %1$@?</string>
+	<key>Remove Runtime</key>
+	<string>Удалить среду выполнения</string>
+	<key>Remove Variable</key>
+	<string>Удалить переменную</string>
+	<key>Remove this inactive managed runtime</key>
+	<string>Удалить эту неактивную управляемую среду выполнения</string>
+	<key>Remove this inactive runtime</key>
+	<string>Удалить эту неактивную среду выполнения</string>
+	<key>Remove this managed runtime?</key>
+	<string>Удалить эту управляемую среду выполнения?</string>
+	<key>Removed %@. It can be downloaded again later.</key>
+	<string>%1$@ удалено. Его можно скачать снова позже.</string>
+	<key>Removed a stale macOS desktop shortcut for %@.</key>
+	<string>Удален устаревший ярлык macOS на рабочем столе для %1$@.</string>
+	<key>Removed duplicate container entries that pointed to an already-used folder: %@.</key>
+	<string>Удалены повторяющиеся записи контейнера, указывающие на уже использованную папку: %1$@.</string>
+	<key>Removed reserved environment variable: %@.</key>
+	<string>Удалена зарезервированная переменная среды: %1$@.</string>
+	<key>Removing the selected inactive runtime…</key>
+	<string>Удаление выбранной неактивной среды выполнения…</string>
+	<key>Renamed %@ and its folder to %@.</key>
+	<string>Переименовал %1$@ и его папку в %2$@.</string>
+	<key>Renderer</key>
+	<string>Рендерер</string>
+	<key>Required</key>
+	<string>Требуется</string>
+	<key>Reset Cached Setup State</key>
+	<string>Сбросить состояние кэшированной настройки</string>
+	<key>Resolve missing runtime components before running Windows executables.</key>
+	<string>Устраните отсутствующие компоненты среды выполнения перед запуском исполняемых файлов Windows.</string>
+	<key>Resolved Wine selection to executable: %@</key>
+	<string>Разрешен выбор Wine для исполняемого файла: %1$@.</string>
+	<key>Responding normally</key>
+	<string>Отвечает нормально</string>
+	<key>Restart</key>
+	<string>Перезапустить</string>
+	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
+	<string>При перезапуске завершатся все процессы Windows в этом контейнере, включая игры и установщики. Перезапустить контейнер с чистого состояния?</string>
+	<key>Rosetta 2</key>
+	<string>Rosetta 2</string>
+	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
+	<string>Rosetta 2 можно установить только на Apple Silicon Mac.</string>
+	<key>Rosetta 2 is available only on Apple Silicon Macs.</key>
+	<string>Rosetta 2 доступен только на компьютерах Mac Apple Silicon.</string>
+	<key>Rosetta 2 is required for the Windows compatibility runtime.</key>
+	<string>Rosetta 2 необходим для среды выполнения, совместимой с Windows.</string>
+	<key>Rosetta 2 lets this Apple Silicon Mac open the Intel-based part of the Windows runtime.</key>
+	<string>Rosetta 2 позволяет этому Mac Apple Silicon открывать основанную на Intel часть среды выполнения Windows.</string>
+	<key>Rosetta 2 was not installed. Try again, or ask your Mac administrator if this Mac is managed.</key>
+	<string>Rosetta 2 не был установлен. Попробуйте еще раз или спросите у администратора Mac, является ли этот Mac управляемым.</string>
+	<key>Rosetta 2 was not installed: %@</key>
+	<string>Rosetta 2 не был установлен: %1$@</string>
+	<key>Rosetta was not installed</key>
+	<string>Розетта не установлена</string>
+	<key>Run</key>
+	<string>Запустить</string>
+	<key>Run .exe or .msi in %@</key>
+	<string>Запустите .exe или .msi в %1$@.</string>
+	<key>Run Container</key>
+	<string>Запустить контейнер</string>
+	<key>Run Windows apps without learning Windows setup tools</key>
+	<string>Запускайте приложения Windows, не изучая инструменты настройки Windows.</string>
+	<key>Run diagnostics, launch a Windows executable, or change the current filters.</key>
+	<string>Запустите диагностику, запустите исполняемый файл Windows или измените текущие фильтры.</string>
+	<key>Runner exited with code %@.</key>
+	<string>Процесс switchyard-runner завершился с кодом %1$@.</string>
+	<key>Runner stopped at the user's request.</key>
+	<string>Процесс switchyard-runner остановлен по запросу пользователя.</string>
+	<key>Running</key>
+	<string>Выполняется</string>
+	<key>Running Windows applications could not be inspected (exit code %d).</key>
+	<string>Не удалось проверить запущенные приложения Windows (код выхода %1$d).</string>
+	<key>Running on %@.</key>
+	<string>Работает на %1$@.</string>
+	<key>Running…</key>
+	<string>Выполняется…</string>
+	<key>Runtime</key>
+	<string>Среда выполнения</string>
+	<key>Runtime ID</key>
+	<string>Идентификатор среды выполнения</string>
+	<key>Runtime Management</key>
+	<string>Управление средой выполнения</string>
+	<key>Runtime Scope</key>
+	<string>Область действия среды выполнения</string>
+	<key>Runtime Source</key>
+	<string>Источник среды выполнения</string>
+	<key>Runtime Version</key>
+	<string>Версия среды выполнения</string>
+	<key>Runtime has not been checked yet.</key>
+	<string>Время выполнения еще не проверялось.</string>
+	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
+	<string>Сведения о среде выполнения будут записаны после первого запуска Wine в этом контейнере.</string>
+	<key>Runtime release manifest version %lld is unsupported.</key>
+	<string>Версия манифеста выпуска среды выполнения %1$lld не поддерживается.</string>
+	<key>Runtime source verified at %@ revision %@.</key>
+	<string>Исходный код среды выполнения проверен на версии %1$@ %2$@.</string>
+	<key>Safe, matching runtime</key>
+	<string>Проверенная совместимая среда выполнения</string>
+	<key>Search logs</key>
+	<string>Поиск в журналах</string>
+	<key>Select another active runtime before removing this one.</key>
+	<string>Перед удалением выберите другую активную среду выполнения.</string>
+	<key>Selected</key>
+	<string>Выбрано</string>
+	<key>Selected %@ as the active app-wide runtime.</key>
+	<string>%1$@ выбрана как активная среда выполнения для всего приложения.</string>
+	<key>Selected GPTK path does not exist.</key>
+	<string>Выбранный путь GPTK не существует.</string>
+	<key>Selected GPTK path is not a directory or supported .dmg disk image.</key>
+	<string>Выбранный путь GPTK не является каталогом или поддерживаемым образом диска .dmg.</string>
+	<key>Selected Wine Runtime</key>
+	<string>Выбранная среда выполнения Wine</string>
+	<key>Selected Wine directory exists, but no executable wine or wine64 was found in expected locations: %@.</key>
+	<string>Выбранный каталог Wine существует, но исполняемый файл Wine или wine64 не найден в ожидаемых местах: %1$@.</string>
+	<key>Selected Wine path does not exist: %@.</key>
+	<string>Выбранный путь Wine не существует: %1$@.</string>
+	<key>Selected Wine path exists but is not executable: %@.</key>
+	<string>Выбранный путь Wine существует, но не является исполняемым: %1$@.</string>
+	<key>Selected the local development runtime path.</key>
+	<string>Выбран путь к локальной среде выполнения для разработки.</string>
+	<key>Sensible defaults</key>
+	<string>Удобные настройки по умолчанию</string>
+	<key>Session status could not be read</key>
+	<string>Статус сеанса не может быть прочитан</string>
+	<key>Set Up Later</key>
+	<string>Настроить позже</string>
+	<key>Set Up Steam</key>
+	<string>Настройка Steam</string>
+	<key>Set Up Switchyard</key>
+	<string>Настройка Switchyard</string>
+	<key>Settings</key>
+	<string>Настройки</string>
+	<key>Setup is incomplete</key>
+	<string>Настройка не завершена</string>
+	<key>Setup is incomplete. Resolve diagnostics before launching.</key>
+	<string>Настройка неполная. Выполните диагностику перед запуском.</string>
+	<key>Setup progress</key>
+	<string>Ход настройки</string>
+	<key>Show Container in Finder</key>
+	<string>Показать контейнер в Finder</string>
+	<key>Show Program in Finder</key>
+	<string>Показать программу в Finder</string>
+	<key>Show in Finder</key>
+	<string>Показать в Finder</string>
+	<key>Size</key>
+	<string>Размер</string>
+	<key>Source %@</key>
+	<string>Источник %1$@</string>
+	<key>Source Revision</key>
+	<string>Ревизия исходного кода</string>
+	<key>Source revision not available</key>
+	<string>Исходная версия недоступна</string>
+	<key>Start %@ in this container</key>
+	<string>Запустите %1$@ в этом контейнере.</string>
+	<key>Start another app in the same Windows session.</key>
+	<string>Запустите другое приложение в том же сеансе Windows.</string>
+	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
+	<string>Начните с Steam или создайте пустое личное пространство для другого установщика Windows.</string>
+	<key>Starting automatically…</key>
+	<string>Запускается автоматически…</string>
+	<key>Starting…</key>
+	<string>Запуск…</string>
+	<key>Steam could not be started</key>
+	<string>Steam не удалось запустить.</string>
+	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
+	<string>Установка Steam не завершена. Выберите «Продолжить настройку Steam», чтобы повторить попытку.</string>
+	<key>Steam is installed and ready to launch.</key>
+	<string>Steam установлен и готов к запуску.</string>
+	<key>Steam is optional. You can finish now and install any Windows .exe later.</key>
+	<string>Steam является необязательным. Вы можете завершить сейчас и установить любой Windows .exe позже.</string>
+	<key>Steam next</key>
+	<string>Далее — Steam</string>
+	<key>Steam setup is paused and can be continued safely.</key>
+	<string>Установка Steam приостановлена, и её можно безопасно продолжить.</string>
+	<key>Steam setup is paused. You can resume it whenever you are ready.</key>
+	<string>Установка Steam приостановлена. Продолжите, когда будете готовы.</string>
+	<key>Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container.</key>
+	<string>Установка Steam заняла больше времени, чем ожидалось. Если установщик все еще открыт, завершите его; в противном случае попробуйте еще раз в том же контейнере.</string>
+	<key>Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container.</key>
+	<string>Установка Steam была приостановлена. Продолжите, когда будете готовы; Switchyard повторно использует этот контейнер.</string>
+	<key>Steam was not detected yet. You can safely continue setup in this container.</key>
+	<string>Steam еще не обнаружен. Вы можете безопасно продолжить установку в этом контейнере.</string>
+	<key>Steam was not found after the installer closed. You can continue setup in the same container without losing anything.</key>
+	<string>Steam не был найден после закрытия программы установки. Вы можете продолжить установку в том же контейнере, ничего не теряя.</string>
+	<key>Steam will be kept in its own private Switchyard container. Games installed through Steam will stay there too.</key>
+	<string>Steam будет храниться в отдельном контейнере Switchyard. Игры, установленные через Steam, останутся там же.</string>
+	<key>Stop</key>
+	<string>Остановить</string>
+	<key>Stop %@ before renaming its folder. A Wine process is still using this container.</key>
+	<string>Остановите %1$@, прежде чем переименовывать его папку. Процесс Wine все еще использует этот контейнер.</string>
+	<key>Stop %@ before renaming its folder. A Wine process started while Switchyard was locking this container.</key>
+	<string>Остановите %1$@, прежде чем переименовывать его папку. Процесс Wine начался, когда Switchyard блокировал этот контейнер.</string>
+	<key>Stop All Runs</key>
+	<string>Остановить все запуски</string>
+	<key>Stop All Windows Apps</key>
+	<string>Остановить все приложения Windows</string>
+	<key>Stop Steam Setup</key>
+	<string>Остановить установку Steam</string>
+	<key>Stop all Windows apps?</key>
+	<string>Остановить все приложения Windows?</string>
+	<key>Stop all Wine processes in this container</key>
+	<string>Остановите все процессы Wine в этом контейнере.</string>
+	<key>Stop all running containers before changing the selected runtime.</key>
+	<string>Остановите все запущенные контейнеры перед изменением выбранной среды выполнения.</string>
+	<key>Stop all running containers before importing a toolkit.</key>
+	<string>Остановите все запущенные контейнеры перед импортом набора инструментов.</string>
+	<key>Stop and Continue</key>
+	<string>Остановиться и продолжить</string>
+	<key>Stop or wait for %@ before renaming its folder.</key>
+	<string>Остановитесь или дождитесь %1$@, прежде чем переименовывать его папку.</string>
+	<key>Stop requested for this container.</key>
+	<string>Для этого контейнера запрошена остановка.</string>
+	<key>Stop wineserver</key>
+	<string>Остановить wineserver</string>
+	<key>Stop wineserver?</key>
+	<string>Остановить wineserver?</string>
+	<key>Stopping</key>
+	<string>Остановка</string>
+	<key>Stopping…</key>
+	<string>Остановка…</string>
+	<key>Storage</key>
+	<string>Хранение</string>
+	<key>Storage and technical paths are chosen automatically. You can change them under Advanced Options.</key>
+	<string>Папка хранения и технические пути выбираются автоматически. Их можно изменить в разделе «Дополнительные параметры».</string>
+	<key>Succeeded</key>
+	<string>Успешно</string>
+	<key>Support</key>
+	<string>Поддержка</string>
+	<key>Supported</key>
+	<string>Поддерживается</string>
+	<key>Switchyard</key>
+	<string>Switchyard</string>
+	<key>Switchyard Wine runtime %@ (%@) found at %@. PE architectures: %@.</key>
+	<string>Switchyard Wine среда выполнения %1$@ (%2$@) находится по адресу %3$@. PE архитектуры: %4$@.</string>
+	<key>Switchyard Wine runtime %@ does not record a source revision. Rebuild it from the pinned switchyard-wine repository.</key>
+	<string>Switchyard Wine Среда выполнения %1$@ не записывает исходную версию. Пересоберите его из закрепленного репозитория switchyard-wine.</string>
+	<key>Switchyard Wine runtime %@ is selected at %@, but it is missing PE architecture(s): %@. Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs.</key>
+	<string>Switchyard Wine. Среда выполнения %1$@ выбрана в %2$@, но в ней отсутствуют архитектуры PE: %3$@. Пересоберите среду выполнения Switchyard WoW64 перед запуском 32-разрядных установщиков или программ Windows.</string>
+	<key>Switchyard Wine runtime %@ was built from a dirty source tree at %@. Build a clean pinned revision before release use.</key>
+	<string>Switchyard Wine. Среда выполнения %1$@ была собрана из грязного дерева исходного кода %2$@. Перед использованием выпуска создайте чистую закрепленную версию.</string>
+	<key>Switchyard Wine runtime %@ was built from source %@, but this Switchyard build pins %@. Rebuild the runtime from the pinned revision.</key>
+	<string>Switchyard Wine среда выполнения %1$@ была собрана из исходного кода %2$@, но в этой сборке Switchyard используются контакты %3$@. Пересоберите среду выполнения из закрепленной версии.</string>
+	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
+	<string>Switchyard принимает только официальную загрузку HTTPS и сохраняет ее в частном кеше.</string>
+	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
+	<string>Switchyard всегда использует показанную выше активную среду выполнения для всего приложения. Контейнеры не выбирают и не закрепляют отдельные версии.</string>
+	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
+	<string>Switchyard может удалить только среду выполнения, которая хранится непосредственно в управляемом кэше.</string>
+	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
+	<string>Switchyard не удалось закрыть все приложения Windows. Сохраните работу, закройте все оставшиеся окна и повторите попытку.</string>
+	<key>Switchyard could not inspect this Wine session.</key>
+	<string>Switchyard не удалось проверить этот сеанс Wine.</string>
+	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
+	<string>Switchyard не удалось защитить загруженный установщик в своем личном кеше: %1$@</string>
+	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
+	<string>Switchyard в настоящее время запускает все контейнеры с активной средой выполнения, показанной выше.</string>
+	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
+	<string>Для работы Switchyard требуется Mac с Apple Silicon и macOS 14 или новее.</string>
+	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
+	<string>Switchyard не загружает и не связывает GPTK. Apple осуществляет вход в систему и принятие лицензии; Switchyard импортируется только после проверки исполняемого кода DMG на наличие подписей Apple.</string>
+	<key>Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.</key>
+	<string>Switchyard загружает SteamSetup.exe непосредственно из Valve через HTTPS.</string>
+	<key>Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.</key>
+	<string>Switchyard загружает только установщик Valve. Обычные экраны Steam обрабатывают игры, обновления и вход в учетную запись.</string>
+	<key>Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.</key>
+	<string>Switchyard устанавливает шрифты OFL Noto в контейнеры и сопоставляет общие имена семейств шрифтов Windows без объединения шрифтов Microsoft.</string>
+	<key>Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.</key>
+	<string>Switchyard загружает и проверяет необходимые файлы. Держите приложение открытым, пока это закончится.</string>
+	<key>Switchyard is ready</key>
+	<string>Switchyard готов.</string>
+	<key>Switchyard only installs a runtime after its online release matches this app's signed compatibility policy.</key>
+	<string>Switchyard устанавливает среду выполнения только после того, как ее онлайн-выпуск соответствует подписанной политике совместимости этого приложения.</string>
+	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
+	<string>Switchyard закрепляет одну рекомендуемую среду выполнения для автоматической настройки и проверяет каждый выбранный вручную официальный выпуск перед установкой.</string>
+	<key>Switchyard v1 supports Apple Silicon only.</key>
+	<string>Switchyard v1 поддерживает только Apple Silicon.</string>
+	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
+	<string>Switchyard проверяет исполняемый код перед копированием его в свой частный кэш.</string>
+	<key>Switchyard will check this Mac, download its compatibility files, and guide you through the one Apple download it cannot provide itself. Your apps and games stay on this Mac.</key>
+	<string>Switchyard проверит этот Mac, загрузит файлы совместимости и проведет вас через ту загрузку Apple, которую он не может предоставить сам. Ваши приложения и игры останутся на этом Mac.</string>
+	<key>Switchyard will guide you through the remaining steps before installing a Windows app.</key>
+	<string>Switchyard проведет вас через оставшиеся шаги перед установкой приложения Windows.</string>
+	<key>Switchyard will not browse a path outside this container.</key>
+	<string>Switchyard не будет просматривать путь за пределами этого контейнера.</string>
+	<key>Switchyard will open Apple's Rosetta installer. Continuing accepts Apple's Rosetta software license; macOS handles any approval that is required.</key>
+	<string>Switchyard откроет установщик Apple Rosetta. Продолжается принятие лицензии на программное обеспечение Apple Rosetta; macOS обрабатывает все необходимые утверждения.</string>
+	<key>Switchyard will redact common secrets and your home folder path before copying.</key>
+	<string>Switchyard отредактирует общие секреты и путь к вашей домашней папке перед копированием.</string>
+	<key>System</key>
+	<string>Система</string>
+	<key>Technical Details</key>
+	<string>Технические детали</string>
+	<key>The Apple code-signing requirement could not be created.</key>
+	<string>Не удалось создать требование подписи кода Apple.</string>
+	<key>The GPTK source contains a symbolic link outside its import directory.</key>
+	<string>Исходный код GPTK содержит символическую ссылку вне каталога импорта.</string>
+	<key>The GitHub release information could not be read: %@</key>
+	<string>Не удалось прочитать информацию о выпуске GitHub: %1$@.</string>
+	<key>The Steam installer could not be opened. Check Logs for details, then try again.</key>
+	<string>Не удалось открыть установщик Steam. Подробности проверьте в журналах и повторите попытку.</string>
+	<key>The Steam installer is open. Follow its steps to finish installation.</key>
+	<string>Установщик Steam открыт. Следуйте инструкциям, чтобы завершить установку.</string>
+	<key>The active runtime could not finish preparing this container; launch will continue and Wine can retry automatically: %@</key>
+	<string>Не удалось завершить подготовку контейнера для активной среды выполнения. Запуск продолжится, и Wine сможет повторить попытку автоматически: %1$@</string>
+	<key>The active runtime is ready.</key>
+	<string>Активная среда выполнения готова.</string>
+	<key>The active runtime is used by every container.</key>
+	<string>Активная среда выполнения используется всеми контейнерами.</string>
+	<key>The app verifies the exact signed runtime made for this version of Switchyard.</key>
+	<string>Приложение проверяет подпись и точное соответствие среды выполнения этой версии Switchyard.</string>
+	<key>The archive does not contain exactly one Switchyard runtime.</key>
+	<string>В архиве не содержится ровно одна среда выполнения Switchyard.</string>
+	<key>The cached Steam installer changed or could not be verified. Download it again from Valve.</key>
+	<string>Кэшированный установщик Steam изменился или не может быть проверен. Загрузите его еще раз с Valve.</string>
+	<key>The callback reached Wine, but automatic recovery could not be saved: %@</key>
+	<string>Обратный вызов достиг Wine, но автоматическое восстановление не удалось сохранить: %1$@.</string>
+	<key>The clipboard does not contain a supported custom callback URL.</key>
+	<string>Буфер обмена не содержит поддерживаемого пользовательского URL-адреса обратного вызова.</string>
+	<key>The compatibility runtime and Apple's graphics support are ready. You can now install a Windows app.</key>
+	<string>Среда совместимости и поддержка графики Apple готовы. Теперь вы можете установить приложение Windows.</string>
+	<key>The container folder has no Switchyard manifest: %@</key>
+	<string>В папке контейнера нет манифеста Switchyard: %1$@.</string>
+	<key>The container folder is missing: %@</key>
+	<string>Папка контейнера отсутствует: %1$@.</string>
+	<key>The container folder is outside the active Switchyard library: %@</key>
+	<string>Папка контейнера находится за пределами активной библиотеки Switchyard: %1$@.</string>
+	<key>The disk image did not contain known D3DMetal/GPTK marker files.</key>
+	<string>Образ диска не содержал известных файлов-маркеров D3DMetal/GPTK.</string>
+	<key>The download is ready. Switchyard will verify Apple's signature before importing it.</key>
+	<string>Загрузка готова. Switchyard проверит подпись Apple перед ее импортом.</string>
+	<key>The download left the official Valve download service, so Switchyard stopped it.</key>
+	<string>Загрузка вышла из официальной службы загрузки Valve, поэтому Switchyard остановил ее.</string>
+	<key>The download was unexpectedly large, so Switchyard stopped before using it.</key>
+	<string>Загрузка оказалась неожиданно большой, поэтому Switchyard остановился перед ее использованием.</string>
+	<key>The downloaded file is not a complete Windows Steam installer.</key>
+	<string>Загруженный файл не является полным установщиком Windows Steam.</string>
+	<key>The downloaded runtime checksum does not match its release manifest.</key>
+	<string>Загруженная контрольная сумма среды выполнения не соответствует манифесту выпуска.</string>
+	<key>The downloaded runtime size does not match its release manifest.</key>
+	<string>Размер загруженной среды выполнения не соответствует манифесту выпуска.</string>
+	<key>The expected Developer ID signing requirement is invalid.</key>
+	<string>Ожидаемое требование подписи Developer ID недействительно.</string>
+	<key>The extracted runtime content digest is invalid.</key>
+	<string>Извлеченный дайджест содержимого среды выполнения недействителен.</string>
+	<key>The extracted runtime does not match the requested release.</key>
+	<string>Извлеченная среда выполнения не соответствует запрошенному выпуску.</string>
+	<key>The file is checked and stored only on this Mac.</key>
+	<string>Файл проверяется и сохраняется только на этом Mac.</string>
+	<key>The first-run container preparation did not finish; the app will still open and Wine can retry automatically: %@</key>
+	<string>Подготовка контейнера для первого запуска не завершилась; приложение все равно откроется, и Wine сможет автоматически повторить попытку: %1$@</string>
+	<key>The imported runtime did not contain known D3DMetal/GPTK marker files.</key>
+	<string>Импортированная среда выполнения не содержала известных файлов маркеров D3DMetal/GPTK.</string>
+	<key>The installed runtime has no runnable Wine launcher.</key>
+	<string>Установленная среда выполнения не имеет работоспособной программы запуска Wine.</string>
+	<key>The installed runtime manifest is invalid: %@</key>
+	<string>Установленный манифест среды выполнения недействителен: %1$@.</string>
+	<key>The installer cache contains an unexpected symbolic link.</key>
+	<string>Кэш установщика содержит неожиданную символическую ссылку.</string>
+	<key>The latest Wine release does not include its runtime manifest.</key>
+	<string>Последний выпуск Wine не включает манифест времени выполнения.</string>
+	<key>The latest Wine release points to an untrusted runtime manifest.</key>
+	<string>Последняя версия Wine указывает на ненадежный манифест среды выполнения.</string>
+	<key>The latest Wine runtime manifest could not be verified: %@</key>
+	<string>Не удалось проверить последний манифест времени выполнения Wine: %1$@.</string>
+	<key>The latest online runtime is not this app version's recommendation. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>Последняя онлайн-версия среды выполнения не рекомендована для этой версии приложения. Другие подписанные официальные версии доступны в настройках среды выполнения Wine.</string>
+	<key>The latest online runtime is not yet in this app's verified compatibility policy. A Switchyard release must approve it before installation.</key>
+	<string>Последняя версия онлайн-среды выполнения еще не включена в проверенную политику совместимости этого приложения. Выпуск Switchyard должен утвердить его перед установкой.</string>
+	<key>The latest online runtime is outside this app's verified compatibility policy. Update Switchyard to get its current approved runtime before installing.</key>
+	<string>Новейшая онлайн-версия среды выполнения не входит в проверенный диапазон совместимости этого приложения. Перед установкой обновите Switchyard, чтобы получить одобренную среду выполнения.</string>
+	<key>The latest online runtime is the recommended revision for this Switchyard version and can be installed here.</key>
+	<string>Последняя онлайн-версия среды выполнения является рекомендуемой для этой версии Switchyard и может быть установлена здесь.</string>
+	<key>The latest online runtime matches this app's verified compatibility policy and can be installed safely.</key>
+	<string>Последняя онлайн-среда выполнения соответствует проверенной политике совместимости этого приложения и может быть безопасно установлена.</string>
+	<key>The log entries shown for %@ will be removed from Switchyard.</key>
+	<string>Записи журнала, показанные для %1$@, будут удалены из Switchyard.</string>
+	<key>The log entries shown in Switchyard will be removed. Debug run files keep their configured retention period.</key>
+	<string>Записи журнала, показанные в Switchyard, будут удалены. Файлы запуска отладки сохраняют настроенный срок хранения.</string>
+	<key>The main runtime download is about 700 MB. Switchyard checks its size, fingerprint, developer signature, and Apple notarization before using it.</key>
+	<string>Основная загрузка во время выполнения составляет около 700 МБ. Перед использованием Switchyard проверяет свой размер, отпечаток пальца, подпись разработчика и нотариальное заверение Apple.</string>
+	<key>The release metadata is incomplete.</key>
+	<string>Метаданные выпуска неполны.</string>
+	<key>The runtime archive contains a symbolic link outside its installation directory.</key>
+	<string>Архив времени выполнения содержит символическую ссылку вне каталога установки.</string>
+	<key>The runtime archive contains an unsafe entry: %@</key>
+	<string>Архив времени выполнения содержит небезопасную запись: %1$@.</string>
+	<key>The runtime archive contains no signed macOS executable code.</key>
+	<string>Архив времени выполнения не содержит подписанного исполняемого кода macOS.</string>
+	<key>The runtime archive could not be extracted: %@</key>
+	<string>Не удалось извлечь архив времени выполнения: %1$@.</string>
+	<key>The runtime archive could not be inspected safely: %@</key>
+	<string>Не удалось безопасно проверить архив времени выполнения: %1$@.</string>
+	<key>The runtime cache will be deleted. You can download this official release again later.</key>
+	<string>Кэш среды выполнения будет удалён. Этот официальный выпуск можно будет скачать снова.</string>
+	<key>The runtime code signature is invalid for %@.</key>
+	<string>Подпись кода времени выполнения недействительна для %1$@.</string>
+	<key>The runtime does not include both 32-bit and 64-bit Windows support.</key>
+	<string>Среда выполнения не поддерживает как 32-битную, так и 64-битную версию Windows.</string>
+	<key>The runtime download server returned HTTP %lld.</key>
+	<string>Сервер загрузки среды выполнения вернул HTTP %1$lld.</string>
+	<key>The runtime has no valid full-content digest.</key>
+	<string>Среда выполнения не имеет допустимого дайджеста полного содержимого.</string>
+	<key>The runtime installation lock could not be acquired: %@</key>
+	<string>Не удалось получить блокировку установки среды выполнения: %1$@.</string>
+	<key>The runtime is runnable, but it does not match this version of Switchyard. Install the compatible runtime to continue.</key>
+	<string>Среда выполнения работоспособна, но она не соответствует этой версии Switchyard. Установите совместимую среду выполнения, чтобы продолжить.</string>
+	<key>The runtime is runnable, but its source identity could not be verified.</key>
+	<string>Среда выполнения запускается, но её источник не удалось проверить.</string>
+	<key>The runtime release does not match this app's compatible source revision.</key>
+	<string>Выпуск среды выполнения не соответствует совместимой исходной версии этого приложения.</string>
+	<key>The runtime release has an unsafe identifier.</key>
+	<string>Выпуск среды выполнения имеет небезопасный идентификатор.</string>
+	<key>The runtime release has not been accepted by Apple notarization.</key>
+	<string>Выпуск среды выполнения не был принят нотариально заверенным органом Apple.</string>
+	<key>The runtime release is not the supported x86_64 macOS build.</key>
+	<string>Выпуск среды выполнения не является поддерживаемой сборкой x86_64 macOS.</string>
+	<key>The runtime release manifest has an invalid archive checksum.</key>
+	<string>Манифест выпуска среды выполнения содержит недопустимую контрольную сумму архива.</string>
+	<key>The runtime release manifest has an invalid archive size.</key>
+	<string>Манифест выпуска среды выполнения имеет недопустимый размер архива.</string>
+	<key>The runtime release manifest has an unsafe archive name.</key>
+	<string>Манифест выпуска среды выполнения имеет небезопасное имя архива.</string>
+	<key>The runtime release manifest is invalid: %@</key>
+	<string>Недопустимый манифест выпуска среды выполнения: %1$@.</string>
+	<key>The runtime release manifest is unexpectedly large.</key>
+	<string>Манифест выпуска среды выполнения неожиданно оказался большим.</string>
+	<key>The runtime release manifest must be an official switchyard-wine GitHub release asset.</key>
+	<string>Манифест выпуска среды выполнения должен быть официальным ресурсом выпуска switchyard-wine на GitHub.</string>
+	<key>The runtime release manifest must use GitHub over HTTPS.</key>
+	<string>Манифест выпуска среды выполнения должен использовать GitHub вместо HTTPS.</string>
+	<key>The runtime release was not produced by the expected developer team.</key>
+	<string>Выпуск среды выполнения не был выпущен ожидаемой командой разработчиков.</string>
+	<key>The selected GPTK disk image has not been imported. Use Import Selected GPTK to verify Apple-signed code before mounting it.</key>
+	<string>Выбранный образ диска GPTK ещё не импортирован. Перед подключением нажмите «Импортировать выбранный GPTK», чтобы проверить подпись Apple у исполняемого кода.</string>
+	<key>The selected Wine container or runtime is not available.</key>
+	<string>Выбранный контейнер или среда выполнения Wine недоступен.</string>
+	<key>The selected Wine file is not executable, so its source identity cannot be verified.</key>
+	<string>Выбранный файл Wine не является исполняемым, поэтому его исходную подлинность невозможно проверить.</string>
+	<key>The selected Wine runtime does not exist, so its source identity cannot be verified.</key>
+	<string>Выбранная среда выполнения Wine не существует, поэтому ее исходную личность невозможно проверить.</string>
+	<key>The selected directory is not a runnable Wine runtime, so its source identity cannot be verified.</key>
+	<string>Выбранный каталог не является работоспособной средой выполнения Wine, поэтому его исходную подлинность невозможно проверить.</string>
+	<key>The selected managed runtime no longer exists.</key>
+	<string>Выбранная управляемая среда выполнения больше не существует.</string>
+	<key>The selected path is not a folder.</key>
+	<string>Выбранный путь не является папкой.</string>
+	<key>The selected runtime is both the latest online release and the recommended revision for this Switchyard version.</key>
+	<string>Выбранная среда выполнения одновременно является последней онлайн-версией и рекомендуемой версией для этой версии Switchyard.</string>
+	<key>The selected runtime is both the latest online release and the revision verified for this Switchyard version.</key>
+	<string>Выбранная среда выполнения является как последним онлайн-выпуском, так и версией, проверенной для этой версии Switchyard.</string>
+	<key>The standard Windows installer will appear in a moment.</key>
+	<string>Стандартный установщик Windows появится через мгновение.</string>
+	<key>The verified Valve download is ready to install.</key>
+	<string>Проверенная загрузка Valve готова к установке.</string>
+	<key>There are no visible files in this folder.</key>
+	<string>В этой папке нет видимых файлов.</string>
+	<key>These runtimes are in Switchyard's managed cache but do not match the currently loaded official release list.</key>
+	<string>Эти среды выполнения находятся в управляемом кэше Switchyard, но не соответствуют загруженному списку официальных выпусков.</string>
+	<key>This Mac</key>
+	<string>Этот Mac</string>
+	<key>This Mac is not supported</key>
+	<string>Этот Mac не поддерживается</string>
+	<key>This Windows installer is ready to open in Switchyard.</key>
+	<string>Этот установщик Windows готов к открытию в Switchyard.</string>
+	<key>This app build does not contain a published runtime channel.</key>
+	<string>Эта сборка приложения не содержит опубликованного канала среды выполнения.</string>
+	<key>This app build does not trust the Developer ID team that signed the runtime.</key>
+	<string>Эта сборка приложения не доверяет команде Developer ID, подписавшей среду выполнения.</string>
+	<key>This app build does not trust the selected official runtime.</key>
+	<string>Эта сборка приложения не доверяет выбранной официальной среде выполнения.</string>
+	<key>This development build has no official Developer ID trust configuration. Release browsing remains available, but downloads are disabled.</key>
+	<string>В этой сборке для разработки не настроено доверие к официальному Developer ID. Выпуски можно просматривать, но скачивание отключено.</string>
+	<key>This link leaves the container and cannot be browsed in Switchyard.</key>
+	<string>Эта ссылка выходит за пределы контейнера, и ее нельзя просмотреть в Switchyard.</string>
+	<key>This normally takes only a moment.</key>
+	<string>Обычно это занимает всего мгновение.</string>
+	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
+	<string>В этом выпуске открывается страница загрузки Apple, на которой вы можете войти в систему, просмотреть условия и выбрать копию набора инструментов для импорта.</string>
+	<key>This runtime has no trusted source revision date for a calendar build number.</key>
+	<string>Эта среда выполнения не имеет даты редакции доверенного источника для номера сборки календаря.</string>
+	<key>Toolkit</key>
+	<string>Инструментарий</string>
+	<key>Try Again</key>
+	<string>Повторить</string>
+	<key>Unavailable</key>
+	<string>Недоступно</string>
+	<key>Unknown</key>
+	<string>Неизвестно</string>
+	<key>Unknown error</key>
+	<string>Неизвестная ошибка</string>
+	<key>Unpinned</key>
+	<string>Не закреплено</string>
+	<key>Unsaved work in Windows apps may be lost. Switchyard needs them closed before changing compatibility files.</key>
+	<string>Несохраненная работа в приложениях Windows может быть потеряна. Switchyard требует их закрытия перед изменением файлов совместимости.</string>
+	<key>Unsupported</key>
+	<string>Не поддерживается</string>
+	<key>Update Available</key>
+	<string>Доступно обновление</string>
+	<key>Update macOS to continue</key>
+	<string>Обновите macOS, чтобы продолжить.</string>
+	<key>Updated %@</key>
+	<string>Обновлен %1$@</string>
+	<key>Use</key>
+	<string>Использовать</string>
+	<key>Used by every container</key>
+	<string>Используется всеми контейнерами</string>
+	<key>Value</key>
+	<string>Значение</string>
+	<key>Valve's download service did not return a complete installer.</key>
+	<string>Служба загрузки Valve не вернула полную версию установщика.</string>
+	<key>Variable</key>
+	<string>Переменная</string>
+	<key>Verbose Wine logging</key>
+	<string>Подробное ведение журнала Wine</string>
+	<key>Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.</key>
+	<string>Подробный журнал также включает вывод Wine fixme и выбранные трассировки SEH, графики и оконной системы. Журнал может быть очень большим, поэтому на экране по частям хранятся только последние 5 000 записей, а защищённый файл содержит полный журнал запуска.</string>
+	<key>Verified</key>
+	<string>Проверено</string>
+	<key>Verify and Continue</key>
+	<string>Подтвердить и продолжить</string>
+	<key>Verifying and Importing…</key>
+	<string>Проверка и импорт…</string>
+	<key>Version</key>
+	<string>Версия</string>
+	<key>Version %@</key>
+	<string>Версия %1$@</string>
+	<key>Version %@ (%@)</key>
+	<string>Версия %1$@ (%2$@)</string>
+	<key>Version Date</key>
+	<string>Дата версии</string>
+	<key>Versions &amp; Updates</key>
+	<string>Версии и обновления</string>
+	<key>View Update</key>
+	<string>Посмотреть обновление</string>
+	<key>View activity</key>
+	<string>Посмотреть активность</string>
+	<key>View all</key>
+	<string>Показать все</string>
+	<key>View all processes</key>
+	<string>Посмотреть все процессы</string>
+	<key>Wait for %@ to finish its current action before deleting its container.</key>
+	<string>Подождите, пока %1$@ завершит текущее действие, прежде чем удалять свой контейнер.</string>
+	<key>Wait for %@ to finish its current session action before starting another executable.</key>
+	<string>Подождите, пока %1$@ завершит текущее действие сеанса, прежде чем запускать другой исполняемый файл.</string>
+	<key>Wait for all container activity to stop before changing the active runtime.</key>
+	<string>Перед сменой активной среды выполнения дождитесь завершения всех операций с контейнерами.</string>
+	<key>Wait for all container activity to stop before removing a runtime.</key>
+	<string>Перед удалением среды выполнения дождитесь завершения всех операций с контейнерами.</string>
+	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
+	<string>Дождитесь завершения операции с папкой контейнера, прежде чем восстанавливать обратный вызов входа в систему.</string>
+	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>
+	<string>Подождите, пока текущая установка Steam завершится, или остановите ее, прежде чем повторить попытку.</string>
+	<key>Warning</key>
+	<string>Предупреждение</string>
+	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
+	<string>После настройки Switchyard можно сразу открыть официальный установщик Steam для Windows.</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>При включении запускает запись ошибок и предупреждений Wine в защищенный файл каждого запуска. В файлах отсутствуют значения аргументов, и их количество ограничено 50 журналами в течение 14 дней в ~/Library/Application Support/Switchyard/Logs/DebugRuns.</string>
+	<key>Windows Session</key>
+	<string>Сеанс Windows</string>
+	<key>Windows apps are still running</key>
+	<string>Приложения Windows все еще работают.</string>
+	<key>Windows compatibility files</key>
+	<string>Файлы совместимости Windows</string>
+	<key>Windows session active · launch another app without stopping it</key>
+	<string>Windows-сеанс активен · запустить другое приложение, не останавливая его</string>
+	<key>Windows session active · launch more apps</key>
+	<string>Windows-сеанс активен · запуск дополнительных приложений</string>
+	<key>Windows support</key>
+	<string>Поддержка Windows</string>
+	<key>Wine Path</key>
+	<string>Путь к Wine</string>
+	<key>Wine Runtime</key>
+	<string>Среда выполнения Wine</string>
+	<key>Wine Runtime Source</key>
+	<string>Источник среды выполнения Wine</string>
+	<key>Wine could not accept the copied %@: callback.</key>
+	<string>Wine не удалось принять скопированный обратный вызов %1$@:.</string>
+	<key>Wine executable found at %@.</key>
+	<string>Исполняемый файл Wine находится по адресу %1$@.</string>
+	<key>Wine has not initialized this container yet.</key>
+	<string>Wine еще не инициализировал этот контейнер.</string>
+	<key>Wine initialization exited before finishing.</key>
+	<string>Инициализация Wine завершилась до завершения.</string>
+	<key>Wine processes</key>
+	<string>Wine процессы</string>
+	<key>Wine processes need cleanup</key>
+	<string>Процессы Wine нуждаются в очистке</string>
+	<key>Wine processes need cleanup before this container changes</key>
+	<string>Процессы Wine требуют очистки перед изменением этого контейнера.</string>
+	<key>Wine processes remain after wineserver exited</key>
+	<string>Процессы Wine остаются после выхода из wineserver.</string>
+	<key>Wine processes remain after wineserver exited. Stop this session before changing its folder.</key>
+	<string>Процессы Wine остаются после выхода из wineserver. Остановите этот сеанс, прежде чем менять его папку.</string>
+	<key>Wine processes stopped for this container.</key>
+	<string>Wine процессы для этого контейнера остановлены.</string>
+	<key>Wine runtime preparation exited before finishing.</key>
+	<string>Подготовка среды выполнения Wine завершилась преждевременно.</string>
+	<key>configured executable</key>
+	<string>настроенный исполняемый файл</string>
+	<key>container override or inherited</key>
+	<string>контейнер переопределен или унаследован</string>
+	<key>ditto failed</key>
+	<string>ditto не удалось</string>
+	<key>empty</key>
+	<string>пустой</string>
+	<key>hdiutil did not report a mounted volume.</key>
+	<string>hdiutil не сообщил о подключенном томе.</string>
+	<key>hdiutil exited with status %d</key>
+	<string>Код завершения hdiutil: %1$d.</string>
+	<key>hdiutil returned an unexpected plist.</key>
+	<string>hdiutil вернул неожиданный список.</string>
+	<key>hdiutil timed out while mounting the disk image.</key>
+	<string>hdiutil истекло время ожидания при монтировании образа диска.</string>
+	<key>macOS 14 or later</key>
+	<string>macOS 14 или новее</string>
+	<key>macOS Version</key>
+	<string>macOS Версия</string>
+	<key>standard</key>
+	<string>стандартный</string>
+	<key>switchyard-runner helper was not found in the app bundle or build directory.</key>
+	<string>Помощник switchyard-runner не найден в пакете приложения или каталоге сборки.</string>
+	<key>switchyard-shortcut-handler was not found in the app bundle or build directory.</key>
+	<string>switchyard-shortcut-handler не найден в пакете приложений или каталоге сборки.</string>
+	<key>switchyard-url-handler was not found in the app bundle or build directory.</key>
+	<string>switchyard-url-handler не найден в пакете приложения или каталоге сборки.</string>
+	<key>unknown</key>
+	<string>неизвестно</string>
+	<key>unknown profile</key>
+	<string>неизвестный профиль</string>
+	<key>unrecorded repository</key>
+	<string>незаписанный репозиторий</string>
+	<key>verbose</key>
+	<string>многословный</string>
+	<key>wineserver could not be stopped (exit code %d).</key>
+	<string>wineserver не удалось остановить (код выхода %1$d).</string>
+	<key>wineserver could not be stopped (exit code %d): %@</key>
+	<string>wineserver не удалось остановить (код выхода %1$d): %2$@</string>
+	<key>zipinfo failed</key>
+	<string>zipinfo не удалось</string>
+</dict>
+</plist>

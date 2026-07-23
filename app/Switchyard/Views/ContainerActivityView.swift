@@ -60,7 +60,14 @@ struct ContainerSessionPanel: View {
                 }
 
                 HStack(spacing: 7) {
-                    Text(snapshot.wineServerState == .orphaned ? "Wine processes" : "wineserver")
+                    Text(
+                        snapshot.wineServerState == .orphaned
+                            ? String(
+                                localized: "Wine processes",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                            : "wineserver"
+                    )
                         .fontWeight(.semibold)
 
                     Label(sessionLabel, systemImage: sessionSymbol)
@@ -102,11 +109,22 @@ struct ContainerSessionPanel: View {
                         .foregroundStyle(.secondary)
                     Text(
                         snapshot.wineServerState.hasRunningProcesses
-                            ? "No application details available" : "No Windows applications are running"
+                            ? String(
+                                localized: "No application details available",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                            : String(
+                                localized: "No Windows applications are running",
+                                bundle: SwitchyardStrings.bundle
+                            )
                     )
                     .font(.callout.weight(.medium))
                     Text(
-                        snapshot.message ?? "Launch an application to start this container's Windows session."
+                        snapshot.message
+                            ?? String(
+                                localized: "Launch an application to start this container's Windows session.",
+                                bundle: SwitchyardStrings.bundle
+                            )
                     )
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -133,7 +151,17 @@ struct ContainerSessionPanel: View {
                     onShowAll?()
                 } label: {
                     HStack {
-                        Text(snapshot.processes.isEmpty ? "View activity" : "View all processes")
+                        Text(
+                            snapshot.processes.isEmpty
+                                ? String(
+                                    localized: "View activity",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                                : String(
+                                    localized: "View all processes",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                        )
                         Spacer()
                         Image(systemName: "chevron.right")
                     }
@@ -193,13 +221,20 @@ struct ContainerSessionPanel: View {
     }
 
     private var sessionLabel: String {
-        if isStoppingWineServer { return "Stopping" }
+        if isStoppingWineServer {
+            return String(localized: "Stopping", bundle: SwitchyardStrings.bundle)
+        }
         return switch snapshot.wineServerState {
-        case .checking: "Checking"
-        case .active: "Running"
-        case .orphaned: "Cleanup needed"
-        case .inactive: "Idle"
-        case .unavailable: "Unavailable"
+        case .checking:
+            String(localized: "Checking", bundle: SwitchyardStrings.bundle)
+        case .active:
+            String(localized: "Running", bundle: SwitchyardStrings.bundle)
+        case .orphaned:
+            String(localized: "Cleanup needed", bundle: SwitchyardStrings.bundle)
+        case .inactive:
+            String(localized: "Idle", bundle: SwitchyardStrings.bundle)
+        case .unavailable:
+            String(localized: "Unavailable", bundle: SwitchyardStrings.bundle)
         }
     }
 
@@ -226,17 +261,31 @@ struct ContainerSessionPanel: View {
 
     private var sessionDescription: String {
         if isStoppingWineServer {
-            return "Closing Windows apps and waiting for wineserver to exit"
+            return String(
+                localized: "Closing Windows apps and waiting for wineserver to exit",
+                bundle: SwitchyardStrings.bundle
+            )
         }
         if let message = snapshot.message {
             return message
         }
         return switch snapshot.wineServerState {
-        case .checking: "Inspecting the Wine prefix"
-        case .active: "Responding normally"
-        case .orphaned: "Wine processes remain after wineserver exited"
-        case .inactive: "Ready for the next application"
-        case .unavailable: "Session status could not be read"
+        case .checking:
+            String(localized: "Inspecting the Wine prefix", bundle: SwitchyardStrings.bundle)
+        case .active:
+            String(localized: "Responding normally", bundle: SwitchyardStrings.bundle)
+        case .orphaned:
+            String(
+                localized: "Wine processes remain after wineserver exited",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .inactive:
+            String(localized: "Ready for the next application", bundle: SwitchyardStrings.bundle)
+        case .unavailable:
+            String(
+                localized: "Session status could not be read",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }
@@ -287,9 +336,9 @@ private struct WindowsProcessRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: process.kind == "System" ? "gearshape.fill" : "app.fill")
+            Image(systemName: process.isSystemProcess ? "gearshape.fill" : "app.fill")
                 .foregroundStyle(
-                    process.kind == "System" ? AnyShapeStyle(.secondary) : AnyShapeStyle(.blue)
+                    process.isSystemProcess ? AnyShapeStyle(.secondary) : AnyShapeStyle(.blue)
                 )
                 .frame(width: 20)
 

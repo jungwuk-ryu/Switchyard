@@ -13,7 +13,11 @@ struct PathPickerRow: View {
             Text(title)
                 .frame(width: 150, alignment: .leading)
 
-            Text(path.isEmpty ? "Not selected" : path)
+            Text(
+                path.isEmpty
+                    ? String(localized: "Not selected", bundle: SwitchyardStrings.bundle)
+                    : path
+            )
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .foregroundStyle(path.isEmpty ? .secondary : .primary)

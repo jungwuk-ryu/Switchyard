@@ -5,11 +5,16 @@ import SwiftUI
 extension HealthStatus {
     var label: String {
         switch self {
-        case .ok: "OK"
-        case .warning: "Warning"
-        case .missing: "Missing"
-        case .unsupported: "Unsupported"
-        case .unknown: "Unknown"
+        case .ok:
+            String(localized: "OK", bundle: SwitchyardStrings.bundle)
+        case .warning:
+            String(localized: "Warning", bundle: SwitchyardStrings.bundle)
+        case .missing:
+            String(localized: "Missing", bundle: SwitchyardStrings.bundle)
+        case .unsupported:
+            String(localized: "Unsupported", bundle: SwitchyardStrings.bundle)
+        case .unknown:
+            String(localized: "Unknown", bundle: SwitchyardStrings.bundle)
         }
     }
 
@@ -36,12 +41,18 @@ extension HealthStatus {
 extension ContainerStatus {
     var label: String {
         switch self {
-        case .ready: "Ready"
-        case .needsSetup: "Needs Setup"
-        case .queued: "Queued"
-        case .running: "Running"
-        case .failed: "Failed"
-        case .succeeded: "Succeeded"
+        case .ready:
+            String(localized: "Ready", bundle: SwitchyardStrings.bundle)
+        case .needsSetup:
+            String(localized: "Needs Setup", bundle: SwitchyardStrings.bundle)
+        case .queued:
+            String(localized: "Queued", bundle: SwitchyardStrings.bundle)
+        case .running:
+            String(localized: "Running", bundle: SwitchyardStrings.bundle)
+        case .failed:
+            String(localized: "Failed", bundle: SwitchyardStrings.bundle)
+        case .succeeded:
+            String(localized: "Succeeded", bundle: SwitchyardStrings.bundle)
         }
     }
 

@@ -45,11 +45,16 @@ struct DiagnosticCheckRow: View {
         guard check.status == .ok else { return check.status.label }
 
         switch check.id {
-        case "apple-silicon", "macos-version": return "Supported"
-        case "rosetta", "open-font-pack": return "Installed"
-        case "gptk": return "Verified"
-        case "wine-runtime": return "Selected"
-        case "runtime-source": return "Current"
+        case "apple-silicon", "macos-version":
+            return String(localized: "Supported", bundle: SwitchyardStrings.bundle)
+        case "rosetta", "open-font-pack":
+            return String(localized: "Installed", bundle: SwitchyardStrings.bundle)
+        case "gptk":
+            return String(localized: "Verified", bundle: SwitchyardStrings.bundle)
+        case "wine-runtime":
+            return String(localized: "Selected", bundle: SwitchyardStrings.bundle)
+        case "runtime-source":
+            return String(localized: "Current", bundle: SwitchyardStrings.bundle)
         default: return check.status.label
         }
     }

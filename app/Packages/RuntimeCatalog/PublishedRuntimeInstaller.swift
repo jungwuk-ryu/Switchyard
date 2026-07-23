@@ -495,7 +495,8 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
                 data: errorPipe.fileHandleForReading.readDataToEndOfFile(),
                 encoding: .utf8
             )
-            let message = errorText?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "ditto failed"
+            let message = errorText?.trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? String(localized: "ditto failed", bundle: SwitchyardStrings.bundle)
             throw PublishedRuntimeInstallerError.archiveExtractionFailed(message)
         }
     }
@@ -515,7 +516,8 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
         guard process.terminationStatus == 0,
               let listing = String(data: output, encoding: .utf8) else {
             let message = String(data: errorOutput, encoding: .utf8)?
-                .trimmingCharacters(in: .whitespacesAndNewlines) ?? "zipinfo failed"
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                ?? String(localized: "zipinfo failed", bundle: SwitchyardStrings.bundle)
             throw PublishedRuntimeInstallerError.archiveInspectionFailed(message)
         }
 
@@ -625,38 +627,148 @@ private enum PublishedRuntimeInstallerError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .archiveDigestMismatch: "The downloaded runtime checksum does not match its release manifest."
-        case .archiveExtractionFailed(let message): "The runtime archive could not be extracted: \(message)"
-        case .archiveInspectionFailed(let message): "The runtime archive could not be inspected safely: \(message)"
-        case .archiveSizeMismatch: "The downloaded runtime size does not match its release manifest."
-        case .contentDigestMismatch: "The extracted runtime content digest is invalid."
-        case .developerTeamMismatch: "The runtime release was not produced by the expected developer team."
-        case .destinationConflict: "A different runtime already exists at the immutable release destination."
-        case .escapingSymbolicLink: "The runtime archive contains a symbolic link outside its installation directory."
-        case .httpFailure(let status): "The runtime download server returned HTTP \(status)."
-        case .incompleteRuntime: "The runtime does not include both 32-bit and 64-bit Windows support."
-        case .installAlreadyRunning: "Another runtime installation is already in progress."
-        case .installLockFailed(let message): "The runtime installation lock could not be acquired: \(message)"
-        case .invalidArchiveDigest: "The runtime release manifest has an invalid archive checksum."
-        case .invalidArchiveName: "The runtime release manifest has an unsafe archive name."
-        case .invalidArchiveSize: "The runtime release manifest has an invalid archive size."
-        case .invalidCodeSignature(let name): "The runtime code signature is invalid for \(name)."
-        case .invalidContentDigest: "The runtime has no valid full-content digest."
-        case .invalidInstalledManifest(let message): "The installed runtime manifest is invalid: \(message)"
-        case .invalidManifest(let message): "The runtime release manifest is invalid: \(message)"
-        case .invalidRuntimeID: "The runtime release has an unsafe identifier."
-        case .invalidSigningRequirement: "The expected Developer ID signing requirement is invalid."
-        case .machOMissing: "The runtime archive contains no signed macOS executable code."
-        case .manifestTooLarge: "The runtime release manifest is unexpectedly large."
-        case .notarizationMissing: "The runtime release has not been accepted by Apple notarization."
-        case .runtimeManifestMismatch: "The extracted runtime does not match the requested release."
-        case .runtimeRootMissing: "The archive does not contain exactly one Switchyard runtime."
-        case .sourceRevisionMismatch: "The runtime release does not match this app's compatible source revision."
-        case .unsupportedManifestVersion(let version): "Runtime release manifest version \(version) is unsupported."
-        case .unsupportedPlatform: "The runtime release is not the supported x86_64 macOS build."
-        case .untrustedManifestURL: "The runtime release manifest must be an official switchyard-wine GitHub release asset."
-        case .unsafeArchiveEntry(let entry): "The runtime archive contains an unsafe entry: \(entry)"
-        case .wineExecutableMissing: "The installed runtime has no runnable Wine launcher."
+        case .archiveDigestMismatch:
+            String(
+                localized: "The downloaded runtime checksum does not match its release manifest.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .archiveExtractionFailed(let message):
+            String(
+                localized: "The runtime archive could not be extracted: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .archiveInspectionFailed(let message):
+            String(
+                localized: "The runtime archive could not be inspected safely: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .archiveSizeMismatch:
+            String(
+                localized: "The downloaded runtime size does not match its release manifest.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .contentDigestMismatch:
+            String(localized: "The extracted runtime content digest is invalid.", bundle: SwitchyardStrings.bundle)
+        case .developerTeamMismatch:
+            String(
+                localized: "The runtime release was not produced by the expected developer team.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .destinationConflict:
+            String(
+                localized: "A different runtime already exists at the immutable release destination.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .escapingSymbolicLink:
+            String(
+                localized: "The runtime archive contains a symbolic link outside its installation directory.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .httpFailure(let status):
+            String(
+                localized: "The runtime download server returned HTTP \(status).",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .incompleteRuntime:
+            String(
+                localized: "The runtime does not include both 32-bit and 64-bit Windows support.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .installAlreadyRunning:
+            String(localized: "Another runtime installation is already in progress.", bundle: SwitchyardStrings.bundle)
+        case .installLockFailed(let message):
+            String(
+                localized: "The runtime installation lock could not be acquired: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidArchiveDigest:
+            String(
+                localized: "The runtime release manifest has an invalid archive checksum.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidArchiveName:
+            String(
+                localized: "The runtime release manifest has an unsafe archive name.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidArchiveSize:
+            String(
+                localized: "The runtime release manifest has an invalid archive size.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidCodeSignature(let name):
+            String(
+                localized: "The runtime code signature is invalid for \(name).",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidContentDigest:
+            String(localized: "The runtime has no valid full-content digest.", bundle: SwitchyardStrings.bundle)
+        case .invalidInstalledManifest(let message):
+            String(
+                localized: "The installed runtime manifest is invalid: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidManifest(let message):
+            String(
+                localized: "The runtime release manifest is invalid: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidRuntimeID:
+            String(localized: "The runtime release has an unsafe identifier.", bundle: SwitchyardStrings.bundle)
+        case .invalidSigningRequirement:
+            String(
+                localized: "The expected Developer ID signing requirement is invalid.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .machOMissing:
+            String(
+                localized: "The runtime archive contains no signed macOS executable code.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .manifestTooLarge:
+            String(localized: "The runtime release manifest is unexpectedly large.", bundle: SwitchyardStrings.bundle)
+        case .notarizationMissing:
+            String(
+                localized: "The runtime release has not been accepted by Apple notarization.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .runtimeManifestMismatch:
+            String(
+                localized: "The extracted runtime does not match the requested release.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .runtimeRootMissing:
+            String(
+                localized: "The archive does not contain exactly one Switchyard runtime.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .sourceRevisionMismatch:
+            String(
+                localized: "The runtime release does not match this app's compatible source revision.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .unsupportedManifestVersion(let version):
+            String(
+                localized: "Runtime release manifest version \(version) is unsupported.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .unsupportedPlatform:
+            String(
+                localized: "The runtime release is not the supported x86_64 macOS build.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .untrustedManifestURL:
+            String(
+                localized: "The runtime release manifest must be an official switchyard-wine GitHub release asset.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .unsafeArchiveEntry(let entry):
+            String(
+                localized: "The runtime archive contains an unsafe entry: \(entry)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .wineExecutableMissing:
+            String(localized: "The installed runtime has no runnable Wine launcher.", bundle: SwitchyardStrings.bundle)
         }
     }
 }

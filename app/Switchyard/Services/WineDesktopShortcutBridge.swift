@@ -13,11 +13,20 @@ enum WineDesktopShortcutBridgeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingShortcutHandler:
-            "switchyard-shortcut-handler was not found in the app bundle or build directory."
+            String(
+                localized: "switchyard-shortcut-handler was not found in the app bundle or build directory.",
+                bundle: SwitchyardStrings.bundle
+            )
         case let .couldNotSignShortcut(name):
-            "Could not sign the generated macOS shortcut for \(name)."
+            String(
+                localized: "Could not sign the generated macOS shortcut for \(name).",
+                bundle: SwitchyardStrings.bundle
+            )
         case let .desktopNameCollision(name):
-            "Could not choose a safe macOS desktop name for \(name)."
+            String(
+                localized: "Could not choose a safe macOS desktop name for \(name).",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
 }

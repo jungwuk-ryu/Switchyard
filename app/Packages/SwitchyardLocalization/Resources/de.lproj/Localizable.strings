@@ -1,0 +1,1468 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%@ Notices: %@</key>
+	<string>%1$@ Hinweise: %2$@</string>
+	<key>%@ Runtime %@, source %@.</key>
+	<string>%1$@ Laufzeitumgebung %2$@, Quelle %3$@.</string>
+	<key>%@ Setup</key>
+	<string>%1$@-Setup</string>
+	<key>%@ Source %@.</key>
+	<string>%1$@ Quelle %2$@.</string>
+	<key>%@ checksum mismatch. Expected %@, got %@.</key>
+	<string>%1$@ Prüfsummenkonflikt. %2$@ erwartet, %3$@ erhalten.</string>
+	<key>%@ contains GPTK markers, but its executable code is not fully Apple-signed: %@</key>
+	<string>%1$@ enthält GPTK-Marker, aber sein ausführbarer Code ist nicht vollständig von Apple signiert: %2$@</string>
+	<key>%@ exists, but no known D3DMetal/GPTK marker files were found.</key>
+	<string>%1$@ existiert, aber es wurden keine bekannten D3DMetal/GPTK-Markierungsdateien gefunden.</string>
+	<key>%@ icon</key>
+	<string>%1$@-Symbol</string>
+	<key>%@ in the Open Font Pack cache failed checksum validation. Expected %@, got %@.</key>
+	<string>Bei %1$@ im Open-Font-Paket-Cache ist die Prüfsummenvalidierung fehlgeschlagen. %2$@ erwartet, %3$@ erhalten.</string>
+	<key>%@ is already running</key>
+	<string>%1$@ läuft bereits</string>
+	<key>%@ is missing from the Open Font Pack cache: %@</key>
+	<string>%1$@ fehlt im Open-Font-Paket-Cache: %2$@</string>
+	<key>%@ is now the active app-wide runtime.</key>
+	<string>%1$@ ist jetzt die appweit aktive Laufzeitumgebung.</string>
+	<key>%@ was removed from Switchyard, but its folder was already missing.</key>
+	<string>%1$@ wurde aus Switchyard entfernt, aber sein Ordner fehlte bereits.</string>
+	<key>%@ · %@ · source %@</key>
+	<string>%1$@ · %2$@ · Quelle %3$@</string>
+	<key>%@, %@</key>
+	<string>%1$@, %2$@</string>
+	<key>%lld</key>
+	<string>%1$lld</string>
+	<key>%lld Windows applications found in this container</key>
+	<string>%1$lld Windows Anwendungen in diesem Container gefunden</string>
+	<key>%lld entries</key>
+	<string>%1$lld-Einträge</string>
+	<key>%lld high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled.</key>
+	<string>%1$lld hochvolumigen Logbucheinträge wurden aus der Live-Ansicht ausgelassen; Das geschützte Debuglog pro Ausführung speichert die vollständige Ausgabe, wenn das Entwicklerlogging aktiviert ist.</string>
+	<key>%lld more items</key>
+	<string>%1$lld weitere Einträge</string>
+	<key>1. Open Apple's download page</key>
+	<string>1. Öffnen Sie die Download-Seite von Apple</string>
+	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
+	<string>2. Melden Sie sich an und laden Sie die neueste Version Game Porting Toolkit .dmg herunter</string>
+	<key>3. Return here — Switchyard will find it automatically</key>
+	<string>3. Kehren Sie hierher zurück – Switchyard findet es automatisch</string>
+	<key>A Wine release does not include its runtime manifest.</key>
+	<string>Eine Wine-Version enthält kein Laufzeitmanifest.</string>
+	<key>A Wine release points to an untrusted runtime manifest.</key>
+	<string>Eine Wine-Version verweist auf ein nicht vertrauenswürdiges Laufzeitmanifest.</string>
+	<key>A Wine runtime manifest could not be verified: %@</key>
+	<string>Ein Wine-Laufzeitmanifest konnte nicht überprüft werden: %1$@</string>
+	<key>A different GPTK import already exists at the immutable destination.</key>
+	<string>Am unveränderlichen Ziel ist bereits ein anderer GPTK-Import vorhanden.</string>
+	<key>A different runtime already exists at the immutable release destination.</key>
+	<string>Am unveränderlichen Release-Ziel ist bereits eine andere Laufzeit vorhanden.</string>
+	<key>A guided setup with safe defaults</key>
+	<string>Eine geführte Einrichtung mit sicheren Standardeinstellungen</string>
+	<key>A newer Switchyard release recommends the latest runtime. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>Eine neuere Switchyard-Version empfiehlt die aktuelle Laufzeitumgebung. Andere signierte offizielle Versionen bleiben in den Wine-Laufzeiteinstellungen verfügbar.</string>
+	<key>A published release is missing its publication date.</key>
+	<string>Bei einer veröffentlichten Version fehlt das Veröffentlichungsdatum.</string>
+	<key>Accept and Install</key>
+	<string>Akzeptieren und installieren</string>
+	<key>Accept and Install Rosetta 2</key>
+	<string>Akzeptieren und installieren Sie Rosetta 2</string>
+	<key>Active</key>
+	<string>Aktiv</string>
+	<key>Active Runtime</key>
+	<string>Aktive Laufzeitumgebung</string>
+	<key>Active Wine Runtime</key>
+	<string>Aktive Wine-Laufzeitumgebung</string>
+	<key>Activity</key>
+	<string>Aktivität</string>
+	<key>Add</key>
+	<string>Hinzufügen</string>
+	<key>Add Container</key>
+	<string>Container hinzufügen</string>
+	<key>Add another app to the running Windows session</key>
+	<string>Fügen Sie der laufenden Windows-Sitzung eine weitere App hinzu</string>
+	<key>Advanced</key>
+	<string>Erweitert</string>
+	<key>Advanced Options</key>
+	<string>Erweiterte Optionen</string>
+	<key>All</key>
+	<string>Alle</string>
+	<key>All Applications</key>
+	<string>Alle Apps</string>
+	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
+	<string>Alle Windows-Apps in %1$@ werden geschlossen. Nicht gespeicherte Arbeiten gehen möglicherweise verloren.</string>
+	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
+	<string>Planen Sie etwa 5–15 Minuten und etwa 1 GB freien Speicherplatz ein. Die Downloadzeit hängt von Ihrer Verbindung ab.</string>
+	<key>Another runtime installation is already in progress.</key>
+	<string>Eine weitere Laufzeitinstallation ist bereits in Bearbeitung.</string>
+	<key>Any remaining Windows processes for %@ will be stopped before its folder is moved to Trash.</key>
+	<string>Alle verbleibenden Windows-Prozesse für %1$@ werden gestoppt, bevor der Ordner in den Papierkorb verschoben wird.</string>
+	<key>App Update Required</key>
+	<string>App-Update erforderlich</string>
+	<key>Apple Silicon</key>
+	<string>Apple Silicon</string>
+	<key>Apple compatibility support</key>
+	<string>Unterstützung für Apple-Kompatibilität</string>
+	<key>Apple graphics</key>
+	<string>Apple-Grafik</string>
+	<key>Apple graphics support</key>
+	<string>Apple-Grafikunterstützung</string>
+	<key>Apple's support for Intel-based apps is installed.</key>
+	<string>Apples Unterstützung für Intel-basierte Apps ist installiert.</string>
+	<key>Apple-signed GPTK code and markers found: %@.</key>
+	<string>Von Apple signierter GPTK-Code und gefundene Markierungen: %1$@.</string>
+	<key>Application</key>
+	<string>Anwendung</string>
+	<key>Applications</key>
+	<string>Apps</string>
+	<key>Back</key>
+	<string>Zurück</string>
+	<key>Back to Containers</key>
+	<string>Zurück zu den Containern</string>
+	<key>Build %@</key>
+	<string>Build %1$@</string>
+	<key>Build Not Available</key>
+	<string>Build nicht verfügbar</string>
+	<key>Build not available</key>
+	<string>Build nicht verfügbar</string>
+	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
+	<string>Kalender-Build-Nummern verwenden die angeheftete Quellrevisionszeit in UTC, sodass spätere Zahlen auf neuere Laufzeiten hinweisen.</string>
+	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
+	<string>Callback-URLs und Anmeldetokens werden nur über eine geschützte Einmaldatei weitergegeben und weder gespeichert noch protokolliert.</string>
+	<key>Cancel</key>
+	<string>Abbrechen</string>
+	<key>Cancel Download</key>
+	<string>Download abbrechen</string>
+	<key>Check Failed</key>
+	<string>Prüfung fehlgeschlagen</string>
+	<key>Check for Releases</key>
+	<string>Nach Versionen suchen</string>
+	<key>Check this Mac, the selected runtime, and the latest online releases again</key>
+	<string>Überprüfen Sie diesen Mac, die ausgewählte Laufzeit und die neuesten Online-Versionen noch einmal</string>
+	<key>Checked Online</key>
+	<string>Online überprüft</string>
+	<key>Checking</key>
+	<string>Überprüfen</string>
+	<key>Checking Mac</key>
+	<string>Mac wird überprüft</string>
+	<key>Checking Online</key>
+	<string>Online prüfen</string>
+	<key>Checking Windows session</key>
+	<string>Überprüfung der Windows-Sitzung</string>
+	<key>Checking and importing the Apple download…</key>
+	<string>Überprüfen und Importieren des Apple-Downloads…</string>
+	<key>Checking current configuration</key>
+	<string>Überprüfen der aktuellen Konfiguration</string>
+	<key>Checking latest online releases</key>
+	<string>Überprüfen Sie die neuesten Online-Veröffentlichungen</string>
+	<key>Checking running applications…</key>
+	<string>Laufende Anwendungen werden überprüft…</string>
+	<key>Checking the latest GitHub release…</key>
+	<string>Überprüfen der neuesten GitHub-Version…</string>
+	<key>Checking the latest GitHub runtime…</key>
+	<string>Überprüfen der neuesten GitHub-Laufzeit…</string>
+	<key>Checking this Mac and online releases</key>
+	<string>Überprüfen Sie diese Mac- und Online-Versionen</string>
+	<key>Checking this Mac…</key>
+	<string>Ich überprüfe diesen Mac…</string>
+	<key>Choose Downloaded File…</key>
+	<string>Wählen Sie „Heruntergeladene Datei…“</string>
+	<key>Choose Game Porting Toolkit</key>
+	<string>Wählen Sie Game Porting Toolkit</string>
+	<key>Choose Windows App…</key>
+	<string>Wählen Sie die Windows-App…</string>
+	<key>Choose a GPTK disk image before importing.</key>
+	<string>Wählen Sie vor dem Import ein GPTK-Disk-Image aus.</string>
+	<key>Choose a Windows app or installer (.exe or .msi) to open in %@.</key>
+	<string>Wählen Sie eine Windows-App oder ein Installationsprogramm (.exe oder .msi) zum Öffnen in %1$@ aus.</string>
+	<key>Choose a Windows application</key>
+	<string>Windows-App auswählen</string>
+	<key>Choose a Windows executable for this container before running.</key>
+	<string>Wählen Sie vor der Ausführung eine ausführbare Windows-Datei für diesen Container aus.</string>
+	<key>Choose a Windows installer or app. Switchyard keeps it inside this container.</key>
+	<string>Wählen Sie ein Windows-Installationsprogramm oder eine App. Switchyard speichert es in diesem Container.</string>
+	<key>Choose a Wine executable or Switchyard Wine runtime folder, then run diagnostics.</key>
+	<string>Wählen Sie eine ausführbare Wine-Datei oder einen Switchyard Wine-Laufzeitordner und führen Sie dann die Diagnose aus.</string>
+	<key>Choose a Wine executable or a Wine runtime folder.</key>
+	<string>Wählen Sie eine ausführbare Wine-Datei oder einen Wine-Laufzeitordner.</string>
+	<key>Choose a Wine executable or runtime folder manually.</key>
+	<string>Wählen Sie manuell eine ausführbare Wine-Datei oder einen Laufzeitordner aus.</string>
+	<key>Choose a local GPTK directory or disk image.</key>
+	<string>Wählen Sie ein lokales GPTK-Verzeichnis oder Disk-Image.</string>
+	<key>Choose a locally built Wine executable or runtime folder.</key>
+	<string>Wählen Sie eine lokal erstellte Wine-Programmdatei oder einen Laufzeitordner.</string>
+	<key>Choose an .exe or .msi file, or drop one onto this container</key>
+	<string>Wählen Sie eine .exe- oder .msi-Datei oder legen Sie eine in diesem Container ab</string>
+	<key>Choose an application</key>
+	<string>Wählen Sie eine Anwendung</string>
+	<key>Choose an existing Windows .exe or .msi file.</key>
+	<string>Wählen Sie eine vorhandene Windows .exe- oder .msi-Datei.</string>
+	<key>Choose or drop a Windows .exe or .msi file</key>
+	<string>Wählen Sie eine Windows .exe- oder .msi-Datei aus oder löschen Sie sie</string>
+	<key>Choose the Game Porting Toolkit .dmg file you downloaded from Apple.</key>
+	<string>Wählen Sie die Datei Game Porting Toolkit .dmg aus, die Sie von Apple heruntergeladen haben.</string>
+	<key>Choose the Switchyard storage folder.</key>
+	<string>Wählen Sie den Speicherordner Switchyard.</string>
+	<key>Choose the Windows application that requested the %@: sign-in.</key>
+	<string>Wählen Sie die Anwendung Windows aus, die die Anmeldung %1$@: angefordert hat.</string>
+	<key>Choose the Windows executable to run by default in this container.</key>
+	<string>Wählen Sie die ausführbare Datei Windows aus, die standardmäßig in diesem Container ausgeführt werden soll.</string>
+	<key>Choose where Switchyard stores containers and manifests.</key>
+	<string>Wählen Sie aus, wo Switchyard Container und Manifeste speichert.</string>
+	<key>Choose your local Apple Game Porting Toolkit installation.</key>
+	<string>Wählen Sie das auf diesem Mac installierte Apple Game Porting Toolkit aus.</string>
+	<key>Choose...</key>
+	<string>Wählen Sie...</string>
+	<key>Cleanup needed</key>
+	<string>Aufräumarbeiten erforderlich</string>
+	<key>Clear</key>
+	<string>Löschen</string>
+	<key>Clear Activity</key>
+	<string>Aktivität löschen</string>
+	<key>Clear Logs</key>
+	<string>Protokolle löschen</string>
+	<key>Clear all logs?</key>
+	<string>Alle Protokolle löschen?</string>
+	<key>Clear this container's activity?</key>
+	<string>Aktivität dieses Containers löschen?</string>
+	<key>Clicking Install opens Apple's Rosetta installer and accepts Apple's Rosetta software license. macOS handles any approval that is required.</key>
+	<string>Wenn Sie auf „Installieren“ klicken, wird das Rosetta-Installationsprogramm von Apple geöffnet und die Rosetta-Softwarelizenz von Apple akzeptiert. macOS kümmert sich um alle erforderlichen Genehmigungen.</string>
+	<key>Close Windows apps to continue</key>
+	<string>Schließen Sie die Windows-Apps, um fortzufahren</string>
+	<key>Closing Windows apps and waiting for wineserver to exit</key>
+	<string>Schließen der Windows-Apps und Warten auf das Beenden von wineserver</string>
+	<key>Command plan could not be serialized for the runner.</key>
+	<string>Der Befehlsplan für switchyard-runner konnte nicht serialisiert werden.</string>
+	<key>Comparison unavailable</key>
+	<string>Vergleich nicht verfügbar</string>
+	<key>Compatibility</key>
+	<string>Kompatibilität</string>
+	<key>Compatibility Pending</key>
+	<string>Kompatibilität steht aus</string>
+	<key>Compatibility files cannot be changed while a Windows app is still running.</key>
+	<string>Kompatibilitätsdateien können nicht geändert werden, während eine Windows-App noch ausgeführt wird.</string>
+	<key>Compatible</key>
+	<string>Kompatibel</string>
+	<key>Container Files</key>
+	<string>Containerdateien</string>
+	<key>Container Path</key>
+	<string>Containerpfad</string>
+	<key>Container Record</key>
+	<string>Containereintrag</string>
+	<key>Container Settings</key>
+	<string>Containereinstellungen</string>
+	<key>Container Setup</key>
+	<string>Container-Setup</string>
+	<key>Container Template</key>
+	<string>Containervorlage</string>
+	<key>Container names cannot be empty.</key>
+	<string>Containernamen dürfen nicht leer sein.</string>
+	<key>Container path is empty or invalid: %@</key>
+	<string>Der Containerpfad ist leer oder ungültig: %1$@</string>
+	<key>Containers</key>
+	<string>Container</string>
+	<key>Containers and portable manifests stay in this user-selected folder. Runtime caches and logs remain in their documented user-local locations.</key>
+	<string>Container und tragbare Manifeste bleiben in diesem vom Benutzer ausgewählten Ordner. Laufzeit-Caches und Protokolle bleiben an ihren dokumentierten lokalen Speicherorten des Benutzers.</string>
+	<key>Continue Setup</key>
+	<string>Setzen Sie die Einrichtung fort</string>
+	<key>Continue Steam Setup</key>
+	<string>Fahren Sie mit dem Steam-Setup fort</string>
+	<key>Continue in the same private container; Switchyard will not create a duplicate.</key>
+	<string>Fahren Sie im selben privaten Container fort; Switchyard erstellt kein Duplikat.</string>
+	<key>Continuing Steam Setup…</key>
+	<string>Fortsetzung der Steam-Einrichtung…</string>
+	<key>Copy Diagnostic Bundle</key>
+	<string>Diagnosepaket kopieren</string>
+	<key>Copy Filtered Logs</key>
+	<string>Gefilterte Protokolle kopieren</string>
+	<key>Copy Redacted</key>
+	<string>Geschwärzt kopieren</string>
+	<key>Copy diagnostic bundle?</key>
+	<string>Diagnosepaket kopieren?</string>
+	<key>Copy filtered logs?</key>
+	<string>Gefilterte Protokolle kopieren?</string>
+	<key>Copy the invalid callback address from Safari before recovering it.</key>
+	<string>Kopieren Sie die ungültige Rückrufadresse aus Safari, bevor Sie sie wiederherstellen.</string>
+	<key>Could not choose a safe macOS desktop name for %@.</key>
+	<string>Für %1$@ konnte kein sicherer macOS-Desktopname ausgewählt werden.</string>
+	<key>Could not create a temporary download file.</key>
+	<string>Es konnte keine temporäre Download-Datei erstellt werden.</string>
+	<key>Could not create debug log directory %@: %@</key>
+	<string>Das Debug-Protokollverzeichnis %1$@ konnte nicht erstellt werden: %2$@</string>
+	<key>Could not download %@.</key>
+	<string>%1$@ konnte nicht heruntergeladen werden.</string>
+	<key>Could not import GPTK disk image: %@</key>
+	<string>Das Disk-Image GPTK konnte nicht importiert werden: %1$@</string>
+	<key>Could not inspect this Wine runtime for an existing prefix session; launching without stopping it.</key>
+	<string>Diese Wine-Laufzeit konnte nicht auf eine vorhandene Präfixsitzung überprüft werden. starten, ohne es zu stoppen.</string>
+	<key>Could not install %@: %@</key>
+	<string>%1$@ konnte nicht installiert werden: %2$@</string>
+	<key>Could not install the compatible runtime: %@</key>
+	<string>Die kompatible Laufzeit konnte nicht installiert werden: %1$@</string>
+	<key>Could not lock %@ for a safe folder rename: %@</key>
+	<string>%1$@ konnte nicht für eine sichere Ordnerumbenennung gesperrt werden: %2$@</string>
+	<key>Could not open the Apple Developer download page.</key>
+	<string>Die Apple Developer-Downloadseite konnte nicht geöffnet werden.</string>
+	<key>Could not prepare Open Font Pack: %@</key>
+	<string>Open-Font-Paket konnte nicht vorbereitet werden: %1$@</string>
+	<key>Could not prepare container: %@</key>
+	<string>Container konnte nicht vorbereitet werden: %1$@</string>
+	<key>Could not recheck that %@ remained idle, so its folder was not renamed.</key>
+	<string>Es konnte nicht erneut überprüft werden, ob %1$@ inaktiv blieb, daher wurde der Ordner nicht umbenannt.</string>
+	<key>Could not register the generated macOS handler for the %@ URL scheme (status %d).</key>
+	<string>Der generierte macOS-Handler konnte für das URL-Schema %1$@ nicht registriert werden (Status %2$d).</string>
+	<key>Could not remove the runtime: %@</key>
+	<string>Die Laufzeitumgebung konnte nicht entfernt werden: %1$@</string>
+	<key>Could not rename %@: %@</key>
+	<string>%1$@ konnte nicht umbenannt werden: %2$@</string>
+	<key>Could not save container manifest: %@</key>
+	<string>Containermanifest konnte nicht gespeichert werden: %1$@</string>
+	<key>Could not sign the generated macOS handler for the %@ URL scheme.</key>
+	<string>Der generierte macOS-Handler für das URL-Schema %1$@ konnte nicht signiert werden.</string>
+	<key>Could not sign the generated macOS shortcut for %@.</key>
+	<string>Die generierte macOS-Verknüpfung für %1$@ konnte nicht signiert werden.</string>
+	<key>Could not stop %@ safely and move it to Trash: %@</key>
+	<string>%1$@ konnte nicht sicher gestoppt und in den Papierkorb verschoben werden: %2$@</string>
+	<key>Could not stop Wine processes: %@</key>
+	<string>Wine-Prozesse konnten nicht gestoppt werden: %1$@</string>
+	<key>Could not trust this official runtime: %@</key>
+	<string>Dieser offiziellen Laufzeitumgebung konnte nicht vertraut werden: %1$@</string>
+	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
+	<string>Es konnte nicht überprüft werden, ob %1$@ inaktiv ist, daher wurde der Ordner nicht umbenannt.</string>
+	<key>Create a private space for a Windows app</key>
+	<string>Erstellen Sie einen privaten Bereich für eine Windows-App</string>
+	<key>Create an Empty Container</key>
+	<string>Leeren Container erstellen</string>
+	<key>Created a native macOS desktop shortcut for %@.</key>
+	<string>Für %1$@ wurde eine native macOS-Desktopverknüpfung erstellt.</string>
+	<key>Current</key>
+	<string>Aktuell</string>
+	<key>Dashboard</key>
+	<string>Übersicht</string>
+	<key>Debug</key>
+	<string>Debuggen</string>
+	<key>Debug run logging enabled (profile=%@, WINEDEBUG=%@, file: %@). The live view is batched and retains its latest %lld entries; this file retains the complete run output.</key>
+	<string>Debug-Laufprotokollierung aktiviert (Profil=%1$@, WINEDEBUG=%2$@, Datei: %3$@). Die Live-Ansicht wird gestapelt und behält die neuesten %4$lld-Einträge bei. Diese Datei enthält die gesamte Laufausgabe.</string>
+	<key>Default</key>
+	<string>Standard</string>
+	<key>Default Application</key>
+	<string>Standardanwendung</string>
+	<key>Default Executable</key>
+	<string>Standardmäßige ausführbare Datei</string>
+	<key>Detected macOS %@.</key>
+	<string>macOS %1$@ erkannt.</string>
+	<key>Developer logging</key>
+	<string>Entwicklerprotokollierung</string>
+	<key>Development Runtime</key>
+	<string>Entwicklungslaufzeit</string>
+	<key>Development build</key>
+	<string>Entwicklungs-Build</string>
+	<key>Diagnostics</key>
+	<string>Diagnose</string>
+	<key>Different build recorded</key>
+	<string>Unterschiedlicher Aufbau aufgezeichnet</string>
+	<key>Download</key>
+	<string>Laden</string>
+	<key>Download Steam</key>
+	<string>Laden Sie Steam herunter</string>
+	<key>Download and switch between signed Switchyard Wine releases.</key>
+	<string>Signierte Switchyard-Wine-Versionen laden und zwischen ihnen wechseln.</string>
+	<key>Download could not finish</key>
+	<string>Der Download konnte nicht abgeschlossen werden</string>
+	<key>Download found</key>
+	<string>Download gefunden</string>
+	<key>Download from Apple</key>
+	<string>Von Apple herunterladen</string>
+	<key>Download the newest Game Porting Toolkit disk image, then return to Switchyard.</key>
+	<string>Laden Sie das neueste Game Porting Toolkit-Disk-Image herunter und kehren Sie dann zu Switchyard zurück.</string>
+	<key>Download the selected runtime before making it active.</key>
+	<string>Laden Sie die ausgewählte Laufzeitumgebung, bevor Sie sie aktivieren.</string>
+	<key>Download, verify, and select the latest runtime supported by this Switchyard version</key>
+	<string>Laden Sie die neueste von dieser Switchyard-Version unterstützte Laufzeit herunter, überprüfen Sie sie und wählen Sie sie aus</string>
+	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
+	<string>Heruntergeladene %1$lld Open-Font-Paket-Schriftartdatei(en); %2$lld-Datei(en) wurden bereits zwischengespeichert.</string>
+	<key>Downloading and verifying about 700 MB…</key>
+	<string>Ungefähr 700 MB werden heruntergeladen und überprüft…</string>
+	<key>Downloading open-licensed fonts…</key>
+	<string>Offen lizenzierte Schriftarten werden heruntergeladen…</string>
+	<key>Downloading securely from Valve…</key>
+	<string>Sicherer Download von Valve…</string>
+	<key>Downloading the Windows installer securely from Valve…</key>
+	<string>Sicheres Herunterladen des Windows-Installationsprogramms von Valve…</string>
+	<key>Downloading, validating, and installing the selected official runtime…</key>
+	<string>Die ausgewählte offizielle Laufzeitumgebung wird geladen, überprüft und installiert…</string>
+	<key>Downloading, validating, and installing the signed runtime…</key>
+	<string>Herunterladen, Validieren und Installieren der signierten Laufzeitumgebung …</string>
+	<key>Empty Folder</key>
+	<string>Leerer Ordner</string>
+	<key>Environment Overrides</key>
+	<string>Umgebungsüberschreibungen</string>
+	<key>Environment variable name is invalid or reserved: %@.</key>
+	<string>Der Name der Umgebungsvariablen ist ungültig oder reserviert: %1$@.</string>
+	<key>Error</key>
+	<string>Fehler</string>
+	<key>Executable</key>
+	<string>Ausführbare Datei</string>
+	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
+	<string>Externe Wine-Laufzeit ausgewählt, aber sie verfügt über kein Switchyard-Manifest und kann nicht anhand der angehefteten Quellrevision überprüft werden.</string>
+	<key>External Wine runtime selected; no source revision policy was requested.</key>
+	<string>Externe Wine-Laufzeit ausgewählt; Es wurde keine Richtlinie zur Quellrevision angefordert.</string>
+	<key>Failed</key>
+	<string>Fehlgeschlagen</string>
+	<key>Files</key>
+	<string>Dateien</string>
+	<key>Finding the Windows application waiting for the %@: callback…</key>
+	<string>Die Anwendung Windows wird gefunden, die auf den Rückruf %1$@ wartet …</string>
+	<key>Finish Setting Up Switchyard</key>
+	<string>Beenden Sie die Einrichtung von Switchyard</string>
+	<key>Finish Switchyard setup before installing Steam.</key>
+	<string>Beenden Sie die Einrichtung von Switchyard, bevor Sie Steam installieren.</string>
+	<key>Finish Without Steam</key>
+	<string>Fertigstellen ohne Steam</string>
+	<key>Finish installing Steam…</key>
+	<string>Beenden Sie die Installation von Steam…</string>
+	<key>Finish setting up Steam</key>
+	<string>Beenden Sie die Einrichtung von Steam</string>
+	<key>Finish setup before creating a container</key>
+	<string>Schließen Sie die Einrichtung ab, bevor Sie einen Container erstellen</string>
+	<key>Finish the remaining setup step before completing setup.</key>
+	<string>Beenden Sie den verbleibenden Einrichtungsschritt, bevor Sie die Einrichtung abschließen.</string>
+	<key>Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.</key>
+	<string>Beenden Sie das Standardinstallationsprogramm Steam. Switchyard erkennt Steam und fährt automatisch fort.</string>
+	<key>First app</key>
+	<string>Erste App</string>
+	<key>Folder Unavailable</key>
+	<string>Ordner nicht verfügbar</string>
+	<key>Fonts for Korean, Japanese, and other languages</key>
+	<string>Schriftarten für Koreanisch, Japanisch und andere Sprachen</string>
+	<key>Forwarding the %@: callback to Wine…</key>
+	<string>Weiterleitung des %1$@: Rückruf an Wine…</string>
+	<key>Found %@; importing it into the local cache…</key>
+	<string>Gefunden %1$@; Importieren in den lokalen Cache…</string>
+	<key>GPTK</key>
+	<string>GPTK</string>
+	<key>GPTK executable code has an invalid Apple signature: %@.</key>
+	<string>Der ausführbare Code GPTK hat eine ungültige Apple-Signatur: %1$@.</string>
+	<key>GPTK import completed.</key>
+	<string>GPTK-Import abgeschlossen.</string>
+	<key>Game Porting Toolkit</key>
+	<string>Game Porting Toolkit</string>
+	<key>General</key>
+	<string>Allgemein</string>
+	<key>Get Apple's graphics support</key>
+	<string>Holen Sie sich die Grafikunterstützung von Apple</string>
+	<key>GitHub returned HTTP %lld.</key>
+	<string>GitHub hat HTTP %1$lld zurückgegeben.</string>
+	<key>GitHub returned an invalid response.</key>
+	<string>GitHub hat eine ungültige Antwort zurückgegeben.</string>
+	<key>GitHub returned an untrusted release link.</key>
+	<string>GitHub hat einen nicht vertrauenswürdigen Release-Link zurückgegeben.</string>
+	<key>GitHub returned release metadata that was too large.</key>
+	<string>GitHub hat zu große Release-Metadaten zurückgegeben.</string>
+	<key>Idle</key>
+	<string>Leerlauf</string>
+	<key>If Safari says the address is invalid after signing in, press Command-L and Command-C in Safari, then recover the copied callback here.</key>
+	<string>Wenn Safari nach der Anmeldung meldet, dass die Adresse ungültig ist, drücken Sie in Safari Befehl-L und Befehl-C und stellen Sie dann den kopierten Rückruf hier wieder her.</string>
+	<key>Import</key>
+	<string>Importieren</string>
+	<key>Import Downloaded GPTK</key>
+	<string>Heruntergeladenes GPTK importieren</string>
+	<key>Import Selected GPTK</key>
+	<string>Ausgewählte GPTK importieren</string>
+	<key>Import Selected Toolkit</key>
+	<string>Ausgewähltes Toolkit importieren</string>
+	<key>Imported Apple-signed GPTK code into Switchyard's local cache.</key>
+	<string>Von Apple signierter GPTK-Code wurde in den lokalen Cache von Switchyard importiert.</string>
+	<key>Imported Entry</key>
+	<string>Importierter Eintrag</string>
+	<key>Imported and verified</key>
+	<string>Importiert und verifiziert</string>
+	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
+	<string>Aus einem älteren Manifest importiert; der genaue Nutzungszeitpunkt wurde nicht aufgezeichnet.</string>
+	<key>Info</key>
+	<string>Infos</string>
+	<key>Initializing this Windows container before its first app opens.</key>
+	<string>Dieser Windows-Container wird initialisiert, bevor seine erste App geöffnet wird.</string>
+	<key>Inspecting the Wine prefix</key>
+	<string>Überprüfen des Präfixes Wine</string>
+	<key>Install Apple's compatibility support</key>
+	<string>Installieren Sie die Kompatibilitätsunterstützung von Apple</string>
+	<key>Install Latest Runtime</key>
+	<string>Installieren Sie die neueste Laufzeit</string>
+	<key>Install Open Font Pack</key>
+	<string>Installieren Sie Open-Font-Paket</string>
+	<key>Install Rosetta 2</key>
+	<string>Installieren Sie Rosetta 2</string>
+	<key>Install Rosetta 2?</key>
+	<string>Rosetta 2 installieren?</string>
+	<key>Install Steam</key>
+	<string>Installieren Sie Steam</string>
+	<key>Install Steam for Windows</key>
+	<string>Installieren Sie Steam für Windows</string>
+	<key>Install Your First Windows App</key>
+	<string>Installieren Sie Ihre erste Windows-App</string>
+	<key>Install an official Switchyard runtime, then run diagnostics.</key>
+	<string>Installieren Sie eine offizielle Switchyard-Laufzeitumgebung und führen Sie dann die Diagnose aus.</string>
+	<key>Install or Run App…</key>
+	<string>App installieren oder ausführen…</string>
+	<key>Install or Run a Windows App</key>
+	<string>Installieren oder führen Sie eine Windows-App aus</string>
+	<key>Install or Update Compatible Runtime</key>
+	<string>Kompatible Laufzeit installieren oder aktualisieren</string>
+	<key>Install or choose a Windows application to see it here.</key>
+	<string>Installieren Sie eine Windows-Anwendung oder wählen Sie sie aus, um sie hier anzuzeigen.</string>
+	<key>Install your first Windows app</key>
+	<string>Installieren Sie Ihre erste Windows-App</string>
+	<key>Installed</key>
+	<string>Installiert</string>
+	<key>Installed %@.</key>
+	<string>%1$@ wurde installiert.</string>
+	<key>Installed Programs</key>
+	<string>Installierte Programme</string>
+	<key>Installed Windows applications will appear here after setup.</key>
+	<string>Installierte Windows-Anwendungen werden nach der Einrichtung hier angezeigt.</string>
+	<key>Installed and verified</key>
+	<string>Installiert und überprüft</string>
+	<key>Installed compatible runtime %@.</key>
+	<string>Installierte kompatible Laufzeit %1$@.</string>
+	<key>Installing Compatible Runtime…</key>
+	<string>Kompatible Runtime wird installiert…</string>
+	<key>Installing Rosetta 2…</key>
+	<string>Rosetta 2 wird installiert…</string>
+	<key>Installing…</key>
+	<string>Installieren…</string>
+	<key>Keep the Windows game open while recovering its copied login callback.</key>
+	<string>Lassen Sie das Spiel Windows geöffnet, während der kopierte Anmelderückruf wiederhergestellt wird.</string>
+	<key>Last Runtime Use</key>
+	<string>Letzte Laufzeitnutzung</string>
+	<key>Last checked %@</key>
+	<string>Zuletzt überprüft %1$@</string>
+	<key>Last known online: %@ · %@</key>
+	<string>Zuletzt online bekannt: %1$@ · %2$@</string>
+	<key>Last known online: %@ · source %@</key>
+	<string>Zuletzt online bekannt: %1$@ · Quelle %2$@</string>
+	<key>Last launched %@</key>
+	<string>Zuletzt gestartet %1$@</string>
+	<key>Last used with active build</key>
+	<string>Zuletzt mit dem aktiven Build verwendet</string>
+	<key>Last used with another build</key>
+	<string>Zuletzt mit einem anderen Build verwendet</string>
+	<key>Last-used GPTK</key>
+	<string>Zuletzt verwendetes GPTK</string>
+	<key>Last-used Patch Set</key>
+	<string>Zuletzt verwendeter Patchsatz</string>
+	<key>Last-used Runtime ID</key>
+	<string>Zuletzt verwendete Laufzeit-ID</string>
+	<key>Last-used Source</key>
+	<string>Zuletzt verwendete Quelle</string>
+	<key>Latest Online</key>
+	<string>Neueste online</string>
+	<key>Latest online release not available</key>
+	<string>Neueste Online-Veröffentlichung nicht verfügbar</string>
+	<key>Latest online runtime not available</key>
+	<string>Neueste Online-Runtime nicht verfügbar</string>
+	<key>Latest online: %@ · %@</key>
+	<string>Neueste online: %1$@ · %2$@</string>
+	<key>Latest online: %@ · source %@</key>
+	<string>Neueste online: %1$@ · Quelle %2$@</string>
+	<key>Launch</key>
+	<string>Starten</string>
+	<key>Launch %@</key>
+	<string>%1$@ starten</string>
+	<key>Launch Alongside</key>
+	<string>Parallel starten</string>
+	<key>Launch Arguments</key>
+	<string>Startargumente</string>
+	<key>Launch alongside the running Windows apps</key>
+	<string>Starten Sie zusammen mit den laufenden Windows-Apps</string>
+	<key>Launch an application to start this container's Windows session.</key>
+	<string>Starten Sie eine Anwendung, um die Windows-Sitzung dieses Containers zu starten.</string>
+	<key>Launch behavior and advanced compatibility options for %@.</key>
+	<string>Startverhalten und erweiterte Kompatibilitätsoptionen für %1$@.</string>
+	<key>Launch command started through switchyard-runner: executable=%@ argumentCount=%lld</key>
+	<string>Startbefehl gestartet über switchyard-runner: executable=%1$@ argumentCount=%2$lld</string>
+	<key>Launch this Windows app</key>
+	<string>Starten Sie diese Windows-App</string>
+	<key>Launches and container events will appear here.</key>
+	<string>Hier werden Produkteinführungen und Container-Events angezeigt.</string>
+	<key>Learned Schemes</key>
+	<string>Gelernte Schemata</string>
+	<key>Level</key>
+	<string>Ebene</string>
+	<key>Loading files…</key>
+	<string>Dateien werden geladen…</string>
+	<key>Local Development Runtime</key>
+	<string>Lokale Entwicklungslaufzeit</string>
+	<key>Local paths bypass the official release catalog but must still match this development build's pinned source revision.</key>
+	<string>Lokale Pfade umgehen den offiziellen Versionskatalog, müssen aber weiterhin der in diesem Entwicklungs-Build festgelegten Quellrevision entsprechen.</string>
+	<key>Location</key>
+	<string>Standort</string>
+	<key>Login Callback</key>
+	<string>Login-Rückruf</string>
+	<key>Login callback recovery was cancelled because the container folder is changing.</key>
+	<string>Die Wiederherstellung des Anmelderückrufs wurde abgebrochen, da sich der Containerordner ändert.</string>
+	<key>Login callback recovery was cancelled.</key>
+	<string>Die Wiederherstellung des Anmelderückrufs wurde abgebrochen.</string>
+	<key>Logs</key>
+	<string>Protokolle</string>
+	<key>Mac check</key>
+	<string>Mac-Check</string>
+	<key>Mac support</key>
+	<string>Mac-Unterstützung</string>
+	<key>Make Default</key>
+	<string>Als Standard festlegen</string>
+	<key>Matches active build</key>
+	<string>Entspricht dem aktiven Build</string>
+	<key>Missing</key>
+	<string>Fehlt</string>
+	<key>Modified</key>
+	<string>Geändert</string>
+	<key>More Container Actions</key>
+	<string>Weitere Containeraktionen</string>
+	<key>Move Container to Trash</key>
+	<string>Container in den Papierkorb legen</string>
+	<key>Move Container to Trash?</key>
+	<string>Container in den Papierkorb legen?</string>
+	<key>Move to Trash</key>
+	<string>In den Papierkorb legen</string>
+	<key>Moved %@ to Trash.</key>
+	<string>%1$@ in den Papierkorb verschoben.</string>
+	<key>Name</key>
+	<string>Name</string>
+	<key>Needs Attention</key>
+	<string>Braucht Aufmerksamkeit</string>
+	<key>Needs Setup</key>
+	<string>Muss eingerichtet werden</string>
+	<key>Needs another try</key>
+	<string>Braucht einen weiteren Versuch</string>
+	<key>Never run</key>
+	<string>Noch nie ausgeführt</string>
+	<key>New App Recommended</key>
+	<string>App-Update empfohlen</string>
+	<key>New Container</key>
+	<string>Neuer Container</string>
+	<key>Newer Build</key>
+	<string>Neuerer Build</string>
+	<key>No Apple-signed GPTK executable code was found.</key>
+	<string>Es wurde kein von Apple signierter ausführbarer GPTK-Code gefunden.</string>
+	<key>No GPTK path has been selected.</key>
+	<string>Es wurde kein GPTK-Pfad ausgewählt.</string>
+	<key>No Game Porting Toolkit disk image was found in Downloads.</key>
+	<string>In den Downloads wurde kein Game Porting Toolkit-Disk-Image gefunden.</string>
+	<key>No Matching Logs</key>
+	<string>Keine passenden Protokolle</string>
+	<key>No Programs Found</key>
+	<string>Keine Programme gefunden</string>
+	<key>No Recent Activity</key>
+	<string>Keine aktuelle Aktivität</string>
+	<key>No Windows applications are running</key>
+	<string>Es werden keine Windows-Anwendungen ausgeführt</string>
+	<key>No Wine runtime has been selected. Expected Switchyard runtime cache under %@ or %@.</key>
+	<string>Es wurde keine Wine-Laufzeit ausgewählt. Erwarteter Switchyard-Laufzeitcache unter %1$@ oder %2$@.</string>
+	<key>No Wine runtime is available to verify against the pinned Switchyard Wine source.</key>
+	<string>Für die Überprüfung anhand der angehefteten Switchyard Wine-Quelle ist keine Wine-Laufzeit verfügbar.</string>
+	<key>No Wine runtime selected</key>
+	<string>Keine Wine-Laufzeit ausgewählt</string>
+	<key>No application details available</key>
+	<string>Keine Bewerbungsdetails verfügbar</string>
+	<key>No eligible official runtime releases were found.</key>
+	<string>Es wurden keine geeigneten offiziellen Laufzeitversionen gefunden.</string>
+	<key>No environment overrides.</key>
+	<string>Keine Umgebungsüberschreibungen.</string>
+	<key>No published runtime manifest could be loaded.</key>
+	<string>Es konnte kein veröffentlichtes Laufzeitmanifest geladen werden.</string>
+	<key>Not Now</key>
+	<string>Nicht jetzt</string>
+	<key>Not Recommended</key>
+	<string>Nicht empfohlen</string>
+	<key>Not available</key>
+	<string>Nicht verfügbar</string>
+	<key>Not checked in this session</key>
+	<string>In dieser Sitzung nicht aktiviert</string>
+	<key>Not recorded</key>
+	<string>Nicht erfasst</string>
+	<key>Not selected</key>
+	<string>Nicht ausgewählt</string>
+	<key>Not used yet</key>
+	<string>Noch nicht verwendet</string>
+	<key>OK</key>
+	<string>OK</string>
+	<key>Official Releases</key>
+	<string>Offizielle Versionen</string>
+	<key>One more step</key>
+	<string>Noch ein Schritt</string>
+	<key>Online Unknown</key>
+	<string>Online unbekannt</string>
+	<key>Online check failed: %@</key>
+	<string>Online-Prüfung fehlgeschlagen: %1$@</string>
+	<key>Only .dmg disk images can be imported automatically.</key>
+	<string>Nur .dmg-Disk-Images können automatisch importiert werden.</string>
+	<key>Only the Switchyard-managed runtime cache will be deleted.</key>
+	<string>Nur der von Switchyard verwaltete Laufzeitcache wird gelöscht.</string>
+	<key>Open</key>
+	<string>Öffnen</string>
+	<key>Open All Logs</key>
+	<string>Öffnen Sie alle Protokolle</string>
+	<key>Open Folder</key>
+	<string>Ordner öffnen</string>
+	<key>Open Font Pack</key>
+	<string>Open-Font-Paket</string>
+	<key>Open Font Pack could not be prepared; continuing launch without additional font fallback: %@</key>
+	<string>Open-Font-Paket konnte nicht vorbereitet werden; Fortsetzung des Starts ohne zusätzlichen Font-Fallback: %1$@</string>
+	<key>Open Font Pack is already cached with %lld font files.</key>
+	<string>Open-Font-Paket ist bereits mit den Schriftartdateien %1$lld zwischengespeichert.</string>
+	<key>Open Font Pack is cached and ready for container installation.</key>
+	<string>Open-Font-Paket ist zwischengespeichert und bereit für die Containerinstallation.</string>
+	<key>Open Font Pack is missing %lld OFL font file(s). Switchyard will try to download them automatically.</key>
+	<string>Open-Font-Paket fehlt die Schriftartdatei(en) %1$lld OFL. Switchyard wird versuchen, sie automatisch herunterzuladen.</string>
+	<key>Open Font Pack registration was skipped while this Windows session is active.</key>
+	<string>Die Open-Font-Paket-Registrierung wurde übersprungen, während diese Windows-Sitzung aktiv ist.</string>
+	<key>Open GPTK Settings</key>
+	<string>Öffnen Sie die GPTK-Einstellungen</string>
+	<key>Open Logs</key>
+	<string>Protokolle öffnen</string>
+	<key>Open Settings</key>
+	<string>Öffnen Sie Einstellungen</string>
+	<key>Open Wine Settings</key>
+	<string>Öffnen Sie die Wine-Einstellungen</string>
+	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
+	<string>Offene Schriftarten bereit: %1$lld kopiert, %2$lld bereits vorhanden, %3$lld-Familienersetzungen registriert.</string>
+	<key>Open fonts skipped: %@</key>
+	<string>Offene Schriftarten übersprungen: %1$@</string>
+	<key>Open in Finder</key>
+	<string>Im Finder öffnen</string>
+	<key>Open the latest Switchyard release on GitHub</key>
+	<string>Öffnen Sie die neueste Switchyard-Version auf GitHub</string>
+	<key>Opening the Steam installer…</key>
+	<string>Öffnen des Steam-Installationsprogramms…</string>
+	<key>Optional launch arguments</key>
+	<string>Optionale Startargumente</string>
+	<key>Optional — Switchyard will try again before launch</key>
+	<string>Optional – Switchyard wird es vor dem Start erneut versuchen</string>
+	<key>Other Managed Runtimes</key>
+	<string>Weitere verwaltete Laufzeitumgebungen</string>
+	<key>Patch Set</key>
+	<string>Patchsatz</string>
+	<key>Path</key>
+	<string>Pfad</string>
+	<key>Preparing Windows support</key>
+	<string>Vorbereitung der Windows-Unterstützung</string>
+	<key>Preparing a place for Steam…</key>
+	<string>Vorbereitung eines Platzes für Steam…</string>
+	<key>Preparing automatically…</key>
+	<string>Automatisch vorbereiten…</string>
+	<key>Preparing this Windows container for the active Switchyard runtime.</key>
+	<string>Dieser Windows-Container wird für die aktive Switchyard-Laufzeitumgebung vorbereitet.</string>
+	<key>Press Return or leave the field to rename the container and its folder</key>
+	<string>Drücken Sie die Eingabetaste oder verlassen Sie das Feld, um den Container und seinen Ordner umzubenennen</string>
+	<key>Process details are temporarily unavailable.</key>
+	<string>Prozessdetails sind vorübergehend nicht verfügbar.</string>
+	<key>Processes</key>
+	<string>Prozesse</string>
+	<key>Program Group</key>
+	<string>Programmgruppe</string>
+	<key>Programs</key>
+	<string>Programme</string>
+	<key>Queued</key>
+	<string>In der Warteschlange</string>
+	<key>Re-run All Checks</key>
+	<string>Führen Sie alle Prüfungen erneut durch</string>
+	<key>Re-run Diagnostics</key>
+	<string>Führen Sie die Diagnose erneut aus</string>
+	<key>Re-run Runtime Diagnostics</key>
+	<string>Führen Sie die Laufzeitdiagnose erneut aus</string>
+	<key>Ready</key>
+	<string>Bereit</string>
+	<key>Ready and matched to this version of Switchyard.</key>
+	<string>Bereit und abgestimmt auf diese Version von Switchyard.</string>
+	<key>Ready for the next application</key>
+	<string>Bereit für die nächste Anwendung</string>
+	<key>Ready to begin</key>
+	<string>Bereit zum Start</string>
+	<key>Ready to launch</key>
+	<string>Bereit zum Start</string>
+	<key>Ready to launch Windows executables in Switchyard containers.</key>
+	<string>Bereit zum Starten der ausführbaren Windows-Dateien in Switchyard-Containern.</string>
+	<key>Recent</key>
+	<string>Neu</string>
+	<key>Recent Activity</key>
+	<string>Letzte Aktivität</string>
+	<key>Recent Files</key>
+	<string>Aktuelle Dateien</string>
+	<key>Recently Launched</key>
+	<string>Kürzlich gestartet</string>
+	<key>Recommended</key>
+	<string>Empfohlen</string>
+	<key>Recorded %@.</key>
+	<string>Aufgezeichnet am %1$@.</string>
+	<key>Recorded GPTK</key>
+	<string>Erfasstes GPTK</string>
+	<key>Recorded Patch Set</key>
+	<string>Erfasster Patchsatz</string>
+	<key>Recorded Runtime ID</key>
+	<string>Erfasste Laufzeit-ID</string>
+	<key>Recover Copied Callback</key>
+	<string>Kopierten Rückruf wiederherstellen</string>
+	<key>Recover Copied Login Callback</key>
+	<string>Kopierten Anmelderückruf wiederherstellen</string>
+	<key>Recovered the %@: callback for %@.</key>
+	<string>Der Rückruf %1$@ für %2$@ wurde wiederhergestellt.</string>
+	<key>Recovered the %@: callback. Future sign-ins can return automatically.</key>
+	<string>Der Rückruf %1$@: wurde wiederhergestellt. Zukünftige Anmeldungen können automatisch wiederhergestellt werden.</string>
+	<key>Refresh</key>
+	<string>Aktualisieren</string>
+	<key>Refresh Windows Session</key>
+	<string>Aktualisieren Sie die Windows-Sitzung</string>
+	<key>Refusing to move %@ to Trash because its path is outside Switchyard storage or has no Switchyard manifest.</key>
+	<string>Das Verschieben von %1$@ in den Papierkorb wird abgelehnt, da der Pfad außerhalb des Switchyard-Speichers liegt oder kein Switchyard-Manifest vorhanden ist.</string>
+	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
+	<string>Registrierte eine macOS-Callback-Brücke für ein Wine-URL-Schema: %1$@</string>
+	<key>Remaining Wine processes will be cleaned up before launch</key>
+	<string>Verbleibende Wine-Prozesse werden vor dem Start bereinigt</string>
+	<key>Remove %@</key>
+	<string>%1$@ entfernen</string>
+	<key>Remove %@?</key>
+	<string>%1$@ entfernen?</string>
+	<key>Remove Runtime</key>
+	<string>Laufzeitumgebung entfernen</string>
+	<key>Remove Variable</key>
+	<string>Variable entfernen</string>
+	<key>Remove this inactive managed runtime</key>
+	<string>Diese inaktive verwaltete Laufzeitumgebung entfernen</string>
+	<key>Remove this inactive runtime</key>
+	<string>Diese inaktive Laufzeitumgebung entfernen</string>
+	<key>Remove this managed runtime?</key>
+	<string>Diese verwaltete Laufzeitumgebung entfernen?</string>
+	<key>Removed %@. It can be downloaded again later.</key>
+	<string>%1$@ wurde entfernt. Die Version kann später erneut geladen werden.</string>
+	<key>Removed a stale macOS desktop shortcut for %@.</key>
+	<string>Eine veraltete Desktop-Verknüpfung macOS für %1$@ wurde entfernt.</string>
+	<key>Removed duplicate container entries that pointed to an already-used folder: %@.</key>
+	<string>Doppelte Containereinträge entfernt, die auf einen bereits verwendeten Ordner verwiesen: %1$@.</string>
+	<key>Removed reserved environment variable: %@.</key>
+	<string>Reservierte Umgebungsvariable entfernt: %1$@.</string>
+	<key>Removing the selected inactive runtime…</key>
+	<string>Die ausgewählte inaktive Laufzeitumgebung wird entfernt…</string>
+	<key>Renamed %@ and its folder to %@.</key>
+	<string>%1$@ und sein Ordner in %2$@ umbenannt.</string>
+	<key>Renderer</key>
+	<string>Renderer</string>
+	<key>Required</key>
+	<string>Erforderlich</string>
+	<key>Reset Cached Setup State</key>
+	<string>Zwischengespeicherten Setup-Status zurücksetzen</string>
+	<key>Resolve missing runtime components before running Windows executables.</key>
+	<string>Beheben Sie fehlende Laufzeitkomponenten, bevor Sie die ausführbaren Windows-Dateien ausführen.</string>
+	<key>Resolved Wine selection to executable: %@</key>
+	<string>Die Auswahl von Wine für die ausführbare Datei wurde behoben: %1$@</string>
+	<key>Responding normally</key>
+	<string>Reagiert normal</string>
+	<key>Restart</key>
+	<string>Neu starten</string>
+	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
+	<string>Beim Neustart werden alle Windows-Prozesse in diesem Container beendet, einschließlich Spiele und Installationsprogramme. Mit einer neuen Sitzung neu starten?</string>
+	<key>Rosetta 2</key>
+	<string>Rosetta 2</string>
+	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
+	<string>Rosetta 2 kann nur auf einem Apple Silicon Mac installiert werden.</string>
+	<key>Rosetta 2 is available only on Apple Silicon Macs.</key>
+	<string>Rosetta 2 ist nur auf Apple Silicon-Macs verfügbar.</string>
+	<key>Rosetta 2 is required for the Windows compatibility runtime.</key>
+	<string>Rosetta 2 ist für die Kompatibilitätslaufzeit Windows erforderlich.</string>
+	<key>Rosetta 2 lets this Apple Silicon Mac open the Intel-based part of the Windows runtime.</key>
+	<string>Mit Rosetta 2 kann dieser Apple Silicon Mac den Intel-basierten Teil der Windows-Laufzeit öffnen.</string>
+	<key>Rosetta 2 was not installed. Try again, or ask your Mac administrator if this Mac is managed.</key>
+	<string>Rosetta 2 wurde nicht installiert. Versuchen Sie es erneut oder fragen Sie Ihren Mac-Administrator, ob dieser Mac verwaltet wird.</string>
+	<key>Rosetta 2 was not installed: %@</key>
+	<string>Rosetta 2 wurde nicht installiert: %1$@</string>
+	<key>Rosetta was not installed</key>
+	<string>Rosetta wurde nicht installiert</string>
+	<key>Run</key>
+	<string>Ausführen</string>
+	<key>Run .exe or .msi in %@</key>
+	<string>Führen Sie .exe oder .msi in %1$@ aus</string>
+	<key>Run Container</key>
+	<string>Container ausführen</string>
+	<key>Run Windows apps without learning Windows setup tools</key>
+	<string>Führen Sie Windows-Apps aus, ohne die Windows-Setup-Tools zu erlernen</string>
+	<key>Run diagnostics, launch a Windows executable, or change the current filters.</key>
+	<string>Führen Sie eine Diagnose durch, starten Sie eine ausführbare Windows-Datei oder ändern Sie die aktuellen Filter.</string>
+	<key>Runner exited with code %@.</key>
+	<string>switchyard-runner wurde mit Code %1$@ beendet.</string>
+	<key>Runner stopped at the user's request.</key>
+	<string>switchyard-runner wurde auf Wunsch des Benutzers beendet.</string>
+	<key>Running</key>
+	<string>Wird ausgeführt</string>
+	<key>Running Windows applications could not be inspected (exit code %d).</key>
+	<string>Laufende Windows-Anwendungen konnten nicht überprüft werden (Exit-Code %1$d).</string>
+	<key>Running on %@.</key>
+	<string>Läuft auf %1$@.</string>
+	<key>Running…</key>
+	<string>Wird ausgeführt…</string>
+	<key>Runtime</key>
+	<string>Laufzeitumgebung</string>
+	<key>Runtime ID</key>
+	<string>Laufzeitumgebungs-ID</string>
+	<key>Runtime Management</key>
+	<string>Laufzeitverwaltung</string>
+	<key>Runtime Scope</key>
+	<string>Geltungsbereich der Laufzeitumgebung</string>
+	<key>Runtime Source</key>
+	<string>Quelle der Laufzeitumgebung</string>
+	<key>Runtime Version</key>
+	<string>Version der Laufzeitumgebung</string>
+	<key>Runtime has not been checked yet.</key>
+	<string>Die Laufzeit wurde noch nicht überprüft.</string>
+	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
+	<string>Die Herkunft der Laufzeitumgebung wird aufgezeichnet, sobald dieser Container Wine erstmals verwendet.</string>
+	<key>Runtime release manifest version %lld is unsupported.</key>
+	<string>Die Runtime-Release-Manifestversion %1$lld wird nicht unterstützt.</string>
+	<key>Runtime source verified at %@ revision %@.</key>
+	<string>Laufzeitquelle überprüft bei %1$@-Revision %2$@.</string>
+	<key>Safe, matching runtime</key>
+	<string>Geprüfte, passende Laufzeit</string>
+	<key>Search logs</key>
+	<string>Protokolle durchsuchen</string>
+	<key>Select another active runtime before removing this one.</key>
+	<string>Aktivieren Sie eine andere Laufzeitumgebung, bevor Sie diese entfernen.</string>
+	<key>Selected</key>
+	<string>Ausgewählt</string>
+	<key>Selected %@ as the active app-wide runtime.</key>
+	<string>%1$@ wurde als appweit aktive Laufzeitumgebung ausgewählt.</string>
+	<key>Selected GPTK path does not exist.</key>
+	<string>Der ausgewählte GPTK-Pfad existiert nicht.</string>
+	<key>Selected GPTK path is not a directory or supported .dmg disk image.</key>
+	<string>Der ausgewählte GPTK-Pfad ist kein Verzeichnis oder unterstütztes .dmg-Disk-Image.</string>
+	<key>Selected Wine Runtime</key>
+	<string>Ausgewählte Wine-Laufzeit</string>
+	<key>Selected Wine directory exists, but no executable wine or wine64 was found in expected locations: %@.</key>
+	<string>Das ausgewählte Verzeichnis Wine ist vorhanden, es wurde jedoch kein ausführbarer Wine oder wine64 an den erwarteten Speicherorten gefunden: %1$@.</string>
+	<key>Selected Wine path does not exist: %@.</key>
+	<string>Der ausgewählte Wine-Pfad existiert nicht: %1$@.</string>
+	<key>Selected Wine path exists but is not executable: %@.</key>
+	<string>Der ausgewählte Wine-Pfad ist vorhanden, aber nicht ausführbar: %1$@.</string>
+	<key>Selected the local development runtime path.</key>
+	<string>Der Pfad zur lokalen Entwicklungslaufzeit wurde ausgewählt.</string>
+	<key>Sensible defaults</key>
+	<string>Sinnvolle Voreinstellungen</string>
+	<key>Session status could not be read</key>
+	<string>Der Sitzungsstatus konnte nicht gelesen werden</string>
+	<key>Set Up Later</key>
+	<string>Später einrichten</string>
+	<key>Set Up Steam</key>
+	<string>Richten Sie Steam ein</string>
+	<key>Set Up Switchyard</key>
+	<string>Richten Sie Switchyard ein</string>
+	<key>Settings</key>
+	<string>Einstellungen</string>
+	<key>Setup is incomplete</key>
+	<string>Die Einrichtung ist unvollständig</string>
+	<key>Setup is incomplete. Resolve diagnostics before launching.</key>
+	<string>Die Einrichtung ist unvollständig. Beheben Sie die Diagnose vor dem Start.</string>
+	<key>Setup progress</key>
+	<string>Einrichtungsfortschritt</string>
+	<key>Show Container in Finder</key>
+	<string>Container im Finder anzeigen</string>
+	<key>Show Program in Finder</key>
+	<string>Programm im Finder anzeigen</string>
+	<key>Show in Finder</key>
+	<string>Im Finder anzeigen</string>
+	<key>Size</key>
+	<string>Größe</string>
+	<key>Source %@</key>
+	<string>Quelle %1$@</string>
+	<key>Source Revision</key>
+	<string>Quellrevision</string>
+	<key>Source revision not available</key>
+	<string>Quellrevision nicht verfügbar</string>
+	<key>Start %@ in this container</key>
+	<string>Starten Sie %1$@ in diesem Container</string>
+	<key>Start another app in the same Windows session.</key>
+	<string>Starten Sie eine andere App in derselben Windows-Sitzung.</string>
+	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
+	<string>Beginnen Sie mit Steam oder erstellen Sie einen leeren privaten Bereich für ein anderes Windows-Installationsprogramm.</string>
+	<key>Starting automatically…</key>
+	<string>Automatisch starten…</string>
+	<key>Starting…</key>
+	<string>Wird gestartet…</string>
+	<key>Steam could not be started</key>
+	<string>Steam konnte nicht gestartet werden</string>
+	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
+	<string>Die Installation von Steam wurde nicht abgeschlossen. Wählen Sie Steam Setup fortsetzen, um es erneut zu versuchen.</string>
+	<key>Steam is installed and ready to launch.</key>
+	<string>Steam ist installiert und startbereit.</string>
+	<key>Steam is optional. You can finish now and install any Windows .exe later.</key>
+	<string>Steam ist optional. Sie können es jetzt fertigstellen und später alle Windows .exe installieren.</string>
+	<key>Steam next</key>
+	<string>Als Nächstes: Steam</string>
+	<key>Steam setup is paused and can be continued safely.</key>
+	<string>Das Steam-Setup wird angehalten und kann sicher fortgesetzt werden.</string>
+	<key>Steam setup is paused. You can resume it whenever you are ready.</key>
+	<string>Steam-Setup ist angehalten. Sie können es jederzeit fortsetzen, wenn Sie dazu bereit sind.</string>
+	<key>Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container.</key>
+	<string>Die Einrichtung von Steam dauerte länger als erwartet. Wenn das Installationsprogramm noch geöffnet ist, beenden Sie es; Andernfalls versuchen Sie es erneut im selben Container.</string>
+	<key>Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container.</key>
+	<string>Steam-Setup wurde angehalten. Fahren Sie fort, wann immer Sie dazu bereit sind. Switchyard wird diesen Container wiederverwenden.</string>
+	<key>Steam was not detected yet. You can safely continue setup in this container.</key>
+	<string>Steam wurde noch nicht erkannt. In diesem Container können Sie die Einrichtung bedenkenlos fortsetzen.</string>
+	<key>Steam was not found after the installer closed. You can continue setup in the same container without losing anything.</key>
+	<string>Steam wurde nach dem Schließen des Installationsprogramms nicht gefunden. Sie können die Einrichtung im selben Container fortsetzen, ohne etwas zu verlieren.</string>
+	<key>Steam will be kept in its own private Switchyard container. Games installed through Steam will stay there too.</key>
+	<string>Steam wird in einem eigenen Switchyard-Container gespeichert. Über Steam installierte Spiele bleiben ebenfalls dort.</string>
+	<key>Stop</key>
+	<string>Stoppen</string>
+	<key>Stop %@ before renaming its folder. A Wine process is still using this container.</key>
+	<string>Stoppen Sie %1$@, bevor Sie den Ordner umbenennen. Ein Wine-Prozess verwendet diesen Container immer noch.</string>
+	<key>Stop %@ before renaming its folder. A Wine process started while Switchyard was locking this container.</key>
+	<string>Stoppen Sie %1$@, bevor Sie den Ordner umbenennen. Ein Wine-Prozess wurde gestartet, während Switchyard diesen Container sperrte.</string>
+	<key>Stop All Runs</key>
+	<string>Alle Ausführungen stoppen</string>
+	<key>Stop All Windows Apps</key>
+	<string>Stoppen Sie alle Windows-Apps</string>
+	<key>Stop Steam Setup</key>
+	<string>Stoppen Sie das Steam-Setup</string>
+	<key>Stop all Windows apps?</key>
+	<string>Alle Windows-Apps beenden?</string>
+	<key>Stop all Wine processes in this container</key>
+	<string>Stoppen Sie alle Wine-Prozesse in diesem Container</string>
+	<key>Stop all running containers before changing the selected runtime.</key>
+	<string>Stoppen Sie alle laufenden Container, bevor Sie die ausgewählte Laufzeit ändern.</string>
+	<key>Stop all running containers before importing a toolkit.</key>
+	<string>Stoppen Sie alle laufenden Container, bevor Sie ein Toolkit importieren.</string>
+	<key>Stop and Continue</key>
+	<string>Anhalten und weitermachen</string>
+	<key>Stop or wait for %@ before renaming its folder.</key>
+	<string>Halten Sie an oder warten Sie auf %1$@, bevor Sie den Ordner umbenennen.</string>
+	<key>Stop requested for this container.</key>
+	<string>Stopp für diesen Container angefordert.</string>
+	<key>Stop wineserver</key>
+	<string>Stoppen Sie wineserver</string>
+	<key>Stop wineserver?</key>
+	<string>Stoppen Sie wineserver?</string>
+	<key>Stopping</key>
+	<string>Anhalten</string>
+	<key>Stopping…</key>
+	<string>Anhalten…</string>
+	<key>Storage</key>
+	<string>Lagerung</string>
+	<key>Storage and technical paths are chosen automatically. You can change them under Advanced Options.</key>
+	<string>Speicherort und technische Pfade werden automatisch gewählt. Unter „Erweiterte Optionen“ können Sie sie ändern.</string>
+	<key>Succeeded</key>
+	<string>Erfolgreich</string>
+	<key>Support</key>
+	<string>Unterstützung</string>
+	<key>Supported</key>
+	<string>Unterstützt</string>
+	<key>Switchyard</key>
+	<string>Switchyard</string>
+	<key>Switchyard Wine runtime %@ (%@) found at %@. PE architectures: %@.</key>
+	<string>Switchyard Wine Laufzeit %1$@ (%2$@) gefunden unter %3$@. PE-Architekturen: %4$@.</string>
+	<key>Switchyard Wine runtime %@ does not record a source revision. Rebuild it from the pinned switchyard-wine repository.</key>
+	<string>Switchyard Wine Laufzeit %1$@ zeichnet keine Quellrevision auf. Erstellen Sie es aus dem angehefteten switchyard-wine-Repository neu.</string>
+	<key>Switchyard Wine runtime %@ is selected at %@, but it is missing PE architecture(s): %@. Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs.</key>
+	<string>Switchyard Wine Laufzeit %1$@ ist bei %2$@ ausgewählt, aber es fehlen PE Architektur(en): %3$@. Erstellen Sie die Switchyard WoW64-Laufzeit neu, bevor Sie 32-Bit-Windows-Installationsprogramme oder -Programme ausführen.</string>
+	<key>Switchyard Wine runtime %@ was built from a dirty source tree at %@. Build a clean pinned revision before release use.</key>
+	<string>Switchyard Wine Laufzeit %1$@ wurde aus einem fehlerhaften Quellbaum bei %2$@ erstellt. Erstellen Sie vor der Release-Verwendung eine sauber angeheftete Revision.</string>
+	<key>Switchyard Wine runtime %@ was built from source %@, but this Switchyard build pins %@. Rebuild the runtime from the pinned revision.</key>
+	<string>Switchyard Wine Laufzeit %1$@ wurde aus der Quelle %2$@ erstellt, aber dieser Switchyard-Build steckt %3$@ fest. Erstellen Sie die Laufzeit aus der angehefteten Revision neu.</string>
+	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
+	<string>Switchyard akzeptiert nur den offiziellen HTTPS-Download und speichert ihn in einem privaten Cache.</string>
+	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
+	<string>Switchyard verwendet immer die oben angezeigte appweit aktive Laufzeitumgebung. Container wählen oder fixieren keine eigenen Versionen.</string>
+	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
+	<string>Switchyard kann nur Laufzeitumgebungen entfernen, die direkt im verwalteten Cache gespeichert sind.</string>
+	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
+	<string>Switchyard konnte nicht jede Windows-App schließen. Speichern Sie Ihre Arbeit, schließen Sie alle verbleibenden Fenster und versuchen Sie es erneut.</string>
+	<key>Switchyard could not inspect this Wine session.</key>
+	<string>Switchyard konnte diese Wine-Sitzung nicht überprüfen.</string>
+	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
+	<string>Switchyard konnte das heruntergeladene Installationsprogramm in seinem privaten Cache nicht schützen: %1$@</string>
+	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
+	<string>Switchyard startet derzeit alle Container mit der oben gezeigten aktiven Laufzeit.</string>
+	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
+	<string>Switchyard benötigt einen Mac mit Apple Silicon und macOS 14 oder neuer.</string>
+	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
+	<string>Switchyard lädt GPTK nicht herunter oder bündelt es nicht. Apple kümmert sich um die Anmeldung und die Lizenzannahme; Switchyard importiert erst, nachdem der ausführbare Code der DMG auf Apple-Signaturen überprüft wurde.</string>
+	<key>Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.</key>
+	<string>Switchyard lädt SteamSetup.exe direkt von Valve über HTTPS herunter.</string>
+	<key>Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.</key>
+	<string>Switchyard lädt nur das Installationsprogramm von Valve herunter. Die normalen Steam-Bildschirme verwalten Spiele, Updates und Kontoanmeldungen.</string>
+	<key>Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.</key>
+	<string>Switchyard installiert OFL Noto-Schriftarten in Containern und ordnet gängige Windows-Schriftfamiliennamen zu, ohne Microsoft-Schriftarten zu bündeln.</string>
+	<key>Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.</key>
+	<string>Switchyard lädt die benötigten Dateien herunter und überprüft sie. Lassen Sie die App geöffnet, während der Vorgang abgeschlossen ist.</string>
+	<key>Switchyard is ready</key>
+	<string>Switchyard ist bereit</string>
+	<key>Switchyard only installs a runtime after its online release matches this app's signed compatibility policy.</key>
+	<string>Switchyard installiert eine Laufzeitumgebung erst, wenn ihre Online-Veröffentlichung mit der signierten Kompatibilitätsrichtlinie dieser App übereinstimmt.</string>
+	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
+	<string>Switchyard legt eine empfohlene Laufzeitumgebung für die automatische Einrichtung fest und überprüft jede manuell ausgewählte offizielle Version vor der Installation.</string>
+	<key>Switchyard v1 supports Apple Silicon only.</key>
+	<string>Switchyard v1 unterstützt nur Apple Silicon.</string>
+	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
+	<string>Switchyard überprüft den ausführbaren Code, bevor er ihn in seinen privaten Cache kopiert.</string>
+	<key>Switchyard will check this Mac, download its compatibility files, and guide you through the one Apple download it cannot provide itself. Your apps and games stay on this Mac.</key>
+	<string>Switchyard überprüft diesen Mac, lädt seine Kompatibilitätsdateien herunter und führt Sie durch den Download, den Apple nicht selbst bereitstellen kann. Ihre Apps und Spiele bleiben auf diesem Mac.</string>
+	<key>Switchyard will guide you through the remaining steps before installing a Windows app.</key>
+	<string>Switchyard führt Sie durch die verbleibenden Schritte vor der Installation einer Windows-App.</string>
+	<key>Switchyard will not browse a path outside this container.</key>
+	<string>Switchyard durchsucht keinen Pfad außerhalb dieses Containers.</string>
+	<key>Switchyard will open Apple's Rosetta installer. Continuing accepts Apple's Rosetta software license; macOS handles any approval that is required.</key>
+	<string>Switchyard öffnet das Rosetta-Installationsprogramm von Apple. Continuing akzeptiert die Rosetta-Softwarelizenz von Apple; macOS kümmert sich um alle erforderlichen Genehmigungen.</string>
+	<key>Switchyard will redact common secrets and your home folder path before copying.</key>
+	<string>Switchyard schwärzt vor dem Kopieren allgemeine Geheimnisse und den Pfad Ihres Home-Ordners.</string>
+	<key>System</key>
+	<string>System</string>
+	<key>Technical Details</key>
+	<string>Technische Details</string>
+	<key>The Apple code-signing requirement could not be created.</key>
+	<string>Die Apple-Codesignaturanforderung konnte nicht erstellt werden.</string>
+	<key>The GPTK source contains a symbolic link outside its import directory.</key>
+	<string>Die Quelle GPTK enthält einen symbolischen Link außerhalb ihres Importverzeichnisses.</string>
+	<key>The GitHub release information could not be read: %@</key>
+	<string>Die Release-Informationen GitHub konnten nicht gelesen werden: %1$@</string>
+	<key>The Steam installer could not be opened. Check Logs for details, then try again.</key>
+	<string>Das Steam-Installationsprogramm konnte nicht geöffnet werden. Überprüfen Sie die Protokolle auf Details und versuchen Sie es dann erneut.</string>
+	<key>The Steam installer is open. Follow its steps to finish installation.</key>
+	<string>Das Steam-Installationsprogramm ist geöffnet. Befolgen Sie die Schritte, um die Installation abzuschließen.</string>
+	<key>The active runtime could not finish preparing this container; launch will continue and Wine can retry automatically: %@</key>
+	<string>Der Container konnte nicht vollständig für die aktive Laufzeitumgebung vorbereitet werden. Der Start wird fortgesetzt und Wine kann es automatisch erneut versuchen: %1$@</string>
+	<key>The active runtime is ready.</key>
+	<string>Die aktive Laufzeitumgebung ist bereit.</string>
+	<key>The active runtime is used by every container.</key>
+	<string>Die aktive Laufzeitumgebung wird von allen Containern verwendet.</string>
+	<key>The app verifies the exact signed runtime made for this version of Switchyard.</key>
+	<string>Die App prüft die Signatur und stellt sicher, dass die Laufzeit genau zu dieser Switchyard-Version passt.</string>
+	<key>The archive does not contain exactly one Switchyard runtime.</key>
+	<string>Das Archiv enthält nicht genau eine Switchyard-Laufzeit.</string>
+	<key>The cached Steam installer changed or could not be verified. Download it again from Valve.</key>
+	<string>Das zwischengespeicherte Steam-Installationsprogramm wurde geändert oder konnte nicht überprüft werden. Laden Sie es erneut von Valve herunter.</string>
+	<key>The callback reached Wine, but automatic recovery could not be saved: %@</key>
+	<string>Der Rückruf erreichte Wine, aber die automatische Wiederherstellung konnte nicht gespeichert werden: %1$@</string>
+	<key>The clipboard does not contain a supported custom callback URL.</key>
+	<string>Die Zwischenablage enthält keine unterstützte benutzerdefinierte Rückruf-URL.</string>
+	<key>The compatibility runtime and Apple's graphics support are ready. You can now install a Windows app.</key>
+	<string>Die Kompatibilitätslaufzeit und die Grafikunterstützung von Apple sind bereit. Sie können jetzt eine Windows-App installieren.</string>
+	<key>The container folder has no Switchyard manifest: %@</key>
+	<string>Der Containerordner hat kein Switchyard-Manifest: %1$@</string>
+	<key>The container folder is missing: %@</key>
+	<string>Der Containerordner fehlt: %1$@</string>
+	<key>The container folder is outside the active Switchyard library: %@</key>
+	<string>Der Containerordner befindet sich außerhalb der aktiven Switchyard-Bibliothek: %1$@</string>
+	<key>The disk image did not contain known D3DMetal/GPTK marker files.</key>
+	<string>Das Disk-Image enthielt keine bekannten D3DMetal/GPTK-Markierungsdateien.</string>
+	<key>The download is ready. Switchyard will verify Apple's signature before importing it.</key>
+	<string>Der Download ist fertig. Switchyard überprüft die Signatur von Apple vor dem Import.</string>
+	<key>The download left the official Valve download service, so Switchyard stopped it.</key>
+	<string>Der Download hat den offiziellen Valve-Downloaddienst verlassen, also hat Switchyard ihn gestoppt.</string>
+	<key>The download was unexpectedly large, so Switchyard stopped before using it.</key>
+	<string>Der Download war unerwartet groß, daher stoppte Switchyard vor der Verwendung.</string>
+	<key>The downloaded file is not a complete Windows Steam installer.</key>
+	<string>Die heruntergeladene Datei ist kein vollständiges Windows Steam-Installationsprogramm.</string>
+	<key>The downloaded runtime checksum does not match its release manifest.</key>
+	<string>Die heruntergeladene Laufzeitprüfsumme stimmt nicht mit dem Release-Manifest überein.</string>
+	<key>The downloaded runtime size does not match its release manifest.</key>
+	<string>Die heruntergeladene Laufzeitgröße stimmt nicht mit dem Release-Manifest überein.</string>
+	<key>The expected Developer ID signing requirement is invalid.</key>
+	<string>Die erwartete Signaturanforderung Developer ID ist ungültig.</string>
+	<key>The extracted runtime content digest is invalid.</key>
+	<string>Der extrahierte Runtime-Content-Digest ist ungültig.</string>
+	<key>The extracted runtime does not match the requested release.</key>
+	<string>Die extrahierte Laufzeit entspricht nicht der angeforderten Version.</string>
+	<key>The file is checked and stored only on this Mac.</key>
+	<string>Die Datei wird nur auf diesem Mac geprüft und gespeichert.</string>
+	<key>The first-run container preparation did not finish; the app will still open and Wine can retry automatically: %@</key>
+	<string>Die Vorbereitung des ersten Containers wurde nicht abgeschlossen. Die App wird weiterhin geöffnet und Wine kann es automatisch erneut versuchen: %1$@</string>
+	<key>The imported runtime did not contain known D3DMetal/GPTK marker files.</key>
+	<string>Die importierte Laufzeit enthielt keine bekannten D3DMetal/GPTK-Markierungsdateien.</string>
+	<key>The installed runtime has no runnable Wine launcher.</key>
+	<string>Die installierte Laufzeit verfügt über keinen ausführbaren Wine-Launcher.</string>
+	<key>The installed runtime manifest is invalid: %@</key>
+	<string>Das installierte Laufzeitmanifest ist ungültig: %1$@</string>
+	<key>The installer cache contains an unexpected symbolic link.</key>
+	<string>Der Installationscache enthält einen unerwarteten symbolischen Link.</string>
+	<key>The latest Wine release does not include its runtime manifest.</key>
+	<string>Die neueste Version Wine enthält kein Laufzeitmanifest.</string>
+	<key>The latest Wine release points to an untrusted runtime manifest.</key>
+	<string>Die neueste Version Wine weist auf ein nicht vertrauenswürdiges Laufzeitmanifest hin.</string>
+	<key>The latest Wine runtime manifest could not be verified: %@</key>
+	<string>Das neueste Laufzeitmanifest Wine konnte nicht überprüft werden: %1$@</string>
+	<key>The latest online runtime is not this app version's recommendation. Other signed official versions remain available under Wine Runtime settings.</key>
+	<string>Die neueste Online-Laufzeitumgebung wird für diese App-Version nicht empfohlen. Andere signierte offizielle Versionen bleiben in den Wine-Laufzeiteinstellungen verfügbar.</string>
+	<key>The latest online runtime is not yet in this app's verified compatibility policy. A Switchyard release must approve it before installation.</key>
+	<string>Die neueste Online-Laufzeit ist noch nicht in der überprüften Kompatibilitätsrichtlinie dieser App enthalten. Eine Switchyard-Version muss vor der Installation genehmigt werden.</string>
+	<key>The latest online runtime is outside this app's verified compatibility policy. Update Switchyard to get its current approved runtime before installing.</key>
+	<string>Die neueste Online-Laufzeit liegt außerhalb des für diese App geprüften Kompatibilitätsbereichs. Aktualisieren Sie Switchyard vor der Installation, um die aktuell freigegebene Laufzeit zu erhalten.</string>
+	<key>The latest online runtime is the recommended revision for this Switchyard version and can be installed here.</key>
+	<string>Die neueste Online-Laufzeitumgebung ist die für diese Switchyard-Version empfohlene Revision und kann hier installiert werden.</string>
+	<key>The latest online runtime matches this app's verified compatibility policy and can be installed safely.</key>
+	<string>Die neueste Online-Laufzeitumgebung entspricht der überprüften Kompatibilitätsrichtlinie dieser App und kann sicher installiert werden.</string>
+	<key>The log entries shown for %@ will be removed from Switchyard.</key>
+	<string>Die für %1$@ angezeigten Protokolleinträge werden aus Switchyard entfernt.</string>
+	<key>The log entries shown in Switchyard will be removed. Debug run files keep their configured retention period.</key>
+	<string>Die in Switchyard angezeigten Protokolleinträge werden entfernt. Debug-Laufdateien behalten ihren konfigurierten Aufbewahrungszeitraum.</string>
+	<key>The main runtime download is about 700 MB. Switchyard checks its size, fingerprint, developer signature, and Apple notarization before using it.</key>
+	<string>Der Haupt-Runtime-Download ist etwa 700 MB groß. Switchyard überprüft vor der Verwendung Größe, Fingerabdruck, Entwicklersignatur und Apple-Beglaubigung.</string>
+	<key>The release metadata is incomplete.</key>
+	<string>Die Veröffentlichungsmetadaten sind unvollständig.</string>
+	<key>The runtime archive contains a symbolic link outside its installation directory.</key>
+	<string>Das Laufzeitarchiv enthält einen symbolischen Link außerhalb seines Installationsverzeichnisses.</string>
+	<key>The runtime archive contains an unsafe entry: %@</key>
+	<string>Das Laufzeitarchiv enthält einen unsicheren Eintrag: %1$@</string>
+	<key>The runtime archive contains no signed macOS executable code.</key>
+	<string>Das Laufzeitarchiv enthält keinen signierten ausführbaren macOS-Code.</string>
+	<key>The runtime archive could not be extracted: %@</key>
+	<string>Das Laufzeitarchiv konnte nicht extrahiert werden: %1$@</string>
+	<key>The runtime archive could not be inspected safely: %@</key>
+	<string>Das Laufzeitarchiv konnte nicht sicher überprüft werden: %1$@</string>
+	<key>The runtime cache will be deleted. You can download this official release again later.</key>
+	<string>Der Laufzeitcache wird gelöscht. Diese offizielle Version kann später erneut geladen werden.</string>
+	<key>The runtime code signature is invalid for %@.</key>
+	<string>Die Laufzeit-Codesignatur ist für %1$@ ungültig.</string>
+	<key>The runtime does not include both 32-bit and 64-bit Windows support.</key>
+	<string>Die Laufzeit bietet keine 32-Bit- und 64-Bit-Windows-Unterstützung.</string>
+	<key>The runtime download server returned HTTP %lld.</key>
+	<string>Der Laufzeit-Download-Server hat HTTP %1$lld zurückgegeben.</string>
+	<key>The runtime has no valid full-content digest.</key>
+	<string>Die Laufzeit verfügt über keinen gültigen Digest mit vollständigem Inhalt.</string>
+	<key>The runtime installation lock could not be acquired: %@</key>
+	<string>Die Laufzeitinstallationssperre konnte nicht erworben werden: %1$@</string>
+	<key>The runtime is runnable, but it does not match this version of Switchyard. Install the compatible runtime to continue.</key>
+	<string>Die Laufzeit ist lauffähig, entspricht jedoch nicht dieser Version von Switchyard. Installieren Sie die kompatible Laufzeit, um fortzufahren.</string>
+	<key>The runtime is runnable, but its source identity could not be verified.</key>
+	<string>Die Laufzeitumgebung ist ausführbar, ihre Quellidentität konnte jedoch nicht überprüft werden.</string>
+	<key>The runtime release does not match this app's compatible source revision.</key>
+	<string>Die Laufzeitversion stimmt nicht mit der kompatiblen Quellrevision dieser App überein.</string>
+	<key>The runtime release has an unsafe identifier.</key>
+	<string>Die Laufzeitversion hat eine unsichere Kennung.</string>
+	<key>The runtime release has not been accepted by Apple notarization.</key>
+	<string>Die Laufzeitversion wurde von Apple nicht notariell beglaubigt.</string>
+	<key>The runtime release is not the supported x86_64 macOS build.</key>
+	<string>Die Laufzeitversion ist nicht der unterstützte x86_64 macOS-Build.</string>
+	<key>The runtime release manifest has an invalid archive checksum.</key>
+	<string>Das Runtime-Release-Manifest weist eine ungültige Archivprüfsumme auf.</string>
+	<key>The runtime release manifest has an invalid archive size.</key>
+	<string>Das Runtime-Release-Manifest weist eine ungültige Archivgröße auf.</string>
+	<key>The runtime release manifest has an unsafe archive name.</key>
+	<string>Das Runtime-Release-Manifest hat einen unsicheren Archivnamen.</string>
+	<key>The runtime release manifest is invalid: %@</key>
+	<string>Das Runtime-Release-Manifest ist ungültig: %1$@</string>
+	<key>The runtime release manifest is unexpectedly large.</key>
+	<string>Das Runtime-Release-Manifest ist unerwartet groß.</string>
+	<key>The runtime release manifest must be an official switchyard-wine GitHub release asset.</key>
+	<string>Das Laufzeitmanifest muss ein offizielles GitHub-Release-Asset von switchyard-wine sein.</string>
+	<key>The runtime release manifest must use GitHub over HTTPS.</key>
+	<string>Das Runtime-Release-Manifest muss GitHub anstelle von HTTPS verwenden.</string>
+	<key>The runtime release was not produced by the expected developer team.</key>
+	<string>Die Laufzeitversion wurde nicht vom erwarteten Entwicklerteam erstellt.</string>
+	<key>The selected GPTK disk image has not been imported. Use Import Selected GPTK to verify Apple-signed code before mounting it.</key>
+	<string>Das ausgewählte GPTK-Image wurde noch nicht importiert. Klicken Sie vor dem Einbinden auf „Ausgewähltes GPTK importieren“, um den von Apple signierten Code zu prüfen.</string>
+	<key>The selected Wine container or runtime is not available.</key>
+	<string>Der ausgewählte Wine-Container oder die ausgewählte Laufzeit ist nicht verfügbar.</string>
+	<key>The selected Wine file is not executable, so its source identity cannot be verified.</key>
+	<string>Die ausgewählte Wine-Datei ist nicht ausführbar, daher kann ihre Quellidentität nicht überprüft werden.</string>
+	<key>The selected Wine runtime does not exist, so its source identity cannot be verified.</key>
+	<string>Die ausgewählte Wine-Laufzeit existiert nicht, daher kann ihre Quellidentität nicht überprüft werden.</string>
+	<key>The selected directory is not a runnable Wine runtime, so its source identity cannot be verified.</key>
+	<string>Das ausgewählte Verzeichnis ist keine ausführbare Wine-Laufzeitumgebung, daher kann seine Quellidentität nicht überprüft werden.</string>
+	<key>The selected managed runtime no longer exists.</key>
+	<string>Die ausgewählte verwaltete Laufzeitumgebung ist nicht mehr vorhanden.</string>
+	<key>The selected path is not a folder.</key>
+	<string>Der ausgewählte Pfad ist kein Ordner.</string>
+	<key>The selected runtime is both the latest online release and the recommended revision for this Switchyard version.</key>
+	<string>Die ausgewählte Laufzeitumgebung ist sowohl die neueste Online-Version als auch die für diese Switchyard-Version empfohlene Revision.</string>
+	<key>The selected runtime is both the latest online release and the revision verified for this Switchyard version.</key>
+	<string>Die ausgewählte Laufzeit ist sowohl die neueste Online-Version als auch die für diese Switchyard-Version überprüfte Revision.</string>
+	<key>The standard Windows installer will appear in a moment.</key>
+	<string>Das Standardinstallationsprogramm Windows wird gleich angezeigt.</string>
+	<key>The verified Valve download is ready to install.</key>
+	<string>Der verifizierte Valve-Download ist zur Installation bereit.</string>
+	<key>There are no visible files in this folder.</key>
+	<string>In diesem Ordner sind keine Dateien sichtbar.</string>
+	<key>These runtimes are in Switchyard's managed cache but do not match the currently loaded official release list.</key>
+	<string>Diese Laufzeitumgebungen befinden sich im verwalteten Switchyard-Cache, entsprechen aber nicht der aktuell geladenen Liste offizieller Versionen.</string>
+	<key>This Mac</key>
+	<string>Dieser Mac</string>
+	<key>This Mac is not supported</key>
+	<string>Dieser Mac wird nicht unterstützt</string>
+	<key>This Windows installer is ready to open in Switchyard.</key>
+	<string>Dieses Windows-Installationsprogramm kann in Switchyard geöffnet werden.</string>
+	<key>This app build does not contain a published runtime channel.</key>
+	<string>Dieser App-Build enthält keinen veröffentlichten Laufzeitkanal.</string>
+	<key>This app build does not trust the Developer ID team that signed the runtime.</key>
+	<string>Dieser App-Build vertraut dem Developer-ID-Team nicht, das die Laufzeitumgebung signiert hat.</string>
+	<key>This app build does not trust the selected official runtime.</key>
+	<string>Dieser App-Build vertraut der ausgewählten offiziellen Laufzeitumgebung nicht.</string>
+	<key>This development build has no official Developer ID trust configuration. Release browsing remains available, but downloads are disabled.</key>
+	<string>Dieser Entwicklungs-Build besitzt keine offizielle Developer-ID-Vertrauenskonfiguration. Versionen können durchsucht, aber nicht geladen werden.</string>
+	<key>This link leaves the container and cannot be browsed in Switchyard.</key>
+	<string>Dieser Link verlässt den Container und kann in Switchyard nicht durchsucht werden.</string>
+	<key>This normally takes only a moment.</key>
+	<string>Dies dauert normalerweise nur einen Moment.</string>
+	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
+	<string>Diese Version öffnet die Download-Seite von Apple, sodass Sie sich anmelden, die Bedingungen lesen und die zu importierende Toolkit-Kopie auswählen können.</string>
+	<key>This runtime has no trusted source revision date for a calendar build number.</key>
+	<string>Diese Laufzeit verfügt über kein vertrauenswürdiges Quellrevisionsdatum für eine Kalender-Build-Nummer.</string>
+	<key>Toolkit</key>
+	<string>Toolkit</string>
+	<key>Try Again</key>
+	<string>Erneut versuchen</string>
+	<key>Unavailable</key>
+	<string>Nicht verfügbar</string>
+	<key>Unknown</key>
+	<string>Unbekannt</string>
+	<key>Unknown error</key>
+	<string>Unbekannter Fehler</string>
+	<key>Unpinned</key>
+	<string>Nicht fixiert</string>
+	<key>Unsaved work in Windows apps may be lost. Switchyard needs them closed before changing compatibility files.</key>
+	<string>Nicht gespeicherte Arbeit in Windows-Apps geht möglicherweise verloren. Switchyard muss sie schließen, bevor Kompatibilitätsdateien geändert werden.</string>
+	<key>Unsupported</key>
+	<string>Nicht unterstützt</string>
+	<key>Update Available</key>
+	<string>Update verfügbar</string>
+	<key>Update macOS to continue</key>
+	<string>Aktualisieren Sie macOS, um fortzufahren</string>
+	<key>Updated %@</key>
+	<string>Aktualisiert %1$@</string>
+	<key>Use</key>
+	<string>Verwenden</string>
+	<key>Used by every container</key>
+	<string>Von allen Containern verwendet</string>
+	<key>Value</key>
+	<string>Wert</string>
+	<key>Valve's download service did not return a complete installer.</key>
+	<string>Der Download-Dienst von Valve hat kein vollständiges Installationsprogramm zurückgegeben.</string>
+	<key>Variable</key>
+	<string>Variabel</string>
+	<key>Verbose Wine logging</key>
+	<string>Ausführliche Wine-Protokollierung</string>
+	<key>Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.</key>
+	<string>Im ausführlichen Protokollmodus werden zusätzlich die Wine-fixme-Ausgabe sowie ausgewählte SEH-, Grafik- und Fenstersystem-Traces aufgezeichnet. Da die Protokolle sehr groß werden können, zeigt die App nur die neuesten 5.000 Einträge in Blöcken an; die geschützte Datei enthält das vollständige Ausführungsprotokoll.</string>
+	<key>Verified</key>
+	<string>Verifiziert</string>
+	<key>Verify and Continue</key>
+	<string>Überprüfen und fortfahren</string>
+	<key>Verifying and Importing…</key>
+	<string>Überprüfen und Importieren…</string>
+	<key>Version</key>
+	<string>Version</string>
+	<key>Version %@</key>
+	<string>Version %1$@</string>
+	<key>Version %@ (%@)</key>
+	<string>Version %1$@ (%2$@)</string>
+	<key>Version Date</key>
+	<string>Versionsdatum</string>
+	<key>Versions &amp; Updates</key>
+	<string>Versionen &amp; Updates</string>
+	<key>View Update</key>
+	<string>Update anzeigen</string>
+	<key>View activity</key>
+	<string>Aktivität anzeigen</string>
+	<key>View all</key>
+	<string>Alle anzeigen</string>
+	<key>View all processes</key>
+	<string>Alle Prozesse anzeigen</string>
+	<key>Wait for %@ to finish its current action before deleting its container.</key>
+	<string>Warten Sie, bis %1$@ seine aktuelle Aktion abgeschlossen hat, bevor Sie seinen Container löschen.</string>
+	<key>Wait for %@ to finish its current session action before starting another executable.</key>
+	<string>Warten Sie, bis %1$@ seine aktuelle Sitzungsaktion abgeschlossen hat, bevor Sie eine andere ausführbare Datei starten.</string>
+	<key>Wait for all container activity to stop before changing the active runtime.</key>
+	<string>Warten Sie, bis alle Containeraktivitäten beendet sind, bevor Sie die aktive Laufzeitumgebung ändern.</string>
+	<key>Wait for all container activity to stop before removing a runtime.</key>
+	<string>Warten Sie, bis alle Containeraktivitäten beendet sind, bevor Sie eine Laufzeitumgebung entfernen.</string>
+	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
+	<string>Warten Sie, bis der Containerordnervorgang abgeschlossen ist, bevor Sie einen Anmelderückruf wiederherstellen.</string>
+	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>
+	<string>Warten Sie, bis das aktuelle Steam-Setup abgeschlossen ist, oder stoppen Sie es, bevor Sie es erneut versuchen.</string>
+	<key>Warning</key>
+	<string>Warnung</string>
+	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
+	<string>Sobald Switchyard bereit ist, können Sie direkt das offizielle Steam-Installationsprogramm für Windows öffnen.</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>Wenn diese Option aktiviert ist, werden Wine-Fehler und Warnungen in einer geschützten Datei pro Ausführung aufgezeichnet. Dateien lassen Argumentwerte aus und sind in ~/Library/Application Support/Switchyard/Logs/DebugRuns auf 50 Protokolle für 14 Tage beschränkt.</string>
+	<key>Windows Session</key>
+	<string>Windows-Sitzung</string>
+	<key>Windows apps are still running</key>
+	<string>Windows-Apps werden noch ausgeführt</string>
+	<key>Windows compatibility files</key>
+	<string>Windows-Kompatibilitätsdateien</string>
+	<key>Windows session active · launch another app without stopping it</key>
+	<string>Windows Sitzung aktiv · Starten Sie eine andere App, ohne sie zu stoppen</string>
+	<key>Windows session active · launch more apps</key>
+	<string>Windows Sitzung aktiv · Weitere Apps starten</string>
+	<key>Windows support</key>
+	<string>Windows-Unterstützung</string>
+	<key>Wine Path</key>
+	<string>Wine-Pfad</string>
+	<key>Wine Runtime</key>
+	<string>Wine-Laufzeitumgebung</string>
+	<key>Wine Runtime Source</key>
+	<string>Quelle der Wine-Laufzeitumgebung</string>
+	<key>Wine could not accept the copied %@: callback.</key>
+	<string>Wine konnte den kopierten Rückruf %1$@: nicht akzeptieren.</string>
+	<key>Wine executable found at %@.</key>
+	<string>Die ausführbare Datei Wine wurde unter %1$@ gefunden.</string>
+	<key>Wine has not initialized this container yet.</key>
+	<string>Wine hat diesen Container noch nicht initialisiert.</string>
+	<key>Wine initialization exited before finishing.</key>
+	<string>Wine-Initialisierung wurde vor Abschluss beendet.</string>
+	<key>Wine processes</key>
+	<string>Wine-Prozesse</string>
+	<key>Wine processes need cleanup</key>
+	<string>Wine-Prozesse müssen bereinigt werden</string>
+	<key>Wine processes need cleanup before this container changes</key>
+	<string>Wine-Prozesse müssen bereinigt werden, bevor sich dieser Container ändert</string>
+	<key>Wine processes remain after wineserver exited</key>
+	<string>Wine-Prozesse bleiben bestehen, nachdem wineserver beendet wurde</string>
+	<key>Wine processes remain after wineserver exited. Stop this session before changing its folder.</key>
+	<string>Wine-Prozesse bleiben bestehen, nachdem wineserver beendet wurde. Stoppen Sie diese Sitzung, bevor Sie ihren Ordner ändern.</string>
+	<key>Wine processes stopped for this container.</key>
+	<string>Wine-Prozesse wurden für diesen Container gestoppt.</string>
+	<key>Wine runtime preparation exited before finishing.</key>
+	<string>Die Vorbereitung der Wine-Laufzeitumgebung wurde vorzeitig beendet.</string>
+	<key>configured executable</key>
+	<string>konfigurierte ausführbare Datei</string>
+	<key>container override or inherited</key>
+	<string>Container überschreiben oder vererben</string>
+	<key>ditto failed</key>
+	<string>ditto ist fehlgeschlagen</string>
+	<key>empty</key>
+	<string>leer</string>
+	<key>hdiutil did not report a mounted volume.</key>
+	<string>hdiutil hat kein gemountetes Volume gemeldet.</string>
+	<key>hdiutil exited with status %d</key>
+	<string>hdiutil wurde mit Status %1$d beendet.</string>
+	<key>hdiutil returned an unexpected plist.</key>
+	<string>hdiutil hat eine unerwartete Plist zurückgegeben.</string>
+	<key>hdiutil timed out while mounting the disk image.</key>
+	<string>Bei hdiutil ist beim Mounten des Disk-Images eine Zeitüberschreitung aufgetreten.</string>
+	<key>macOS 14 or later</key>
+	<string>macOS 14 oder höher</string>
+	<key>macOS Version</key>
+	<string>macOS-Version</string>
+	<key>standard</key>
+	<string>Standard</string>
+	<key>switchyard-runner helper was not found in the app bundle or build directory.</key>
+	<string>Der switchyard-runner-Helper wurde nicht im App-Bundle oder Build-Verzeichnis gefunden.</string>
+	<key>switchyard-shortcut-handler was not found in the app bundle or build directory.</key>
+	<string>switchyard-shortcut-handler wurde nicht im App-Bundle oder Build-Verzeichnis gefunden.</string>
+	<key>switchyard-url-handler was not found in the app bundle or build directory.</key>
+	<string>switchyard-url-handler wurde nicht im App-Bundle oder Build-Verzeichnis gefunden.</string>
+	<key>unknown</key>
+	<string>unbekannt</string>
+	<key>unknown profile</key>
+	<string>unbekanntes Profil</string>
+	<key>unrecorded repository</key>
+	<string>nicht aufgezeichnetes Repository</string>
+	<key>verbose</key>
+	<string>ausführlich</string>
+	<key>wineserver could not be stopped (exit code %d).</key>
+	<string>wineserver konnte nicht gestoppt werden (Exitcode %1$d).</string>
+	<key>wineserver could not be stopped (exit code %d): %@</key>
+	<string>wineserver konnte nicht gestoppt werden (Exitcode %1$d): %2$@</string>
+	<key>zipinfo failed</key>
+	<string>zipinfo ist fehlgeschlagen</string>
+</dict>
+</plist>
