@@ -27,6 +27,17 @@ Use Conventional Commits:
 
 Keep commits focused. Do not mix external Wine source changes, app UI changes, and documentation rewrites unless the change is intentionally atomic.
 
+## Release Notes
+
+Write GitHub release bodies as concise, reader-facing changelogs:
+
+- Describe only the features, fixes, and behavior changes introduced since the previous release.
+- Prefer a single `## What's Changed` section with clear bullets. Add subsections only when a release has enough distinct changes to justify them.
+- Base every claim on the tag-to-tag diff, and end with a `Full Changelog` comparison link when a previous tag exists.
+- Do not repeat the release title or add generic preview prose.
+- Omit routine download instructions, system requirements, signing, notarization, stapling, Gatekeeper, checksum, notarization ID, and standing licensing or runtime-boundary boilerplate.
+- Mention distribution, security, compatibility, licensing, or runtime details only when that item changed in the release or requires a new user action. Keep the separately licensed GPTK and external Wine runtime boundaries accurate whenever they are relevant to a listed change.
+
 ## Build And Verification
 
 Leave one CPU core free for local builds unless the user explicitly asks for maximum parallelism. For scripts that expose job counts, use `max(1, hw.ncpu - 1)` as the default.
