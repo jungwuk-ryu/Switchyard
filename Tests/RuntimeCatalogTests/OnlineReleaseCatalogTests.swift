@@ -92,8 +92,102 @@ import Testing
     let snapshot = try await catalog.latestReleases()
 
     #expect(snapshot.appRelease.tagName == "v1.2.3")
-    #expect(snapshot.runtimeRelease.tagName == "runtime-aaaaaaaaaaaa")
-    #expect(snapshot.runtimeManifest.sourceRevision == sourceRevision)
+    #expect(snapshot.runtimeRelease?.tagName == "runtime-aaaaaaaaaaaa")
+    #expect(snapshot.runtimeManifest?.sourceRevision == sourceRevision)
+}
+
+@Test func onlineReleaseCatalogTreatsMissingStableRuntimeAsUnavailable() async throws {
+    let appURL = try #require(URL(
+        string: "https://api.github.com/repos/jungwuk-ryu/Switchyard/releases/latest"
+    ))
+    let runtimeURL = try #require(URL(
+        string: "https://api.github.com/repos/jungwuk-ryu/switchyard-wine/releases/latest"
+    ))
+    let appRelease = Data(
+        """
+        {
+          "tag_name": "v0.3.2",
+          "html_url": "https://github.com/jungwuk-ryu/Switchyard/releases/tag/v0.3.2",
+          "published_at": "2026-07-19T08:53:15Z",
+          "assets": []
+        }
+        """.utf8
+    )
+
+    let catalog = OnlineReleaseCatalog { request in
+        let url = try #require(request.url)
+        let statusCode: Int
+        let data: Data
+        switch url {
+        case appURL:
+            statusCode = 200
+            data = appRelease
+        case runtimeURL:
+            statusCode = 404
+            data = Data(#"{"message":"Not Found"}"#.utf8)
+        default:
+            throw OnlineReleaseStubError.unexpectedRequest
+        }
+        let response = try #require(HTTPURLResponse(
+            url: url,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: nil
+        ))
+        return (data, response)
+    }
+
+    let snapshot = try await catalog.latestReleases()
+
+    #expect(snapshot.appRelease.tagName == "v0.3.2")
+    #expect(snapshot.runtimeRelease == nil)
+    #expect(snapshot.runtimeManifest == nil)
+}
+
+@Test func onlineReleaseCatalogDoesNotHideRuntimeServerFailures() async throws {
+    let appURL = try #require(URL(
+        string: "https://api.github.com/repos/jungwuk-ryu/Switchyard/releases/latest"
+    ))
+    let runtimeURL = try #require(URL(
+        string: "https://api.github.com/repos/jungwuk-ryu/switchyard-wine/releases/latest"
+    ))
+    let appRelease = Data(
+        """
+        {
+          "tag_name": "v0.3.2",
+          "html_url": "https://github.com/jungwuk-ryu/Switchyard/releases/tag/v0.3.2",
+          "published_at": "2026-07-19T08:53:15Z",
+          "assets": []
+        }
+        """.utf8
+    )
+
+    let catalog = OnlineReleaseCatalog { request in
+        let url = try #require(request.url)
+        let statusCode: Int
+        let data: Data
+        switch url {
+        case appURL:
+            statusCode = 200
+            data = appRelease
+        case runtimeURL:
+            statusCode = 500
+            data = Data()
+        default:
+            throw OnlineReleaseStubError.unexpectedRequest
+        }
+        let response = try #require(HTTPURLResponse(
+            url: url,
+            statusCode: statusCode,
+            httpVersion: "HTTP/1.1",
+            headerFields: nil
+        ))
+        return (data, response)
+    }
+
+    await #expect(throws: OnlineReleaseCatalogError.httpFailure(500)) {
+        _ = try await catalog.latestReleases()
+    }
 }
 
 @Test func onlineReleaseCatalogRejectsUntrustedRuntimeManifestURL() async throws {

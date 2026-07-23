@@ -393,7 +393,9 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var runtimeOnlineDetail: String {
-        guard let snapshot = store.onlineReleaseSnapshot else {
+        guard let snapshot = store.onlineReleaseSnapshot,
+              let runtimeRelease = snapshot.runtimeRelease,
+              let runtimeManifest = snapshot.runtimeManifest else {
             return store.isCheckingOnlineReleases
                 ? String(
                     localized: "Checking the latest GitHub runtime…",
@@ -406,12 +408,12 @@ private struct DiagnosticsVersionOverview: View {
         }
         if store.onlineReleaseError == nil {
             return String(
-                localized: "Latest online: \(snapshot.runtimeRelease.tagName) · source \(snapshot.runtimeManifest.sourceRevision.prefix(12))",
+                localized: "Latest online: \(runtimeRelease.tagName) · source \(runtimeManifest.sourceRevision.prefix(12))",
                 bundle: SwitchyardStrings.bundle
             )
         }
         return String(
-            localized: "Last known online: \(snapshot.runtimeRelease.tagName) · source \(snapshot.runtimeManifest.sourceRevision.prefix(12))",
+            localized: "Last known online: \(runtimeRelease.tagName) · source \(runtimeManifest.sourceRevision.prefix(12))",
             bundle: SwitchyardStrings.bundle
         )
     }
@@ -464,7 +466,7 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var selectedRuntimeMatchesLatest: Bool {
-        guard let latestSource = store.onlineReleaseSnapshot?.runtimeManifest.sourceRevision,
+        guard let latestSource = store.onlineReleaseSnapshot?.runtimeManifest?.sourceRevision,
               !runtime.sourceRevision.isEmpty else {
             return false
         }
@@ -478,7 +480,7 @@ private struct DiagnosticsVersionOverview: View {
     private var shouldOfferRuntimeInstall: Bool {
         !store.isCheckingOnlineReleases
             && store.onlineReleaseError == nil
-            && store.onlineReleaseSnapshot != nil
+            && store.onlineReleaseSnapshot?.runtimeManifest != nil
             && latestRuntimeMatchesAppPolicy
             && (!selectedRuntimeMatchesLatest || !selectedRuntimeIsUsable)
             && store.canInstallCompatibleWineRuntime
@@ -486,7 +488,7 @@ private struct DiagnosticsVersionOverview: View {
 
     private var runtimeUpdateStatus: HealthStatus {
         if store.isCheckingOnlineReleases || store.onlineReleaseError != nil { return .unknown }
-        if store.onlineReleaseSnapshot == nil { return .unknown }
+        if store.onlineReleaseSnapshot?.runtimeManifest == nil { return .unknown }
         if !latestRuntimeMatchesAppPolicy { return .warning }
         return selectedRuntimeMatchesLatest && selectedRuntimeIsUsable ? .ok : .warning
     }
@@ -498,7 +500,7 @@ private struct DiagnosticsVersionOverview: View {
         if store.onlineReleaseError != nil {
             return String(localized: "Check Failed", bundle: SwitchyardStrings.bundle)
         }
-        guard store.onlineReleaseSnapshot != nil else {
+        guard store.onlineReleaseSnapshot?.runtimeManifest != nil else {
             return String(localized: "Online Unknown", bundle: SwitchyardStrings.bundle)
         }
         if !latestRuntimeMatchesAppPolicy {
@@ -518,7 +520,7 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var runtimeCompatibilityExplanation: String {
-        guard store.onlineReleaseSnapshot != nil else {
+        guard store.onlineReleaseSnapshot?.runtimeManifest != nil else {
             return String(
                 localized: "Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.",
                 bundle: SwitchyardStrings.bundle

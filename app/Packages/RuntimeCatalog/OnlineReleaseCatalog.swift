@@ -13,9 +13,9 @@ public struct PublishedGitHubRelease: Sendable, Equatable {
 }
 
 public struct SwitchyardReleaseSnapshot: Sendable, Equatable {
-    public var appRelease: PublishedGitHubRelease
-    public var runtimeRelease: PublishedGitHubRelease
-    public var runtimeManifest: PublishedRuntimeRelease
+    public let appRelease: PublishedGitHubRelease
+    public let runtimeRelease: PublishedGitHubRelease?
+    public let runtimeManifest: PublishedRuntimeRelease?
 
     public init(
         appRelease: PublishedGitHubRelease,
@@ -25,6 +25,12 @@ public struct SwitchyardReleaseSnapshot: Sendable, Equatable {
         self.appRelease = appRelease
         self.runtimeRelease = runtimeRelease
         self.runtimeManifest = runtimeManifest
+    }
+
+    public init(appRelease: PublishedGitHubRelease) {
+        self.appRelease = appRelease
+        runtimeRelease = nil
+        runtimeManifest = nil
     }
 }
 
@@ -164,21 +170,34 @@ public struct OnlineReleaseCatalog: Sendable {
 
     public func latestReleases() async throws -> SwitchyardReleaseSnapshot {
         async let appResponse = latestRelease(at: Self.appReleaseURL)
-        async let runtimeResponse = latestRelease(at: Self.runtimeReleaseURL)
+        async let runtimeResponse = latestRuntimeRelease()
         let (app, runtime) = try await (appResponse, runtimeResponse)
 
         guard Self.isTrustedReleaseURL(
             app.webURL,
             pathPrefix: "/jungwuk-ryu/Switchyard/releases/"
-        ), Self.isTrustedReleaseURL(
+        ) else {
+            throw OnlineReleaseCatalogError.untrustedReleaseURL
+        }
+
+        guard let appSummary = app.summary else {
+            throw OnlineReleaseCatalogError.invalidReleaseResponse(
+                String(
+                    localized: "A published release is missing its publication date.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+        }
+        guard let runtime else {
+            return SwitchyardReleaseSnapshot(appRelease: appSummary)
+        }
+        guard Self.isTrustedReleaseURL(
             runtime.webURL,
             pathPrefix: "/jungwuk-ryu/switchyard-wine/releases/"
         ) else {
             throw OnlineReleaseCatalogError.untrustedReleaseURL
         }
-
-        guard let appSummary = app.summary,
-              let runtimeSummary = runtime.summary else {
+        guard let runtimeSummary = runtime.summary else {
             throw OnlineReleaseCatalogError.invalidReleaseResponse(
                 String(
                     localized: "A published release is missing its publication date.",
@@ -265,6 +284,14 @@ public struct OnlineReleaseCatalog: Sendable {
             return try decoder.decode(GitHubReleaseResponse.self, from: data)
         } catch {
             throw OnlineReleaseCatalogError.invalidReleaseResponse(error.localizedDescription)
+        }
+    }
+
+    private func latestRuntimeRelease() async throws -> GitHubReleaseResponse? {
+        do {
+            return try await latestRelease(at: Self.runtimeReleaseURL)
+        } catch OnlineReleaseCatalogError.httpFailure(404) {
+            return nil
         }
     }
 
