@@ -39,6 +39,7 @@ private let maximumLiveLogLines = 5_000
 private let recentProgramLaunchesDefaultsKey = "recentProgramLaunches.v1"
 private let maximumRecentProgramLaunches = 8
 private let onlineReleaseCacheInterval: TimeInterval = 15 * 60
+private let activeRuntimeSourceRevisionDefaultsKey = "activeRuntimeSourceRevision.v1"
 
 private struct SwitchyardWineSourcePolicy {
     var revision: String
@@ -127,6 +128,45 @@ enum RuntimeInstallationState: Equatable {
     }
 }
 
+enum RuntimeManagementState: Equatable {
+    case idle
+    case installing(String)
+    case removing(String)
+    case ready(String)
+    case failed(String)
+
+    var isWorking: Bool {
+        switch self {
+        case .installing, .removing:
+            true
+        case .idle, .ready, .failed:
+            false
+        }
+    }
+
+    var operationID: String? {
+        switch self {
+        case .installing(let id), .removing(let id):
+            id
+        case .idle, .ready, .failed:
+            nil
+        }
+    }
+
+    var message: String? {
+        switch self {
+        case .idle:
+            nil
+        case .installing:
+            "Downloading, validating, and installing the selected official runtime…"
+        case .removing:
+            "Removing the selected inactive runtime…"
+        case .ready(let message), .failed(let message):
+            message
+        }
+    }
+}
+
 enum RosettaInstallationState: Equatable {
     case idle
     case working
@@ -210,6 +250,11 @@ final class AppStore: ObservableObject {
     @Published private(set) var lastOnlineReleaseCheckDate: Date?
     @Published private(set) var onlineReleaseError: String?
     @Published private(set) var runtimeInstallationState: RuntimeInstallationState = .idle
+    @Published private(set) var officialRuntimeReleases: [OfficialRuntimeRelease] = []
+    @Published private(set) var installedManagedRuntimes: [ManagedRuntimeInstallation] = []
+    @Published private(set) var isRefreshingOfficialRuntimeReleases = false
+    @Published private(set) var officialRuntimeCatalogError: String?
+    @Published private(set) var runtimeManagementState: RuntimeManagementState = .idle
     @Published private(set) var rosettaInstallationState: RosettaInstallationState = .idle
     @Published private(set) var fontPackPreparationState: FontPackPreparationState = .idle
     @Published private(set) var gptkSetupMessage: String?
@@ -248,6 +293,9 @@ final class AppStore: ObservableObject {
     private var diagnosticsRefreshID: UUID?
     private var onlineReleaseTask: Task<Void, Never>?
     private var onlineReleaseRefreshID: UUID?
+    private var officialRuntimeCatalogTask: Task<Void, Never>?
+    private var officialRuntimeCatalogRefreshID: UUID?
+    private var lastOfficialRuntimeCatalogRefreshDate: Date?
     private var gptkImportTask: Task<Void, Never>?
     private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
@@ -272,18 +320,21 @@ final class AppStore: ObservableObject {
         let initialLibraryPath = defaults.string(forKey: "libraryPath") ?? defaultLibrary
         libraryPath = initialLibraryPath
         let runtimeLocator = RuntimeLocator()
+        let expectedRuntimeSourceRevision = defaults.string(
+            forKey: activeRuntimeSourceRevisionDefaultsKey
+        ) ?? wineSourcePolicy.revision
         gptkPath = defaults.string(forKey: "gptkPath") ?? ""
         if let storedWinePath = defaults.string(forKey: "winePath"), !storedWinePath.isEmpty {
             let defaultWinePath = runtimeLocator.defaultWineRuntimePath()
             let preferredWinePath = runtimeLocator.preferredWineExecutablePath(
                 for: storedWinePath,
-                expectedSourceRevision: wineSourcePolicy.revision
+                expectedSourceRevision: expectedRuntimeSourceRevision
             )
             winePath = storedWinePath == defaultWinePath && preferredWinePath == nil ? "" : (preferredWinePath ?? storedWinePath)
         } else {
             winePath = runtimeLocator.preferredWineExecutablePath(
                 for: nil,
-                expectedSourceRevision: wineSourcePolicy.revision
+                expectedSourceRevision: expectedRuntimeSourceRevision
             ) ?? ""
         }
         hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
@@ -297,6 +348,9 @@ final class AppStore: ObservableObject {
         )
         downloadedSteamInstallerPath = StarterApplicationDownloader()
             .trustedCachedInstaller(for: StarterApplicationCatalog.steam)?.path
+        installedManagedRuntimes = runtimeLocator.installedManagedRuntimes(
+            versionDatesBySourceRevision: runtimeVersionDatesBySourceRevision
+        )
 
         persistLibrary()
         persistRecentProgramLaunches()
@@ -325,24 +379,99 @@ final class AppStore: ObservableObject {
         let locator = RuntimeLocator()
         let resolvedWinePath = locator.preferredWineExecutablePath(
             for: winePath,
-            expectedSourceRevision: wineSourcePolicy.revision
+            expectedSourceRevision: expectedActiveRuntimeSourceRevision
         )
             ?? locator.resolveWineExecutablePath(for: winePath)
             ?? winePath
         return locator.runtimeBuild(
             for: resolvedWinePath,
-            versionSourceRevision: wineSourcePolicy.revision,
-            versionDate: wineSourcePolicy.revisionDate
+            versionSourceRevision: expectedActiveRuntimeSourceRevision,
+            versionDate: activeRuntimeVersionDate
         )
+    }
+
+    private var expectedActiveRuntimeSourceRevision: String {
+        defaults.string(forKey: activeRuntimeSourceRevisionDefaultsKey)
+            ?? wineSourcePolicy.revision
+    }
+
+    private var activeRuntimeVersionDate: Date? {
+        expectedActiveRuntimeSourceRevision == wineSourcePolicy.revision
+            ? wineSourcePolicy.revisionDate
+            : nil
+    }
+
+    private var runtimeVersionDatesBySourceRevision: [String: Date] {
+        guard !wineSourcePolicy.revision.isEmpty,
+              let revisionDate = wineSourcePolicy.revisionDate else {
+            return [:]
+        }
+        return [wineSourcePolicy.revision: revisionDate]
     }
 
     var canInstallCompatibleWineRuntime: Bool {
         wineSourcePolicy.publishedRuntimePolicy != nil
     }
 
+    var canInstallOfficialRuntimeReleases: Bool {
+        !wineSourcePolicy.developerTeamID.isEmpty
+    }
+
     func supportsOnlineRuntimeRelease(_ release: PublishedRuntimeRelease) -> Bool {
         guard let policy = wineSourcePolicy.publishedRuntimePolicy else { return false }
         return (try? PublishedRuntimeInstaller.validate(release: release, against: policy)) != nil
+    }
+
+    func installedRuntime(
+        for release: OfficialRuntimeRelease
+    ) -> ManagedRuntimeInstallation? {
+        installedManagedRuntimes.first {
+            $0.id == release.managedInstallationID
+                && $0.runtime.id == release.manifest.runtimeID
+                && $0.runtime.sourceRevision == release.manifest.sourceRevision
+        }
+    }
+
+    func officialRelease(
+        for installation: ManagedRuntimeInstallation
+    ) -> OfficialRuntimeRelease? {
+        officialRuntimeReleases.first {
+            installedRuntime(for: $0)?.id == installation.id
+        }
+    }
+
+    func isActiveRuntime(_ installation: ManagedRuntimeInstallation) -> Bool {
+        let activeWineURL = URL(fileURLWithPath: currentRuntime.winePath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let installedWineURL = URL(fileURLWithPath: installation.runtime.winePath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        if activeWineURL == installedWineURL {
+            return true
+        }
+
+        return managedRuntimeRootURL(forWinePath: activeWineURL.path)
+            == installation.rootURL
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+    }
+
+    func isRecommendedRuntime(_ release: OfficialRuntimeRelease) -> Bool {
+        guard release.manifest.sourceRevision == wineSourcePolicy.revision else {
+            return false
+        }
+        guard let policy = wineSourcePolicy.publishedRuntimePolicy else {
+            return true
+        }
+        return release.manifest.archiveSha256 == policy.archiveSha256
+            && release.manifest.notarizationID == policy.notarizationID
+    }
+
+    func canInstallOfficialRuntime(_ release: OfficialRuntimeRelease) -> Bool {
+        (try? release.installationPolicy(
+            trustedDeveloperTeamID: wineSourcePolicy.developerTeamID
+        )) != nil
     }
 
     private var libraryStore: LibraryManifestStore {
@@ -436,12 +565,18 @@ final class AppStore: ObservableObject {
 
     func installCompatibleWineRuntimeIfNeeded() {
         guard runtimeStatus.wine != .ok || runtimeStatus.patchset != .ok else { return }
-        guard !runtimeInstallationState.isWorking else { return }
+        guard !runtimeInstallationState.isWorking,
+              !runtimeManagementState.isWorking else {
+            return
+        }
         installCompatibleWineRuntime()
     }
 
     func installCompatibleWineRuntime() {
-        guard !runtimeInstallationState.isWorking else { return }
+        guard !runtimeInstallationState.isWorking,
+              !runtimeManagementState.isWorking else {
+            return
+        }
         guard canChangeActiveRuntime else {
             runtimeInstallationState = .failed("Wait for all container activity to stop before changing the active runtime.")
             return
@@ -455,8 +590,11 @@ final class AppStore: ObservableObject {
         Task {
             do {
                 let result = try await PublishedRuntimeInstaller().install(policy: policy)
-                winePath = result.winePath
-                persistPreferences()
+                activateRuntime(
+                    at: result.winePath,
+                    sourceRevision: result.sourceRevision
+                )
+                refreshInstalledManagedRuntimes()
                 let installedRuntime = RuntimeLocator().runtimeBuild(
                     for: result.winePath,
                     versionSourceRevision: wineSourcePolicy.revision,
@@ -481,6 +619,183 @@ final class AppStore: ObservableObject {
                 logLines.insert(LogLine(level: "warning", source: "runtime", message: message), at: 0)
             }
         }
+    }
+
+    func installOfficialRuntime(_ release: OfficialRuntimeRelease) {
+        guard !runtimeInstallationState.isWorking,
+              !runtimeManagementState.isWorking else {
+            return
+        }
+
+        let policy: PublishedRuntimePolicy
+        do {
+            policy = try release.installationPolicy(
+                trustedDeveloperTeamID: wineSourcePolicy.developerTeamID
+            )
+        } catch {
+            runtimeManagementState = .failed(
+                "Could not trust this official runtime: \(Self.errorDescription(error))"
+            )
+            return
+        }
+
+        runtimeManagementState = .installing(release.id)
+        Task {
+            do {
+                let result = try await PublishedRuntimeInstaller().install(
+                    policy: policy
+                )
+                refreshInstalledManagedRuntimes()
+                let message = "Installed \(release.release.tagName)."
+                runtimeManagementState = .ready(message)
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "runtime",
+                        message: "\(message) Runtime \(result.runtimeID), source \(result.sourceRevision.prefix(12))."
+                    ),
+                    at: 0
+                )
+            } catch {
+                let message = "Could not install \(release.release.tagName): \(Self.errorDescription(error))"
+                runtimeManagementState = .failed(message)
+                logLines.insert(
+                    LogLine(level: "warning", source: "runtime", message: message),
+                    at: 0
+                )
+            }
+        }
+    }
+
+    func activateOfficialRuntime(_ release: OfficialRuntimeRelease) {
+        guard !runtimeInstallationState.isWorking,
+              !runtimeManagementState.isWorking else {
+            return
+        }
+        guard canChangeActiveRuntime else {
+            runtimeManagementState = .failed(
+                "Wait for all container activity to stop before changing the active runtime."
+            )
+            return
+        }
+        guard canInstallOfficialRuntime(release) else {
+            runtimeManagementState = .failed(
+                "This app build does not trust the selected official runtime."
+            )
+            return
+        }
+        guard let installation = installedRuntime(for: release) else {
+            runtimeManagementState = .failed(
+                "Download the selected runtime before making it active."
+            )
+            return
+        }
+
+        activateRuntime(
+            at: installation.runtime.winePath,
+            sourceRevision: release.manifest.sourceRevision
+        )
+        runtimeManagementState = .ready(
+            "\(release.release.tagName) is now the active app-wide runtime."
+        )
+        logLines.insert(
+            LogLine(
+                level: "info",
+                source: "runtime",
+                message: "Selected \(release.release.tagName) as the active app-wide runtime."
+            ),
+            at: 0
+        )
+        refreshRuntimeStatus()
+    }
+
+    func removeManagedRuntime(_ installation: ManagedRuntimeInstallation) {
+        guard !runtimeInstallationState.isWorking,
+              !runtimeManagementState.isWorking else {
+            return
+        }
+        guard canChangeActiveRuntime else {
+            runtimeManagementState = .failed(
+                "Wait for all container activity to stop before removing a runtime."
+            )
+            return
+        }
+        guard !isActiveRuntime(installation) else {
+            runtimeManagementState = .failed(
+                "Select another active runtime before removing this one."
+            )
+            return
+        }
+
+        runtimeManagementState = .removing(installation.id)
+        Task {
+            do {
+                try await Task.detached(priority: .userInitiated) {
+                    try RuntimeLocator().removeManagedRuntime(installation)
+                }.value
+                refreshInstalledManagedRuntimes()
+                let name = officialRelease(for: installation)?.release.tagName
+                    ?? installation.runtime.id
+                let message = "Removed \(name). It can be downloaded again later."
+                runtimeManagementState = .ready(message)
+                logLines.insert(
+                    LogLine(level: "info", source: "runtime", message: message),
+                    at: 0
+                )
+            } catch {
+                let message = "Could not remove the runtime: \(Self.errorDescription(error))"
+                runtimeManagementState = .failed(message)
+                logLines.insert(
+                    LogLine(level: "warning", source: "runtime", message: message),
+                    at: 0
+                )
+            }
+        }
+    }
+
+    func useSelectedLocalDevelopmentRuntime() {
+        guard !runtimeInstallationState.isWorking,
+              !runtimeManagementState.isWorking else {
+            return
+        }
+        guard canChangeActiveRuntime else {
+            runtimeManagementState = .failed(
+                "Wait for all container activity to stop before changing the active runtime."
+            )
+            return
+        }
+        defaults.removeObject(forKey: activeRuntimeSourceRevisionDefaultsKey)
+        persistPreferences()
+        runtimeManagementState = .ready(
+            "Selected the local development runtime path."
+        )
+        refreshRuntimeStatus()
+    }
+
+    private func activateRuntime(at path: String, sourceRevision: String) {
+        winePath = path
+        defaults.set(sourceRevision, forKey: activeRuntimeSourceRevisionDefaultsKey)
+        persistPreferences()
+    }
+
+    private func refreshInstalledManagedRuntimes() {
+        installedManagedRuntimes = RuntimeLocator().installedManagedRuntimes(
+            versionDatesBySourceRevision: runtimeVersionDatesBySourceRevision
+        )
+    }
+
+    private func managedRuntimeRootURL(forWinePath path: String) -> URL? {
+        guard !path.isEmpty else { return nil }
+        let wineURL = URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let parent = wineURL.deletingLastPathComponent()
+        let rootURL = parent.lastPathComponent == "bin"
+            ? parent.deletingLastPathComponent()
+            : parent
+        return rootURL
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
     }
 
     func openGPTKDownloadPage() {
@@ -716,7 +1031,7 @@ final class AppStore: ObservableObject {
 
         let gptkPath = gptkPath
         let winePath = winePath
-        let expectedWineSourceRevision = wineSourcePolicy.revision
+        let expectedWineSourceRevision = expectedActiveRuntimeSourceRevision
         let fontCacheRoot = fontCacheRoot
         diagnosticsTask = Task { [gptkPath, winePath, expectedWineSourceRevision, fontCacheRoot] in
             let result = await Task.detached(priority: .userInitiated) {
@@ -761,6 +1076,50 @@ final class AppStore: ObservableObject {
     func refreshDiagnosticsAndUpdates() {
         refreshRuntimeStatus()
         refreshOnlineReleaseStatus(force: true)
+        refreshOfficialRuntimeReleases(force: true)
+    }
+
+    func refreshOfficialRuntimeReleases(force: Bool = false) {
+        guard !isRefreshingOfficialRuntimeReleases else { return }
+        if !force,
+           let lastOfficialRuntimeCatalogRefreshDate,
+           Date().timeIntervalSince(lastOfficialRuntimeCatalogRefreshDate)
+                < onlineReleaseCacheInterval {
+            return
+        }
+
+        officialRuntimeCatalogTask?.cancel()
+        let refreshID = UUID()
+        officialRuntimeCatalogRefreshID = refreshID
+        isRefreshingOfficialRuntimeReleases = true
+        officialRuntimeCatalogError = nil
+
+        let catalog = OnlineReleaseCatalog()
+        officialRuntimeCatalogTask = Task {
+            do {
+                let releases = try await catalog.officialRuntimeReleases()
+                guard !Task.isCancelled,
+                      officialRuntimeCatalogRefreshID == refreshID else {
+                    return
+                }
+                officialRuntimeReleases = releases
+                refreshInstalledManagedRuntimes()
+                lastOfficialRuntimeCatalogRefreshDate = Date()
+                isRefreshingOfficialRuntimeReleases = false
+                officialRuntimeCatalogRefreshID = nil
+                officialRuntimeCatalogTask = nil
+            } catch {
+                guard !Task.isCancelled,
+                      officialRuntimeCatalogRefreshID == refreshID else {
+                    return
+                }
+                officialRuntimeCatalogError = Self.errorDescription(error)
+                lastOfficialRuntimeCatalogRefreshDate = Date()
+                isRefreshingOfficialRuntimeReleases = false
+                officialRuntimeCatalogRefreshID = nil
+                officialRuntimeCatalogTask = nil
+            }
+        }
     }
 
     func refreshOnlineReleaseStatus(force: Bool = false) {

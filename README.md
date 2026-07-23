@@ -40,7 +40,7 @@ The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher
 | Component | Source and license | Distribution boundary |
 | --- | --- | --- |
 | Switchyard app and runner | This repository, [MIT](LICENSE) | Developer ID signed and notarized releases, or built locally from Swift source |
-| Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Signed release verified against the exact commit in [`config/switchyard-wine.env`](config/switchyard-wine.env), or built locally |
+| Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Recommended signed release pinned by [`config/switchyard-wine.env`](config/switchyard-wine.env), other trusted stable releases from the official runtime channel, or built locally |
 | Apple Game Porting Toolkit components | Separately licensed Apple software | User-provided in the current release; never committed or bundled with Switchyard or Wine |
 | Open Font Pack | Official Noto projects, SIL OFL 1.1 | Downloaded to a user-local cache and verified before installation |
 
@@ -57,12 +57,12 @@ The GPTK 3 review conditionally permits implementing a future separate, non-comm
 
 ## Install the Preview
 
-1. Download the current app archive from [GitHub Releases](https://github.com/jungwuk-ryu/Switchyard/releases/latest), open Switchyard, and choose **Install or Update Runtime**.
+1. Download the current app archive from [GitHub Releases](https://github.com/jungwuk-ryu/Switchyard/releases/latest) and open Switchyard. Guided setup downloads and activates the recommended official Wine runtime.
 2. Choose **Download from Apple** for Game Porting Toolkit. Apple handles account sign-in and license acceptance.
 3. Return to Switchyard after the DMG finishes downloading and choose **Import Downloaded GPTK**. The app locates it in Downloads, verifies that its executable code is Apple-signed, and imports it into the local cache.
 4. Re-run diagnostics and create a container.
 
-The signed app pins the exact runtime archive size and SHA-256, rather than trusting a mutable release manifest. Before installation it also verifies the Git source revision, safe archive paths, full extracted file-tree digest, supported architectures, and Developer ID signatures. GPTK is never included in either release.
+The signed app pins the recommended runtime's exact archive size and SHA-256 for automatic setup. Under **Settings → Wine Runtime**, users can also download, activate, and remove stable releases from the official `switchyard-wine` GitHub channel. The manager restricts manifests and archives to that channel and the app's trusted Developer ID team; installation verifies each release's exact size and digest, Git source revision, safe archive paths, full extracted file-tree digest, supported architectures, and Developer ID signatures. The selected runtime is app-wide, never per-container. GPTK is never included in either release.
 
 ## Build and Verify
 

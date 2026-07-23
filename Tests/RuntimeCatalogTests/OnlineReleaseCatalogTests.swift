@@ -153,6 +153,171 @@ import Testing
     }
 }
 
+@Test func onlineReleaseCatalogLoadsStableOfficialRuntimeReleases() async throws {
+    let releasesURL = try #require(URL(
+        string: "https://api.github.com/repos/jungwuk-ryu/switchyard-wine/releases?per_page=20"
+    ))
+    let stableManifestURL = try #require(URL(
+        string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/download/runtime-stable/switchyard-runtime-release.json"
+    ))
+    let prereleaseManifestURL = try #require(URL(
+        string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/download/runtime-preview/switchyard-runtime-release.json"
+    ))
+    let invalidManifestURL = try #require(URL(
+        string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/download/runtime-invalid/switchyard-runtime-release.json"
+    ))
+    let sourceRevision = String(repeating: "c", count: 40)
+    let manifest = PublishedRuntimeRelease(
+        schemaVersion: 1,
+        runtimeID: "switchyard-runtime-stable",
+        sourceRevision: sourceRevision,
+        archive: "Switchyard-Wine-Runtime-stable-macos-x86_64.zip",
+        archiveSha256: String(repeating: "d", count: 64),
+        archiveSize: 2_048,
+        platform: "macos",
+        hostArchitecture: "x86_64",
+        peArchitectures: ["i386", "x86_64"],
+        developerTeamID: "M3CULMDKU3",
+        notarizationStatus: "Accepted",
+        notarizationID: UUID().uuidString
+    )
+    let responses = [
+        releasesURL: Data(
+            """
+            [
+              {
+                "tag_name": "runtime-invalid",
+                "html_url": "https://github.com/jungwuk-ryu/switchyard-wine/releases/tag/runtime-invalid",
+                "published_at": "2026-07-22T09:00:00Z",
+                "draft": false,
+                "prerelease": false,
+                "assets": [
+                  {
+                    "name": "switchyard-runtime-release.json",
+                    "browser_download_url": "\(invalidManifestURL.absoluteString)"
+                  }
+                ]
+              },
+              {
+                "tag_name": "runtime-stable",
+                "html_url": "https://github.com/jungwuk-ryu/switchyard-wine/releases/tag/runtime-stable",
+                "published_at": "2026-07-22T08:00:00Z",
+                "draft": false,
+                "prerelease": false,
+                "assets": [
+                  {
+                    "name": "switchyard-runtime-release.json",
+                    "browser_download_url": "\(stableManifestURL.absoluteString)"
+                  }
+                ]
+              },
+              {
+                "tag_name": "runtime-preview",
+                "html_url": "https://github.com/jungwuk-ryu/switchyard-wine/releases/tag/runtime-preview",
+                "published_at": "2026-07-23T08:00:00Z",
+                "draft": false,
+                "prerelease": true,
+                "assets": [
+                  {
+                    "name": "switchyard-runtime-release.json",
+                    "browser_download_url": "\(prereleaseManifestURL.absoluteString)"
+                  }
+                ]
+              },
+              {
+                "tag_name": "runtime-draft",
+                "html_url": "https://github.com/jungwuk-ryu/switchyard-wine/releases/tag/runtime-draft",
+                "published_at": null,
+                "draft": true,
+                "prerelease": false,
+                "assets": []
+              },
+              {
+                "tag_name": "source-only",
+                "html_url": "https://github.com/jungwuk-ryu/switchyard-wine/releases/tag/source-only",
+                "published_at": "2026-07-21T08:00:00Z",
+                "draft": false,
+                "prerelease": false,
+                "assets": []
+              }
+            ]
+            """.utf8
+        ),
+        stableManifestURL: try JSONEncoder().encode(manifest),
+        invalidManifestURL: Data("not-json".utf8)
+    ]
+
+    let catalog = OnlineReleaseCatalog { request in
+        guard let url = request.url, let data = responses[url] else {
+            throw OnlineReleaseStubError.unexpectedRequest
+        }
+        guard request.value(forHTTPHeaderField: "User-Agent") == "Switchyard" else {
+            throw OnlineReleaseStubError.missingGitHubHeaders
+        }
+        let response = try #require(HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: nil
+        ))
+        return (data, response)
+    }
+
+    let releases = try await catalog.officialRuntimeReleases()
+
+    #expect(releases.count == 1)
+    #expect(releases.first?.release.tagName == "runtime-stable")
+    #expect(releases.first?.manifest.sourceRevision == sourceRevision)
+    #expect(releases.first?.manifestURL == stableManifestURL)
+}
+
+@Test func officialRuntimeReleaseRequiresTheConfiguredDeveloperTeam() throws {
+    let manifestURL = try #require(URL(
+        string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/download/runtime-stable/switchyard-runtime-release.json"
+    ))
+    let manifest = PublishedRuntimeRelease(
+        schemaVersion: 1,
+        runtimeID: "switchyard-runtime-stable",
+        sourceRevision: String(repeating: "a", count: 40),
+        archive: "Switchyard-Wine-Runtime-stable-macos-x86_64.zip",
+        archiveSha256: String(repeating: "b", count: 64),
+        archiveSize: 4_096,
+        platform: "macos",
+        hostArchitecture: "x86_64",
+        peArchitectures: ["i386", "x86_64"],
+        developerTeamID: "M3CULMDKU3",
+        notarizationStatus: "Accepted",
+        notarizationID: UUID().uuidString
+    )
+    let release = OfficialRuntimeRelease(
+        release: PublishedGitHubRelease(
+            tagName: "runtime-stable",
+            webURL: try #require(URL(
+                string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/tag/runtime-stable"
+            )),
+            publishedAt: Date()
+        ),
+        manifestURL: manifestURL,
+        manifest: manifest
+    )
+
+    let policy = try release.installationPolicy(
+        trustedDeveloperTeamID: "M3CULMDKU3"
+    )
+
+    #expect(policy.sourceRevision == manifest.sourceRevision)
+    #expect(policy.archiveSha256 == manifest.archiveSha256)
+    #expect(
+        release.managedInstallationID
+            == "switchyard-runtime-stable-release-\(manifest.archiveSha256.prefix(16))"
+    )
+    #expect(throws: OfficialRuntimeReleaseError.untrustedDeveloperTeam) {
+        _ = try release.installationPolicy(
+            trustedDeveloperTeamID: "ABCDEFGHIJ"
+        )
+    }
+}
+
 private enum OnlineReleaseStubError: Error {
     case unexpectedRequest
     case missingGitHubHeaders

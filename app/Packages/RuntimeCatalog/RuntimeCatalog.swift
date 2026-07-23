@@ -16,11 +16,53 @@ private struct SwitchyardRuntimeManifest: Decodable {
 }
 
 private struct SwitchyardRuntimeCandidate {
+    var rootURL: URL
     var winePath: String
     var modifiedAt: Date
     var isCompleteWoW64: Bool
+    var runtimeID: String
+    var patchsetID: String
     var sourceRevision: String?
     var sourceDirty: Bool
+}
+
+public struct ManagedRuntimeInstallation: Identifiable, Sendable, Equatable {
+    public var id: String
+    public var rootURL: URL
+    public var runtime: RuntimeBuild
+    public var installedAt: Date
+    public var isCompleteWoW64: Bool
+    public var isCleanSource: Bool
+
+    public init(
+        id: String,
+        rootURL: URL,
+        runtime: RuntimeBuild,
+        installedAt: Date,
+        isCompleteWoW64: Bool,
+        isCleanSource: Bool
+    ) {
+        self.id = id
+        self.rootURL = rootURL
+        self.runtime = runtime
+        self.installedAt = installedAt
+        self.isCompleteWoW64 = isCompleteWoW64
+        self.isCleanSource = isCleanSource
+    }
+}
+
+public enum ManagedRuntimeCatalogError: LocalizedError, Equatable, Sendable {
+    case runtimeIsNotManaged
+    case runtimeMissing
+
+    public var errorDescription: String? {
+        switch self {
+        case .runtimeIsNotManaged:
+            "Switchyard can remove only a runtime stored directly in its managed cache."
+        case .runtimeMissing:
+            "The selected managed runtime no longer exists."
+        }
+    }
 }
 
 public struct RuntimeLocator {
@@ -292,6 +334,76 @@ public struct RuntimeLocator {
         )
     }
 
+    public func installedManagedRuntimes(
+        versionDatesBySourceRevision: [String: Date] = [:]
+    ) -> [ManagedRuntimeInstallation] {
+        cachedSwitchyardRuntimeCandidates()
+            .sorted { $0.modifiedAt > $1.modifiedAt }
+            .map { candidate in
+                let sourceRevision = candidate.sourceRevision ?? ""
+                return ManagedRuntimeInstallation(
+                    id: candidate.rootURL.lastPathComponent,
+                    rootURL: candidate.rootURL,
+                    runtime: RuntimeBuild(
+                        id: candidate.runtimeID,
+                        winePath: candidate.winePath,
+                        patchsetID: candidate.patchsetID,
+                        sourceRevision: sourceRevision,
+                        createdAt: candidate.modifiedAt,
+                        versionDate: versionDatesBySourceRevision[sourceRevision]
+                    ),
+                    installedAt: candidate.modifiedAt,
+                    isCompleteWoW64: candidate.isCompleteWoW64,
+                    isCleanSource: !candidate.sourceDirty
+                )
+            }
+    }
+
+    public func removeManagedRuntime(
+        _ installation: ManagedRuntimeInstallation
+    ) throws {
+        let listedCacheRoot = switchyardRuntimeCacheRoot()
+            .standardizedFileURL
+        let listedRuntimeRoot = installation.rootURL
+            .standardizedFileURL
+        guard listedRuntimeRoot != listedCacheRoot,
+              listedRuntimeRoot.deletingLastPathComponent() == listedCacheRoot,
+              !listedRuntimeRoot.lastPathComponent.hasPrefix(".") else {
+            throw ManagedRuntimeCatalogError.runtimeIsNotManaged
+        }
+
+        let resourceValues = try? listedRuntimeRoot.resourceValues(
+            forKeys: [.isSymbolicLinkKey]
+        )
+        guard resourceValues?.isSymbolicLink != true else {
+            throw ManagedRuntimeCatalogError.runtimeIsNotManaged
+        }
+
+        let cacheRoot = listedCacheRoot
+            .resolvingSymlinksInPath()
+        let runtimeRoot = listedRuntimeRoot
+            .resolvingSymlinksInPath()
+
+        guard runtimeRoot != cacheRoot,
+              runtimeRoot.deletingLastPathComponent() == cacheRoot,
+              runtimeRoot.lastPathComponent == listedRuntimeRoot.lastPathComponent else {
+            throw ManagedRuntimeCatalogError.runtimeIsNotManaged
+        }
+
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(
+            atPath: listedRuntimeRoot.path,
+            isDirectory: &isDirectory
+        ), isDirectory.boolValue else {
+            throw ManagedRuntimeCatalogError.runtimeMissing
+        }
+        guard loadSwitchyardRuntimeManifest(under: listedRuntimeRoot) != nil else {
+            throw ManagedRuntimeCatalogError.runtimeIsNotManaged
+        }
+
+        try fileManager.removeItem(at: listedRuntimeRoot)
+    }
+
     public func importGPTKDiskImage(at path: String, to importRoot: String) throws -> String {
         let url = URL(fileURLWithPath: path)
         guard url.pathExtension.lowercased() == "dmg" else {
@@ -500,43 +612,7 @@ public struct RuntimeLocator {
     }
 
     private func latestCachedSwitchyardWineExecutablePath(matchingSourceRevision expectedSourceRevision: String? = nil) -> String? {
-        let cacheRoot = switchyardRuntimeCacheRoot()
-        guard let runtimeURLs = try? fileManager.contentsOfDirectory(
-            at: cacheRoot,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return nil
-        }
-
-        let candidates = runtimeURLs.compactMap { runtimeURL -> SwitchyardRuntimeCandidate? in
-            var isDirectory: ObjCBool = false
-            guard fileManager.fileExists(atPath: runtimeURL.path, isDirectory: &isDirectory),
-                  isDirectory.boolValue,
-                  let manifest = loadSwitchyardRuntimeManifest(under: runtimeURL) else {
-                return nil
-            }
-
-            let manifestURL = runtimeURL.appendingPathComponent("switchyard-runtime.json")
-            let modifiedAt = (try? manifestURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            let executable = manifest.executable.flatMap { resolveWineExecutable(at: $0) }
-                ?? resolveWineExecutable(at: runtimeURL.path)
-
-            guard let executable else {
-                return nil
-            }
-
-            let isCompleteWoW64 = hasPEArchitecture("i386", under: runtimeURL, manifest: manifest)
-                && hasPEArchitecture("x86_64", under: runtimeURL, manifest: manifest)
-            return SwitchyardRuntimeCandidate(
-                winePath: executable,
-                modifiedAt: modifiedAt,
-                isCompleteWoW64: isCompleteWoW64,
-                sourceRevision: manifest.sourceRevision ?? manifest.wineRevision,
-                sourceDirty: manifest.sourceDirty == true
-            )
-        }
-
+        let candidates = cachedSwitchyardRuntimeCandidates()
         let matchingCandidates: [SwitchyardRuntimeCandidate]
         if let expectedSourceRevision {
             matchingCandidates = candidates.filter {
@@ -553,6 +629,66 @@ public struct RuntimeLocator {
             return $0.modifiedAt > $1.modifiedAt
         }
         return sortedCandidates.first?.winePath
+    }
+
+    private func cachedSwitchyardRuntimeCandidates() -> [SwitchyardRuntimeCandidate] {
+        let cacheRoot = switchyardRuntimeCacheRoot()
+        guard let runtimeURLs = try? fileManager.contentsOfDirectory(
+            at: cacheRoot,
+            includingPropertiesForKeys: [
+                .contentModificationDateKey,
+                .isSymbolicLinkKey
+            ],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return runtimeURLs.compactMap { listedRuntimeURL -> SwitchyardRuntimeCandidate? in
+            let resourceValues = try? listedRuntimeURL.resourceValues(
+                forKeys: [.isSymbolicLinkKey]
+            )
+            guard resourceValues?.isSymbolicLink != true else {
+                return nil
+            }
+            let runtimeURL = cacheRoot.appendingPathComponent(
+                listedRuntimeURL.lastPathComponent,
+                isDirectory: true
+            )
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: runtimeURL.path, isDirectory: &isDirectory),
+                  isDirectory.boolValue,
+                  let manifest = loadSwitchyardRuntimeManifest(under: runtimeURL) else {
+                return nil
+            }
+
+            let manifestURL = runtimeURL.appendingPathComponent("switchyard-runtime.json")
+            let modifiedAt = (try? manifestURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let executable = resolveWineExecutable(at: runtimeURL.path)
+                ?? manifest.executable.flatMap { resolveWineExecutable(at: $0) }
+
+            guard let executable else {
+                return nil
+            }
+
+            let isCompleteWoW64 = hasPEArchitecture("i386", under: runtimeURL, manifest: manifest)
+                && hasPEArchitecture("x86_64", under: runtimeURL, manifest: manifest)
+            let sourceRevision = manifest.sourceRevision ?? manifest.wineRevision
+            let runtimeID = manifest.id ?? runtimeURL.lastPathComponent
+            let patchsetID = manifest.patchsetID
+                ?? (sourceRevision.map { "switchyard-wine-\($0.prefix(12))" }
+                    ?? "switchyard-wine-unverified")
+            return SwitchyardRuntimeCandidate(
+                rootURL: runtimeURL,
+                winePath: executable,
+                modifiedAt: modifiedAt,
+                isCompleteWoW64: isCompleteWoW64,
+                runtimeID: runtimeID,
+                patchsetID: patchsetID,
+                sourceRevision: sourceRevision,
+                sourceDirty: manifest.sourceDirty == true
+            )
+        }
     }
 
     private func switchyardRuntimeCacheRoot() -> URL {

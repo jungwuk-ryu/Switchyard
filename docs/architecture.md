@@ -51,7 +51,7 @@ Some launchers do not register their callback scheme at all. For that case, the 
 
 Wine source, compatibility commits, provenance, and runtime build tooling live in [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine). `config/switchyard-wine.env` pins an exact source commit. `script/ensure_wine_runtime.sh` synchronizes that commit into a user cache, verifies its source metadata, and hands off to the source-owned builder.
 
-The app presents the pinned source revision's immutable Git timestamp as a UTC calendar build number in `YYYYMMDD.HHmm` form so users can compare compatible runtime versions at a glance. `config/switchyard-wine.env` records that timestamp beside the revision, and source synchronization verifies the pair before building. Local source overrides omit the pinned timestamp rather than inheriting stale version metadata. This display value does not replace provenance: runtime IDs, immutable source revisions, and content fingerprints remain the authoritative compatibility and execution identities.
+The app presents the recommended pinned source revision's immutable Git timestamp as a UTC calendar build number in `YYYYMMDD.HHmm` form. `config/switchyard-wine.env` records that timestamp beside the revision, and source synchronization verifies the pair before building. Runtime settings list stable official `switchyard-wine` GitHub releases, install them into the immutable user-local runtime cache, and persist one active selection. Local source overrides omit the pinned timestamp rather than inheriting stale version metadata. Display values do not replace provenance: runtime IDs, immutable source revisions, release archive digests, and content fingerprints remain the authoritative compatibility and execution identities.
 
 GPTK remains separately licensed Apple software. The app stores an imported user-local copy and compatibility fingerprint, whether the source was a user-selected Apple download or a separately hosted component artifact admitted by the version-specific legal release gate. GPTK is never part of this repository, the app bundle, a Wine runtime, or a combined Switchyard release artifact.
 
@@ -59,7 +59,7 @@ GPTK remains separately licensed Apple software. The app stores an imported user
 
 Each container has a portable JSON manifest. The manifest is the source of truth and records the last-used Wine build, source identity, GPTK fingerprint, executable, environment overrides, schema version, and last-run status. Runtime provenance is diagnostic history, not a container-level selection or pin. Any future database must be a rebuildable index rather than the sole copy of container state.
 
-Switchyard has one active runtime selected by the app's signed compatibility policy. Every container operation runs through that app-wide runtime. When the active runtime changes, an idle container is prepared automatically with `wineboot -u` on its next launch; users never choose or migrate runtime versions per container. See ADR 0003.
+Switchyard has one active runtime selected in app settings; automatic setup selects the app's exactly pinned recommended release. Every container operation runs through that app-wide runtime. When the active runtime changes, an idle container is prepared automatically with `wineboot -u` on its next launch; users never choose or migrate runtime versions per container. See ADR 0003.
 
 ## Decisions
 

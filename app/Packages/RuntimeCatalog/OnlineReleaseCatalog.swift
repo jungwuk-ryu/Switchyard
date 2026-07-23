@@ -28,6 +28,63 @@ public struct SwitchyardReleaseSnapshot: Sendable, Equatable {
     }
 }
 
+public struct OfficialRuntimeRelease: Identifiable, Sendable, Equatable {
+    public var release: PublishedGitHubRelease
+    public var manifestURL: URL
+    public var manifest: PublishedRuntimeRelease
+
+    public var id: String {
+        "\(manifest.runtimeID)-\(manifest.archiveSha256)"
+    }
+
+    public var managedInstallationID: String {
+        PublishedRuntimeInstaller.managedInstallationID(
+            runtimeID: manifest.runtimeID,
+            archiveSha256: manifest.archiveSha256
+        )
+    }
+
+    public init(
+        release: PublishedGitHubRelease,
+        manifestURL: URL,
+        manifest: PublishedRuntimeRelease
+    ) {
+        self.release = release
+        self.manifestURL = manifestURL
+        self.manifest = manifest
+    }
+
+    public func installationPolicy(
+        trustedDeveloperTeamID: String
+    ) throws -> PublishedRuntimePolicy {
+        guard !trustedDeveloperTeamID.isEmpty,
+              manifest.developerTeamID == trustedDeveloperTeamID else {
+            throw OfficialRuntimeReleaseError.untrustedDeveloperTeam
+        }
+        let policy = PublishedRuntimePolicy(
+            sourceRevision: manifest.sourceRevision,
+            releaseManifestURL: manifestURL,
+            developerTeamID: trustedDeveloperTeamID,
+            archiveSha256: manifest.archiveSha256,
+            archiveSize: manifest.archiveSize,
+            notarizationID: manifest.notarizationID
+        )
+        try PublishedRuntimeInstaller.validate(release: manifest, against: policy)
+        return policy
+    }
+}
+
+public enum OfficialRuntimeReleaseError: LocalizedError, Equatable, Sendable {
+    case untrustedDeveloperTeam
+
+    public var errorDescription: String? {
+        switch self {
+        case .untrustedDeveloperTeam:
+            "This app build does not trust the Developer ID team that signed the runtime."
+        }
+    }
+}
+
 /// Numeric release versions used by Switchyard's `vMAJOR.MINOR.PATCH` tags.
 /// Pre-release and build suffixes do not affect the comparison because GitHub's
 /// latest-release endpoint already excludes pre-releases.
@@ -83,8 +140,11 @@ public struct OnlineReleaseCatalog: Sendable {
     private static let runtimeReleaseURL = URL(
         string: "https://api.github.com/repos/jungwuk-ryu/switchyard-wine/releases/latest"
     )!
+    private static let runtimeReleasesURL = URL(
+        string: "https://api.github.com/repos/jungwuk-ryu/switchyard-wine/releases?per_page=20"
+    )!
     private static let runtimeManifestAssetName = "switchyard-runtime-release.json"
-    private static let maximumReleaseResponseSize = 1 * 1024 * 1024
+    private static let maximumReleaseResponseSize = 2 * 1024 * 1024
     private static let maximumManifestSize = 64 * 1024
 
     private let dataLoader: DataLoader
@@ -114,23 +174,72 @@ public struct OnlineReleaseCatalog: Sendable {
             throw OnlineReleaseCatalogError.untrustedReleaseURL
         }
 
+        guard let appSummary = app.summary,
+              let runtimeSummary = runtime.summary else {
+            throw OnlineReleaseCatalogError.invalidReleaseResponse(
+                "A published release is missing its publication date."
+            )
+        }
         guard let manifestURL = runtime.assets.first(where: {
             $0.name == Self.runtimeManifestAssetName
         })?.downloadURL else {
             throw OnlineReleaseCatalogError.runtimeManifestMissing
         }
-        guard manifestURL.scheme == "https",
-              manifestURL.host?.lowercased() == "github.com",
-              manifestURL.path.hasPrefix("/jungwuk-ryu/switchyard-wine/releases/download/") else {
+        guard Self.isTrustedRuntimeManifestURL(manifestURL) else {
             throw OnlineReleaseCatalogError.untrustedRuntimeManifestURL
         }
 
         let manifest = try await runtimeManifest(at: manifestURL)
         return SwitchyardReleaseSnapshot(
-            appRelease: app.summary,
-            runtimeRelease: runtime.summary,
+            appRelease: appSummary,
+            runtimeRelease: runtimeSummary,
             runtimeManifest: manifest
         )
+    }
+
+    public func officialRuntimeReleases() async throws -> [OfficialRuntimeRelease] {
+        let releases = try await releaseList(at: Self.runtimeReleasesURL)
+        let candidates = try releases.compactMap {
+            try officialRuntimeCandidate(from: $0)
+        }
+
+        let loaded = await withTaskGroup(
+            of: (Int, OfficialRuntimeRelease?).self
+        ) { group in
+            for (index, candidate) in candidates.enumerated() {
+                group.addTask {
+                    do {
+                        let manifest = try await runtimeManifest(
+                            at: candidate.manifestURL
+                        )
+                        return (
+                            index,
+                            OfficialRuntimeRelease(
+                                release: candidate.release,
+                                manifestURL: candidate.manifestURL,
+                                manifest: manifest
+                            )
+                        )
+                    } catch {
+                        return (index, nil)
+                    }
+                }
+            }
+
+            var loaded: [(Int, OfficialRuntimeRelease?)] = []
+            for await release in group {
+                loaded.append(release)
+            }
+            return loaded
+                .sorted { $0.0 < $1.0 }
+                .compactMap(\.1)
+        }
+        guard !loaded.isEmpty || candidates.isEmpty else {
+            throw OnlineReleaseCatalogError.invalidRuntimeManifest(
+                "No published runtime manifest could be loaded."
+            )
+        }
+        return loaded
     }
 
     private func latestRelease(at url: URL) async throws -> GitHubReleaseResponse {
@@ -148,6 +257,60 @@ public struct OnlineReleaseCatalog: Sendable {
         } catch {
             throw OnlineReleaseCatalogError.invalidReleaseResponse(error.localizedDescription)
         }
+    }
+
+    private func releaseList(at url: URL) async throws -> [GitHubReleaseResponse] {
+        let request = githubRequest(for: url)
+        let data = try await responseData(
+            for: request,
+            maximumSize: Self.maximumReleaseResponseSize
+        )
+        do {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode([GitHubReleaseResponse].self, from: data)
+        } catch {
+            throw OnlineReleaseCatalogError.invalidReleaseResponse(
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func officialRuntimeCandidate(
+        from response: GitHubReleaseResponse
+    ) throws -> (release: PublishedGitHubRelease, manifestURL: URL)? {
+        guard response.draft != true, response.prerelease != true else {
+            return nil
+        }
+        guard Self.isTrustedReleaseURL(
+            response.webURL,
+            pathPrefix: "/jungwuk-ryu/switchyard-wine/releases/"
+        ) else {
+            throw OnlineReleaseCatalogError.untrustedReleaseURL
+        }
+        guard let summary = response.summary else {
+            throw OnlineReleaseCatalogError.invalidReleaseResponse(
+                "A published runtime release is missing its publication date."
+            )
+        }
+        guard let manifestURL = response.assets.first(where: {
+            $0.name == Self.runtimeManifestAssetName
+        })?.downloadURL else {
+            return nil
+        }
+        guard Self.isTrustedRuntimeManifestURL(manifestURL) else {
+            throw OnlineReleaseCatalogError.untrustedRuntimeManifestURL
+        }
+        return (summary, manifestURL)
+    }
+
+    private func githubRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+        request.setValue("Switchyard", forHTTPHeaderField: "User-Agent")
+        return request
     }
 
     private func runtimeManifest(at url: URL) async throws -> PublishedRuntimeRelease {
@@ -189,6 +352,15 @@ public struct OnlineReleaseCatalog: Sendable {
             && url.path.hasPrefix(pathPrefix)
     }
 
+    private static func isTrustedRuntimeManifestURL(_ url: URL) -> Bool {
+        url.scheme == "https"
+            && url.host?.lowercased() == "github.com"
+            && url.path.hasPrefix(
+                "/jungwuk-ryu/switchyard-wine/releases/download/"
+            )
+            && url.lastPathComponent == runtimeManifestAssetName
+    }
+
     private static func isPlausibleRuntimeManifest(_ release: PublishedRuntimeRelease) -> Bool {
         release.schemaVersion == 1
             && release.sourceRevision.count == 40
@@ -207,11 +379,15 @@ public struct OnlineReleaseCatalog: Sendable {
 private struct GitHubReleaseResponse: Decodable, Sendable {
     var tagName: String
     var webURL: URL
-    var publishedAt: Date
+    var publishedAt: Date?
     var assets: [GitHubReleaseAsset]
+    var draft: Bool?
+    var prerelease: Bool?
 
-    var summary: PublishedGitHubRelease {
-        PublishedGitHubRelease(tagName: tagName, webURL: webURL, publishedAt: publishedAt)
+    var summary: PublishedGitHubRelease? {
+        publishedAt.map {
+            PublishedGitHubRelease(tagName: tagName, webURL: webURL, publishedAt: $0)
+        }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -219,6 +395,8 @@ private struct GitHubReleaseResponse: Decodable, Sendable {
         case webURL = "html_url"
         case publishedAt = "published_at"
         case assets
+        case draft
+        case prerelease
     }
 }
 
@@ -255,11 +433,11 @@ public enum OnlineReleaseCatalogError: LocalizedError, Equatable, Sendable {
         case .untrustedReleaseURL:
             return "GitHub returned an untrusted release link."
         case .runtimeManifestMissing:
-            return "The latest Wine release does not include its runtime manifest."
+            return "A Wine release does not include its runtime manifest."
         case .untrustedRuntimeManifestURL:
-            return "The latest Wine release points to an untrusted runtime manifest."
+            return "A Wine release points to an untrusted runtime manifest."
         case .invalidRuntimeManifest(let message):
-            return "The latest Wine runtime manifest could not be verified: \(message)"
+            return "A Wine runtime manifest could not be verified: \(message)"
         }
     }
 }

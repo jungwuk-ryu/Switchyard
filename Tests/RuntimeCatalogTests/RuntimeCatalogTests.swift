@@ -440,6 +440,112 @@ import Foundation
     #expect(status.missingFonts.count == OpenFontPackCatalog.files.count)
 }
 
+@Test func managedRuntimeCatalogListsAndRemovesOnlyCacheRuntimes() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let olderRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-older",
+        isDirectory: true
+    )
+    let newerRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-newer",
+        isDirectory: true
+    )
+    let outsideRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: cacheRoot)
+        try? FileManager.default.removeItem(at: outsideRoot)
+    }
+
+    try createSwitchyardWineRuntime(
+        at: olderRoot,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: String(repeating: "a", count: 40)
+    )
+    try createSwitchyardWineRuntime(
+        at: newerRoot,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: String(repeating: "b", count: 40)
+    )
+    try setManifestModificationDate(
+        at: olderRoot,
+        to: Date(timeIntervalSince1970: 100)
+    )
+    try setManifestModificationDate(
+        at: newerRoot,
+        to: Date(timeIntervalSince1970: 200)
+    )
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+    let installations = locator.installedManagedRuntimes()
+
+    #expect(installations.map(\.rootURL.lastPathComponent) == [
+        "switchyard-runtime-newer",
+        "switchyard-runtime-older"
+    ])
+    #expect(installations.first?.runtime.sourceRevision == String(repeating: "b", count: 40))
+    #expect(installations.allSatisfy { $0.isCompleteWoW64 })
+
+    let outsideInstallation = ManagedRuntimeInstallation(
+        id: "outside",
+        rootURL: outsideRoot,
+        runtime: try #require(installations.first).runtime,
+        installedAt: Date(),
+        isCompleteWoW64: true,
+        isCleanSource: true
+    )
+    #expect(throws: ManagedRuntimeCatalogError.runtimeIsNotManaged) {
+        try locator.removeManagedRuntime(outsideInstallation)
+    }
+
+    try createSwitchyardWineRuntime(
+        at: outsideRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    let escapingLink = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-link",
+        isDirectory: true
+    )
+    try FileManager.default.createSymbolicLink(
+        at: escapingLink,
+        withDestinationURL: outsideRoot
+    )
+    var linkedInstallation = outsideInstallation
+    linkedInstallation.id = escapingLink.lastPathComponent
+    linkedInstallation.rootURL = escapingLink
+    #expect(throws: ManagedRuntimeCatalogError.runtimeIsNotManaged) {
+        try locator.removeManagedRuntime(linkedInstallation)
+    }
+    #expect(FileManager.default.fileExists(atPath: outsideRoot.path))
+
+    let internalAlias = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-alias",
+        isDirectory: true
+    )
+    try FileManager.default.createSymbolicLink(
+        at: internalAlias,
+        withDestinationURL: newerRoot
+    )
+    #expect(
+        !locator.installedManagedRuntimes()
+            .map(\.rootURL.lastPathComponent)
+            .contains("switchyard-runtime-alias")
+    )
+    linkedInstallation.id = internalAlias.lastPathComponent
+    linkedInstallation.rootURL = internalAlias
+    #expect(throws: ManagedRuntimeCatalogError.runtimeIsNotManaged) {
+        try locator.removeManagedRuntime(linkedInstallation)
+    }
+    #expect(FileManager.default.fileExists(atPath: newerRoot.path))
+
+    let removable = try #require(installations.last)
+    try locator.removeManagedRuntime(removable)
+
+    #expect(!FileManager.default.fileExists(atPath: olderRoot.path))
+    #expect(FileManager.default.fileExists(atPath: newerRoot.path))
+}
+
 @discardableResult
 private func createSwitchyardWineRuntime(
     at root: URL,

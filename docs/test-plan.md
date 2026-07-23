@@ -6,6 +6,8 @@
 - Runtime detection with marker files.
 - Missing or mismatched Switchyard Wine source identity prevents launch readiness.
 - Managed runtime selection prefers the clean runtime built from the pinned source revision.
+- Official runtime release discovery filters stable `switchyard-wine` releases and rejects untrusted manifests.
+- Managed runtime deletion removes only direct, non-symlink cache entries with Switchyard runtime manifests.
 - Container runtime provenance never overrides the active app-wide runtime.
 - Legacy runtime identity fields migrate into last-used provenance.
 - New, unknown, and previously used prefixes request the correct active-runtime preparation.

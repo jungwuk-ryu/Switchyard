@@ -105,12 +105,24 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
         self.session = session
     }
 
+    static func managedInstallationID(
+        runtimeID: String,
+        archiveSha256: String
+    ) -> String {
+        "\(runtimeID)-release-\(archiveSha256.prefix(16))"
+    }
+
     public static func validate(release: PublishedRuntimeRelease, against policy: PublishedRuntimePolicy) throws {
         guard release.schemaVersion == 1 else {
             throw PublishedRuntimeInstallerError.unsupportedManifestVersion(release.schemaVersion)
         }
         guard policy.releaseManifestURL.scheme == "https",
-              policy.releaseManifestURL.host?.lowercased() == "github.com" else {
+              policy.releaseManifestURL.host?.lowercased() == "github.com",
+              policy.releaseManifestURL.path.hasPrefix(
+                "/jungwuk-ryu/switchyard-wine/releases/download/"
+              ),
+              policy.releaseManifestURL.lastPathComponent
+                == "switchyard-runtime-release.json" else {
             throw PublishedRuntimeInstallerError.untrustedManifestURL
         }
         guard isSafeIdentifier(release.runtimeID) else {
@@ -195,7 +207,10 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
         let extractedRuntime = try locateRuntimeRoot(under: stagingRoot)
         try validateExtractedRuntime(extractedRuntime, release: release, policy: policy)
 
-        let destinationName = "\(release.runtimeID)-release-\(release.archiveSha256.prefix(16))"
+        let destinationName = Self.managedInstallationID(
+            runtimeID: release.runtimeID,
+            archiveSha256: release.archiveSha256
+        )
         let destination = runtimeCacheRoot.appendingPathComponent(destinationName, isDirectory: true)
         if fileManager.fileExists(atPath: destination.path) {
             if try installedRuntimeMatches(destination, release: release, policy: policy) {
@@ -639,7 +654,7 @@ private enum PublishedRuntimeInstallerError: LocalizedError {
         case .sourceRevisionMismatch: "The runtime release does not match this app's compatible source revision."
         case .unsupportedManifestVersion(let version): "Runtime release manifest version \(version) is unsupported."
         case .unsupportedPlatform: "The runtime release is not the supported x86_64 macOS build."
-        case .untrustedManifestURL: "The runtime release manifest must use GitHub over HTTPS."
+        case .untrustedManifestURL: "The runtime release manifest must be an official switchyard-wine GitHub release asset."
         case .unsafeArchiveEntry(let entry): "The runtime archive contains an unsafe entry: \(entry)"
         case .wineExecutableMissing: "The installed runtime has no runnable Wine launcher."
         }

@@ -406,7 +406,7 @@ private struct DiagnosticsVersionOverview: View {
         if store.onlineReleaseError != nil { return "Check Failed" }
         guard store.onlineReleaseSnapshot != nil else { return "Online Unknown" }
         if !latestRuntimeMatchesAppPolicy {
-            return appUpdateAvailable ? "App Update Required" : "Compatibility Pending"
+            return appUpdateAvailable ? "New App Recommended" : "Not Recommended"
         }
         return selectedRuntimeMatchesLatest && selectedRuntimeIsUsable
             ? "Latest Online"
@@ -415,17 +415,17 @@ private struct DiagnosticsVersionOverview: View {
 
     private var runtimeCompatibilityExplanation: String {
         guard store.onlineReleaseSnapshot != nil else {
-            return "Switchyard only installs a runtime after its online release matches this app's signed compatibility policy."
+            return "Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation."
         }
         if latestRuntimeMatchesAppPolicy {
             if selectedRuntimeMatchesLatest && selectedRuntimeIsUsable {
-                return "The selected runtime is both the latest online release and the revision verified for this Switchyard version."
+                return "The selected runtime is both the latest online release and the recommended revision for this Switchyard version."
             }
-            return "The latest online runtime matches this app's verified compatibility policy and can be installed safely."
+            return "The latest online runtime is the recommended revision for this Switchyard version and can be installed here."
         }
         if appUpdateAvailable {
-            return "The latest online runtime is outside this app's verified compatibility policy. Update Switchyard to get its current approved runtime before installing."
+            return "A newer Switchyard release recommends the latest runtime. Other signed official versions remain available under Wine Runtime settings."
         }
-        return "The latest online runtime is not yet in this app's verified compatibility policy. A Switchyard release must approve it before installation."
+        return "The latest online runtime is not this app version's recommendation. Other signed official versions remain available under Wine Runtime settings."
     }
 }

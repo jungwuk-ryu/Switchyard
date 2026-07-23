@@ -23,7 +23,7 @@ Required practices:
 - Do not ship an opaque Wine binary as an app resource.
 - Keep Wine source changes, provenance, and runtime build tooling in `switchyard-wine`, not in this repository.
 
-Switchyard supports both user-local runtime builds and separately published Wine-only runtime archives. Published archives must be traceable to the immutable source commit pinned by the app, carry dependency notices and corresponding-source metadata, preserve replacement and rebuild instructions, use Developer ID signatures, and pass Apple notarization. The signed app pins the archive digest and size, verifies the extracted runtime, and installs it at an immutable content-addressed path.
+Switchyard supports both user-local development builds and separately published Wine-only runtime archives. Published archives must be traceable to an immutable source commit in `switchyard-wine`, carry dependency notices and corresponding-source metadata, preserve replacement and rebuild instructions, use Developer ID signatures, and pass Apple notarization. The signed app exactly pins its recommended runtime for automatic setup. Its runtime manager may also install stable releases discovered only from the official `switchyard-wine` GitHub channel when they match the app's trusted Developer ID team; each release manifest pins the archive digest and size, and the installer verifies the extracted runtime before placing it at an immutable content-addressed path.
 
 ## Apple Game Porting Toolkit
 

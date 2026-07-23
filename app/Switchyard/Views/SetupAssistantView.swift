@@ -467,14 +467,20 @@ struct SetupAssistantView: View {
                     }
                     .disabled(store.isImportingGPTK)
                 }
+#if DEBUG
                 PathPickerRow(
-                    title: "Active Runtime",
-                    message: "Choose the app-wide Wine executable or runtime folder manually.",
+                    title: "Development Runtime",
+                    message: "Choose a locally built Wine executable or runtime folder.",
                     path: $store.winePath
                 ) {
-                    store.refreshRuntimeStatus()
+                    store.useSelectedLocalDevelopmentRuntime()
                 }
-                .disabled(!store.canChangeActiveRuntime)
+                .disabled(
+                    !store.canChangeActiveRuntime
+                        || store.runtimeInstallationState.isWorking
+                        || store.runtimeManagementState.isWorking
+                )
+#endif
             }
             .padding(.top, 12)
         }

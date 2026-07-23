@@ -7,8 +7,6 @@ struct SettingsView: View {
     @AppStorage("verboseWineLogging") private var verboseWineLogging = false
 
     var body: some View {
-        let runtime = store.currentRuntime
-
         TabView(selection: $store.selectedSettingsTab) {
             Form {
                 LabeledContent("Apple compatibility support") {
@@ -85,63 +83,7 @@ struct SettingsView: View {
             .tag(SettingsTab.gptk)
             .tabItem { Label("GPTK", systemImage: "cube.transparent") }
 
-            Form {
-                Section("Active Runtime") {
-                    RuntimeBuildSummaryView(runtime: runtime)
-                    LabeledContent("Compatibility") {
-                        StatusBadge(
-                            status: runtimeCompatibilityStatus,
-                            label: runtimeCompatibilityStatus == .ok ? "Compatible" : "Needs Attention"
-                        )
-                    }
-                    Text(runtimeCompatibilityMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Switchyard uses this app-wide runtime for every container.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Runtime Management") {
-                    Button {
-                        store.installCompatibleWineRuntime()
-                    } label: {
-                        if store.runtimeInstallationState.isWorking {
-                            ProgressView()
-                                .controlSize(.small)
-                            Text("Installing Active Runtime…")
-                        } else {
-                            Label("Install or Update Active Runtime", systemImage: "arrow.down.circle")
-                        }
-                    }
-                    .disabled(store.runtimeInstallationState.isWorking)
-                    if let message = store.runtimeInstallationState.message {
-                        Text(message)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    PathPickerRow(title: "Active Runtime", message: "Choose the app-wide Wine executable or runtime folder.", path: $store.winePath) {
-                        store.refreshRuntimeStatus()
-                    }
-                    .disabled(!store.canChangeActiveRuntime)
-                    if !store.canChangeActiveRuntime {
-                        Text("Wait for all container activity to stop before changing the active runtime.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Button("Re-run Runtime Diagnostics") {
-                        store.refreshRuntimeStatus()
-                    }
-                }
-
-                Section {
-                    DisclosureGroup("Technical Details") {
-                        RuntimeBuildTechnicalDetailsView(runtime: runtime)
-                            .padding(.top, 6)
-                    }
-                }
-            }
-            .padding()
+            RuntimeSettingsView()
             .tag(SettingsTab.wine)
             .tabItem { Label("Wine Runtime", systemImage: "wrench.and.screwdriver") }
 
@@ -196,27 +138,6 @@ struct SettingsView: View {
             .tag(SettingsTab.advanced)
             .tabItem { Label("Advanced", systemImage: "terminal") }
         }
-        .frame(width: 660, height: 440)
-    }
-
-    private var wineRuntimeMessage: String {
-        store.diagnostics.first { $0.id == "wine-runtime" }?.result
-            ?? "Install the Switchyard runtime, then run diagnostics."
-    }
-
-    private var runtimeCompatibilityStatus: HealthStatus {
-        store.runtimeStatus.wine == .ok
-            ? store.runtimeStatus.patchset
-            : store.runtimeStatus.wine
-    }
-
-    private var runtimeCompatibilityMessage: String {
-        if store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok {
-            return "The active runtime is ready and matched to this version of Switchyard."
-        }
-        if store.runtimeStatus.wine == .ok {
-            return "The runtime is runnable, but it does not match this version of Switchyard. Install the compatible runtime to continue."
-        }
-        return wineRuntimeMessage
+        .frame(width: 760, height: 560)
     }
 }
