@@ -67,6 +67,35 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         }
     }
 
+    func hostProcessPrefixSessionState(
+        winePath: String,
+        prefixPath: String
+    ) -> WinePrefixSessionState {
+        guard let runnerURL = try? locateRunner() else { return .unavailable }
+
+        let process = Process()
+        process.executableURL = runnerURL
+        process.arguments = ["probe-prefix-host", "--wine", winePath, "--prefix", prefixPath]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return .unavailable
+        }
+
+        switch process.terminationStatus {
+        case 1:
+            return .inactive
+        case 3:
+            return .orphaned
+        default:
+            return .unavailable
+        }
+    }
+
     func runningWindowsExecutablePaths(winePath: String, prefixPath: String) throws -> [String] {
         let runnerURL = try locateRunner()
         let process = Process()
