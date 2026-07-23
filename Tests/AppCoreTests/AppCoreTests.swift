@@ -752,6 +752,22 @@ import Testing
     #expect(verbose.contains("trace+wined3d"))
 }
 
+@Test func debugRunLogRetentionPolicyUsesSupportedValuesAndSafeDefaults() {
+    let configured = DebugRunLogRetentionPolicy(
+        retentionDays: 30,
+        maximumFileCount: 100
+    )
+    let invalid = DebugRunLogRetentionPolicy(
+        retentionDays: 0,
+        maximumFileCount: 1_000
+    )
+
+    #expect(configured.retentionDays == 30)
+    #expect(configured.maximumFileCount == 100)
+    #expect(invalid.retentionDays == DebugRunLogRetentionPolicy.defaultRetentionDays)
+    #expect(invalid.maximumFileCount == DebugRunLogRetentionPolicy.defaultMaximumFileCount)
+}
+
 @Test func processLogLevelPolicyUnderstandsWineDebugClasses() {
     #expect(
         ProcessLogLevelPolicy.normalizedLevel(

@@ -328,6 +328,8 @@
 	<string>Не удалось остановить процессы Wine: %1$@.</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>Не удалось подтвердить доверие к официальной среде выполнения: %1$@</string>
+	<key>Could not update stored debug logs: %@</key>
+	<string>Не удалось обновить сохранённые журналы отладки: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
 	<string>Не удалось проверить, что %1$@ простаивает, поэтому его папка не была переименована.</string>
 	<key>Create a private space for a Windows app</key>
@@ -350,6 +352,12 @@
 	<string>Приложение по умолчанию</string>
 	<key>Default Executable</key>
 	<string>Исполняемый файл по умолчанию</string>
+	<key>Delete Stored Logs</key>
+	<string>Удалить сохранённые журналы</string>
+	<key>Delete all stored debug logs?</key>
+	<string>Удалить все сохранённые журналы отладки?</string>
+	<key>Deleted %lld stored debug log files.</key>
+	<string>Удалено сохранённых файлов журналов отладки: %1$lld.</string>
 	<key>Detected macOS %@.</key>
 	<string>Обнаружен macOS %1$@.</string>
 	<key>Developer logging</key>
@@ -614,6 +622,8 @@
 	<string>Сделать по умолчанию</string>
 	<key>Matches active build</key>
 	<string>Соответствует активной сборке</string>
+	<key>Maximum stored files</key>
+	<string>Максимум сохранённых файлов</string>
 	<key>Missing</key>
 	<string>Отсутствует</string>
 	<key>Modified</key>
@@ -862,6 +872,8 @@
 	<string>Перезапустить</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>При перезапуске завершатся все процессы Windows в этом контейнере, включая игры и установщики. Перезапустить контейнер с чистого состояния?</string>
+	<key>Retention (days)</key>
+	<string>Срок хранения (дни)</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -1036,6 +1048,8 @@
 	<string>Остановитесь или дождитесь %1$@, прежде чем переименовывать его папку.</string>
 	<key>Stop requested for this container.</key>
 	<string>Для этого контейнера запрошена остановка.</string>
+	<key>Stop running containers before deleting stored debug logs.</key>
+	<string>Остановите запущенные контейнеры перед удалением сохранённых журналов отладки.</string>
 	<key>Stop wineserver</key>
 	<string>Остановить wineserver</string>
 	<key>Stop wineserver?</key>
@@ -1098,6 +1112,8 @@
 	<string>Switchyard устанавливает среду выполнения только после того, как ее онлайн-выпуск соответствует подписанной политике совместимости этого приложения.</string>
 	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
 	<string>Switchyard закрепляет одну рекомендуемую среду выполнения для автоматической настройки и проверяет каждый выбранный вручную официальный выпуск перед установкой.</string>
+	<key>Switchyard prunes stored debug logs at launch, when these settings change, and before creating a new log.</key>
+	<string>Switchyard очищает сохранённые журналы отладки при запуске, изменении этих настроек и перед созданием нового журнала.</string>
 	<key>Switchyard v1 supports Apple Silicon only.</key>
 	<string>Switchyard v1 поддерживает только Apple Silicon.</string>
 	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
@@ -1300,6 +1316,8 @@
 	<string>Эта ссылка выходит за пределы контейнера, и ее нельзя просмотреть в Switchyard.</string>
 	<key>This normally takes only a moment.</key>
 	<string>Обычно это занимает всего мгновение.</string>
+	<key>This permanently deletes every per-run debug log file. Logs currently shown in Switchyard are not affected.</key>
+	<string>Это навсегда удалит все файлы журналов отладки для отдельных запусков. Журналы, которые сейчас отображаются в Switchyard, не изменятся.</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>В этом выпуске открывается страница загрузки Apple, на которой вы можете войти в систему, просмотреть условия и выбрать копию набора инструментов для импорта.</string>
 	<key>This runtime has no trusted source revision date for a calendar build number.</key>
@@ -1380,6 +1398,8 @@
 	<string>Предупреждение</string>
 	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
 	<string>После настройки Switchyard можно сразу открыть официальный установщик Steam для Windows.</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>Если этот параметр включён, ошибки и предупреждения Wine при каждом запуске записываются в защищённый файл в ~/Library/Application Support/Switchyard/Logs/DebugRuns.</string>
 	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
 	<string>При включении запускает запись ошибок и предупреждений Wine в защищенный файл каждого запуска. В файлах отсутствуют значения аргументов, и их количество ограничено 50 журналами в течение 14 дней в ~/Library/Application Support/Switchyard/Logs/DebugRuns.</string>
 	<key>Windows Session</key>

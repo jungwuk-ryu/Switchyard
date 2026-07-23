@@ -44,6 +44,28 @@ public enum WineDebugLoggingProfile: String, Sendable {
     }
 }
 
+public struct DebugRunLogRetentionPolicy: Equatable, Sendable {
+    public static let defaultRetentionDays = 14
+    public static let defaultMaximumFileCount = 50
+    public static let supportedRetentionDays = [1, 7, 14, 30]
+    public static let supportedMaximumFileCounts = [10, 25, 50, 100]
+
+    public var retentionDays: Int
+    public var maximumFileCount: Int
+
+    public init(
+        retentionDays: Int = Self.defaultRetentionDays,
+        maximumFileCount: Int = Self.defaultMaximumFileCount
+    ) {
+        self.retentionDays = Self.supportedRetentionDays.contains(retentionDays)
+            ? retentionDays
+            : Self.defaultRetentionDays
+        self.maximumFileCount = Self.supportedMaximumFileCounts.contains(maximumFileCount)
+            ? maximumFileCount
+            : Self.defaultMaximumFileCount
+    }
+}
+
 public enum ProcessLogLevelPolicy {
     public static func normalizedLevel(
         for message: String,

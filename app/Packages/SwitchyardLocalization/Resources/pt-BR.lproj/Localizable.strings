@@ -328,6 +328,8 @@
 	<string>Não foi possível interromper os processos do Wine: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>Não foi possível confiar neste runtime oficial: %1$@</string>
+	<key>Could not update stored debug logs: %@</key>
+	<string>Não foi possível atualizar os registros de depuração armazenados: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
 	<string>Não foi possível verificar se %1$@ está inativo, então a pasta não foi renomeada.</string>
 	<key>Create a private space for a Windows app</key>
@@ -350,6 +352,12 @@
 	<string>Aplicativo padrão</string>
 	<key>Default Executable</key>
 	<string>Executável padrão</string>
+	<key>Delete Stored Logs</key>
+	<string>Excluir registros armazenados</string>
+	<key>Delete all stored debug logs?</key>
+	<string>Excluir todos os registros de depuração armazenados?</string>
+	<key>Deleted %lld stored debug log files.</key>
+	<string>%1$lld arquivos de registro de depuração armazenados foram excluídos.</string>
 	<key>Detected macOS %@.</key>
 	<string>Detectado macOS %1$@.</string>
 	<key>Developer logging</key>
@@ -614,6 +622,8 @@
 	<string>Definir como padrão</string>
 	<key>Matches active build</key>
 	<string>Corresponde ao build ativo</string>
+	<key>Maximum stored files</key>
+	<string>Número máximo de arquivos armazenados</string>
 	<key>Missing</key>
 	<string>Ausente</string>
 	<key>Modified</key>
@@ -862,6 +872,8 @@
 	<string>Reiniciar</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>Reiniciar fechará todos os processos do Windows neste contêiner, inclusive jogos e instaladores. Deseja reiniciar com uma sessão limpa?</string>
+	<key>Retention (days)</key>
+	<string>Retenção (dias)</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -1036,6 +1048,8 @@
 	<string>Pare ou espere %1$@ antes de renomear a pasta dele.</string>
 	<key>Stop requested for this container.</key>
 	<string>Foi solicitado que este contêiner seja interrompido.</string>
+	<key>Stop running containers before deleting stored debug logs.</key>
+	<string>Pare os contêineres em execução antes de excluir os registros de depuração armazenados.</string>
 	<key>Stop wineserver</key>
 	<string>Parar wineserver</string>
 	<key>Stop wineserver?</key>
@@ -1098,6 +1112,8 @@
 	<string>O Switchyard só instala um runtime quando a versão online corresponde à política de compatibilidade assinada deste app.</string>
 	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
 	<string>O Switchyard fixa um runtime recomendado para a configuração automática e verifica cada versão oficial escolhida manualmente antes da instalação.</string>
+	<key>Switchyard prunes stored debug logs at launch, when these settings change, and before creating a new log.</key>
+	<string>O Switchyard limpa os registros de depuração armazenados ao iniciar, quando essas configurações mudam e antes de criar um novo registro.</string>
 	<key>Switchyard v1 supports Apple Silicon only.</key>
 	<string>Switchyard v1 suporta apenas Apple Silicon.</string>
 	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
@@ -1300,6 +1316,8 @@
 	<string>Este link aponta para fora do contêiner e não pode ser aberto no Switchyard.</string>
 	<key>This normally takes only a moment.</key>
 	<string>Isso normalmente leva apenas um momento.</string>
+	<key>This permanently deletes every per-run debug log file. Logs currently shown in Switchyard are not affected.</key>
+	<string>Isso exclui permanentemente todos os arquivos de registro de depuração por execução. Os registros exibidos no Switchyard não serão afetados.</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>Esta versão abre a página de download da Apple para que você possa fazer login, revisar seus termos e escolher a cópia do toolkit para importar.</string>
 	<key>This runtime has no trusted source revision date for a calendar build number.</key>
@@ -1380,6 +1398,8 @@
 	<string>Aviso</string>
 	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
 	<string>Quando o Switchyard estiver pronto, você poderá abrir diretamente o instalador oficial do Steam para Windows.</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>Quando ativado, cada início registra erros e avisos do Wine em um arquivo protegido em ~/Library/Application Support/Switchyard/Logs/DebugRuns.</string>
 	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
 	<string>Quando ativado, cada execução registra erros e avisos do Wine em um arquivo protegido. Os valores dos argumentos são omitidos, e o histórico é limitado a 50 logs por 14 dias em ~/Library/Application Support/Switchyard/Logs/DebugRuns.</string>
 	<key>Windows Session</key>

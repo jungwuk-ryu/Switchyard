@@ -328,6 +328,8 @@
 	<string>Wine 프로세스를 중지할 수 없습니다: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>이 공식 런타임을 신뢰할 수 없습니다: %1$@</string>
+	<key>Could not update stored debug logs: %@</key>
+	<string>저장된 디버그 로그를 업데이트할 수 없습니다: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
 	<string>%1$@가 유휴 상태인지 확인할 수 없어 폴더 이름이 바뀌지 않았습니다.</string>
 	<key>Create a private space for a Windows app</key>
@@ -350,6 +352,12 @@
 	<string>기본 앱</string>
 	<key>Default Executable</key>
 	<string>기본 실행 파일</string>
+	<key>Delete Stored Logs</key>
+	<string>저장된 로그 삭제</string>
+	<key>Delete all stored debug logs?</key>
+	<string>저장된 디버그 로그를 모두 삭제하시겠습니까?</string>
+	<key>Deleted %lld stored debug log files.</key>
+	<string>저장된 디버그 로그 파일 %1$lld개를 삭제했습니다.</string>
 	<key>Detected macOS %@.</key>
 	<string>macOS %1$@가 감지되었습니다.</string>
 	<key>Developer logging</key>
@@ -614,6 +622,8 @@
 	<string>기본값으로 설정</string>
 	<key>Matches active build</key>
 	<string>활성 빌드와 일치</string>
+	<key>Maximum stored files</key>
+	<string>최대 저장 파일 수</string>
 	<key>Missing</key>
 	<string>누락</string>
 	<key>Modified</key>
@@ -862,6 +872,8 @@
 	<string>다시 시작</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>다시 시작하면 게임과 설치 프로그램을 포함해 이 컨테이너의 모든 Windows 프로세스가 종료됩니다. 새 상태로 다시 시작할까요?</string>
+	<key>Retention (days)</key>
+	<string>보관 기간(일)</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -1036,6 +1048,8 @@
 	<string>폴더 이름을 바꾸기 전에 %1$@를 중지하거나 기다리십시오.</string>
 	<key>Stop requested for this container.</key>
 	<string>이 컨테이너에 대해 중지를 요청했습니다.</string>
+	<key>Stop running containers before deleting stored debug logs.</key>
+	<string>저장된 디버그 로그를 삭제하기 전에 실행 중인 컨테이너를 중지하세요.</string>
 	<key>Stop wineserver</key>
 	<string>wineserver 중지</string>
 	<key>Stop wineserver?</key>
@@ -1098,6 +1112,8 @@
 	<string>Switchyard는 온라인 릴리스가 이 앱의 서명된 호환 정책과 일치할 때만 런타임을 설치합니다.</string>
 	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
 	<string>Switchyard는 자동 설정에 사용할 권장 런타임 하나를 고정하고, 수동으로 선택한 모든 공식 릴리스는 설치 전에 검증합니다.</string>
+	<key>Switchyard prunes stored debug logs at launch, when these settings change, and before creating a new log.</key>
+	<string>Switchyard는 시작할 때, 이 설정이 변경될 때, 새 로그를 만들기 전에 저장된 디버그 로그를 정리합니다.</string>
 	<key>Switchyard v1 supports Apple Silicon only.</key>
 	<string>Switchyard v1은 Apple Silicon만 지원합니다.</string>
 	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
@@ -1300,6 +1316,8 @@
 	<string>이 링크는 컨테이너를 벗어나며 Switchyard에서 찾아볼 수 없습니다.</string>
 	<key>This normally takes only a moment.</key>
 	<string>보통 잠시만 기다리면 됩니다.</string>
+	<key>This permanently deletes every per-run debug log file. Logs currently shown in Switchyard are not affected.</key>
+	<string>실행별 디버그 로그 파일을 모두 영구적으로 삭제합니다. 현재 Switchyard에 표시된 로그에는 영향을 주지 않습니다.</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>Apple 다운로드 페이지가 열립니다. 여기에서 로그인하고 약관을 확인한 뒤 가져올 툴킷 파일을 선택하세요.</string>
 	<key>This runtime has no trusted source revision date for a calendar build number.</key>
@@ -1380,6 +1398,8 @@
 	<string>경고</string>
 	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
 	<string>Switchyard 준비가 끝나면 공식 Windows용 Steam 설치 프로그램으로 바로 안내합니다.</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>이 기능을 켜면 Wine 오류와 경고를 실행별 보호 파일로 ~/Library/Application Support/Switchyard/Logs/DebugRuns에 기록합니다.</string>
 	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
 	<string>이 기능을 켜면 실행마다 보호된 파일에 Wine 오류와 경고를 기록합니다. 인수 값은 남기지 않으며, ~/Library/Application Support/Switchyard/Logs/DebugRuns에 최대 50개를 14일 동안 보관합니다.</string>
 	<key>Windows Session</key>

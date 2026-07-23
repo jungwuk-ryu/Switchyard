@@ -1,0 +1,129 @@
+import AppCore
+import SwiftUI
+
+struct DebugLogsSettingsView: View {
+    @EnvironmentObject private var store: AppStore
+    @AppStorage("developerLogging") private var developerLogging = false
+    @AppStorage("verboseWineLogging") private var verboseWineLogging = false
+    @AppStorage("debugRunLogRetentionDays")
+    private var retentionDays = DebugRunLogRetentionPolicy.defaultRetentionDays
+    @AppStorage("debugRunLogMaximumFileCount")
+    private var maximumFileCount = DebugRunLogRetentionPolicy.defaultMaximumFileCount
+    @State private var isConfirmingDelete = false
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Developer logging", isOn: $developerLogging)
+                Text("When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Toggle("Verbose Wine logging", isOn: $verboseWineLogging)
+                    .disabled(!developerLogging)
+                Text("Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Picker("Retention (days)", selection: $retentionDays) {
+                    ForEach(
+                        DebugRunLogRetentionPolicy.supportedRetentionDays,
+                        id: \.self
+                    ) { days in
+                        Text(verbatim: String(days)).tag(days)
+                    }
+                }
+
+                Picker("Maximum stored files", selection: $maximumFileCount) {
+                    ForEach(
+                        DebugRunLogRetentionPolicy.supportedMaximumFileCounts,
+                        id: \.self
+                    ) { count in
+                        Text(verbatim: String(count)).tag(count)
+                    }
+                }
+
+                Text("Switchyard prunes stored debug logs at launch, when these settings change, and before creating a new log.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Storage") {
+                LabeledContent("Logs") {
+                    Text(verbatim: storageSummary)
+                        .foregroundStyle(.secondary)
+                }
+                Text(verbatim: store.debugRunLogDirectoryPath)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                HStack {
+                    Button("Open Logs") {
+                        store.openDebugRunLogFolder()
+                    }
+                    Button("Delete Stored Logs", role: .destructive) {
+                        isConfirmingDelete = true
+                    }
+                    .disabled(
+                        store.debugRunLogStorage.fileCount == 0
+                            || store.hasRunningContainers
+                    )
+                }
+
+                if store.hasRunningContainers {
+                    Text("Stop running containers before deleting stored debug logs.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding()
+        .onAppear {
+            normalizeAndApplyRetentionPolicy()
+            store.refreshDebugRunLogStorage()
+        }
+        .onChange(of: retentionDays) {
+            normalizeAndApplyRetentionPolicy()
+        }
+        .onChange(of: maximumFileCount) {
+            normalizeAndApplyRetentionPolicy()
+        }
+        .confirmationDialog(
+            "Delete all stored debug logs?",
+            isPresented: $isConfirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Stored Logs", role: .destructive) {
+                store.deleteStoredDebugRunLogs()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes every per-run debug log file. Logs currently shown in Switchyard are not affected.")
+        }
+    }
+
+    private var storageSummary: String {
+        let size = ByteCountFormatter.string(
+            fromByteCount: store.debugRunLogStorage.totalBytes,
+            countStyle: .file
+        )
+        return "\(store.debugRunLogStorage.fileCount) · \(size)"
+    }
+
+    private func normalizeAndApplyRetentionPolicy() {
+        let policy = DebugRunLogRetentionPolicy(
+            retentionDays: retentionDays,
+            maximumFileCount: maximumFileCount
+        )
+        if retentionDays != policy.retentionDays {
+            retentionDays = policy.retentionDays
+        }
+        if maximumFileCount != policy.maximumFileCount {
+            maximumFileCount = policy.maximumFileCount
+        }
+        store.applyDebugRunLogRetentionPolicy(policy)
+    }
+}

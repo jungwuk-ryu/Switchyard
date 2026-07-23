@@ -42569,6 +42569,598 @@
         }
       }
     },
+    "Could not update stored debug logs: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeicherte Debug-Protokolle konnten nicht aktualisiert werden: %1$@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Could not update stored debug logs: %1$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron actualizar los registros de depuración almacenados: %1$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour les journaux de débogage stockés : %1$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのデバッグログを更新できませんでした: %1$@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 디버그 로그를 업데이트할 수 없습니다: %1$@"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não foi possível atualizar os registros de depuração armazenados: %1$@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не удалось обновить сохранённые журналы отладки: %1$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法更新存储的调试日志：%1$@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法更新儲存的偵錯日誌：%1$@"
+          }
+        }
+      }
+    },
+    "Delete all stored debug logs?": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle gespeicherten Debug-Protokolle löschen?"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "¿Eliminar todos los registros de depuración almacenados?"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer tous les journaux de débogage stockés ?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのデバッグログをすべて削除しますか?"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 디버그 로그를 모두 삭제하시겠습니까?"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Excluir todos os registros de depuração armazenados?"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить все сохранённые журналы отладки?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "是否删除所有存储的调试日志？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要刪除所有儲存的偵錯日誌嗎？"
+          }
+        }
+      }
+    },
+    "Delete Stored Logs": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeicherte Protokolle löschen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar registros almacenados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supprimer les journaux stockés"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みログを削除"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 로그 삭제"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Excluir registros armazenados"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить сохранённые журналы"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除存储的日志"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除儲存的日誌"
+          }
+        }
+      }
+    },
+    "Deleted %lld stored debug log files.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld gespeicherte Debug-Protokolldateien wurden gelöscht."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Deleted %1$lld stored debug log files."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se eliminaron %1$lld archivos de registro de depuración almacenados."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld fichiers de journaux de débogage stockés ont été supprimés."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのデバッグログファイルを%1$lld個削除しました。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 디버그 로그 파일 %1$lld개를 삭제했습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld arquivos de registro de depuração armazenados foram excluídos."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалено сохранённых файлов журналов отладки: %1$lld."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除 %1$lld 个存储的调试日志文件。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已刪除 %1$lld 個儲存的偵錯日誌檔案。"
+          }
+        }
+      }
+    },
+    "Maximum stored files": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maximale Anzahl gespeicherter Dateien"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Máximo de archivos almacenados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre maximal de fichiers stockés"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存するファイル数の上限"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "최대 저장 파일 수"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Número máximo de arquivos armazenados"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Максимум сохранённых файлов"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最大存储文件数"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "儲存檔案數上限"
+          }
+        }
+      }
+    },
+    "Retention (days)": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufbewahrung (Tage)"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retención (días)"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conservation (jours)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存期間（日）"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보관 기간(일)"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retenção (dias)"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Срок хранения (дни)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保留期限（天）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保留期限（天）"
+          }
+        }
+      }
+    },
+    "Stop running containers before deleting stored debug logs.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beenden Sie laufende Container, bevor Sie gespeicherte Debug-Protokolle löschen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detén los contenedores en ejecución antes de eliminar los registros de depuración almacenados."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêtez les conteneurs en cours d’exécution avant de supprimer les journaux de débogage stockés."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存済みのデバッグログを削除する前に、実行中のコンテナを停止してください。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장된 디버그 로그를 삭제하기 전에 실행 중인 컨테이너를 중지하세요."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pare os contêineres em execução antes de excluir os registros de depuração armazenados."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Остановите запущенные контейнеры перед удалением сохранённых журналов отладки."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除存储的调试日志前，请先停止正在运行的容器。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刪除儲存的偵錯日誌前，請先停止執行中的容器。"
+          }
+        }
+      }
+    },
+    "Switchyard prunes stored debug logs at launch, when these settings change, and before creating a new log.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyard bereinigt gespeicherte Debug-Protokolle beim Start, bei Änderungen dieser Einstellungen und vor dem Erstellen eines neuen Protokolls."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyard depura los registros de depuración almacenados al iniciarse, cuando cambia esta configuración y antes de crear un registro nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyard nettoie les journaux de débogage stockés au démarrage, lorsque ces réglages changent et avant de créer un nouveau journal."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyardは、起動時、この設定の変更時、および新しいログの作成前に保存済みのデバッグログを整理します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyard는 시작할 때, 이 설정이 변경될 때, 새 로그를 만들기 전에 저장된 디버그 로그를 정리합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Switchyard limpa os registros de depuração armazenados ao iniciar, quando essas configurações mudam e antes de criar um novo registro."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyard очищает сохранённые журналы отладки при запуске, изменении этих настроек и перед созданием нового журнала."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyard 会在启动时、这些设置更改时以及创建新日志前清理存储的调试日志。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switchyard 會在啟動時、這些設定變更時，以及建立新日誌前清理儲存的偵錯日誌。"
+          }
+        }
+      }
+    },
+    "This permanently deletes every per-run debug log file. Logs currently shown in Switchyard are not affected.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dadurch werden alle Debug-Protokolldateien einzelner Ausführungen dauerhaft gelöscht. Die aktuell in Switchyard angezeigten Protokolle bleiben erhalten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esto elimina permanentemente todos los archivos de registro de depuración por ejecución. Los registros que se muestran actualmente en Switchyard no se verán afectados."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette opération supprime définitivement tous les fichiers de journaux de débogage par exécution. Les journaux actuellement affichés dans Switchyard ne sont pas affectés."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "実行ごとのデバッグログファイルがすべて完全に削除されます。現在Switchyardに表示されているログには影響しません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "실행별 디버그 로그 파일을 모두 영구적으로 삭제합니다. 현재 Switchyard에 표시된 로그에는 영향을 주지 않습니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isso exclui permanentemente todos os arquivos de registro de depuração por execução. Os registros exibidos no Switchyard não serão afetados."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Это навсегда удалит все файлы журналов отладки для отдельных запусков. Журналы, которые сейчас отображаются в Switchyard, не изменятся."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这将永久删除每次运行生成的所有调试日志文件。Switchyard 当前显示的日志不受影响。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這會永久刪除每次執行產生的所有偵錯日誌檔案。目前 Switchyard 顯示的日誌不受影響。"
+          }
+        }
+      }
+    },
+    "When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wenn diese Option aktiviert ist, werden Wine-Fehler und -Warnungen bei jedem Start in einer geschützten Datei unter ~/Library/Application Support/Switchyard/Logs/DebugRuns aufgezeichnet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuando se activa, los inicios registran los errores y las advertencias de Wine en un archivo protegido por ejecución en ~/Library/Application Support/Switchyard/Logs/DebugRuns."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lorsque cette option est activée, chaque lancement enregistre les erreurs et avertissements de Wine dans un fichier protégé sous ~/Library/Application Support/Switchyard/Logs/DebugRuns."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効にすると、Wineのエラーと警告が実行ごとの保護されたファイルとして~/Library/Application Support/Switchyard/Logs/DebugRunsに記録されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 기능을 켜면 Wine 오류와 경고를 실행별 보호 파일로 ~/Library/Application Support/Switchyard/Logs/DebugRuns에 기록합니다."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quando ativado, cada início registra erros e avisos do Wine em um arquivo protegido em ~/Library/Application Support/Switchyard/Logs/DebugRuns."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Если этот параметр включён, ошибки и предупреждения Wine при каждом запуске записываются в защищённый файл в ~/Library/Application Support/Switchyard/Logs/DebugRuns."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启用后，每次启动都会将 Wine 错误和警告记录到 ~/Library/Application Support/Switchyard/Logs/DebugRuns 下的受保护文件中。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "啟用後，每次啟動都會將 Wine 錯誤和警告記錄到 ~/Library/Application Support/Switchyard/Logs/DebugRuns 下的受保護檔案中。"
+          }
+        }
+      }
+    },
     "zipinfo failed": {
       "localizations": {
         "de": {

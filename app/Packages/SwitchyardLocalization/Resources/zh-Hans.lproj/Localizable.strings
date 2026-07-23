@@ -328,6 +328,8 @@
 	<string>无法停止 Wine 进程：%1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>无法信任此官方运行时：%1$@</string>
+	<key>Could not update stored debug logs: %@</key>
+	<string>无法更新存储的调试日志：%1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
 	<string>无法验证 %1$@ 是否空闲，因此其文件夹未重命名。</string>
 	<key>Create a private space for a Windows app</key>
@@ -350,6 +352,12 @@
 	<string>默认应用程序</string>
 	<key>Default Executable</key>
 	<string>默认可执行文件</string>
+	<key>Delete Stored Logs</key>
+	<string>删除存储的日志</string>
+	<key>Delete all stored debug logs?</key>
+	<string>是否删除所有存储的调试日志？</string>
+	<key>Deleted %lld stored debug log files.</key>
+	<string>已删除 %1$lld 个存储的调试日志文件。</string>
 	<key>Detected macOS %@.</key>
 	<string>检测到 macOS %1$@。</string>
 	<key>Developer logging</key>
@@ -614,6 +622,8 @@
 	<string>设为默认</string>
 	<key>Matches active build</key>
 	<string>与当前构建版本一致</string>
+	<key>Maximum stored files</key>
+	<string>最大存储文件数</string>
 	<key>Missing</key>
 	<string>缺失</string>
 	<key>Modified</key>
@@ -862,6 +872,8 @@
 	<string>重新启动</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>重新启动会关闭此容器中的所有 Windows 进程，包括游戏和安装程序。要以全新状态重新启动吗？</string>
+	<key>Retention (days)</key>
+	<string>保留期限（天）</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -1036,6 +1048,8 @@
 	<string>在重命名其文件夹之前，停止或等待 %1$@。</string>
 	<key>Stop requested for this container.</key>
 	<string>请求停止此容器。</string>
+	<key>Stop running containers before deleting stored debug logs.</key>
+	<string>删除存储的调试日志前，请先停止正在运行的容器。</string>
 	<key>Stop wineserver</key>
 	<string>停止 wineserver</string>
 	<key>Stop wineserver?</key>
@@ -1098,6 +1112,8 @@
 	<string>Switchyard 仅在其在线版本与此应用程序的签名兼容性策略匹配后安装运行时。</string>
 	<key>Switchyard pins one recommended runtime for automatic setup and verifies every manually selected official release before installation.</key>
 	<string>Switchyard 会为自动设置固定一个推荐运行时，并在安装前验证每个手动选择的官方版本。</string>
+	<key>Switchyard prunes stored debug logs at launch, when these settings change, and before creating a new log.</key>
+	<string>Switchyard 会在启动时、这些设置更改时以及创建新日志前清理存储的调试日志。</string>
 	<key>Switchyard v1 supports Apple Silicon only.</key>
 	<string>Switchyard v1 仅支持 Apple Silicon。</string>
 	<key>Switchyard verifies the executable code before copying it into its private cache.</key>
@@ -1300,6 +1316,8 @@
 	<string>此链接离开容器，无法在 Switchyard 中浏览。</string>
 	<key>This normally takes only a moment.</key>
 	<string>这通常只需要一点时间。</string>
+	<key>This permanently deletes every per-run debug log file. Logs currently shown in Switchyard are not affected.</key>
+	<string>这将永久删除每次运行生成的所有调试日志文件。Switchyard 当前显示的日志不受影响。</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>此版本会打开 Apple 的下载页面，以便您可以登录、查看其条款并选择要导入的工具包副本。</string>
 	<key>This runtime has no trusted source revision date for a calendar build number.</key>
@@ -1380,6 +1398,8 @@
 	<string>警告</string>
 	<key>When Switchyard is ready, it can take you directly to the official Windows Steam installer.</key>
 	<string>Switchyard 准备就绪后，可直接打开官方 Windows 版 Steam 安装程序。</string>
+	<key>When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
+	<string>启用后，每次启动都会将 Wine 错误和警告记录到 ~/Library/Application Support/Switchyard/Logs/DebugRuns 下的受保护文件中。</string>
 	<key>When enabled, launches record Wine errors and warnings in a protected per-run file. Files omit argument values and are limited to 50 logs for 14 days in ~/Library/Application Support/Switchyard/Logs/DebugRuns.</key>
 	<string>启用后，启动在受保护的每次运行文件中记录 Wine 错误和警告。文件在 ~/Library/Application Support/Switchyard/Logs/DebugRuns 中省略参数值，并且在 14 天内限制为 50 个日志。</string>
 	<key>Windows Session</key>

@@ -5,5 +5,6 @@ enum SettingsTab: Hashable {
     case gptk
     case wine
     case containerSetup
+    case logs
     case advanced
 }

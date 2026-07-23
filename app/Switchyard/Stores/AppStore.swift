@@ -39,8 +39,6 @@ private struct PendingLoginCallbackRecovery {
     var candidates: [String]
 }
 
-private let debugRunLogRetentionInterval: TimeInterval = 14 * 24 * 60 * 60
-private let maximumRetainedDebugRunLogs = 50
 private let maximumLiveLogLines = 5_000
 private let recentProgramLaunchesDefaultsKey = "recentProgramLaunches.v1"
 private let maximumRecentProgramLaunches = 8
@@ -289,6 +287,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var stoppingWineServerContainerIDs: Set<UUID> = []
     @Published private(set) var containerStorageOperationIDs: Set<UUID> = []
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
+    @Published private(set) var debugRunLogStorage = DebugRunLogStorageSnapshot.empty
     @Published var containers: [Container]
     @Published private(set) var logLines: [LogLine] = []
     @AppStorage("developerLogging") private var developerLogging = false
@@ -298,13 +297,9 @@ final class AppStore: ObservableObject {
     private let runnerClient = SwitchyardRunnerClient()
     private let protocolBridge = WineProtocolBridge()
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
+    private let debugRunLogStore = DebugRunLogStore()
     private let defaults = UserDefaults.standard
     private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
-    private let debugLogFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd-HHmmss"
-        return formatter
-    }()
     private var diagnosticsTask: Task<Void, Never>?
     private var diagnosticsRefreshID: UUID?
     private var onlineReleaseTask: Task<Void, Never>?
@@ -370,7 +365,7 @@ final class AppStore: ObservableObject {
 
         persistLibrary()
         persistRecentProgramLaunches()
-        pruneDebugRunLogs(in: debugRunLogRoot)
+        pruneDebugRunLogs()
         startProtocolBridgeMonitoring()
 
 #if DEBUG
@@ -2936,20 +2931,14 @@ final class AppStore: ObservableObject {
 
     private func debugRunLogPath(for container: Container, executablePath: String) -> String? {
         guard developerLogging else { return nil }
-        let logsRoot = debugRunLogRoot
-        let stamp = debugLogFormatter.string(from: Date())
-        let runID = String(UUID().uuidString.prefix(8)).lowercased()
-        let executableName = URL(fileURLWithPath: executablePath).deletingPathExtension().lastPathComponent
-        let fileName = "\(stamp)-\(runID)-\(sanitizeFilename(container.name))-\(sanitizeFilename(executableName)).log"
-        let fileURL = logsRoot.appendingPathComponent(fileName)
 
         do {
-            try FileManager.default.createDirectory(at: logsRoot, withIntermediateDirectories: true)
-            try FileManager.default.setAttributes(
-                [.posixPermissions: 0o700],
-                ofItemAtPath: logsRoot.path
+            let fileURL = try debugRunLogStore.prepareLogURL(
+                containerName: container.name,
+                executablePath: executablePath,
+                policy: debugRunLogRetentionPolicy
             )
-            pruneDebugRunLogs(in: logsRoot)
+            refreshDebugRunLogStorage()
             return fileURL.path
         } catch {
             logLines.insert(
@@ -2957,7 +2946,7 @@ final class AppStore: ObservableObject {
                     level: "warning",
                     source: "containers",
                     message: String(
-                        localized: "Could not create debug log directory \(logsRoot.path): \(Self.errorDescription(error))",
+                        localized: "Could not update stored debug logs: \(Self.errorDescription(error))",
                         bundle: SwitchyardStrings.bundle
                     )
                 ),
@@ -2967,49 +2956,94 @@ final class AppStore: ObservableObject {
         }
     }
 
-    private var debugRunLogRoot: URL {
-        let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first!
-        return library
-            .appendingPathComponent("Application Support", isDirectory: true)
-            .appendingPathComponent("Switchyard", isDirectory: true)
-            .appendingPathComponent("Logs", isDirectory: true)
-            .appendingPathComponent("DebugRuns", isDirectory: true)
+    var debugRunLogDirectoryPath: String {
+        debugRunLogStore.rootURL.path
     }
 
-    private func pruneDebugRunLogs(in root: URL, now: Date = Date()) {
-        guard let urls = try? FileManager.default.contentsOfDirectory(
-            at: root,
-            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else { return }
-
-        let cutoff = now.addingTimeInterval(-debugRunLogRetentionInterval)
-        var retained: [(url: URL, modifiedAt: Date)] = []
-        for url in urls where url.pathExtension.lowercased() == "log" {
-            guard let values = try? url.resourceValues(
-                forKeys: [.contentModificationDateKey, .isRegularFileKey]
-            ), values.isRegularFile == true else { continue }
-            let modifiedAt = values.contentModificationDate ?? .distantPast
-            if modifiedAt < cutoff {
-                try? FileManager.default.removeItem(at: url)
-            } else {
-                retained.append((url, modifiedAt))
-            }
-        }
-
-        for entry in retained
-            .sorted(by: { $0.modifiedAt > $1.modifiedAt })
-            .dropFirst(maximumRetainedDebugRunLogs - 1) {
-            try? FileManager.default.removeItem(at: entry.url)
+    func applyDebugRunLogRetentionPolicy(_ policy: DebugRunLogRetentionPolicy) {
+        do {
+            debugRunLogStorage = try debugRunLogStore.prune(policy: policy)
+        } catch {
+            recordDebugRunLogManagementFailure(error)
         }
     }
 
-    private func sanitizeFilename(_ value: String) -> String {
-        let legal = CharacterSet.alphanumerics.union(.init(charactersIn: "-_."))
-        return value
-            .unicodeScalars
-            .map { scalar in legal.contains(scalar) ? String(scalar) : "_" }
-            .joined()
+    func refreshDebugRunLogStorage() {
+        debugRunLogStorage = (try? debugRunLogStore.snapshot()) ?? .empty
+    }
+
+    func openDebugRunLogFolder() {
+        do {
+            try debugRunLogStore.ensureDirectory()
+            refreshDebugRunLogStorage()
+            NSWorkspace.shared.open(debugRunLogStore.rootURL)
+        } catch {
+            recordDebugRunLogManagementFailure(error)
+        }
+    }
+
+    func deleteStoredDebugRunLogs() {
+        guard !hasRunningContainers else {
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "logs",
+                    message: String(
+                        localized: "Stop running containers before deleting stored debug logs.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+            return
+        }
+
+        do {
+            let result = try debugRunLogStore.removeAllLogs()
+            debugRunLogStorage = result.storage
+            logLines.insert(
+                LogLine(
+                    level: "info",
+                    source: "logs",
+                    message: String(
+                        localized: "Deleted \(result.removedFileCount) stored debug log files.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+        } catch {
+            recordDebugRunLogManagementFailure(error)
+        }
+    }
+
+    private var debugRunLogRetentionPolicy: DebugRunLogRetentionPolicy {
+        DebugRunLogRetentionPolicy(
+            retentionDays: defaults.integer(forKey: "debugRunLogRetentionDays"),
+            maximumFileCount: defaults.integer(forKey: "debugRunLogMaximumFileCount")
+        )
+    }
+
+    private func pruneDebugRunLogs() {
+        debugRunLogStorage = (
+            try? debugRunLogStore.prune(policy: debugRunLogRetentionPolicy)
+        ) ?? (
+            (try? debugRunLogStore.snapshot()) ?? .empty
+        )
+    }
+
+    private func recordDebugRunLogManagementFailure(_ error: Error) {
+        logLines.insert(
+            LogLine(
+                level: "warning",
+                source: "logs",
+                message: String(
+                    localized: "Could not update stored debug logs: \(Self.errorDescription(error))",
+                    bundle: SwitchyardStrings.bundle
+                )
+            ),
+            at: 0
+        )
     }
 
     private func prepareOpenFontsForLaunch(
@@ -3282,6 +3316,7 @@ final class AppStore: ObservableObject {
             ),
             at: 0
         )
+        refreshDebugRunLogStorage()
     }
 
     private func mark(
