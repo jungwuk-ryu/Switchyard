@@ -51,7 +51,10 @@ struct DiagnosticsView: View {
 
                 DiagnosticsVersionOverview(
                     appVersion: runningAppVersion,
-                    appVersionNumber: runningAppVersionNumber
+                    appVersionNumber: runningAppVersionNumber,
+                    openRuntimeSettings: {
+                        openSettingsTab(.wine)
+                    }
                 )
 
                 if !store.runtimeStatus.canLaunch {
@@ -213,6 +216,7 @@ private struct DiagnosticsVersionOverview: View {
 
     let appVersion: String
     let appVersionNumber: String?
+    let openRuntimeSettings: () -> Void
 
     var body: some View {
         GroupBox {
@@ -291,6 +295,11 @@ private struct DiagnosticsVersionOverview: View {
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
+            if let runtimeVersionDateLabel {
+                Label(runtimeVersionDateLabel, systemImage: "calendar")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Text(runtimeOnlineDetail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -318,20 +327,34 @@ private struct DiagnosticsVersionOverview: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if shouldOfferRuntimeInstall {
-                Button {
-                    store.installCompatibleWineRuntime()
-                } label: {
-                    if store.runtimeInstallationState.isWorking {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Installing…")
-                    } else {
-                        Label("Install Latest Runtime", systemImage: "arrow.down.circle")
-                    }
+            Text("Download and switch between signed Switchyard Wine releases.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 3)
+
+            HStack(spacing: 8) {
+                Button(action: openRuntimeSettings) {
+                    Label("Runtime Management", systemImage: "slider.horizontal.3")
                 }
-                .disabled(store.runtimeInstallationState.isWorking)
-                .help("Download, verify, and select the latest runtime supported by this Switchyard version")
+                .buttonStyle(.borderedProminent)
+                .help("Download and switch between signed Switchyard Wine releases.")
+
+                if shouldOfferRuntimeInstall {
+                    Button {
+                        store.installCompatibleWineRuntime()
+                    } label: {
+                        if store.runtimeInstallationState.isWorking {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Installing…")
+                        } else {
+                            Label("Install Latest Runtime", systemImage: "arrow.down.circle")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(store.runtimeInstallationState.isWorking)
+                    .help("Download, verify, and select the latest runtime supported by this Switchyard version")
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -353,6 +376,12 @@ private struct DiagnosticsVersionOverview: View {
                 localized: "Source \(runtime.sourceRevision.prefix(12))",
                 bundle: SwitchyardStrings.bundle
             )
+    }
+
+    private var runtimeVersionDateLabel: String? {
+        guard let versionDate = runtime.versionDate else { return nil }
+        let label = String(localized: "Version Date", bundle: SwitchyardStrings.bundle)
+        return "\(label): \(versionDate.formatted(date: .long, time: .omitted))"
     }
 
     private var runtimePathLabel: String {
@@ -406,16 +435,22 @@ private struct DiagnosticsVersionOverview: View {
                     bundle: SwitchyardStrings.bundle
                 )
         }
+        let publishedDate = runtimeRelease.publishedAt.formatted(
+            date: .abbreviated,
+            time: .omitted
+        )
         if store.onlineReleaseError == nil {
-            return String(
+            let detail = String(
                 localized: "Latest online: \(runtimeRelease.tagName) · source \(runtimeManifest.sourceRevision.prefix(12))",
                 bundle: SwitchyardStrings.bundle
             )
+            return "\(detail) · \(publishedDate)"
         }
-        return String(
+        let detail = String(
             localized: "Last known online: \(runtimeRelease.tagName) · source \(runtimeManifest.sourceRevision.prefix(12))",
             bundle: SwitchyardStrings.bundle
         )
+        return "\(detail) · \(publishedDate)"
     }
 
     private var currentReleaseVersion: ReleaseVersion? {

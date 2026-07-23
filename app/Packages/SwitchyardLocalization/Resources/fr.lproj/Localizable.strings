@@ -1484,5 +1484,11 @@
 	<string>wineserver n'a pas pu être arrêté (code de sortie %1$d) : %2$@</string>
 	<key>zipinfo failed</key>
 	<string>Échec de zipinfo</string>
+	<key>Language</key>
+	<string>Langue</string>
+	<key>Restart Switchyard to apply the selected language.</key>
+	<string>Redémarrez Switchyard pour appliquer la langue sélectionnée.</string>
+	<key>System Default</key>
+	<string>Réglage système</string>
 </dict>
 </plist>

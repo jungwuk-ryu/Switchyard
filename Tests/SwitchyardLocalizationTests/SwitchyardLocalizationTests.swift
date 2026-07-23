@@ -15,12 +15,21 @@ final class SwitchyardLocalizationTests: XCTestCase {
     }
 
     func testEverySupportedLocaleTranslatesRepresentativeInterfaceText() {
+        let requiredKeys = [
+            "Add Container",
+            "Language",
+            "System Default",
+            "Restart Switchyard to apply the selected language."
+        ]
+
         for localeIdentifier in L10n.supportedLocaleIdentifiers where localeIdentifier != "en" {
-            XCTAssertNotEqual(
-                L10n.string(forKey: "Add Container", localeIdentifier: localeIdentifier),
-                "Add Container",
-                "Expected Add Container to be translated for \(localeIdentifier)"
-            )
+            for key in requiredKeys {
+                XCTAssertNotEqual(
+                    L10n.string(forKey: key, localeIdentifier: localeIdentifier),
+                    key,
+                    "Expected \(key) to be translated for \(localeIdentifier)"
+                )
+            }
         }
     }
 

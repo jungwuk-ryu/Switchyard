@@ -1484,5 +1484,11 @@
 	<string>wineserver 無法停止（退出代碼 %1$d）：%2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo 失敗</string>
+	<key>Language</key>
+	<string>語言</string>
+	<key>Restart Switchyard to apply the selected language.</key>
+	<string>重新啟動 Switchyard 以套用所選語言。</string>
+	<key>System Default</key>
+	<string>跟隨系統</string>
 </dict>
 </plist>

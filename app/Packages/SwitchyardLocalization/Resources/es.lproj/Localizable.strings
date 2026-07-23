@@ -1484,5 +1484,11 @@
 	<string>No se pudo detener wineserver (código de salida %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo falló</string>
+	<key>Language</key>
+	<string>Idioma</string>
+	<key>Restart Switchyard to apply the selected language.</key>
+	<string>Reinicia Switchyard para aplicar el idioma seleccionado.</string>
+	<key>System Default</key>
+	<string>Configuración del sistema</string>
 </dict>
 </plist>

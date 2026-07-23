@@ -267,6 +267,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var officialRuntimeReleases: [OfficialRuntimeRelease] = []
     @Published private(set) var installedManagedRuntimes: [ManagedRuntimeInstallation] = []
     @Published private(set) var isRefreshingOfficialRuntimeReleases = false
+    @Published private(set) var lastOfficialRuntimeCatalogRefreshDate: Date?
     @Published private(set) var officialRuntimeCatalogError: String?
     @Published private(set) var runtimeManagementState: RuntimeManagementState = .idle
     @Published private(set) var rosettaInstallationState: RosettaInstallationState = .idle
@@ -306,7 +307,6 @@ final class AppStore: ObservableObject {
     private var onlineReleaseRefreshID: UUID?
     private var officialRuntimeCatalogTask: Task<Void, Never>?
     private var officialRuntimeCatalogRefreshID: UUID?
-    private var lastOfficialRuntimeCatalogRefreshDate: Date?
     private var gptkImportTask: Task<Void, Never>?
     private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
@@ -869,6 +869,35 @@ final class AppStore: ObservableObject {
         )
         refreshRuntimeStatus()
     }
+
+#if DEBUG
+    func useManagedDevelopmentRuntime(_ installation: ManagedRuntimeInstallation) {
+        guard !runtimeInstallationState.isWorking,
+              !runtimeManagementState.isWorking else {
+            return
+        }
+        guard canChangeActiveRuntime else {
+            runtimeManagementState = .failed(
+                String(
+                    localized: "Wait for all container activity to stop before changing the active runtime.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+            return
+        }
+
+        winePath = installation.runtime.winePath
+        defaults.removeObject(forKey: activeRuntimeSourceRevisionDefaultsKey)
+        persistPreferences()
+        runtimeManagementState = .ready(
+            String(
+                localized: "Selected the local development runtime path.",
+                bundle: SwitchyardStrings.bundle
+            )
+        )
+        refreshRuntimeStatus()
+    }
+#endif
 
     private func activateRuntime(at path: String, sourceRevision: String) {
         winePath = path

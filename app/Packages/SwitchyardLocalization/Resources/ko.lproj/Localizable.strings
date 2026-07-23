@@ -1484,5 +1484,11 @@
 	<string>wineserver를 중지할 수 없습니다(종료 코드 %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo 실패</string>
+	<key>Language</key>
+	<string>언어</string>
+	<key>Restart Switchyard to apply the selected language.</key>
+	<string>선택한 언어를 적용하려면 Switchyard를 다시 시작하세요.</string>
+	<key>System Default</key>
+	<string>시스템 설정</string>
 </dict>
 </plist>
