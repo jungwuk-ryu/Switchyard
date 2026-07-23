@@ -25,10 +25,10 @@ This is a compatibility snapshot, not a blanket support guarantee. Results can v
 
 ## What Switchyard Does
 
-- Creates Wine containers with portable manifests and explicit runtime identities.
+- Creates Wine containers with portable manifests and last-used runtime provenance.
 - Detects Apple Silicon, macOS, a user-selected Game Porting Toolkit installation, and a compatible Wine runtime.
 - Runs install and launch plans through a separate `switchyard-runner` process.
-- Records the Wine build, source revision, and GPTK fingerprint used when each container is created.
+- Records the active Wine build, source revision, and GPTK fingerprint most recently used by each container for diagnostics.
 - Installs verified Noto fonts as open replacements for common Windows UI fonts.
 - Bridges application-registered custom URL schemes back into the originating Wine container after a macOS browser login.
 - Keeps diagnostic and debug logs local unless the user explicitly copies them.

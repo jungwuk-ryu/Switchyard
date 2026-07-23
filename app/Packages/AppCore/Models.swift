@@ -17,13 +17,33 @@ public enum ContainerStatus: String, Codable, CaseIterable, Sendable {
     case succeeded
 }
 
+public struct ContainerRuntimeRecord: Codable, Equatable, Sendable {
+    public var runtimeID: String
+    public var patchsetID: String
+    public var sourceRevision: String?
+    public var gptkFingerprint: String?
+    public var usedAt: Date?
+
+    public init(
+        runtimeID: String,
+        patchsetID: String,
+        sourceRevision: String? = nil,
+        gptkFingerprint: String? = nil,
+        usedAt: Date? = nil
+    ) {
+        self.runtimeID = runtimeID
+        self.patchsetID = patchsetID
+        self.sourceRevision = sourceRevision
+        self.gptkFingerprint = gptkFingerprint
+        self.usedAt = usedAt
+    }
+}
+
 public struct Container: Identifiable, Codable, Equatable, Sendable {
     public var id: UUID
     public var name: String
     public var path: String
-    public var wineBuildID: String
-    public var patchsetID: String
-    public var gptkFingerprint: String?
+    public var lastRuntime: ContainerRuntimeRecord?
     public var starterApplicationID: String?
     public var executablePath: String?
     public var executableArguments: [String]
@@ -37,24 +57,20 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         id: UUID = UUID(),
         name: String,
         path: String,
-        wineBuildID: String,
-        patchsetID: String,
-        gptkFingerprint: String? = nil,
+        lastRuntime: ContainerRuntimeRecord? = nil,
         starterApplicationID: String? = nil,
         executablePath: String? = nil,
         executableArguments: [String] = [],
         lastRun: Date? = nil,
         status: ContainerStatus = .needsSetup,
         environmentOverrides: [String: String] = [:],
-        schemaVersion: Int = 4,
+        schemaVersion: Int = 5,
         lastModified: Date = Date()
     ) {
         self.id = id
         self.name = name
         self.path = path
-        self.wineBuildID = wineBuildID
-        self.patchsetID = patchsetID
-        self.gptkFingerprint = gptkFingerprint
+        self.lastRuntime = lastRuntime
         self.starterApplicationID = starterApplicationID
         self.executablePath = executablePath
         self.executableArguments = executableArguments
@@ -69,6 +85,9 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         case id
         case name
         case path
+        case lastRuntime
+        // Schema 1-4 runtime fields were creation-time provenance that ADR 0002
+        // incorrectly described as pins. Decode them into the last-use record.
         case wineBuildID
         case patchsetID
         case gptkFingerprint
@@ -87,18 +106,54 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         id = try container.decode(UUID.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         path = try container.decode(String.self, forKey: .path)
-        wineBuildID = try container.decode(String.self, forKey: .wineBuildID)
-        patchsetID = try container.decode(String.self, forKey: .patchsetID)
         let decodedSchemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-        gptkFingerprint = try container.decodeIfPresent(String.self, forKey: .gptkFingerprint)
         starterApplicationID = try container.decodeIfPresent(String.self, forKey: .starterApplicationID)
         executablePath = try container.decodeIfPresent(String.self, forKey: .executablePath)
         executableArguments = try container.decodeIfPresent([String].self, forKey: .executableArguments) ?? []
         lastRun = try container.decodeIfPresent(Date.self, forKey: .lastRun)
+        if let decodedRecord = try container.decodeIfPresent(
+            ContainerRuntimeRecord.self,
+            forKey: .lastRuntime
+        ) {
+            lastRuntime = decodedRecord
+        } else if let legacyRuntimeID = try container.decodeIfPresent(
+            String.self,
+            forKey: .wineBuildID
+        ), let legacyPatchsetID = try container.decodeIfPresent(
+            String.self,
+            forKey: .patchsetID
+        ) {
+            lastRuntime = ContainerRuntimeRecord(
+                runtimeID: legacyRuntimeID,
+                patchsetID: legacyPatchsetID,
+                gptkFingerprint: try container.decodeIfPresent(
+                    String.self,
+                    forKey: .gptkFingerprint
+                )
+            )
+        } else {
+            lastRuntime = nil
+        }
         status = try container.decodeIfPresent(ContainerStatus.self, forKey: .status) ?? .needsSetup
         environmentOverrides = try container.decodeIfPresent([String: String].self, forKey: .environmentOverrides) ?? [:]
-        schemaVersion = max(decodedSchemaVersion, 4)
+        schemaVersion = max(decodedSchemaVersion, 5)
         lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(path, forKey: .path)
+        try container.encodeIfPresent(lastRuntime, forKey: .lastRuntime)
+        try container.encodeIfPresent(starterApplicationID, forKey: .starterApplicationID)
+        try container.encodeIfPresent(executablePath, forKey: .executablePath)
+        try container.encode(executableArguments, forKey: .executableArguments)
+        try container.encodeIfPresent(lastRun, forKey: .lastRun)
+        try container.encode(status, forKey: .status)
+        try container.encode(environmentOverrides, forKey: .environmentOverrides)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(lastModified, forKey: .lastModified)
     }
 }
 
@@ -276,6 +331,12 @@ public enum RuntimeIdentityComparison: Equatable, Sendable {
     case unavailable
 }
 
+public enum ContainerRuntimePreparation: Equatable, Sendable {
+    case none
+    case initialize
+    case refresh
+}
+
 public struct RuntimeBuild: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var winePath: String
@@ -331,13 +392,50 @@ public struct RuntimeBuild: Identifiable, Codable, Equatable, Sendable {
     }
 
     public func comparison(
-        toRecordedID recordedID: String,
-        patchsetID recordedPatchsetID: String
+        toLastRuntime record: ContainerRuntimeRecord?
     ) -> RuntimeIdentityComparison {
-        guard !sourceRevision.isEmpty else { return .unavailable }
-        return id == recordedID && patchsetID == recordedPatchsetID
+        guard !sourceRevision.isEmpty,
+              let record,
+              let recordedSourceRevision = record.sourceRevision else {
+            return .unavailable
+        }
+        return id == record.runtimeID
+            && patchsetID == record.patchsetID
+            && sourceRevision == recordedSourceRevision
             ? .matches
             : .differs
+    }
+}
+
+public extension Container {
+    func runtimePreparation(
+        for runtime: RuntimeBuild,
+        hasInitializedRegistry: Bool
+    ) -> ContainerRuntimePreparation {
+        guard hasInitializedRegistry else { return .initialize }
+        guard let lastRuntime else { return .refresh }
+        let activeSourceRevision = runtime.sourceRevision.isEmpty
+            ? nil
+            : runtime.sourceRevision
+        return lastRuntime.runtimeID == runtime.id
+            && lastRuntime.patchsetID == runtime.patchsetID
+            && lastRuntime.sourceRevision == activeSourceRevision
+            ? .none
+            : .refresh
+    }
+
+    mutating func recordRuntimeUsage(
+        _ runtime: RuntimeBuild,
+        gptkFingerprint: String?,
+        at usedAt: Date = Date()
+    ) {
+        lastRuntime = ContainerRuntimeRecord(
+            runtimeID: runtime.id,
+            patchsetID: runtime.patchsetID,
+            sourceRevision: runtime.sourceRevision.isEmpty ? nil : runtime.sourceRevision,
+            gptkFingerprint: gptkFingerprint,
+            usedAt: usedAt
+        )
     }
 }
 

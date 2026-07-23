@@ -468,12 +468,13 @@ struct SetupAssistantView: View {
                     .disabled(store.isImportingGPTK)
                 }
                 PathPickerRow(
-                    title: "Runtime",
-                    message: "Choose a Wine executable or runtime folder manually.",
+                    title: "Active Runtime",
+                    message: "Choose the app-wide Wine executable or runtime folder manually.",
                     path: $store.winePath
                 ) {
                     store.refreshRuntimeStatus()
                 }
+                .disabled(!store.canChangeActiveRuntime)
             }
             .padding(.top, 12)
         }

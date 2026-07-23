@@ -25,8 +25,6 @@ private enum TestContainerRenameError: Error, Equatable {
     let container = Container(
         name: "New Container",
         path: sourceURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: executableURL.path
     )
     try ContainerManifestStore(rootURL: root).save(container)
@@ -73,9 +71,7 @@ private enum TestContainerRenameError: Error, Equatable {
     let occupiedURL = root.appendingPathComponent("EpicGames.container", isDirectory: true)
     let container = Container(
         name: "New Container",
-        path: sourceURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: sourceURL.path
     )
     try ContainerManifestStore(rootURL: root).save(container)
     try FileManager.default.createDirectory(at: occupiedURL, withIntermediateDirectories: true)
@@ -95,9 +91,7 @@ private enum TestContainerRenameError: Error, Equatable {
     let sourceURL = root.appendingPathComponent("NewContainer.container", isDirectory: true)
     let container = Container(
         name: "New Container",
-        path: sourceURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: sourceURL.path
     )
     try ContainerManifestStore(rootURL: root).save(container)
 
@@ -118,9 +112,7 @@ private enum TestContainerRenameError: Error, Equatable {
     let sourceURL = root.appendingPathComponent("NewContainer.container", isDirectory: true)
     let container = Container(
         name: "New Container",
-        path: sourceURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: sourceURL.path
     )
     try ContainerManifestStore(rootURL: root).save(container)
 
@@ -151,8 +143,13 @@ private enum TestContainerRenameError: Error, Equatable {
     let container = Container(
         name: "Toolbox",
         path: root.appendingPathComponent("Toolbox.container", isDirectory: true).path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
+        lastRuntime: ContainerRuntimeRecord(
+            runtimeID: "wine-a",
+            patchsetID: "patch-a",
+            sourceRevision: "abc123",
+            gptkFingerprint: "gptk-a",
+            usedAt: Date(timeIntervalSince1970: 1_753_075_800)
+        ),
         starterApplicationID: "steam",
         executablePath: "C:\\Tools\\Toolbox.exe",
         executableArguments: ["-safe-mode"],
@@ -172,9 +169,12 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(loaded.containers.first?.executablePath == "C:\\Tools\\Toolbox.exe")
     #expect(loaded.containers.first?.executableArguments == ["-safe-mode"])
     #expect(loaded.containers.first?.status == .ready)
+    #expect(loaded.containers.first?.lastRuntime == container.lastRuntime)
     #expect(manifest.contains("\"containers\""))
+    #expect(manifest.contains("\"lastRuntime\""))
     #expect(manifest.contains("\"executableArguments\""))
     #expect(manifest.contains("\"starterApplicationID\""))
+    #expect(!manifest.contains("\"wineBuildID\""))
     #expect(!manifest.contains("\"bottles\""))
     #expect(!manifest.contains("\"launchers\""))
     #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Toolbox.container/switchyard-container.json").path))
@@ -210,6 +210,10 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(FileManager.default.fileExists(atPath: loadedPath))
     #expect(loaded.first?.environmentOverrides == [:])
     #expect(loaded.first?.executableArguments == [])
+    #expect(loaded.first?.schemaVersion == 5)
+    #expect(loaded.first?.lastRuntime?.runtimeID == "wine-a")
+    #expect(loaded.first?.lastRuntime?.patchsetID == "patch-a")
+    #expect(loaded.first?.lastRuntime?.usedAt == nil)
 }
 
 @Test func librarySnapshotReadsLegacyBottleKeysAndMigratesRunTargetFields() throws {
@@ -283,7 +287,7 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
-    #expect(loaded.containers.first?.schemaVersion == 4)
+    #expect(loaded.containers.first?.schemaVersion == 5)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 
@@ -315,7 +319,7 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
-    #expect(loaded.containers.first?.schemaVersion == 4)
+    #expect(loaded.containers.first?.schemaVersion == 5)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 
@@ -335,9 +339,7 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let container = Container(
         name: "Games",
-        path: containerURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: containerURL.path
     )
 
     let programs = InstalledProgramCatalog().installedPrograms(in: container)
@@ -360,8 +362,6 @@ private enum TestContainerRenameError: Error, Equatable {
     let container = Container(
         name: "Tools",
         path: containerURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: executable.path
     )
 
@@ -385,8 +385,6 @@ private enum TestContainerRenameError: Error, Equatable {
     let container = Container(
         name: "Broken",
         path: containerURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: defaultDirectory.path
     )
 
@@ -408,9 +406,7 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let container = Container(
         name: "Games",
-        path: containerURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: containerURL.path
     )
     let catalog = ContainerDirectoryCatalog()
 
@@ -436,9 +432,7 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let container = Container(
         name: "Games",
-        path: containerURL.path,
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: containerURL.path
     )
     let catalog = ContainerDirectoryCatalog()
     let entries = try catalog.contents(of: driveCURL, in: container)

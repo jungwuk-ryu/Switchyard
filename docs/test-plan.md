@@ -6,6 +6,9 @@
 - Runtime detection with marker files.
 - Missing or mismatched Switchyard Wine source identity prevents launch readiness.
 - Managed runtime selection prefers the clean runtime built from the pinned source revision.
+- Container runtime provenance never overrides the active app-wide runtime.
+- Legacy runtime identity fields migrate into last-used provenance.
+- New, unknown, and previously used prefixes request the correct active-runtime preparation.
 - Generic container command plan generation.
 - Missing container executable failure.
 - Container manifest JSON round trip.
@@ -18,11 +21,6 @@
 - Generate install and run command plans.
 - Runner helper accepts serialized command plans and emits logs and exit code.
 - Pinned `switchyard-wine` source synchronization is serialized and hands off to source-owned verification and build tooling.
-
-## Planned Runtime Migration Tests
-
-- Runtime A container remains pinned after runtime B appears.
-- Failed migration preserves rollback metadata.
 
 ## App Verification
 

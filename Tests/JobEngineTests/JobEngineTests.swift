@@ -5,7 +5,7 @@ import RuntimeCatalog
 import Testing
 
 @Test func jobEngineCreatesInstallPlan() throws {
-    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
     let plan = try JobEngine().installPlan(
         container: container,
@@ -29,7 +29,7 @@ import Testing
 }
 
 @Test func jobEngineCreatesWindowsInstallerPlan() throws {
-    let container = Container(name: "Epic", path: "/tmp/Epic.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Epic", path: "/tmp/Epic.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
 
     let plan = try JobEngine().installPlan(
@@ -44,7 +44,7 @@ import Testing
 }
 
 @Test func jobEngineFailsWhenContainerExecutableIsMissing() {
-    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
 
     #expect(throws: JobEngineError.missingExecutable(container.id)) {
@@ -53,7 +53,7 @@ import Testing
 }
 
 @Test func jobEngineRunsAdHocExecutableWithoutConfiguredDefault() throws {
-    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
 
     let plan = try JobEngine().runPlan(
@@ -70,7 +70,7 @@ import Testing
 }
 
 @Test func jobEngineAppliesBattleNetDisplayCompatibilityArguments() throws {
-    let container = Container(name: "Battle.net", path: "/tmp/BattleNet.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Battle.net", path: "/tmp/BattleNet.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
 
     let plan = try JobEngine().runPlan(
@@ -88,7 +88,7 @@ import Testing
 }
 
 @Test func jobEngineRunsAdHocWindowsInstallerWithArguments() throws {
-    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container", wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
 
     let plan = try JobEngine().runPlan(
@@ -106,8 +106,6 @@ import Testing
     let container = Container(
         name: "Toolbox",
         path: "/tmp/Toolbox.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: "/tmp/Toolbox.exe",
         environmentOverrides: ["DXVK_LOG_LEVEL": "none"]
     )
@@ -122,8 +120,6 @@ import Testing
     let container = Container(
         name: "Toolbox",
         path: "/tmp/Toolbox.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: "/tmp/Toolbox/Toolbox.exe",
         executableArguments: ["-safe-mode", "-lang", "ko-KR"]
     )
@@ -138,8 +134,6 @@ import Testing
     let container = Container(
         name: "Toolbox",
         path: "/tmp/Toolbox.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: "/tmp/Toolbox/Toolbox.exe"
     )
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
@@ -158,8 +152,6 @@ import Testing
     let container = Container(
         name: "Toolbox",
         path: "/tmp/Toolbox.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: "/tmp/Toolbox/Toolbox.exe",
         executableArguments: ["-silent"]
     )
@@ -180,8 +172,6 @@ import Testing
     let container = Container(
         name: "Toolbox",
         path: "/tmp/Toolbox.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
         executablePath: "/tmp/Toolbox.exe",
         environmentOverrides: [
             "WINEPREFIX": "/tmp/Other.container",
@@ -222,7 +212,7 @@ import Testing
         registryEntries: ["Switchyard Sans Test (TrueType)"]
     )
     let replacement = FontReplacement(requestedFamily: "Segoe UI", replacementFamily: "Switchyard Sans Test")
-    let container = Container(name: "Fonts", path: containerURL.path, wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Fonts", path: containerURL.path)
     let installer = ContainerFontInstaller(catalog: [font], replacements: [replacement])
 
     let firstResult = try installer.installOpenFontPack(into: container, from: cache)
@@ -266,7 +256,7 @@ import Testing
         licenseURL: URL(string: "https://openfontlicense.org/")!,
         registryEntries: ["Switchyard Sans Test (TrueType)"]
     )
-    let container = Container(name: "Fresh", path: containerURL.path, wineBuildID: "wine-a", patchsetID: "patch-a")
+    let container = Container(name: "Fresh", path: containerURL.path)
     let installer = ContainerFontInstaller(catalog: [font], replacements: [])
 
     let result = try installer.installOpenFontPack(into: container, from: cache)

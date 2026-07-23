@@ -83,24 +83,38 @@ struct ContainerSettingsView: View {
 
     private var runtimeSection: some View {
         let runtime = store.currentRuntime
-        let identityComparison = runtime.comparison(
-            toRecordedID: container.wineBuildID,
-            patchsetID: container.patchsetID
-        )
 
         return GroupBox("Runtime") {
             VStack(alignment: .leading, spacing: 11) {
                 RuntimeBuildSummaryView(runtime: runtime)
 
-                LabeledContent("Container Record") {
-                    Label(
-                        identityComparison.label,
-                        systemImage: identityComparison.symbolName
-                    )
-                    .font(.caption)
-                    .foregroundStyle(identityComparison.color)
+                LabeledContent("Runtime Scope") {
+                    Label("Used by every container", systemImage: "square.stack.3d.up.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                Text("Switchyard currently launches all containers with the active runtime shown above.")
+                Text("Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                LabeledContent("Last Runtime Use") {
+                    if let lastRuntime = container.lastRuntime {
+                        let identityComparison = runtime.comparison(
+                            toLastRuntime: lastRuntime
+                        )
+                        Label(
+                            identityComparison.label,
+                            systemImage: identityComparison.symbolName
+                        )
+                        .font(.caption)
+                        .foregroundStyle(identityComparison.color)
+                    } else {
+                        Label("Not used yet", systemImage: "clock")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(lastRuntimeUseDetail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -123,16 +137,35 @@ struct ContainerSettingsView: View {
                 DisclosureGroup("Technical Details") {
                     VStack(alignment: .leading, spacing: 8) {
                         RuntimeBuildTechnicalDetailsView(runtime: runtime)
-                        Divider()
-                        recordedRuntimeValue("Recorded Runtime ID", container.wineBuildID)
-                        recordedRuntimeValue("Recorded Patch Set", container.patchsetID)
-                        recordedRuntimeValue("Recorded GPTK", container.gptkFingerprint ?? "Not recorded")
+                        if let lastRuntime = container.lastRuntime {
+                            Divider()
+                            runtimeHistoryValue("Last-used Runtime ID", lastRuntime.runtimeID)
+                            runtimeHistoryValue("Last-used Patch Set", lastRuntime.patchsetID)
+                            runtimeHistoryValue(
+                                "Last-used Source",
+                                lastRuntime.sourceRevision ?? "Not recorded"
+                            )
+                            runtimeHistoryValue(
+                                "Last-used GPTK",
+                                lastRuntime.gptkFingerprint ?? "Not recorded"
+                            )
+                        }
                     }
                     .padding(.top, 6)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var lastRuntimeUseDetail: String {
+        guard let lastRuntime = container.lastRuntime else {
+            return "Runtime provenance will be recorded after this container first uses Wine."
+        }
+        guard let usedAt = lastRuntime.usedAt else {
+            return "Imported from a legacy manifest; the exact usage time was not recorded."
+        }
+        return "Recorded \(usedAt.formatted(date: .abbreviated, time: .shortened))."
     }
 
     private var environmentSection: some View {
@@ -167,7 +200,7 @@ struct ContainerSettingsView: View {
         }
     }
 
-    private func recordedRuntimeValue(_ label: String, _ value: String) -> some View {
+    private func runtimeHistoryValue(_ label: String, _ value: String) -> some View {
         LabeledContent(label) {
             Text(value)
                 .font(.system(.caption, design: .monospaced))
@@ -242,8 +275,8 @@ private struct ContainerNameField: View {
 private extension RuntimeIdentityComparison {
     var label: String {
         switch self {
-        case .matches: "Matches active build"
-        case .differs: "Different build recorded"
+        case .matches: "Last used with active build"
+        case .differs: "Last used with another build"
         case .unavailable: "Comparison unavailable"
         }
     }
@@ -251,7 +284,7 @@ private extension RuntimeIdentityComparison {
     var symbolName: String {
         switch self {
         case .matches: "checkmark.circle.fill"
-        case .differs: "exclamationmark.triangle.fill"
+        case .differs: "clock.arrow.circlepath"
         case .unavailable: "questionmark.circle.fill"
         }
     }
@@ -259,7 +292,7 @@ private extension RuntimeIdentityComparison {
     var color: Color {
         switch self {
         case .matches: .green
-        case .differs: .orange
+        case .differs: .blue
         case .unavailable: .gray
         }
     }

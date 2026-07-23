@@ -48,9 +48,7 @@ import Testing
     try fileManager.createDirectory(at: unownedCollision, withIntermediateDirectories: false)
     let container = Container(
         name: "Test Container",
-        path: prefix.path,
-        wineBuildID: "wine-test",
-        patchsetID: "patch-test"
+        path: prefix.path
     )
     let bridge = WineDesktopShortcutBridge(
         fileManager: fileManager,

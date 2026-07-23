@@ -237,7 +237,7 @@ private struct DiagnosticsVersionOverview: View {
     private var runtimeReleaseSection: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(alignment: .firstTextBaseline) {
-                Label("Selected Wine Runtime", systemImage: "shippingbox.fill")
+                Label("Active Wine Runtime", systemImage: "shippingbox.fill")
                     .font(.headline)
                 Spacer()
                 StatusBadge(status: runtimeUpdateStatus, label: runtimeUpdateLabel)

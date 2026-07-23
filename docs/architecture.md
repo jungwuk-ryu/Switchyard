@@ -57,9 +57,9 @@ GPTK remains separately licensed Apple software. The app stores an imported user
 
 ## Data Model
 
-Each container has a portable JSON manifest. The manifest is the source of truth and records the Wine build, source identity, GPTK fingerprint, executable, environment overrides, schema version, and last-run status. Any future database must be a rebuildable index rather than the sole copy of container state.
+Each container has a portable JSON manifest. The manifest is the source of truth and records the last-used Wine build, source identity, GPTK fingerprint, executable, environment overrides, schema version, and last-run status. Runtime provenance is diagnostic history, not a container-level selection or pin. Any future database must be a rebuildable index rather than the sole copy of container state.
 
-The current preview launches through the globally selected compatible runtime. Enforcing the recorded per-container runtime, creating migration candidates, and preserving rollback metadata are planned work described by ADR 0003; they are not implemented yet.
+Switchyard has one active runtime selected by the app's signed compatibility policy. Every container operation runs through that app-wide runtime. When the active runtime changes, an idle container is prepared automatically with `wineboot -u` on its next launch; users never choose or migrate runtime versions per container. See ADR 0003.
 
 ## Decisions
 

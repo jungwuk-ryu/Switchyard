@@ -442,8 +442,8 @@ final class AppStore: ObservableObject {
 
     func installCompatibleWineRuntime() {
         guard !runtimeInstallationState.isWorking else { return }
-        guard !hasRunningContainers else {
-            runtimeInstallationState = .failed("Stop all running containers before changing the selected runtime.")
+        guard canChangeActiveRuntime else {
+            runtimeInstallationState = .failed("Wait for all container activity to stop before changing the active runtime.")
             return
         }
         guard let policy = wineSourcePolicy.publishedRuntimePolicy else {
@@ -844,9 +844,6 @@ final class AppStore: ObservableObject {
         let container = Container(
             name: name,
             path: libraryURL.appendingPathComponent(pathComponent, isDirectory: true).path,
-            wineBuildID: currentRuntime.id,
-            patchsetID: currentRuntime.patchsetID,
-            gptkFingerprint: runtimeStatus.gptkFingerprint,
             starterApplicationID: starterApplicationID
         )
         containers.append(container)
@@ -1772,6 +1769,10 @@ final class AppStore: ObservableObject {
         isContainerTransitioning(containerID) || isContainerRunning(containerID)
     }
 
+    var canChangeActiveRuntime: Bool {
+        !containers.contains { isContainerBusy($0.id) }
+    }
+
     func openContainerInFinder(_ containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: container.path, isDirectory: true)])
@@ -1885,6 +1886,8 @@ final class AppStore: ObservableObject {
             return
         }
 
+        let activeRuntime = currentRuntime
+        let activeGPTKFingerprint = runtimeStatus.gptkFingerprint
         let launchedExecutable = executablePath ?? container.executablePath ?? ""
         launchingContainerIDs.insert(containerID)
         if !launchedExecutable.isEmpty {
@@ -1898,7 +1901,7 @@ final class AppStore: ObservableObject {
             }
         }
 
-        let winePath = currentRuntime.winePath
+        let winePath = activeRuntime.winePath
         let prefixPath = container.path
         let runnerClient = runnerClient
         let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
@@ -1943,9 +1946,10 @@ final class AppStore: ObservableObject {
 
         var prefixSessionIsActiveForFonts = prefixWasActive
         if !prefixWasActive {
-            prefixSessionIsActiveForFonts = await initializePrefixForFirstLaunchIfNeeded(
+            prefixSessionIsActiveForFonts = await preparePrefixForActiveRuntimeIfNeeded(
                 container,
-                winePath: winePath
+                runtime: activeRuntime,
+                gptkFingerprint: activeGPTKFingerprint
             )
         }
         let fontPreparationLog = await prepareOpenFontsForLaunch(
@@ -1962,7 +1966,7 @@ final class AppStore: ObservableObject {
                 container: container,
                 executablePath: executablePath,
                 executableArguments: executableArguments,
-                runtime: currentRuntime,
+                runtime: activeRuntime,
                 gptkPath: gptkPath,
                 environmentOverrides: debugEnvironmentOverrides,
                 debugLogPath: debugLogPath,
@@ -2002,7 +2006,12 @@ final class AppStore: ObservableObject {
             }
             protocolBridge.recordLaunch(containerID: container.id)
             refreshProtocolAssociations()
-            mark(container.id, as: .running)
+            mark(
+                container.id,
+                as: .running,
+                runtime: activeRuntime,
+                gptkFingerprint: activeGPTKFingerprint
+            )
             let executableName = launchedExecutable
                 .replacingOccurrences(of: "\\", with: "/")
                 .split(separator: "/")
@@ -2237,18 +2246,25 @@ final class AppStore: ObservableObject {
         }.value
     }
 
-    private func initializePrefixForFirstLaunchIfNeeded(
+    private func preparePrefixForActiveRuntimeIfNeeded(
         _ container: Container,
-        winePath: String
+        runtime: RuntimeBuild,
+        gptkFingerprint: String?
     ) async -> Bool {
-        guard !prefixHasInitializedRegistry(container) else { return false }
+        let preparation = container.runtimePreparation(
+            for: runtime,
+            hasInitializedRegistry: prefixHasInitializedRegistry(container)
+        )
+        guard preparation != .none else { return false }
 
         logLines.insert(
             LogLine(
                 containerID: container.id,
                 level: "info",
                 source: container.name,
-                message: "Initializing this Windows container before its first app opens."
+                message: preparation == .initialize
+                    ? "Initializing this Windows container before its first app opens."
+                    : "Preparing this Windows container for the active Switchyard runtime."
             ),
             at: 0
         )
@@ -2258,7 +2274,7 @@ final class AppStore: ObservableObject {
                 container: container,
                 executablePath: "wineboot.exe",
                 executableArguments: ["-u"],
-                runtime: currentRuntime,
+                runtime: runtime,
                 gptkPath: gptkPath
             )
             let session = try await runnerClient.launchAndWait(
@@ -2275,15 +2291,25 @@ final class AppStore: ObservableObject {
                 throw NSError(
                     domain: "Switchyard.PrefixSetup",
                     code: Int(session.exitCode ?? -1),
-                    userInfo: [NSLocalizedDescriptionKey: "Wine initialization exited before finishing."]
+                    userInfo: [
+                        NSLocalizedDescriptionKey: preparation == .initialize
+                            ? "Wine initialization exited before finishing."
+                            : "Wine runtime preparation exited before finishing."
+                    ]
                 )
             }
 
             let runnerClient = runnerClient
             let prefixPath = container.path
+            let winePath = runtime.winePath
             try await Task.detached(priority: .userInitiated) {
                 try runnerClient.stopWineServer(winePath: winePath, prefixPath: prefixPath)
             }.value
+            recordRuntimeUsage(
+                for: container.id,
+                runtime: runtime,
+                gptkFingerprint: gptkFingerprint
+            )
             return false
         } catch {
             logLines.insert(
@@ -2291,7 +2317,9 @@ final class AppStore: ObservableObject {
                     containerID: container.id,
                     level: "warning",
                     source: container.name,
-                    message: "The first-run container preparation did not finish; the app will still open and Wine can retry automatically: \(Self.errorDescription(error))"
+                    message: preparation == .initialize
+                        ? "The first-run container preparation did not finish; the app will still open and Wine can retry automatically: \(Self.errorDescription(error))"
+                        : "The active runtime could not finish preparing this container; launch will continue and Wine can retry automatically: \(Self.errorDescription(error))"
                 ),
                 at: 0
             )
@@ -2421,12 +2449,38 @@ final class AppStore: ObservableObject {
         )
     }
 
-    private func mark(_ containerID: UUID, as status: ContainerStatus) {
+    private func mark(
+        _ containerID: UUID,
+        as status: ContainerStatus,
+        runtime: RuntimeBuild? = nil,
+        gptkFingerprint: String? = nil
+    ) {
         guard let index = containers.firstIndex(where: { $0.id == containerID }) else { return }
+        let now = Date()
         containers[index].status = status
-        containers[index].lastRun = Date()
-        containers[index].lastModified = Date()
+        containers[index].lastRun = now
+        if let runtime {
+            containers[index].recordRuntimeUsage(
+                runtime,
+                gptkFingerprint: gptkFingerprint,
+                at: now
+            )
+        }
+        containers[index].lastModified = now
         persistLibrary()
+    }
+
+    private func recordRuntimeUsage(
+        for containerID: UUID,
+        runtime: RuntimeBuild,
+        gptkFingerprint: String?
+    ) {
+        updateContainer(containerID) {
+            $0.recordRuntimeUsage(
+                runtime,
+                gptkFingerprint: gptkFingerprint
+            )
+        }
     }
 
     private func updateContainer(_ containerID: UUID, mutation: (inout Container) -> Void) {

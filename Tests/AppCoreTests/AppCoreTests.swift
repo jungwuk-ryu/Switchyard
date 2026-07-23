@@ -62,19 +62,40 @@ import Testing
         patchsetID: "external-unverified",
         sourceRevision: ""
     )
+    let matchingRecord = ContainerRuntimeRecord(
+        runtimeID: "runtime-a",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+    let differentRecord = ContainerRuntimeRecord(
+        runtimeID: "runtime-b",
+        patchsetID: "patch-b",
+        sourceRevision: "abc123"
+    )
+    let rebuiltRecord = ContainerRuntimeRecord(
+        runtimeID: "runtime-a",
+        patchsetID: "patch-a",
+        sourceRevision: "def456"
+    )
 
     #expect(
-        verified.comparison(toRecordedID: "runtime-a", patchsetID: "patch-a")
-            == .matches
+        verified.comparison(toLastRuntime: matchingRecord) == .matches
     )
     #expect(
-        verified.comparison(toRecordedID: "runtime-b", patchsetID: "patch-b")
-            == .differs
+        verified.comparison(toLastRuntime: differentRecord) == .differs
     )
     #expect(
-        external.comparison(
-            toRecordedID: "external-unverified",
-            patchsetID: "external-unverified"
+        verified.comparison(toLastRuntime: rebuiltRecord) == .differs
+    )
+    #expect(
+        external.comparison(toLastRuntime: matchingRecord) == .unavailable
+    )
+    #expect(
+        verified.comparison(
+            toLastRuntime: ContainerRuntimeRecord(
+                runtimeID: "runtime-a",
+                patchsetID: "patch-a"
+            )
         ) == .unavailable
     )
 }
@@ -186,20 +207,101 @@ import Testing
     #expect(!starter.recognizesInstaller(at: partial))
 }
 
-@Test func containerPinsRuntimeIdentity() {
-    let container = Container(
+@Test func containerRecordsLastRuntimeUsageWithoutSelectingIt() throws {
+    let usedAt = Date(timeIntervalSince1970: 1_753_075_800)
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+    var container = Container(
         name: "Toolbox",
         path: "/tmp/Toolbox.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a",
-        gptkFingerprint: "gptk-a",
         starterApplicationID: "steam"
     )
-    #expect(container.wineBuildID == "wine-a")
-    #expect(container.patchsetID == "patch-a")
-    #expect(container.gptkFingerprint == "gptk-a")
+
+    #expect(container.lastRuntime == nil)
+    container.recordRuntimeUsage(
+        runtime,
+        gptkFingerprint: "gptk-a",
+        at: usedAt
+    )
+
+    let record = try #require(container.lastRuntime)
+    #expect(record.runtimeID == "wine-a")
+    #expect(record.patchsetID == "patch-a")
+    #expect(record.sourceRevision == "abc123")
+    #expect(record.gptkFingerprint == "gptk-a")
+    #expect(record.usedAt == usedAt)
     #expect(container.starterApplicationID == "steam")
-    #expect(container.schemaVersion == 4)
+    #expect(container.schemaVersion == 5)
+}
+
+@Test func containerRequestsPreparationForTheActiveRuntimeWhenNeeded() {
+    let activeRuntime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+    let nextRuntime = RuntimeBuild(
+        id: "wine-b",
+        winePath: "/opt/wine-next/bin/wine",
+        patchsetID: "patch-b",
+        sourceRevision: "def456"
+    )
+    let rebuiltRuntime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine-rebuilt/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "def456"
+    )
+    var container = Container(name: "Toolbox", path: "/tmp/Toolbox.container")
+
+    #expect(
+        container.runtimePreparation(
+            for: activeRuntime,
+            hasInitializedRegistry: false
+        ) == .initialize
+    )
+    #expect(
+        container.runtimePreparation(
+            for: activeRuntime,
+            hasInitializedRegistry: true
+        ) == .refresh
+    )
+
+    container.lastRuntime = ContainerRuntimeRecord(
+        runtimeID: "wine-a",
+        patchsetID: "patch-a"
+    )
+    #expect(
+        container.runtimePreparation(
+            for: activeRuntime,
+            hasInitializedRegistry: true
+        ) == .refresh
+    )
+
+    container.recordRuntimeUsage(activeRuntime, gptkFingerprint: "gptk-a")
+    #expect(
+        container.runtimePreparation(
+            for: activeRuntime,
+            hasInitializedRegistry: true
+        ) == .none
+    )
+    #expect(
+        container.runtimePreparation(
+            for: nextRuntime,
+            hasInitializedRegistry: true
+        ) == .refresh
+    )
+    #expect(
+        container.runtimePreparation(
+            for: rebuiltRuntime,
+            hasInitializedRegistry: true
+        ) == .refresh
+    )
 }
 
 @Test func environmentOverridePolicyRejectsReservedRuntimeIdentityKeys() {
@@ -550,9 +652,7 @@ import Testing
 @Test func containerPathPolicyIncludesContainerAndDiskDirectoryNames() {
     let container = Container(
         name: "Steam",
-        path: "/tmp/Switchyard/Steam.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: "/tmp/Switchyard/Steam.container"
     )
 
     let names = ContainerPathPolicy.occupiedDirectoryNames(
@@ -566,21 +666,15 @@ import Testing
 @Test func containerPathPolicyRemovesOnlyExactDuplicatePaths() {
     let first = Container(
         name: "First",
-        path: "/tmp/Switchyard/Foo.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: "/tmp/Switchyard/Foo.container"
     )
     let duplicate = Container(
         name: "Duplicate",
-        path: "/tmp/Switchyard/Foo.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: "/tmp/Switchyard/Foo.container"
     )
     let caseDistinct = Container(
         name: "Case Distinct",
-        path: "/tmp/Switchyard/foo.container",
-        wineBuildID: "wine-a",
-        patchsetID: "patch-a"
+        path: "/tmp/Switchyard/foo.container"
     )
 
     let result = ContainerPathPolicy.removingDuplicatePaths(from: [first, duplicate, caseDistinct])

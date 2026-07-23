@@ -86,7 +86,7 @@ struct SettingsView: View {
             .tabItem { Label("GPTK", systemImage: "cube.transparent") }
 
             Form {
-                Section("Runtime Version") {
+                Section("Active Runtime") {
                     RuntimeBuildSummaryView(runtime: runtime)
                     LabeledContent("Compatibility") {
                         StatusBadge(
@@ -95,6 +95,9 @@ struct SettingsView: View {
                         )
                     }
                     Text(runtimeCompatibilityMessage)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("Switchyard uses this app-wide runtime for every container.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -106,9 +109,9 @@ struct SettingsView: View {
                         if store.runtimeInstallationState.isWorking {
                             ProgressView()
                                 .controlSize(.small)
-                            Text("Installing Compatible Runtime…")
+                            Text("Installing Active Runtime…")
                         } else {
-                            Label("Install or Update Compatible Runtime", systemImage: "arrow.down.circle")
+                            Label("Install or Update Active Runtime", systemImage: "arrow.down.circle")
                         }
                     }
                     .disabled(store.runtimeInstallationState.isWorking)
@@ -117,8 +120,14 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    PathPickerRow(title: "Wine", message: "Choose a Wine executable or a Wine runtime folder.", path: $store.winePath) {
+                    PathPickerRow(title: "Active Runtime", message: "Choose the app-wide Wine executable or runtime folder.", path: $store.winePath) {
                         store.refreshRuntimeStatus()
+                    }
+                    .disabled(!store.canChangeActiveRuntime)
+                    if !store.canChangeActiveRuntime {
+                        Text("Wait for all container activity to stop before changing the active runtime.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     Button("Re-run Runtime Diagnostics") {
                         store.refreshRuntimeStatus()
@@ -192,7 +201,7 @@ struct SettingsView: View {
 
     private var wineRuntimeMessage: String {
         store.diagnostics.first { $0.id == "wine-runtime" }?.result
-            ?? "Choose a Wine executable or Switchyard Wine runtime folder, then run diagnostics."
+            ?? "Install the Switchyard runtime, then run diagnostics."
     }
 
     private var runtimeCompatibilityStatus: HealthStatus {
@@ -203,7 +212,7 @@ struct SettingsView: View {
 
     private var runtimeCompatibilityMessage: String {
         if store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok {
-            return "Ready and matched to this version of Switchyard."
+            return "The active runtime is ready and matched to this version of Switchyard."
         }
         if store.runtimeStatus.wine == .ok {
             return "The runtime is runnable, but it does not match this version of Switchyard. Install the compatible runtime to continue."
