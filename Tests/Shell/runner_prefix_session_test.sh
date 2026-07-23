@@ -43,6 +43,12 @@ cleanup() {
   if [ -f "$TEST_ROOT/prefix-lock-holder.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/prefix-lock-holder.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/locked-list.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/locked-list.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/locked-probe.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/locked-probe.pid")" >/dev/null 2>&1 || true
+  fi
   rm -rf "$TEST_ROOT"
 }
 trap cleanup EXIT
@@ -115,12 +121,50 @@ fi
 prefix_lock_holder_pid="$(cat "$TEST_ROOT/prefix-lock-holder.ready")"
 printf '%s\n' "$prefix_lock_holder_pid" > "$TEST_ROOT/prefix-lock-holder.pid"
 
+set +e
+TEST_EVENTS="$EVENTS" \
+  "$RUNNER" probe-prefix-host --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX" \
+  >"$TEST_ROOT/locked-host-probe.out" 2>"$TEST_ROOT/locked-host-probe.err" &
+locked_host_probe_pid=$!
+set -e
+for _ in {1..50}; do
+  if ! kill -0 "$locked_host_probe_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.02
+done
+if kill -0 "$locked_host_probe_pid" >/dev/null 2>&1; then
+  kill -TERM "$locked_host_probe_pid" >/dev/null 2>&1 || true
+  wait "$locked_host_probe_pid" >/dev/null 2>&1 || true
+  echo "probe-prefix-host waited on a storage lock it is meant to recheck from inside" >&2
+  exit 1
+fi
+set +e
+wait "$locked_host_probe_pid"
+locked_host_probe_status=$?
+set -e
+if [ "$locked_host_probe_status" -ne 1 ]; then
+  echo "probe-prefix-host should report an inactive prefix while the caller holds its storage lock" >&2
+  exit 1
+fi
+if [ -s "$EVENTS" ]; then
+  echo "probe-prefix-host launched Wine while a storage lock was held" >&2
+  exit 1
+fi
+
 TEST_EVENTS="$EVENTS" \
   "$RUNNER" list-processes --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX" \
   >"$TEST_ROOT/locked-list.out" 2>"$TEST_ROOT/locked-list.err" &
 locked_list_pid=$!
+printf '%s\n' "$locked_list_pid" > "$TEST_ROOT/locked-list.pid"
+TEST_EVENTS="$EVENTS" \
+  "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX" \
+  >"$TEST_ROOT/locked-probe.out" 2>"$TEST_ROOT/locked-probe.err" &
+locked_probe_pid=$!
+printf '%s\n' "$locked_probe_pid" > "$TEST_ROOT/locked-probe.pid"
 for _ in {1..50}; do
-  if lsof -a -p "$locked_list_pid" "$PREFIX/.switchyard-prefix.lock" >/dev/null 2>&1; then
+  if lsof -a -p "$locked_list_pid" "$PREFIX/.switchyard-prefix.lock" >/dev/null 2>&1 \
+    && lsof -a -p "$locked_probe_pid" "$PREFIX/.switchyard-prefix.lock" >/dev/null 2>&1; then
     break
   fi
   sleep 0.02
@@ -129,8 +173,12 @@ if ! kill -0 "$locked_list_pid" >/dev/null 2>&1; then
   echo "list-processes did not wait for the prefix storage lock" >&2
   exit 1
 fi
-if grep -q '^wine ' "$EVENTS"; then
-  echo "list-processes launched Wine while a storage lock was held" >&2
+if ! kill -0 "$locked_probe_pid" >/dev/null 2>&1; then
+  echo "probe-prefix did not wait for the prefix storage lock" >&2
+  exit 1
+fi
+if [ -s "$EVENTS" ]; then
+  echo "a Wine-backed inspection command launched Wine while a storage lock was held" >&2
   exit 1
 fi
 
@@ -141,17 +189,23 @@ wait "$prefix_lock_holder_reaper_pid"
 set +e
 wait "$locked_list_pid"
 locked_list_status=$?
+wait "$locked_probe_pid"
+locked_probe_status=$?
 set -e
 if [ "$locked_list_status" -ne 2 ]; then
   echo "list-processes should reject a prefix moved while it waited for the storage lock" >&2
   exit 1
 fi
-if grep -q '^wine ' "$EVENTS"; then
-  echo "list-processes launched Wine after the locked prefix moved" >&2
+if [ "$locked_probe_status" -ne 2 ]; then
+  echo "probe-prefix should reject a prefix moved while it waited for the storage lock" >&2
+  exit 1
+fi
+if [ -s "$EVENTS" ]; then
+  echo "a Wine-backed inspection command launched Wine after the locked prefix moved" >&2
   exit 1
 fi
 mv "$MOVED_PREFIX" "$PREFIX"
-rm -f "$TEST_ROOT/prefix-lock-holder.pid"
+rm -f "$TEST_ROOT/prefix-lock-holder.pid" "$TEST_ROOT/locked-list.pid" "$TEST_ROOT/locked-probe.pid"
 : > "$EVENTS"
 
 (
@@ -191,6 +245,19 @@ unrelated_wine_pid="$(cat "$TEST_ROOT/unrelated-wine.ready")"
 printf '%s\n' "$orphan_wine_pid" > "$TEST_ROOT/orphan-wine.pid"
 printf '%s\n' "$environment_wine_pid" > "$TEST_ROOT/environment-wine.pid"
 printf '%s\n' "$unrelated_wine_pid" > "$TEST_ROOT/unrelated-wine.pid"
+
+set +e
+TEST_EVENTS="$EVENTS" "$RUNNER" probe-prefix-host --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+orphan_host_probe_status=$?
+set -e
+if [ "$orphan_host_probe_status" -ne 3 ]; then
+  echo "probe-prefix-host should detect Wine host processes with status 3" >&2
+  exit 1
+fi
+if [ -s "$EVENTS" ]; then
+  echo "probe-prefix-host launched Wine while checking existing host processes" >&2
+  exit 1
+fi
 
 set +e
 TEST_EVENTS="$EVENTS" "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"

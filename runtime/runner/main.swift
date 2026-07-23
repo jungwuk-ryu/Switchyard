@@ -308,6 +308,8 @@ struct SwitchyardRunner {
             print("switchyard-runner ok")
         case "probe-prefix":
             probePrefix(arguments: Array(arguments.dropFirst()))
+        case "probe-prefix-host":
+            probePrefixHost(arguments: Array(arguments.dropFirst()))
         case "list-processes":
             do {
                 try listProcesses(arguments: Array(arguments.dropFirst()))
@@ -616,11 +618,18 @@ struct SwitchyardRunner {
             runnerExit(2)
         }
 
-        guard let wineServerURL = wineServerURL(forWineExecutable: arguments[1]) else {
-            runnerExit(2)
-        }
-
         do {
+            let prefixLock = try WinePrefixFileLock(
+                prefixPath: arguments[3],
+                mode: .shared
+            )
+            defer { prefixLock.unlock() }
+            guard FileManager.default.isExecutableFile(atPath: arguments[1]),
+                  FileManager.default.fileExists(atPath: arguments[3]),
+                  let wineServerURL = wineServerURL(forWineExecutable: arguments[1]) else {
+                runnerExit(2)
+            }
+
             let result = try probeWinePrefixSession(
                 wineExecutablePath: arguments[1],
                 wineServerURL: wineServerURL,
@@ -631,6 +640,23 @@ struct SwitchyardRunner {
             FileHandle.standardError.write(Data("Unable to inspect Wine prefix session: \(error)\n".utf8))
             runnerExit(2)
         }
+    }
+
+    private static func probePrefixHost(arguments: [String]) {
+        guard arguments.count == 4,
+              arguments[0] == "--wine",
+              arguments[2] == "--prefix",
+              FileManager.default.isExecutableFile(atPath: arguments[1]),
+              FileManager.default.fileExists(atPath: arguments[3]) else {
+            printUsage()
+            runnerExit(2)
+        }
+
+        let result: WinePrefixProbeResult = wineProcessIDs(
+            wineExecutablePath: arguments[1],
+            prefixPath: arguments[3]
+        ).isEmpty ? .inactive : .residualProcesses
+        runnerExit(result.exitStatus)
     }
 
     private static func openURL(arguments: [String]) throws {
@@ -970,7 +996,7 @@ struct SwitchyardRunner {
 
     private static func printUsage() {
         FileHandle.standardError.write(
-            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
+            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | probe-prefix-host --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
         )
     }
 }

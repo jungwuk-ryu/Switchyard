@@ -1551,27 +1551,6 @@ final class AppStore: ObservableObject {
         defer { containerStorageOperationIDs.remove(containerID) }
         await cancelLoginCallbackRecoveryForStorageOperation(in: containerID)
 
-        let prefixLock: WinePrefixFileLock
-        do {
-            prefixLock = try await Task.detached(priority: .userInitiated) {
-                try WinePrefixFileLock(
-                    prefixPath: originalContainer.path,
-                    mode: .exclusive
-                )
-            }.value
-        } catch {
-            logLines.insert(
-                LogLine(
-                    level: "error",
-                    source: "containers",
-                    message: "Could not lock \(originalContainer.name) for a safe folder rename: \(Self.errorDescription(error))"
-                ),
-                at: 0
-            )
-            return false
-        }
-        defer { prefixLock.unlock() }
-
         let winePath = currentRuntime.winePath
         let runnerClient = runnerClient
         let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
@@ -1597,6 +1576,58 @@ final class AppStore: ObservableObject {
                     level: "error",
                     source: "containers",
                     message: "Could not verify that \(originalContainer.name) is idle, so its folder was not renamed."
+                ),
+                at: 0
+            )
+            return false
+        case .inactive:
+            break
+        }
+
+        let prefixLock: WinePrefixFileLock
+        do {
+            prefixLock = try await Task.detached(priority: .userInitiated) {
+                try WinePrefixFileLock(
+                    prefixPath: originalContainer.path,
+                    mode: .exclusive
+                )
+            }.value
+        } catch {
+            logLines.insert(
+                LogLine(
+                    level: "error",
+                    source: "containers",
+                    message: "Could not lock \(originalContainer.name) for a safe folder rename: \(Self.errorDescription(error))"
+                ),
+                at: 0
+            )
+            return false
+        }
+        defer { prefixLock.unlock() }
+
+        let recheckedPrefixState = await Task.detached(priority: .userInitiated) {
+            runnerClient.hostProcessPrefixSessionState(
+                winePath: winePath,
+                prefixPath: originalContainer.path
+            )
+        }.value
+        switch recheckedPrefixState {
+        case .active, .orphaned:
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "containers",
+                    message: "Stop \(originalContainer.name) before renaming its folder. A Wine process started while Switchyard was locking this container."
+                ),
+                at: 0
+            )
+            return false
+        case .unavailable:
+            logLines.insert(
+                LogLine(
+                    level: "error",
+                    source: "containers",
+                    message: "Could not recheck that \(originalContainer.name) remained idle, so its folder was not renamed."
                 ),
                 at: 0
             )
