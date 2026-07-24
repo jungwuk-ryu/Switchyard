@@ -43,6 +43,9 @@ struct DiagnosticCheckRow: View {
 
     private var statusLabel: String {
         guard check.status == .ok else { return check.status.label }
+        if let version = check.version, !version.isEmpty {
+            return version
+        }
 
         switch check.id {
         case "apple-silicon", "macos-version":

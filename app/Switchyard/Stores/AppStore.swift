@@ -1306,8 +1306,10 @@ final class AppStore: ObservableObject {
         let gptkPath = gptkPath
         let winePath = winePath
         let expectedWineSourceRevision = expectedActiveRuntimeSourceRevision
+        let wineVersionDate = activeRuntimeVersionDate
         let fontCacheRoot = fontCacheRoot
-        diagnosticsTask = Task { [gptkPath, winePath, expectedWineSourceRevision, fontCacheRoot] in
+        diagnosticsTask = Task {
+            [gptkPath, winePath, expectedWineSourceRevision, wineVersionDate, fontCacheRoot] in
             let result = await Task.detached(priority: .userInitiated) {
                 let locator = RuntimeLocator()
                 let resolvedWinePath = locator.preferredWineExecutablePath(
@@ -1321,6 +1323,7 @@ final class AppStore: ObservableObject {
                     gptkPath: gptkPath,
                     winePath: resolvedWinePath,
                     expectedSourceRevision: expectedWineSourceRevision,
+                    wineVersionDate: wineVersionDate,
                     fontCachePath: fontCacheRoot
                 )
                 return RuntimeRefreshResult(

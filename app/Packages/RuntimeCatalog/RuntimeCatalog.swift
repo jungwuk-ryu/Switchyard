@@ -86,6 +86,7 @@ public struct RuntimeLocator {
         gptkPath: String?,
         winePath: String?,
         expectedSourceRevision: String? = nil,
+        wineVersionDate: Date? = nil,
         fontCachePath: String? = nil
     ) -> (RuntimeStatus, [DiagnosticCheck]) {
         let architectureStatus = isAppleSilicon ? HealthStatus.ok : .unsupported
@@ -97,7 +98,11 @@ public struct RuntimeLocator {
             rosettaStatus = isRosettaAvailable ? .ok : .missing
         }
         let gptkValidation = validateGPTK(at: gptkPath)
-        let wineValidation = validateWine(at: winePath, expectedSourceRevision: expectedSourceRevision)
+        let wineValidation = validateWine(
+            at: winePath,
+            expectedSourceRevision: expectedSourceRevision,
+            versionDate: wineVersionDate
+        )
         let fontCacheURL = fontCachePath.map { URL(fileURLWithPath: $0, isDirectory: true) }
             ?? OpenFontPackCatalog.defaultCacheRoot(fileManager: fileManager)
         let fontPackStatus = OpenFontPackCatalog.diagnose(cacheRoot: fontCacheURL, fileManager: fileManager)
@@ -107,6 +112,7 @@ public struct RuntimeLocator {
                 id: "apple-silicon",
                 title: String(localized: "Apple Silicon", bundle: SwitchyardStrings.bundle),
                 status: architectureStatus,
+                version: isAppleSilicon ? machineHardwareName : nil,
                 result: isAppleSilicon
                     ? String(localized: "Running on \(machineHardwareName).", bundle: SwitchyardStrings.bundle)
                     : String(localized: "Switchyard v1 supports Apple Silicon only.", bundle: SwitchyardStrings.bundle),
@@ -116,6 +122,7 @@ public struct RuntimeLocator {
                 id: "macos-version",
                 title: String(localized: "macOS Version", bundle: SwitchyardStrings.bundle),
                 status: macOSStatus,
+                version: operatingSystemVersion,
                 result: String(localized: "Detected macOS \(operatingSystemVersion).", bundle: SwitchyardStrings.bundle),
                 recoveryAction: nil
             ),
@@ -123,6 +130,7 @@ public struct RuntimeLocator {
                 id: "rosetta",
                 title: String(localized: "Rosetta 2", bundle: SwitchyardStrings.bundle),
                 status: rosettaStatus,
+                version: rosettaStatus == .ok ? rosettaVersion : nil,
                 result: !isAppleSilicon
                     ? String(localized: "Rosetta 2 is available only on Apple Silicon Macs.", bundle: SwitchyardStrings.bundle)
                     : (rosettaStatus == .ok
@@ -136,6 +144,7 @@ public struct RuntimeLocator {
                 id: "gptk",
                 title: String(localized: "Game Porting Toolkit", bundle: SwitchyardStrings.bundle),
                 status: gptkValidation.status,
+                version: gptkValidation.version,
                 result: gptkValidation.message,
                 recoveryAction: gptkValidation.status == .ok
                     ? nil
@@ -145,6 +154,7 @@ public struct RuntimeLocator {
                 id: "wine-runtime",
                 title: String(localized: "Wine Runtime", bundle: SwitchyardStrings.bundle),
                 status: wineValidation.status,
+                version: wineValidation.version,
                 result: wineValidation.message,
                 recoveryAction: wineValidation.status == .ok
                     ? nil
@@ -154,6 +164,7 @@ public struct RuntimeLocator {
                 id: "runtime-source",
                 title: String(localized: "Wine Runtime Source", bundle: SwitchyardStrings.bundle),
                 status: wineValidation.sourceStatus,
+                version: wineValidation.sourceVersion,
                 result: wineValidation.sourceMessage,
                 recoveryAction: wineValidation.sourceStatus == .ok
                     ? nil
@@ -163,6 +174,9 @@ public struct RuntimeLocator {
                 id: "open-font-pack",
                 title: String(localized: "Open Font Pack", bundle: SwitchyardStrings.bundle),
                 status: fontPackStatus.status,
+                version: fontPackStatus.status == .ok
+                    ? "\(OpenFontPackCatalog.files.count)"
+                    : nil,
                 result: fontPackStatus.message,
                 recoveryAction: fontPackStatus.status == .ok
                     ? nil
@@ -202,14 +216,32 @@ public struct RuntimeLocator {
         return (runtimeStatus, checks)
     }
 
-    public func validateGPTK(at path: String?) -> (status: HealthStatus, message: String, fingerprint: String?) {
+    public func validateGPTK(
+        at path: String?
+    ) -> (status: HealthStatus, message: String, fingerprint: String?, version: String?) {
         guard let path, !path.isEmpty else {
-            return (.missing, String(localized: "No GPTK path has been selected.", bundle: SwitchyardStrings.bundle), nil)
+            return (
+                .missing,
+                String(
+                    localized: "No GPTK path has been selected.",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                nil,
+                nil
+            )
         }
 
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else {
-            return (.missing, String(localized: "Selected GPTK path does not exist.", bundle: SwitchyardStrings.bundle), nil)
+            return (
+                .missing,
+                String(
+                    localized: "Selected GPTK path does not exist.",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                nil,
+                nil
+            )
         }
 
         if !isDirectory.boolValue {
@@ -221,6 +253,7 @@ public struct RuntimeLocator {
                         localized: "Selected GPTK path is not a directory or supported .dmg disk image.",
                         bundle: SwitchyardStrings.bundle
                     ),
+                    nil,
                     nil
                 )
             }
@@ -234,7 +267,8 @@ public struct RuntimeLocator {
                     localized: "The selected GPTK disk image has not been imported. Use Import Selected GPTK to verify Apple-signed code before mounting it.",
                     bundle: SwitchyardStrings.bundle
                 ),
-                fingerprint
+                fingerprint,
+                nil
             )
         }
 
@@ -470,8 +504,12 @@ public struct RuntimeLocator {
         throw RuntimeLocatorError.noGPTKMarkersInDiskImage
     }
 
-    private func validateGPTKDirectory(at path: String, sourceDescription: String) -> (status: HealthStatus, message: String, fingerprint: String?) {
+    private func validateGPTKDirectory(
+        at path: String,
+        sourceDescription: String
+    ) -> (status: HealthStatus, message: String, fingerprint: String?, version: String?) {
         let markers = findGPTKMarkers(under: path)
+        let fingerprint = fingerprint(forMarkersAt: path, markers: markers)
         guard !markers.isEmpty else {
             return (
                 .warning,
@@ -479,7 +517,8 @@ public struct RuntimeLocator {
                     localized: "\(sourceDescription) exists, but no known D3DMetal/GPTK marker files were found.",
                     bundle: SwitchyardStrings.bundle
                 ),
-                fingerprint(forMarkersAt: path, markers: [])
+                fingerprint,
+                nil
             )
         }
 
@@ -493,7 +532,8 @@ public struct RuntimeLocator {
                     localized: "\(sourceDescription) contains GPTK markers, but its executable code is not fully Apple-signed: \(error.localizedDescription)",
                     bundle: SwitchyardStrings.bundle
                 ),
-                fingerprint(forMarkersAt: path, markers: markers)
+                fingerprint,
+                nil
             )
         }
 
@@ -503,16 +543,25 @@ public struct RuntimeLocator {
                 localized: "Apple-signed GPTK code and markers found: \(markers.prefix(3).joined(separator: ", ")).",
                 bundle: SwitchyardStrings.bundle
             ),
-            fingerprint(forMarkersAt: path, markers: markers)
+            fingerprint,
+            String(fingerprint.suffix(8))
         )
     }
 
-    private func validateWine(at path: String?, expectedSourceRevision: String?) -> WineValidation {
+    private func validateWine(
+        at path: String?,
+        expectedSourceRevision: String?,
+        versionDate: Date?
+    ) -> WineValidation {
         let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let candidate = trimmedPath.isEmpty ? (latestCachedSwitchyardWineExecutablePath() ?? defaultWineRuntimePath()) : trimmedPath
 
         if let resolvedPath = resolveWineExecutable(at: candidate) {
-            return describeWine(at: resolvedPath, expectedSourceRevision: expectedSourceRevision)
+            return describeWine(
+                at: resolvedPath,
+                expectedSourceRevision: expectedSourceRevision,
+                versionDate: versionDate
+            )
         }
 
         if trimmedPath.isEmpty {
@@ -575,12 +624,17 @@ public struct RuntimeLocator {
         )
     }
 
-    private func describeWine(at resolvedPath: String, expectedSourceRevision: String?) -> WineValidation {
+    private func describeWine(
+        at resolvedPath: String,
+        expectedSourceRevision: String?,
+        versionDate: Date?
+    ) -> WineValidation {
         guard let rootURL = runtimeRoot(forWineExecutable: resolvedPath),
               let manifest = loadSwitchyardRuntimeManifest(under: rootURL) else {
             let sourceStatus: HealthStatus = expectedSourceRevision == nil ? .ok : .warning
             return WineValidation(
                 status: .ok,
+                version: externalWineIdentifier(at: resolvedPath),
                 message: String(
                     localized: "Wine executable found at \(resolvedPath).",
                     bundle: SwitchyardStrings.bundle
@@ -599,6 +653,13 @@ public struct RuntimeLocator {
         }
 
         let runtimeID = manifest.id ?? rootURL.lastPathComponent
+        let sourceRevision = manifest.sourceRevision ?? manifest.wineRevision ?? ""
+        let runtimeVersion = readableWineVersion(
+            runtimeID: runtimeID,
+            sourceRevision: sourceRevision,
+            expectedSourceRevision: expectedSourceRevision,
+            versionDate: versionDate
+        )
         let profile = manifest.buildProfile
             ?? String(localized: "unknown profile", bundle: SwitchyardStrings.bundle)
         let sourceValidation = validateRuntimeSource(
@@ -613,24 +674,28 @@ public struct RuntimeLocator {
         if !missingArchitectures.isEmpty {
             return WineValidation(
                 status: .warning,
+                version: runtimeVersion,
                 message: String(
                     localized: "Switchyard Wine runtime \(runtimeID) is selected at \(resolvedPath), but it is missing PE architecture(s): \(missingArchitectures.joined(separator: ", ")). Rebuild the Switchyard WoW64 runtime before running 32-bit Windows installers or programs.",
                     bundle: SwitchyardStrings.bundle
                 ),
                 sourceStatus: sourceValidation.status,
-                sourceMessage: sourceValidation.message
+                sourceMessage: sourceValidation.message,
+                sourceVersion: sourceValidation.version
             )
         }
 
         let declaredArchitectures = manifest.peArchitectures?.sorted().joined(separator: ", ") ?? "i386, x86_64"
         return WineValidation(
             status: .ok,
+            version: runtimeVersion,
             message: String(
                 localized: "Switchyard Wine runtime \(runtimeID) (\(profile)) found at \(resolvedPath). PE architectures: \(declaredArchitectures).",
                 bundle: SwitchyardStrings.bundle
             ),
             sourceStatus: sourceValidation.status,
-            sourceMessage: sourceValidation.message
+            sourceMessage: sourceValidation.message,
+            sourceVersion: sourceValidation.version
         )
     }
 
@@ -642,6 +707,7 @@ public struct RuntimeLocator {
         guard let sourceRevision = manifest.sourceRevision ?? manifest.wineRevision else {
             return RuntimeSourceValidation(
                 status: .warning,
+                version: nil,
                 message: String(
                     localized: "Switchyard Wine runtime \(runtimeID) does not record a source revision. Rebuild it from the pinned switchyard-wine repository.",
                     bundle: SwitchyardStrings.bundle
@@ -655,6 +721,7 @@ public struct RuntimeLocator {
         if manifest.sourceDirty == true {
             return RuntimeSourceValidation(
                 status: .warning,
+                version: shortRevision,
                 message: String(
                     localized: "Switchyard Wine runtime \(runtimeID) was built from a dirty source tree at \(shortRevision). Build a clean pinned revision before release use.",
                     bundle: SwitchyardStrings.bundle
@@ -665,6 +732,7 @@ public struct RuntimeLocator {
         if let expectedSourceRevision, sourceRevision != expectedSourceRevision {
             return RuntimeSourceValidation(
                 status: .warning,
+                version: shortRevision,
                 message: String(
                     localized: "Switchyard Wine runtime \(runtimeID) was built from source \(shortRevision), but this Switchyard build pins \(expectedSourceRevision.prefix(12)). Rebuild the runtime from the pinned revision.",
                     bundle: SwitchyardStrings.bundle
@@ -674,6 +742,7 @@ public struct RuntimeLocator {
 
         return RuntimeSourceValidation(
             status: .ok,
+            version: shortRevision,
             message: String(
                 localized: "Runtime source verified at \(repository) revision \(shortRevision).",
                 bundle: SwitchyardStrings.bundle
@@ -866,6 +935,26 @@ public struct RuntimeLocator {
         ].contains(where: fileManager.fileExists(atPath:))
     }
 
+    private var rosettaVersion: String {
+        let receiptURL = URL(
+            fileURLWithPath: "/var/db/receipts/com.apple.pkg.RosettaUpdateAuto.plist"
+        )
+        if let data = try? Data(contentsOf: receiptURL),
+           let receipt = try? PropertyListSerialization.propertyList(
+               from: data,
+               options: [],
+               format: nil
+           ) as? [String: Any],
+           let version = receipt["PackageVersion"] as? String,
+           !version.isEmpty {
+            return version
+        }
+
+        // Rosetta is serviced as part of macOS. Keep the fallback explicit so
+        // the OS version cannot be mistaken for Rosetta's package version.
+        return "macOS \(operatingSystemVersion)"
+    }
+
     private var operatingSystemVersion: String {
         let version = ProcessInfo.processInfo.operatingSystemVersion
         return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
@@ -906,6 +995,50 @@ public struct RuntimeLocator {
             }
         }
         return markers
+    }
+
+    private func readableWineVersion(
+        runtimeID: String,
+        sourceRevision: String,
+        expectedSourceRevision: String?,
+        versionDate: Date?
+    ) -> String? {
+        if !sourceRevision.isEmpty,
+           sourceRevision == expectedSourceRevision,
+           let versionDate,
+           let buildNumber = RuntimeBuild(
+               id: runtimeID,
+               winePath: "",
+               patchsetID: "",
+               sourceRevision: sourceRevision,
+               versionDate: versionDate
+           ).buildNumber {
+            return buildNumber
+        }
+
+        let releasePrefix = "switchyard-runtime-"
+        if runtimeID.hasPrefix(releasePrefix) {
+            let release = String(runtimeID.dropFirst(releasePrefix.count))
+            if !release.isEmpty {
+                return release
+            }
+        } else if !runtimeID.isEmpty {
+            return runtimeID
+        }
+
+        return sourceRevision.isEmpty ? nil : String(sourceRevision.prefix(12))
+    }
+
+    private func externalWineIdentifier(at path: String) -> String {
+        let attributes = try? fileManager.attributesOfItem(atPath: path)
+        let size = attributes?[.size] as? NSNumber
+        let modified = attributes?[.modificationDate] as? Date
+        let identity = [
+            canonicalPath(path),
+            size?.stringValue ?? "unknown-size",
+            modified.map { String($0.timeIntervalSince1970) } ?? "unknown-date"
+        ].joined(separator: ":")
+        return "wine-\(fnvDigest(identity))"
     }
 
     private func findNestedDiskImages(under path: String) -> [String] {
@@ -1317,12 +1450,15 @@ private struct MountedDiskImage {
 
 private struct WineValidation {
     var status: HealthStatus
+    var version: String? = nil
     var message: String
     var sourceStatus: HealthStatus
     var sourceMessage: String
+    var sourceVersion: String? = nil
 }
 
 private struct RuntimeSourceValidation {
     var status: HealthStatus
+    var version: String?
     var message: String
 }

@@ -20,6 +20,44 @@ import Foundation
     #expect(result.fingerprint != nil)
 }
 
+@Test func appleSignedGPTKFrameworkReportsTrustedFingerprint() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let framework = root.appendingPathComponent(
+        "D3DMetal.framework",
+        isDirectory: true
+    )
+    let resources = framework.appendingPathComponent("Resources", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: resources,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.copyItem(
+        at: URL(fileURLWithPath: "/bin/echo"),
+        to: root.appendingPathComponent("libd3dshared.dylib")
+    )
+    let info: [String: Any] = [
+        "CFBundleShortVersionString": "3.1",
+        "CFBundleVersion": "3100"
+    ]
+    let infoData = try PropertyListSerialization.data(
+        fromPropertyList: info,
+        format: .xml,
+        options: 0
+    )
+    try infoData.write(to: resources.appendingPathComponent("Info.plist"))
+
+    let result = RuntimeLocator().validateGPTK(at: root.path)
+
+    #expect(result.status == .ok)
+    let fingerprint = try #require(result.fingerprint)
+    #expect(result.version == String(fingerprint.suffix(8)))
+}
+
 @Test func unsignedGPTKMarkerIsRejected() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -357,14 +395,55 @@ import Foundation
     defer { try? FileManager.default.removeItem(at: root) }
 
     let wine = try createSwitchyardWineRuntime(at: root, peArchitectures: ["i386", "x86_64"])
-    let result = RuntimeLocator().diagnose(gptkPath: nil, winePath: root.path)
+    let sourceRevision = String(repeating: "a", count: 40)
+    let versionDate = try #require(
+        ISO8601DateFormatter().date(from: "2026-07-24T12:34:00Z")
+    )
+    let result = RuntimeLocator().diagnose(
+        gptkPath: nil,
+        winePath: root.path,
+        expectedSourceRevision: sourceRevision,
+        wineVersionDate: versionDate
+    )
     let wineCheck = try #require(result.1.first { $0.id == "wine-runtime" })
+    let sourceCheck = try #require(result.1.first { $0.id == "runtime-source" })
 
     #expect(wineCheck.status == .ok)
+    #expect(wineCheck.version == "20260724.1234")
     #expect(wineCheck.result.contains("Switchyard Wine runtime"))
     #expect(wineCheck.result.contains("i386"))
     #expect(wineCheck.result.contains("x86_64"))
     #expect(wineCheck.result.contains(wine.path))
+    #expect(sourceCheck.version == String(sourceRevision.prefix(12)))
+}
+
+@Test func externalWineReportsStableIdentifierInsteadOfGenericStatus() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(
+        at: root,
+        withIntermediateDirectories: true
+    )
+    let wine = root.appendingPathComponent("wine")
+    try Data("#!/bin/sh\nexit 0\n".utf8).write(to: wine)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755],
+        ofItemAtPath: wine.path
+    )
+
+    let result = RuntimeLocator().diagnose(
+        gptkPath: nil,
+        winePath: wine.path
+    )
+    let wineCheck = try #require(
+        result.1.first { $0.id == "wine-runtime" }
+    )
+
+    #expect(wineCheck.status == .ok)
+    #expect(wineCheck.version?.hasPrefix("wine-") == true)
 }
 
 @Test func switchyardWineRuntimeMissingI386ReportsWarning() throws {

@@ -510,6 +510,7 @@ public struct DiagnosticCheck: Identifiable, Codable, Equatable, Sendable {
     public var id: String
     public var title: String
     public var status: HealthStatus
+    public var version: String?
     public var result: String
     public var recoveryAction: String?
 
@@ -517,12 +518,14 @@ public struct DiagnosticCheck: Identifiable, Codable, Equatable, Sendable {
         id: String,
         title: String,
         status: HealthStatus,
+        version: String? = nil,
         result: String,
         recoveryAction: String? = nil
     ) {
         self.id = id
         self.title = title
         self.status = status
+        self.version = version
         self.result = result
         self.recoveryAction = recoveryAction
     }
