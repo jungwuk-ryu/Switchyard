@@ -313,7 +313,11 @@ public enum EnvironmentOverridePolicy {
 
     public static func isReservedKey(_ key: String) -> Bool {
         let normalizedKey = key.uppercased()
-        return normalizedKey == "WINEPREFIX" || normalizedKey.hasPrefix("SWITCHYARD_")
+        return normalizedKey == "WINEPREFIX"
+            || normalizedKey == "WINEDLLPATH"
+            || normalizedKey == "DYLD_LIBRARY_PATH"
+            || normalizedKey == "DYLD_FRAMEWORK_PATH"
+            || normalizedKey.hasPrefix("SWITCHYARD_")
     }
 
     private static func isASCIILetter(_ scalar: Unicode.Scalar) -> Bool {

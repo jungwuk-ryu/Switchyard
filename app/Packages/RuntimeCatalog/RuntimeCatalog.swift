@@ -278,6 +278,37 @@ public struct RuntimeLocator {
         )
     }
 
+    public func canonicalGPTKRoot(at path: String?) -> String? {
+        let trimmedPath = path?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmedPath.isEmpty else { return nil }
+
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(
+            atPath: trimmedPath,
+            isDirectory: &isDirectory
+        ), isDirectory.boolValue else {
+            return nil
+        }
+
+        var candidate = URL(
+            fileURLWithPath: trimmedPath,
+            isDirectory: true
+        )
+        .resolvingSymlinksInPath()
+        .standardizedFileURL
+
+        for _ in 0..<12 {
+            if isLaunchReadyGPTKRoot(candidate) {
+                return candidate.path
+            }
+            let parent = candidate.deletingLastPathComponent()
+            guard parent.path != candidate.path else { break }
+            candidate = parent
+        }
+        return nil
+    }
+
     public func defaultWineRuntimePath() -> String {
         let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
         return support?
@@ -508,8 +539,21 @@ public struct RuntimeLocator {
         at path: String,
         sourceDescription: String
     ) -> (status: HealthStatus, message: String, fingerprint: String?, version: String?) {
-        let markers = findGPTKMarkers(under: path)
-        let fingerprint = fingerprint(forMarkersAt: path, markers: markers)
+        guard let rootPath = canonicalGPTKRoot(at: path) else {
+            let markers = findGPTKMarkers(under: path)
+            return (
+                .warning,
+                String(
+                    localized: "\(sourceDescription) does not contain a launch-ready GPTK redist layout.",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                fingerprint(forMarkersAt: path, markers: markers),
+                nil
+            )
+        }
+
+        let markers = findGPTKMarkers(under: rootPath)
+        let fingerprint = fingerprint(forMarkersAt: rootPath, markers: markers)
         guard !markers.isEmpty else {
             return (
                 .warning,
@@ -523,8 +567,8 @@ public struct RuntimeLocator {
         }
 
         do {
-            try validateNoEscapingSymbolicLinks(under: path)
-            try validateAppleSignedMachOFiles(under: path)
+            try validateNoEscapingSymbolicLinks(under: rootPath)
+            try validateAppleSignedMachOFiles(under: rootPath)
         } catch {
             return (
                 .warning,
@@ -1041,6 +1085,41 @@ public struct RuntimeLocator {
         return "wine-\(fnvDigest(identity))"
     }
 
+    private func isLaunchReadyGPTKRoot(_ root: URL) -> Bool {
+        let wineDirectory = root.appendingPathComponent(
+            "redist/lib/wine",
+            isDirectory: true
+        )
+        let externalDirectory = root.appendingPathComponent(
+            "redist/lib/external",
+            isDirectory: true
+        )
+        let framework = externalDirectory.appendingPathComponent(
+            "D3DMetal.framework",
+            isDirectory: true
+        )
+        let sharedLibrary = externalDirectory.appendingPathComponent(
+            "libd3dshared.dylib",
+            isDirectory: false
+        )
+
+        var wineIsDirectory: ObjCBool = false
+        var frameworkIsDirectory: ObjCBool = false
+        var sharedLibraryIsDirectory: ObjCBool = false
+        return fileManager.fileExists(
+            atPath: wineDirectory.path,
+            isDirectory: &wineIsDirectory
+        ) && wineIsDirectory.boolValue
+            && fileManager.fileExists(
+                atPath: framework.path,
+                isDirectory: &frameworkIsDirectory
+            ) && frameworkIsDirectory.boolValue
+            && fileManager.fileExists(
+                atPath: sharedLibrary.path,
+                isDirectory: &sharedLibraryIsDirectory
+            ) && !sharedLibraryIsDirectory.boolValue
+    }
+
     private func findNestedDiskImages(under path: String) -> [String] {
         guard let enumerator = fileManager.enumerator(atPath: path) else {
             return []
@@ -1060,8 +1139,11 @@ public struct RuntimeLocator {
     }
 
     private func copyGPTKRuntime(from sourcePath: String, sourceImagePath: String, to importRoot: String) throws -> String {
-        try validateNoEscapingSymbolicLinks(under: sourcePath)
-        try validateAppleSignedMachOFiles(under: sourcePath)
+        guard let sourceRootPath = canonicalGPTKRoot(at: sourcePath) else {
+            throw RuntimeLocatorError.noGPTKMarkersInImportedRuntime
+        }
+        try validateNoEscapingSymbolicLinks(under: sourceRootPath)
+        try validateAppleSignedMachOFiles(under: sourceRootPath)
         let destination = importDestination(forDiskImageAt: sourceImagePath, under: importRoot)
         if fileManager.fileExists(atPath: destination) {
             guard validateGPTK(at: destination).status == .ok else {
@@ -1082,8 +1164,11 @@ public struct RuntimeLocator {
             }
         }
 
-        try fileManager.copyItem(at: URL(fileURLWithPath: sourcePath, isDirectory: true), to: temporaryURL)
-        guard !findGPTKMarkers(under: temporaryURL.path).isEmpty else {
+        try fileManager.copyItem(
+            at: URL(fileURLWithPath: sourceRootPath, isDirectory: true),
+            to: temporaryURL
+        )
+        guard canonicalGPTKRoot(at: temporaryURL.path) != nil else {
             throw RuntimeLocatorError.noGPTKMarkersInImportedRuntime
         }
         try validateNoEscapingSymbolicLinks(under: temporaryURL.path)

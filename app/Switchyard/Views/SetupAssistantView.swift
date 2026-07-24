@@ -84,6 +84,26 @@ struct SetupAssistantView: View {
         } message: {
             Text("Unsaved work in Windows apps may be lost. Switchyard needs them closed before changing compatibility files.")
         }
+        .sheet(
+            item: Binding(
+                get: { store.gptkComponentConsentRequest },
+                set: { request in
+                    if request == nil {
+                        store.dismissGPTKComponentConsent()
+                    }
+                }
+            )
+        ) { request in
+            GPTKComponentLicenseConsentView(
+                request: request,
+                cancel: {
+                    store.dismissGPTKComponentConsent()
+                },
+                accept: {
+                    store.acceptGPTKComponentConsent(requestID: request.id)
+                }
+            )
+        }
     }
 
     private var setupHeader: some View {
@@ -146,7 +166,11 @@ struct SetupAssistantView: View {
             Label("Run Windows apps without learning Windows setup tools", systemImage: "sparkles")
                 .font(.title2.weight(.semibold))
 
-            Text("Switchyard will check this Mac, download its compatibility files, and guide you through the one Apple download it cannot provide itself. Your apps and games stay on this Mac.")
+            Text(
+                store.canDownloadGPTKAutomatically
+                    ? "Switchyard will check this Mac, download its compatibility files, and show Apple's license before retrieving the reviewed GPTK 3 component. Your apps and games stay on this Mac."
+                    : "Switchyard will check this Mac, download its compatibility files, and guide you through the one Apple download it cannot provide itself. Your apps and games stay on this Mac."
+            )
                 .font(.title3)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -332,15 +356,46 @@ struct SetupAssistantView: View {
                     localized: "Get Apple's graphics support",
                     bundle: SwitchyardStrings.bundle
                 ),
-                detail: String(
-                    localized: "This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.",
-                    bundle: SwitchyardStrings.bundle
-                )
+                detail: store.canDownloadGPTKAutomatically
+                    ? String(
+                        localized: "Review Apple's license, then let Switchyard download and verify the approved GPTK 3 component.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                    : String(
+                        localized: "This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.",
+                        bundle: SwitchyardStrings.bundle
+                    )
             )
 
             runningAppsBlocker
 
-            if store.isImportingGPTK {
+            if store.gptkComponentDownloadState == .preparingConsent {
+                SetupCenteredProgress(
+                    title: String(
+                        localized: "Loading the reviewed Apple license…",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "The component archive will not download until you review and acknowledge the license.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                )
+            } else if store.gptkComponentDownloadState == .downloading {
+                SetupCenteredProgress(
+                    title: String(
+                        localized: "Downloading and verifying GPTK 3…",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    detail: String(
+                        localized: "Switchyard is checking the signed manifest, file tree, notices, and Apple code signature.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                )
+
+                Button("Cancel Download") {
+                    store.cancelGPTKComponentDownload()
+                }
+            } else if store.isImportingGPTK {
                 SetupCenteredProgress(
                     title: String(
                         localized: "Checking and importing the Apple download…",
@@ -367,6 +422,40 @@ struct SetupAssistantView: View {
                 .controlSize(.large)
                 .disabled(store.hasRunningContainers)
                 .accessibilityIdentifier("setup.gptk.import")
+            } else if store.canDownloadGPTKAutomatically {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label(
+                        "Switchyard will show the exact Apple license before downloading.",
+                        systemImage: "doc.text"
+                    )
+                    Label(
+                        "The separate component is verified against the reviewed GPTK 3 identity.",
+                        systemImage: "checkmark.shield"
+                    )
+                    Label(
+                        "Apple's official download remains available below.",
+                        systemImage: "safari"
+                    )
+                }
+                .font(.callout)
+
+                HStack {
+                    Button("Review License and Download") {
+                        store.prepareAutomaticGPTKDownload()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(store.hasRunningContainers)
+                    .accessibilityIdentifier("setup.gptk.automaticDownload")
+
+                    Button("Download from Apple") {
+                        store.openGPTKDownloadPage()
+                    }
+
+                    Button("Choose Downloaded File…") {
+                        store.chooseGPTKDiskImageAndImport()
+                    }
+                }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
                     Label("1. Open Apple's download page", systemImage: "safari")
@@ -697,6 +786,7 @@ struct SetupAssistantView: View {
         store.runtimeInstallationState.isWorking
             || store.rosettaInstallationState.isWorking
             || store.isImportingGPTK
+            || store.gptkComponentDownloadState.isWorking
             || store.steamInstallationState.isWorking
             || store.isDownloadingSteamInstaller
             || isStoppingAppsForSetup

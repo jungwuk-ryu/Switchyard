@@ -39,11 +39,51 @@ private struct PendingLoginCallbackRecovery {
     var candidates: [String]
 }
 
+private enum GPTKConsentError: LocalizedError {
+    case unreadableLicense
+
+    var errorDescription: String? {
+        switch self {
+        case .unreadableLicense:
+            String(
+                localized: "The reviewed Apple license could not be displayed.",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+    }
+}
+
+struct GPTKComponentConsentRequest: Identifiable {
+    let id: String
+    let componentID: String
+    let version: String
+    let licenseIdentifier: String
+    let licenseText: String
+    let consent: GPTKComponentConsentDocument
+}
+
+enum GPTKComponentDownloadState: Equatable {
+    case idle
+    case preparingConsent
+    case downloading
+    case failed(String)
+
+    var isWorking: Bool {
+        switch self {
+        case .preparingConsent, .downloading:
+            true
+        case .idle, .failed:
+            false
+        }
+    }
+}
+
 private let maximumLiveLogLines = 5_000
 private let recentProgramLaunchesDefaultsKey = "recentProgramLaunches.v1"
 private let maximumRecentProgramLaunches = 8
 private let onlineReleaseCacheInterval: TimeInterval = 15 * 60
 private let activeRuntimeSourceRevisionDefaultsKey = "activeRuntimeSourceRevision.v1"
+private let gptkComponentConsentDefaultsPrefix = "gptkComponentConsent.v1."
 
 enum ActiveRuntimeSourcePreference: Equatable {
     case appPinned
@@ -314,6 +354,8 @@ final class AppStore: ObservableObject {
     @Published private(set) var gptkSetupMessage: String?
     @Published private(set) var isImportingGPTK = false
     @Published private(set) var downloadedGPTKDiskImagePath: String?
+    @Published private(set) var gptkComponentConsentRequest: GPTKComponentConsentRequest?
+    @Published private(set) var gptkComponentDownloadState: GPTKComponentDownloadState = .idle
     @Published private(set) var downloadedSteamInstallerPath: String?
     @Published private(set) var steamSetupMessage: String?
     @Published private(set) var isDownloadingSteamInstaller = false
@@ -340,6 +382,9 @@ final class AppStore: ObservableObject {
     private let debugRunLogStore = DebugRunLogStore()
     private let defaults = UserDefaults.standard
     private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
+    private let gptkComponentPolicy = GPTKComponentChannelConfiguration
+        .load()
+        .downloadPolicy
     private var diagnosticsTask: Task<Void, Never>?
     private var diagnosticsRefreshID: UUID?
     private var onlineReleaseTask: Task<Void, Never>?
@@ -347,6 +392,8 @@ final class AppStore: ObservableObject {
     private var officialRuntimeCatalogTask: Task<Void, Never>?
     private var officialRuntimeCatalogRefreshID: UUID?
     private var gptkImportTask: Task<Void, Never>?
+    private var gptkComponentTask: Task<Void, Never>?
+    private var gptkComponentTaskID: UUID?
     private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
     private var starterApplicationDetectionTask: Task<Void, Never>?
@@ -375,7 +422,9 @@ final class AppStore: ObservableObject {
                 forKey: activeRuntimeSourceRevisionDefaultsKey
             )
         ).expectedSourceRevision(pinnedRevision: wineSourcePolicy.revision)
-        gptkPath = defaults.string(forKey: "gptkPath") ?? ""
+        let storedGPTKPath = defaults.string(forKey: "gptkPath") ?? ""
+        gptkPath = runtimeLocator.canonicalGPTKRoot(at: storedGPTKPath)
+            ?? storedGPTKPath
         if let storedWinePath = defaults.string(forKey: "winePath"), !storedWinePath.isEmpty {
             let defaultWinePath = runtimeLocator.defaultWineRuntimePath()
             let preferredWinePath = runtimeLocator.preferredWineExecutablePath(
@@ -468,6 +517,10 @@ final class AppStore: ObservableObject {
         wineSourcePolicy.publishedRuntimePolicy != nil
     }
 
+    var canDownloadGPTKAutomatically: Bool {
+        gptkComponentPolicy != nil
+    }
+
     var canInstallOfficialRuntimeReleases: Bool {
         !wineSourcePolicy.developerTeamID.isEmpty
     }
@@ -546,6 +599,11 @@ final class AppStore: ObservableObject {
     }
 
     func persistPreferences() {
+        if let canonicalGPTKPath = RuntimeLocator().canonicalGPTKRoot(
+            at: gptkPath
+        ) {
+            gptkPath = canonicalGPTKPath
+        }
         defaults.set(libraryPath, forKey: "libraryPath")
         defaults.set(gptkPath, forKey: "gptkPath")
         defaults.set(winePath, forKey: "winePath")
@@ -1006,8 +1064,195 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func prepareAutomaticGPTKDownload() {
+        guard !gptkComponentDownloadState.isWorking,
+              gptkComponentConsentRequest == nil else {
+            return
+        }
+        guard !hasRunningContainers else {
+            gptkSetupMessage = String(
+                localized: "Stop all running containers before importing a toolkit.",
+                bundle: SwitchyardStrings.bundle
+            )
+            return
+        }
+        guard let gptkComponentPolicy else {
+            gptkSetupMessage = String(
+                localized: "Automatic GPTK download is not enabled in this Switchyard build. Use Apple's official download instead.",
+                bundle: SwitchyardStrings.bundle
+            )
+            return
+        }
+
+        gptkComponentDownloadState = .preparingConsent
+        gptkSetupMessage = String(
+            localized: "Loading the reviewed Apple license…",
+            bundle: SwitchyardStrings.bundle
+        )
+        let installer = GPTKComponentInstaller()
+        let taskID = UUID()
+        gptkComponentTaskID = taskID
+        gptkComponentTask = Task {
+            do {
+                let consent = try await installer.prepareConsent(
+                    policy: gptkComponentPolicy
+                )
+                try Task.checkCancellation()
+                guard gptkComponentTaskID == taskID else { return }
+                let licenseText = try Self.plainText(
+                    fromRTF: consent.licenseData
+                )
+                gptkComponentConsentRequest = GPTKComponentConsentRequest(
+                    id: consent.manifestSha256,
+                    componentID: consent.release.componentID,
+                    version: consent.release.gptkVersion,
+                    licenseIdentifier: consent.release.license.identifier,
+                    licenseText: licenseText,
+                    consent: consent
+                )
+                gptkComponentDownloadState = .idle
+                gptkSetupMessage = String(
+                    localized: "Review Apple's license and permitted-use conditions before downloading.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            } catch is CancellationError {
+                if gptkComponentTaskID == taskID {
+                    gptkComponentDownloadState = .idle
+                }
+            } catch let error as URLError where error.code == .cancelled {
+                if gptkComponentTaskID == taskID {
+                    gptkComponentDownloadState = .idle
+                }
+            } catch {
+                guard gptkComponentTaskID == taskID else { return }
+                let message = Self.errorDescription(error)
+                gptkComponentDownloadState = .failed(message)
+                gptkSetupMessage = message
+                logLines.insert(
+                    LogLine(
+                        level: "warning",
+                        source: "runtime",
+                        message: message
+                    ),
+                    at: 0
+                )
+            }
+            if gptkComponentTaskID == taskID {
+                gptkComponentTask = nil
+                gptkComponentTaskID = nil
+            }
+        }
+    }
+
+    func acceptGPTKComponentConsent(requestID: String) {
+        guard !gptkComponentDownloadState.isWorking,
+              let request = gptkComponentConsentRequest,
+              request.id == requestID,
+              let gptkComponentPolicy else {
+            return
+        }
+        guard !hasRunningContainers else {
+            gptkSetupMessage = String(
+                localized: "Stop all running containers before importing a toolkit.",
+                bundle: SwitchyardStrings.bundle
+            )
+            return
+        }
+
+        recordGPTKComponentConsent(request)
+        gptkComponentConsentRequest = nil
+        gptkComponentDownloadState = .downloading
+        gptkSetupMessage = String(
+            localized: "Downloading and verifying the reviewed GPTK 3 component…",
+            bundle: SwitchyardStrings.bundle
+        )
+
+        let installer = GPTKComponentInstaller()
+        let consent = request.consent
+        let taskID = UUID()
+        gptkComponentTaskID = taskID
+        gptkComponentTask = Task {
+            do {
+                let result = try await installer.install(
+                    policy: gptkComponentPolicy,
+                    consent: consent
+                )
+                try Task.checkCancellation()
+                guard gptkComponentTaskID == taskID else { return }
+                gptkPath = result.rootPath
+                persistPreferences()
+                gptkComponentDownloadState = .idle
+                gptkSetupMessage = String(
+                    localized: "Downloaded, verified, and selected the reviewed GPTK 3 component.",
+                    bundle: SwitchyardStrings.bundle
+                )
+                logLines.insert(
+                    LogLine(
+                        level: "info",
+                        source: "runtime",
+                        message: gptkSetupMessage
+                            ?? "GPTK component installation completed."
+                    ),
+                    at: 0
+                )
+                refreshRuntimeStatus()
+            } catch is CancellationError {
+                if gptkComponentTaskID == taskID {
+                    gptkComponentDownloadState = .idle
+                    gptkSetupMessage = String(
+                        localized: "GPTK component download was cancelled.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                }
+            } catch let error as URLError where error.code == .cancelled {
+                if gptkComponentTaskID == taskID {
+                    gptkComponentDownloadState = .idle
+                    gptkSetupMessage = String(
+                        localized: "GPTK component download was cancelled.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                }
+            } catch {
+                guard gptkComponentTaskID == taskID else { return }
+                let message = Self.errorDescription(error)
+                gptkComponentDownloadState = .failed(message)
+                gptkSetupMessage = message
+                logLines.insert(
+                    LogLine(
+                        level: "warning",
+                        source: "runtime",
+                        message: message
+                    ),
+                    at: 0
+                )
+            }
+            if gptkComponentTaskID == taskID {
+                gptkComponentTask = nil
+                gptkComponentTaskID = nil
+            }
+        }
+    }
+
+    func dismissGPTKComponentConsent() {
+        gptkComponentConsentRequest = nil
+    }
+
+    func cancelGPTKComponentDownload() {
+        gptkComponentTaskID = nil
+        gptkComponentTask?.cancel()
+        gptkComponentTask = nil
+        gptkComponentDownloadState = .idle
+        gptkSetupMessage = String(
+            localized: "GPTK component download was cancelled.",
+            bundle: SwitchyardStrings.bundle
+        )
+    }
+
     func importLatestDownloadedGPTK() {
-        guard !isImportingGPTK else { return }
+        guard !isImportingGPTK,
+              !gptkComponentDownloadState.isWorking else {
+            return
+        }
         refreshDownloadedInstallers()
         guard let downloadedPath = downloadedGPTKDiskImagePath else {
             gptkSetupMessage = String(
@@ -1020,7 +1265,10 @@ final class AppStore: ObservableObject {
     }
 
     func chooseGPTKDiskImageAndImport() {
-        guard !isImportingGPTK else { return }
+        guard !isImportingGPTK,
+              !gptkComponentDownloadState.isWorking else {
+            return
+        }
         let panel = NSOpenPanel()
         panel.title = String(
             localized: "Choose Game Porting Toolkit",
@@ -1049,7 +1297,10 @@ final class AppStore: ObservableObject {
     }
 
     func importSelectedGPTKDiskImage() {
-        guard !isImportingGPTK else { return }
+        guard !isImportingGPTK,
+              !gptkComponentDownloadState.isWorking else {
+            return
+        }
         let selectedPath = gptkPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard URL(fileURLWithPath: selectedPath).pathExtension.lowercased() == "dmg" else {
             gptkSetupMessage = String(
@@ -1118,6 +1369,42 @@ final class AppStore: ObservableObject {
             }
             gptkImportTask = nil
         }
+    }
+
+    private func recordGPTKComponentConsent(
+        _ request: GPTKComponentConsentRequest
+    ) {
+        defaults.set(
+            [
+                "acceptedAt": ISO8601DateFormatter().string(from: Date()),
+                "componentID": request.componentID,
+                "gptkVersion": request.version,
+                "licenseIdentifier": request.licenseIdentifier,
+                "licenseSha256": request.consent.release.license.sha256,
+                "manifestSha256": request.consent.manifestSha256,
+                "appleLicensedSoftwareAcknowledged": "true",
+                "evaluationUseAcknowledged": "true",
+                "authorizedMaterialAcknowledged": "true"
+            ],
+            forKey: gptkComponentConsentDefaultsPrefix + request.id
+        )
+    }
+
+    private static func plainText(fromRTF data: Data) throws -> String {
+        let attributedString = try NSAttributedString(
+            data: data,
+            options: [
+                .documentType: NSAttributedString.DocumentType.rtf
+            ],
+            documentAttributes: nil
+        )
+        let text = attributedString.string.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !text.isEmpty else {
+            throw GPTKConsentError.unreadableLicense
+        }
+        return text
     }
 
     func refreshDownloadedInstallers() {

@@ -309,6 +309,9 @@ import Testing
     #expect(!EnvironmentOverridePolicy.isAllowedKey(""))
     #expect(!EnvironmentOverridePolicy.isAllowedKey("1INVALID"))
     #expect(!EnvironmentOverridePolicy.isAllowedKey("WINEPREFIX"))
+    #expect(!EnvironmentOverridePolicy.isAllowedKey("WINEDLLPATH"))
+    #expect(!EnvironmentOverridePolicy.isAllowedKey("DYLD_LIBRARY_PATH"))
+    #expect(!EnvironmentOverridePolicy.isAllowedKey("DYLD_FRAMEWORK_PATH"))
     #expect(!EnvironmentOverridePolicy.isAllowedKey("SWITCHYARD_PATCHSET_ID"))
 }
 

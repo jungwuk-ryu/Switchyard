@@ -29,7 +29,7 @@ flowchart LR
 - `AppCore`: portable models, command plans, and path/environment policies
 - `JobEngine`: generic install and run planning plus font preparation
 - `Persistence`: portable container manifests and rebuildable indexes
-- `RuntimeCatalog`: macOS host checks, GPTK disk-image inspection, Wine discovery, source-pin validation, and font compatibility rules
+- `RuntimeCatalog`: macOS host checks, GPTK disk-image inspection, release-gated GPTK component verification, Wine discovery, source-pin validation, and font compatibility rules
 
 These packages do not own SwiftUI state. `RuntimeCatalog` may invoke narrow macOS host tools such as `hdiutil`; it does not launch Wine or Windows workloads.
 
@@ -54,6 +54,10 @@ Wine source, compatibility commits, provenance, and runtime build tooling live i
 The app presents the recommended pinned source revision's immutable Git timestamp as a UTC calendar build number in `YYYYMMDD.HHmm` form. `config/switchyard-wine.env` records that timestamp beside the revision, and source synchronization verifies the pair before building. Runtime settings list stable official `switchyard-wine` GitHub releases, install them into the immutable user-local runtime cache, and persist one active selection. Local source overrides omit the pinned timestamp rather than inheriting stale version metadata. Display values do not replace provenance: runtime IDs, immutable source revisions, release archive digests, and content fingerprints remain the authoritative compatibility and execution identities.
 
 GPTK remains separately licensed Apple software. The app stores an imported user-local copy and compatibility fingerprint, whether the source was a user-selected Apple download or a separately hosted component artifact admitted by the version-specific legal release gate. GPTK is never part of this repository, the app bundle, a Wine runtime, or a combined Switchyard release artifact.
+
+The optional GPTK component path reads a bundled, release-disabled policy from `config/gptk-component.env`. A complete policy pins a signed mutable channel-status document, one immutable HTTPS release manifest, and an Ed25519 public key. The status document supplies the remote disable control and pins the exact manifest digest; the release manifest pins the reviewed GPTK 3 source identities, archive, permitted paths, content tree, notices, and Apple signing identity. `RuntimeCatalog` performs the network and filesystem verification; `AppStore` owns license presentation, local acknowledgement records, and selection of the verified user-local path. The official Apple download/import path remains independent and available.
+
+At launch, `JobEngine` points Wine's external DLL, dylib, and framework search paths at the selected GPTK `redist/lib` tree. This preserves the external runner boundary and does not copy Apple files into the immutable Wine runtime or a container.
 
 ## Data Model
 

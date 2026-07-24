@@ -27,15 +27,19 @@ Switchyard supports both user-local development builds and separately published 
 
 ## Apple Game Porting Toolkit
 
-The current Switchyard release does not bundle, redistribute, or directly download Apple Game Porting Toolkit components. It opens Apple's official download page, detects a completed user download, and imports an explicitly selected local copy.
+Switchyard never bundles Game Porting Toolkit components. The checked-in release policy keeps the separate GPTK 3 component channel disabled, so current builds open Apple's official download page, detect a completed user download, and import an explicitly selected local copy.
 
 The app may import a user-selected or explicitly requested local Apple disk image into a user-local cache, validate known marker files, reject escaping links, require Apple signatures on every imported Mach-O, and retain a local fingerprint for container compatibility. Apple remains responsible for account sign-in, license presentation, and the download itself. The cache is the user's local copy and is not a Switchyard-distributed artifact.
 
-The reviewed GPTK 3 license conditionally supports implementing a future, separate Switchyard component channel solely for non-commercial distribution of the complete unmodified Framework and/or unmodified components from `/redist`. The channel is not part of the app or Wine release, and it must remain disabled until every distributor-authority, provenance, notice, signature, user-flow, export, termination, and non-commercial control in the [GPTK 3 redistribution review](legal/gptk-3-redistribution-review.md) is enforced and its independent legal sign-off is recorded. GPTK 4 and every other unreviewed version remain blocked.
+The source tree implements a separate GPTK 3 component installer solely for non-commercial distribution of the complete unmodified Framework and/or unmodified components from `/redist`. Before any component bytes are requested, the app verifies a signed immutable manifest, retrieves and displays the exact reviewed Apple license, and records the user's acknowledgements locally. It then checks the archive digest and size, allowed paths, full file-tree digest, required notices, Apple code signatures, bundle identity, and reviewed framework CDHash before installing to the user-local GPTK cache.
+
+The channel is not part of the app or Wine release and remains release-disabled in [`config/gptk-component.env`](../config/gptk-component.env). It may be enabled only after every distributor-authority, provenance, notice, signature, user-flow, export, termination, and non-commercial control in the [GPTK 3 redistribution review](legal/gptk-3-redistribution-review.md) is enforced and its independent legal sign-off is recorded. Missing approval or operational record identifiers keep the channel unavailable. The signed channel-status document can also disable new downloads immediately. GPTK 4 and every other unreviewed version remain blocked.
 
 Do not commit or add GPTK files to app bundles, Wine runtimes, container templates, or combined release archives. Do not publish or transfer an Apple-provided GPTK DMG. A separately hosted component artifact may be published only for an exact version approved by the legal release gate. The accompanying license is the source of truth, Apple Software remains outside the MIT and LGPL grants, and the official user-download route must remain available.
 
 The runtime builder may preserve Wine-built fallback graphics modules before overlaying a user-selected GPTK redistributable directory. Those fallback files remain Wine build artifacts and must not contain Apple binaries.
+
+App launches can reference the selected user-local GPTK `redist/lib` tree through Wine and dyld search-path environment variables. This external reference does not place GPTK files in the Wine runtime, app bundle, or container.
 
 ## Wine Runtime Dependencies
 

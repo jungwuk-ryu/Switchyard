@@ -80,6 +80,10 @@ done
   "$APP_RESOURCES/switchyard-wine.env" \
   "${SWITCHYARD_WINE_REVISION:-}" \
   "$BUILD_CONFIGURATION"
+"$ROOT_DIR/script/bundle_gptk_component_policy.sh" \
+  "$ROOT_DIR/config/gptk-component.env" \
+  "$APP_RESOURCES/gptk-component.env" \
+  "$BUILD_CONFIGURATION"
 chmod +x "$APP_BINARY"
 chmod +x "$RUNNER_BINARY"
 chmod +x "$URL_HANDLER_BINARY"

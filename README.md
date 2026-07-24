@@ -41,12 +41,12 @@ The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher
 | --- | --- | --- |
 | Switchyard app and runner | This repository, [MIT](LICENSE) | Developer ID signed and notarized releases, or built locally from Swift source |
 | Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Recommended signed release pinned by [`config/switchyard-wine.env`](config/switchyard-wine.env), other trusted stable releases from the official runtime channel, or built locally |
-| Apple Game Porting Toolkit components | Separately licensed Apple software | User-provided in the current release; never committed or bundled with Switchyard or Wine |
+| Apple Game Porting Toolkit components | Separately licensed Apple software | User-provided in the current release; reviewed separate GPTK 3 channel implemented but disabled; never committed or bundled with Switchyard or Wine |
 | Open Font Pack | Official Noto projects, SIL OFL 1.1 | Downloaded to a user-local cache and verified before installation |
 
 The SwiftUI app does not link against Wine. Wine is replaceable and runs only through the external runner boundary. See [Licensing and redistribution](docs/licensing.md) for the complete policy.
 
-The GPTK 3 review conditionally permits implementing a future separate, non-commercial component channel. That channel is not implemented in the current release and must pass the [version-specific legal release gate](docs/legal/gptk-3-redistribution-review.md), including independent legal sign-off, before it can be enabled. GPTK 4 and other unreviewed versions remain blocked.
+The GPTK 3 review conditionally permits a separate, non-commercial component channel. The signed-manifest installer and license-consent flow are implemented, but the checked-in policy keeps the channel disabled. It must pass the [version-specific legal release gate](docs/legal/gptk-3-redistribution-review.md), including independent legal sign-off, before it can be enabled. GPTK 4 and other unreviewed versions remain blocked.
 
 ## Requirements
 
@@ -92,6 +92,7 @@ The first full source build can take a while. Wine source, build products, impor
 - `app/Packages`: portable models, job planning, runtime detection, and persistence
 - `runtime/runner`: external Wine workload execution boundary
 - `config/switchyard-wine.env`: immutable Wine source pin
+- `config/gptk-component.env`: release-disabled GPTK 3 component-channel gate
 - `script`: local build, verification, and runtime synchronization entrypoints
 - `Tests`: Swift package and shell integration tests
 - `docs`: architecture decisions, development notes, privacy, testing, and licensing

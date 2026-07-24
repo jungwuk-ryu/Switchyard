@@ -1,5 +1,6 @@
 import AppCore
 import Foundation
+import RuntimeCatalog
 
 public enum JobEngineError: Error, Equatable {
     case missingExecutable(UUID)
@@ -141,8 +142,23 @@ private func commandPlan(
         WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
     ]
 
-    if let gptkPath, !gptkPath.isEmpty {
+    if let gptkPath = RuntimeLocator().canonicalGPTKRoot(at: gptkPath) {
+        let gptkRedistLibraryPath = URL(
+            fileURLWithPath: gptkPath,
+            isDirectory: true
+        )
+        .appendingPathComponent("redist", isDirectory: true)
+        .appendingPathComponent("lib", isDirectory: true)
+        let gptkWineLibraryPath = gptkRedistLibraryPath
+            .appendingPathComponent("wine", isDirectory: true)
+            .path
+        let gptkExternalLibraryPath = gptkRedistLibraryPath
+            .appendingPathComponent("external", isDirectory: true)
+            .path
         environment["SWITCHYARD_GPTK_PATH"] = gptkPath
+        environment["WINEDLLPATH"] = gptkWineLibraryPath
+        environment["DYLD_LIBRARY_PATH"] = gptkExternalLibraryPath
+        environment["DYLD_FRAMEWORK_PATH"] = gptkExternalLibraryPath
         environment["MTL_HUD_ENABLED"] = environment["MTL_HUD_ENABLED", default: "0"]
     }
 

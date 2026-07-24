@@ -35,6 +35,26 @@ struct SettingsView: View {
                 .tabItem { Label("Advanced", systemImage: "terminal") }
         }
         .frame(width: 820, height: 640)
+        .sheet(
+            item: Binding(
+                get: { store.gptkComponentConsentRequest },
+                set: { request in
+                    if request == nil {
+                        store.dismissGPTKComponentConsent()
+                    }
+                }
+            )
+        ) { request in
+            GPTKComponentLicenseConsentView(
+                request: request,
+                cancel: {
+                    store.dismissGPTKComponentConsent()
+                },
+                accept: {
+                    store.acceptGPTKComponentConsent(requestID: request.id)
+                }
+            )
+        }
     }
 
     private var generalSettings: some View {
@@ -209,10 +229,16 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 8) {
+                            if store.canDownloadGPTKAutomatically {
+                                gptkAutomaticDownloadButton
+                            }
                             gptkDownloadButton
                             gptkImportButton
                         }
                         VStack(alignment: .leading, spacing: 8) {
+                            if store.canDownloadGPTKAutomatically {
+                                gptkAutomaticDownloadButton
+                            }
                             gptkDownloadButton
                             gptkImportButton
                         }
@@ -236,7 +262,10 @@ struct SettingsView: View {
                         Button("Import Selected GPTK") {
                             store.importSelectedGPTKDiskImage()
                         }
-                        .disabled(store.isImportingGPTK)
+                        .disabled(
+                            store.isImportingGPTK
+                                || store.gptkComponentDownloadState.isWorking
+                        )
                     }
 
                     HStack {
@@ -257,7 +286,11 @@ struct SettingsView: View {
                         )
                     }
 
-                    Text("Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.")
+                    Text(
+                        store.canDownloadGPTKAutomatically
+                            ? "GPTK remains separately licensed Apple software. Switchyard shows the exact reviewed license before downloading the separate component, verifies it, and keeps Apple's official download available."
+                            : "Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures."
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -351,7 +384,33 @@ struct SettingsView: View {
         Button("Download from Apple") {
             store.openGPTKDownloadPage()
         }
+        .buttonStyle(.bordered)
+    }
+
+    private var gptkAutomaticDownloadButton: some View {
+        Button {
+            if store.gptkComponentDownloadState.isWorking {
+                store.cancelGPTKComponentDownload()
+            } else {
+                store.prepareAutomaticGPTKDownload()
+            }
+        } label: {
+            if store.gptkComponentDownloadState.isWorking {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Cancel GPTK Download")
+            } else {
+                Text("Review License and Download")
+            }
+        }
         .buttonStyle(.borderedProminent)
+        .disabled(
+            store.isImportingGPTK
+                || (
+                    store.hasRunningContainers
+                        && !store.gptkComponentDownloadState.isWorking
+                )
+        )
     }
 
     private var gptkImportButton: some View {
@@ -366,7 +425,10 @@ struct SettingsView: View {
                 Text("Import Downloaded GPTK")
             }
         }
-        .disabled(store.isImportingGPTK)
+        .disabled(
+            store.isImportingGPTK
+                || store.gptkComponentDownloadState.isWorking
+        )
     }
 
     private func copyDiagnosticBundle() {

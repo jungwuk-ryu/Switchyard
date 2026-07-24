@@ -7,7 +7,7 @@
 - Git
 - Rosetta 2 and the prerequisites documented by [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine) for a full local runtime build
 
-A user-selected local Apple Game Porting Toolkit installation is required for full D3DMetal readiness. It is not required for package tests or an app-shell verification build.
+A user-selected local Apple Game Porting Toolkit installation is required for full D3DMetal readiness while the reviewed component channel remains release-disabled. It is not required for package tests or an app-shell verification build.
 
 ## Fast Validation
 
@@ -18,6 +18,7 @@ jobs=$(( $(sysctl -n hw.ncpu) - 1 ))
 if [ "$jobs" -lt 1 ]; then jobs=1; fi
 swift test --jobs "$jobs"
 Tests/Shell/ensure_switchyard_wine_test.sh
+Tests/Shell/bundle_gptk_component_policy_test.sh
 SWIFT_BUILD_JOBS="$jobs" Tests/Shell/runner_prefix_session_test.sh
 SWITCHYARD_SKIP_RUNTIME_ENSURE=1 SWIFT_BUILD_JOBS="$jobs" ./script/build_and_run.sh --verify
 ```
@@ -81,6 +82,8 @@ SWITCHYARD_BUILD_CONFIGURATION=release \
 
 Release assembly fails unless the pinned Wine revision has a complete published-runtime attestation in `config/switchyard-wine.env`. This prevents distributing an app that cannot install its compatible runtime on a new machine.
 
+`config/gptk-component.env` is bundled separately. Its disabled form is valid for release builds. If the channel is enabled, assembly fails unless the signed channel-status URL, immutable release-manifest URL, Ed25519 public key, distributor authority, independent legal approval, non-commercial status, export-control operation, and takedown readiness records are all identified. See [GPTK component channel](gptk-component-channel.md) for the status, manifest, and archive contract. Enabling the file without the private evidence required by the legal review is not an authorized release.
+
 The script signs every nested Mach-O with Hardened Runtime, signs the bundle, submits the ZIP to Apple, staples and validates the accepted ticket, runs Gatekeeper assessment, then recreates the final ZIP and checksum. Credentials remain in the user's Keychain and are never written to the repository.
 
 ## Local Data
@@ -90,7 +93,7 @@ Generated and user-owned data stays out of Git:
 - `.build/` and `dist/`: generated Swift and app-bundle outputs
 - `~/Library/Caches/Switchyard/Sources/`: synchronized Wine source cache
 - `~/.switchyard/runtimes/`: immutable local Wine runtimes
-- `~/Library/Application Support/Switchyard/Runtimes/GPTK/`: imported user-provided GPTK copy
+- `~/Library/Application Support/Switchyard/Runtimes/GPTK/`: imported user-provided or separately downloaded reviewed GPTK copy
 - `~/Library/Application Support/Switchyard/Logs/DebugRuns/`: protected per-run debug logs
 - the storage folder selected in the app: user-managed containers and manifests
 

@@ -12,8 +12,10 @@ import Foundation
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    let marker = root.appendingPathComponent("libd3dshared.dylib")
-    try FileManager.default.copyItem(at: URL(fileURLWithPath: "/bin/echo"), to: marker)
+    try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
 
     let result = RuntimeLocator().validateGPTK(at: root.path)
     #expect(result.status == .ok)
@@ -62,7 +64,7 @@ import Foundation
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    try Data().write(to: root.appendingPathComponent("libd3dmetal.dylib"))
+    try makeLaunchReadyGPTKLayout(at: root)
 
     let result = RuntimeLocator().validateGPTK(at: root.path)
 
@@ -74,9 +76,9 @@ import Foundation
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-    try FileManager.default.copyItem(
-        at: URL(fileURLWithPath: "/bin/echo"),
-        to: root.appendingPathComponent("libd3dshared.dylib")
+    try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
     )
     try FileManager.default.createSymbolicLink(
         at: root.appendingPathComponent("outside"),
@@ -87,6 +89,54 @@ import Foundation
 
     #expect(result.status == .warning)
     #expect(result.message.contains("symbolic link"))
+}
+
+@Test func nestedGPTKSelectionResolvesToLaunchReadyRoot() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    let framework = try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
+    let nested = framework.appendingPathComponent(
+        "Versions/A/Resources",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: nested,
+        withIntermediateDirectories: true
+    )
+
+    let canonical = RuntimeLocator().canonicalGPTKRoot(at: nested.path)
+
+    #expect(
+        canonical
+            == root.resolvingSymlinksInPath().standardizedFileURL.path
+    )
+}
+
+@Test func markerOnlyGPTKDirectoryIsNotLaunchReady() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(
+        at: root,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.copyItem(
+        at: URL(fileURLWithPath: "/bin/echo"),
+        to: root.appendingPathComponent("libd3dshared.dylib")
+    )
+
+    let result = RuntimeLocator().validateGPTK(at: root.path)
+
+    #expect(result.status == .warning)
+    #expect(result.message.contains("launch-ready GPTK redist layout"))
 }
 
 @Test func regularFileGPTKPathReportsMissing() throws {
@@ -206,6 +256,41 @@ import Foundation
     let result = RuntimeLocator().validateGPTK(at: path)
     #expect(result.status == .warning)
     #expect(result.fingerprint != nil)
+}
+
+@discardableResult
+private func makeLaunchReadyGPTKLayout(
+    at root: URL,
+    sharedLibrarySource: URL? = nil
+) throws -> URL {
+    let wineDirectory = root.appendingPathComponent(
+        "redist/lib/wine",
+        isDirectory: true
+    )
+    let framework = root.appendingPathComponent(
+        "redist/lib/external/D3DMetal.framework",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: wineDirectory,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: framework,
+        withIntermediateDirectories: true
+    )
+    let sharedLibrary = root.appendingPathComponent(
+        "redist/lib/external/libd3dshared.dylib"
+    )
+    if let sharedLibrarySource {
+        try FileManager.default.copyItem(
+            at: sharedLibrarySource,
+            to: sharedLibrary
+        )
+    } else {
+        try Data().write(to: sharedLibrary)
+    }
+    return framework
 }
 
 @Test func gptkDiskImageCanBeImportedWhenProvided() throws {

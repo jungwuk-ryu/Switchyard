@@ -43,6 +43,76 @@ import Testing
     #expect(plan.arguments == ["msiexec.exe", "/i", "/tmp/Epic Installer.msi"])
 }
 
+@Test func jobEngineUsesGPTKThroughExternalLibraryPaths() throws {
+    let gptkRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
+        "Switchyard-GPTK-\(UUID().uuidString)",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: gptkRoot) }
+    let wineDirectory = gptkRoot.appendingPathComponent(
+        "redist/lib/wine",
+        isDirectory: true
+    )
+    let externalDirectory = gptkRoot.appendingPathComponent(
+        "redist/lib/external",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: wineDirectory,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: externalDirectory.appendingPathComponent(
+            "D3DMetal.framework",
+            isDirectory: true
+        ),
+        withIntermediateDirectories: true
+    )
+    try Data().write(
+        to: externalDirectory.appendingPathComponent(
+            "libd3dshared.dylib"
+        )
+    )
+
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container"
+    )
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+    let gptkPath = externalDirectory.path
+    let canonicalGPTKPath = gptkRoot
+        .resolvingSymlinksInPath()
+        .standardizedFileURL
+        .path
+    let plan = try JobEngine().installPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: gptkPath,
+        installerPath: "/tmp/Setup.exe"
+    )
+
+    #expect(
+        plan.environment["SWITCHYARD_GPTK_PATH"] == canonicalGPTKPath
+    )
+    #expect(
+        plan.environment["WINEDLLPATH"]
+            == "\(canonicalGPTKPath)/redist/lib/wine"
+    )
+    #expect(
+        plan.environment["DYLD_LIBRARY_PATH"]
+            == "\(canonicalGPTKPath)/redist/lib/external"
+    )
+    #expect(
+        plan.environment["DYLD_FRAMEWORK_PATH"]
+            == "\(canonicalGPTKPath)/redist/lib/external"
+    )
+}
+
 @Test func jobEngineFailsWhenContainerExecutableIsMissing() {
     let container = Container(name: "Toolbox", path: "/tmp/Toolbox.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
@@ -175,6 +245,9 @@ import Testing
         executablePath: "/tmp/Toolbox.exe",
         environmentOverrides: [
             "WINEPREFIX": "/tmp/Other.container",
+            "WINEDLLPATH": "/tmp/untrusted-wine",
+            "DYLD_LIBRARY_PATH": "/tmp/untrusted-libraries",
+            "DYLD_FRAMEWORK_PATH": "/tmp/untrusted-frameworks",
             "SWITCHYARD_PATCHSET_ID": "other",
             "DXVK_LOG_LEVEL": "none"
         ]
@@ -184,6 +257,9 @@ import Testing
     let plan = try JobEngine().runPlan(container: container, runtime: runtime, gptkPath: nil)
 
     #expect(plan.environment["WINEPREFIX"] == "/tmp/Toolbox.container")
+    #expect(plan.environment["WINEDLLPATH"] == nil)
+    #expect(plan.environment["DYLD_LIBRARY_PATH"] == nil)
+    #expect(plan.environment["DYLD_FRAMEWORK_PATH"] == nil)
     #expect(plan.environment["SWITCHYARD_PATCHSET_ID"] == "patch-a")
     #expect(plan.environment["DXVK_LOG_LEVEL"] == "none")
 }
