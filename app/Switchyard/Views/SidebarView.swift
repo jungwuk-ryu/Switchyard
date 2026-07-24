@@ -5,16 +5,8 @@ struct SidebarView: View {
 
     var body: some View {
         List(selection: $selection) {
-            Section("Containers") {
-                SidebarRow(selection: .containers)
-            }
-
-            Section("Activity") {
-                SidebarRow(selection: .logs)
-            }
-
-            Section("Support") {
-                SidebarRow(selection: .diagnostics)
+            ForEach(SidebarSelection.allCases) { item in
+                SidebarRow(selection: item)
             }
         }
         .listStyle(.sidebar)
