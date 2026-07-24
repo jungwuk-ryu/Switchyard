@@ -11,22 +11,39 @@ import Testing
     let store = LiveLogJournalStore(rootURL: root)
     let containerID = UUID()
     let journalURL = try store.prepareJournal(for: containerID, reset: true)
+    let generationURL = URL(
+        fileURLWithPath: journalURL.path
+            + LiveLogJournalFormat.resetGenerationSuffix
+    )
+    let initialGeneration = try Data(contentsOf: generationURL)
     try Data("retained\n".utf8).write(to: journalURL)
 
     _ = try store.prepareJournal(for: containerID, reset: false)
     #expect(try String(contentsOf: journalURL, encoding: .utf8) == "retained\n")
+    #expect(try Data(contentsOf: generationURL) == initialGeneration)
 
     _ = try store.prepareJournal(for: containerID, reset: true)
     #expect((try Data(contentsOf: journalURL)).isEmpty)
+    let resetGeneration = try Data(contentsOf: generationURL)
+    #expect(resetGeneration.count == LiveLogJournalFormat.resetGenerationByteCount)
+    #expect(resetGeneration != initialGeneration)
 
     let journalPermissions = try FileManager.default.attributesOfItem(
         atPath: journalURL.path
+    )[.posixPermissions] as? NSNumber
+    let generationPermissions = try FileManager.default.attributesOfItem(
+        atPath: generationURL.path
     )[.posixPermissions] as? NSNumber
     let directoryPermissions = try FileManager.default.attributesOfItem(
         atPath: root.path
     )[.posixPermissions] as? NSNumber
     #expect(journalPermissions?.intValue == 0o600)
+    #expect(generationPermissions?.intValue == 0o600)
     #expect(directoryPermissions?.intValue == 0o700)
+
+    try store.removeJournal(for: containerID)
+    #expect(!FileManager.default.fileExists(atPath: journalURL.path))
+    #expect(!FileManager.default.fileExists(atPath: generationURL.path))
 }
 
 @Test func liveLogJournalMonitorReplaysAndFollowsAfterTruncation() async throws {

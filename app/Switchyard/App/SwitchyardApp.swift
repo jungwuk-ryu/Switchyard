@@ -10,6 +10,7 @@ struct SwitchyardApp: App {
         WindowGroup("Containers", id: "main") {
             ContentView()
                 .environmentObject(store)
+                .environmentObject(store.logStore)
                 .frame(minWidth: 1040, minHeight: 680)
                 .onAppear {
                     store.refreshRuntimeStatus()

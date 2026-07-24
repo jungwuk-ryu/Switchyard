@@ -161,7 +161,11 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         let planURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("switchyard-\(session.id.uuidString).json")
 
-        guard let data = try? JSONEncoder().encode(plan) else {
+        var runnerPlan = plan
+        if runnerPlan.liveLogPath != nil {
+            runnerPlan.forwardCapturedOutput = false
+        }
+        guard let data = try? JSONEncoder().encode(runnerPlan) else {
             throw SwitchyardRunnerClientError.couldNotEncodePlan
         }
         do {

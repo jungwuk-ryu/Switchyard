@@ -406,7 +406,11 @@ final class AppStore: ObservableObject {
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published private(set) var debugRunLogStorage = DebugRunLogStorageSnapshot.empty
     @Published var containers: [Container]
-    @Published private(set) var logLines: [LogLine] = []
+    let logStore = LogStore()
+    private(set) var logLines: [LogLine] {
+        get { logStore.lines }
+        set { logStore.replace(with: newValue) }
+    }
     @AppStorage("developerLogging") private var developerLogging = false
     @AppStorage("verboseWineLogging") private var verboseWineLogging = false
 
@@ -4339,16 +4343,7 @@ final class AppStore: ObservableObject {
     }
 
     func recentLogs(for containerID: UUID, limit: Int) -> [LogLine] {
-        guard limit > 0 else { return [] }
-        var result: [LogLine] = []
-        result.reserveCapacity(limit)
-        for line in logLines where line.containerID == containerID {
-            result.append(line)
-            if result.count == limit {
-                break
-            }
-        }
-        return result
+        logStore.recent(for: containerID, limit: limit)
     }
 
     private func recordIncomingLogs(_ logs: [LogLine]) {

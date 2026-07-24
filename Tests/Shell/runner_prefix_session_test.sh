@@ -49,6 +49,18 @@ cleanup() {
   if [ -f "$TEST_ROOT/live-prefix-descendant.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/live-prefix-descendant.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/signal-drain-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/signal-drain-runner.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/signal-drain-descendant.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/signal-drain-descendant.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/clear-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/clear-runner.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/rollover-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/rollover-runner.pid")" >/dev/null 2>&1 || true
+  fi
   if [ -f "$TEST_ROOT/bounded-prefix-runner.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/bounded-prefix-runner.pid")" >/dev/null 2>&1 || true
   fi
@@ -69,6 +81,9 @@ cleanup() {
   fi
   if [ -f "$TEST_ROOT/locked-list.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/locked-list.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/signal-locked-list.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/signal-locked-list.pid")" >/dev/null 2>&1 || true
   fi
   if [ -f "$TEST_ROOT/locked-probe.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/locked-probe.pid")" >/dev/null 2>&1 || true
@@ -184,6 +199,45 @@ if [ "$locked_host_probe_status" -ne 1 ]; then
 fi
 if [ -s "$EVENTS" ]; then
   echo "probe-prefix-host launched Wine while a storage lock was held" >&2
+  exit 1
+fi
+
+TEST_EVENTS="$EVENTS" SWITCHYARD_TEST_SIGNAL_EXIT_TIMEOUT=0.1 \
+  "$RUNNER" list-processes --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX" \
+  >"$TEST_ROOT/signal-locked-list.out" 2>"$TEST_ROOT/signal-locked-list.err" &
+signal_locked_list_pid=$!
+printf '%s\n' "$signal_locked_list_pid" > "$TEST_ROOT/signal-locked-list.pid"
+for _ in {1..50}; do
+  if lsof -a -p "$signal_locked_list_pid" \
+    "$PREFIX/.switchyard-prefix.lock" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.02
+done
+if ! lsof -a -p "$signal_locked_list_pid" \
+  "$PREFIX/.switchyard-prefix.lock" >/dev/null 2>&1; then
+  echo "signal-lock fixture did not block on the prefix lock" >&2
+  exit 1
+fi
+kill -TERM "$signal_locked_list_pid"
+for _ in {1..100}; do
+  if ! kill -0 "$signal_locked_list_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.05
+done
+if kill -0 "$signal_locked_list_pid" >/dev/null 2>&1; then
+  kill -KILL "$signal_locked_list_pid" >/dev/null 2>&1 || true
+  echo "locked runner command did not honor the SIGTERM deadline" >&2
+  exit 1
+fi
+set +e
+wait "$signal_locked_list_pid"
+signal_locked_list_status=$?
+set -e
+rm -f "$TEST_ROOT/signal-locked-list.pid"
+if [ "$signal_locked_list_status" -ne 143 ]; then
+  echo "locked runner command returned $signal_locked_list_status instead of 143 after SIGTERM" >&2
   exit 1
 fi
 
@@ -492,6 +546,280 @@ if ! grep -q 'argumentCount=3' "$DEBUG_LOG"; then
   exit 1
 fi
 
+cat > "$TEST_ROOT/repeated-output.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+for index in {1..1000}; do
+  printf '%d.000:%04x:warn:d3d_perf:wined3d_cs_map_upload_bo repeated warning\n' \
+    "$index" "$((index % 16))" >&2
+done
+EOF
+chmod +x "$TEST_ROOT/repeated-output.sh"
+REPEATED_LIVE_LOG="$TEST_ROOT/live/repeated.jsonl"
+REPEATED_FORWARDED_OUTPUT="$TEST_ROOT/repeated-forwarded-output.log"
+cat > "$TEST_ROOT/repeated-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/repeated-output.sh",
+  "arguments": [],
+  "environment": {},
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "repeated-output-test",
+  "liveLogPath": "$REPEATED_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+
+"$RUNNER" run --plan "$TEST_ROOT/repeated-output.json" \
+  >"$REPEATED_FORWARDED_OUTPUT" 2>&1
+if [ -s "$REPEATED_FORWARDED_OUTPUT" ]; then
+  echo "runner forwarded output that was already routed through the live journal" >&2
+  exit 1
+fi
+repeated_live_line_count="$(wc -l < "$REPEATED_LIVE_LOG" | tr -d ' ')"
+if [ "$repeated_live_line_count" -ge 32 ]; then
+  echo "runner did not compact repeated live log entries" >&2
+  exit 1
+fi
+repeated_live_id_count="$(
+  grep -o '"id":"[^"]*"' "$REPEATED_LIVE_LOG" | wc -l | tr -d ' '
+)"
+repeated_live_unique_id_count="$(
+  grep -o '"id":"[^"]*"' "$REPEATED_LIVE_LOG" | sort -u | wc -l | tr -d ' '
+)"
+if [ "$repeated_live_id_count" -ne "$repeated_live_unique_id_count" ]; then
+  echo "runner reused live log identities for repetition summaries" >&2
+  exit 1
+fi
+represented_repetitions="$(
+  grep -o '"occurrenceCount":[0-9]*' "$REPEATED_LIVE_LOG" \
+    | awk -F: '{ total += $2 } END { print total + 0 }'
+)"
+if [ "$represented_repetitions" -ne 999 ]; then
+  echo "runner did not preserve the repeated live log occurrence count" >&2
+  exit 1
+fi
+repeated_summary_line="$(
+  grep -n '"occurrenceCount":' "$REPEATED_LIVE_LOG" | tail -n 1 | cut -d: -f1
+)"
+repeated_exit_line="$(
+  grep -n 'switchyard-runner exit' "$REPEATED_LIVE_LOG" | tail -n 1 | cut -d: -f1
+)"
+if [ "$repeated_summary_line" -ge "$repeated_exit_line" ]; then
+  echo "runner persisted a repetition summary after a newer log entry" >&2
+  exit 1
+fi
+
+cat > "$TEST_ROOT/clear-pending-output.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+for index in {1..10}; do
+  printf '%d.000:0010:warn:d3d_perf:pending clear warning\n' "$index" >&2
+done
+printf 'ready\n' > "$TEST_CLEAR_READY"
+while [ ! -e "$TEST_CLEAR_RELEASE" ]; do
+  sleep 0.05
+done
+printf '11.000:0010:warn:d3d_perf:pending clear warning\n' >&2
+printf 'after-clear-marker\n' >&2
+EOF
+chmod +x "$TEST_ROOT/clear-pending-output.sh"
+cat > "$TEST_ROOT/regrow-cleared-journal.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+dd if=/dev/zero bs=8192 count=1 2>/dev/null | tr '\0' 'r'
+printf '\n'
+EOF
+chmod +x "$TEST_ROOT/regrow-cleared-journal.sh"
+CLEAR_LIVE_LOG="$TEST_ROOT/live/clear-pending.jsonl"
+cat > "$TEST_ROOT/clear-pending-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/clear-pending-output.sh",
+  "arguments": [],
+  "environment": {
+    "TEST_CLEAR_READY": "$TEST_ROOT/clear-pending-output.ready",
+    "TEST_CLEAR_RELEASE": "$TEST_ROOT/clear-pending-output.release"
+  },
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "clear-pending-output-test",
+  "liveLogPath": "$CLEAR_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+cat > "$TEST_ROOT/regrow-cleared-journal.json" <<EOF
+{
+  "executable": "$TEST_ROOT/regrow-cleared-journal.sh",
+  "arguments": [],
+  "environment": {},
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "regrow-cleared-journal-test",
+  "liveLogPath": "$CLEAR_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+
+"$RUNNER" run --plan "$TEST_ROOT/clear-pending-output.json" \
+  >/dev/null 2>/dev/null &
+clear_runner_pid=$!
+printf '%s\n' "$clear_runner_pid" > "$TEST_ROOT/clear-runner.pid"
+for _ in {1..100}; do
+  if [ -s "$TEST_ROOT/clear-pending-output.ready" ] \
+    && grep -q 'pending clear warning' "$CLEAR_LIVE_LOG" 2>/dev/null; then
+    break
+  fi
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/clear-pending-output.ready" ] \
+  || ! grep -q 'pending clear warning' "$CLEAR_LIVE_LOG" 2>/dev/null; then
+  echo "clear-pending fixture did not produce its initial live log entry" >&2
+  exit 1
+fi
+clear_pre_reset_size="$(stat -f '%z' "$CLEAR_LIVE_LOG")"
+dd if=/dev/urandom of="${CLEAR_LIVE_LOG}.generation" \
+  bs=16 count=1 2>/dev/null
+: > "$CLEAR_LIVE_LOG"
+"$RUNNER" run --plan "$TEST_ROOT/regrow-cleared-journal.json" \
+  >/dev/null 2>/dev/null
+if [ "$(stat -f '%z' "$CLEAR_LIVE_LOG")" -lt "$clear_pre_reset_size" ]; then
+  echo "multi-writer fixture did not regrow the cleared journal" >&2
+  exit 1
+fi
+touch "$TEST_ROOT/clear-pending-output.release"
+wait "$clear_runner_pid"
+rm -f "$TEST_ROOT/clear-runner.pid"
+if [ "$(grep -c 'pending clear warning' "$CLEAR_LIVE_LOG")" -ne 1 ]; then
+  echo "runner restored repetitions that were removed by clearing the journal" >&2
+  exit 1
+fi
+if grep -q '"occurrenceCount":' "$CLEAR_LIVE_LOG"; then
+  echo "runner mixed pre-clear repetitions into the post-clear journal" >&2
+  exit 1
+fi
+if ! grep -q 'after-clear-marker' "$CLEAR_LIVE_LOG"; then
+  echo "runner stopped live logging after the journal was cleared" >&2
+  exit 1
+fi
+
+cat > "$TEST_ROOT/rollover-pending-output.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+dd if=/dev/zero bs=2500 count=1 2>/dev/null | tr '\0' 'p'
+printf '\n'
+for index in {1..10}; do
+  printf '%d.000:0010:warn:d3d_perf:pending rollover warning\n' "$index" >&2
+done
+printf 'ready\n' > "$TEST_ROLLOVER_READY"
+while [ ! -e "$TEST_ROLLOVER_RELEASE" ]; do
+  sleep 0.05
+done
+printf '11.000:0010:warn:d3d_perf:pending rollover warning\n' >&2
+printf 'after-rollover-marker\n' >&2
+EOF
+cat > "$TEST_ROOT/rollover-fill-output.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'rollover-fill-'
+dd if=/dev/zero bs=6500 count=1 2>/dev/null | tr '\0' 'f'
+printf '\n'
+EOF
+chmod +x \
+  "$TEST_ROOT/rollover-pending-output.sh" \
+  "$TEST_ROOT/rollover-fill-output.sh"
+ROLLOVER_LIVE_LOG="$TEST_ROOT/live/rollover-pending.jsonl"
+cat > "$TEST_ROOT/rollover-pending-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/rollover-pending-output.sh",
+  "arguments": [],
+  "environment": {
+    "TEST_ROLLOVER_READY": "$TEST_ROOT/rollover-pending-output.ready",
+    "TEST_ROLLOVER_RELEASE": "$TEST_ROOT/rollover-pending-output.release"
+  },
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "rollover-pending-output-test",
+  "liveLogPath": "$ROLLOVER_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+cat > "$TEST_ROOT/rollover-fill-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/rollover-fill-output.sh",
+  "arguments": [],
+  "environment": {},
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "rollover-fill-output-test",
+  "liveLogPath": "$ROLLOVER_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+
+SWITCHYARD_TEST_LIVE_LOG_MAX_BYTES=9000 \
+  "$RUNNER" run --plan "$TEST_ROOT/rollover-pending-output.json" \
+  >/dev/null 2>/dev/null &
+rollover_runner_pid=$!
+printf '%s\n' "$rollover_runner_pid" > "$TEST_ROOT/rollover-runner.pid"
+for _ in {1..100}; do
+  if [ -s "$TEST_ROOT/rollover-pending-output.ready" ] \
+    && grep -q 'pending rollover warning' "$ROLLOVER_LIVE_LOG" 2>/dev/null; then
+    break
+  fi
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/rollover-pending-output.ready" ] \
+  || ! grep -q 'pending rollover warning' "$ROLLOVER_LIVE_LOG" 2>/dev/null; then
+  echo "rollover-pending fixture did not produce its initial live log entry" >&2
+  exit 1
+fi
+rollover_pre_reset_size="$(stat -f '%z' "$ROLLOVER_LIVE_LOG")"
+cp "${ROLLOVER_LIVE_LOG}.generation" \
+  "$TEST_ROOT/rollover-before.generation"
+SWITCHYARD_TEST_LIVE_LOG_MAX_BYTES=9000 \
+  "$RUNNER" run --plan "$TEST_ROOT/rollover-fill-output.json" \
+  >/dev/null 2>/dev/null
+if cmp -s \
+  "$TEST_ROOT/rollover-before.generation" \
+  "${ROLLOVER_LIVE_LOG}.generation"; then
+  echo "runner rollover did not advance the live log reset generation" >&2
+  exit 1
+fi
+if [ "$(stat -f '%z' "$ROLLOVER_LIVE_LOG")" -lt "$rollover_pre_reset_size" ]; then
+  echo "multi-writer rollover fixture did not regrow the journal" >&2
+  exit 1
+fi
+rollover_fill_line="$(
+  grep -n '"message":"rollover-fill-' "$ROLLOVER_LIVE_LOG" \
+    | tail -n 1 | cut -d: -f1
+)"
+rollover_warning_line="$(
+  grep -n 'Live log journal reached its size limit' "$ROLLOVER_LIVE_LOG" \
+    | tail -n 1 | cut -d: -f1
+)"
+if [ "$rollover_fill_line" -ge "$rollover_warning_line" ]; then
+  echo "runner persisted the rollover warning before the retained log entry" >&2
+  exit 1
+fi
+cp "${ROLLOVER_LIVE_LOG}.generation" \
+  "$TEST_ROOT/rollover-after-fill.generation"
+touch "$TEST_ROOT/rollover-pending-output.release"
+wait "$rollover_runner_pid"
+rm -f "$TEST_ROOT/rollover-runner.pid"
+if ! cmp -s \
+  "$TEST_ROOT/rollover-after-fill.generation" \
+  "${ROLLOVER_LIVE_LOG}.generation"; then
+  echo "rollover fixture unexpectedly crossed the journal limit again" >&2
+  exit 1
+fi
+if [ "$(grep -c 'pending rollover warning' "$ROLLOVER_LIVE_LOG")" -ne 1 ]; then
+  echo "runner restored repetitions that were removed by journal rollover" >&2
+  exit 1
+fi
+if grep -q '"occurrenceCount":' "$ROLLOVER_LIVE_LOG"; then
+  echo "runner mixed pre-rollover repetitions into the new journal" >&2
+  exit 1
+fi
+if ! grep -q 'after-rollover-marker' "$ROLLOVER_LIVE_LOG"; then
+  echo "runner stopped live logging after journal rollover" >&2
+  exit 1
+fi
+
 cat > "$TEST_ROOT/disconnected-output.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -595,6 +923,64 @@ if ! grep -q 'after-direct-child-exit' "$ACTIVE_PREFIX_LIVE_LOG"; then
   echo "runner did not retain descendant output while wineserver remained active" >&2
   exit 1
 fi
+
+SIGNAL_DRAIN_LIVE_LOG="$TEST_ROOT/live/signal-drain.jsonl"
+cat > "$TEST_ROOT/signal-drain-output.json" <<EOF
+{
+  "executable": "$BIN_DIR/switchyard-wine",
+  "arguments": ["C:\\\\Games\\\\Launcher.exe"],
+  "environment": {
+    "WINEPREFIX": "$PREFIX",
+    "TEST_LIVE_DESCENDANT_PID_FILE": "$TEST_ROOT/signal-drain-descendant.pid",
+    "TEST_LIVE_DESCENDANT_READY": "$TEST_ROOT/signal-drain-descendant.ready",
+    "TEST_LIVE_DESCENDANT_RELEASE": "$TEST_ROOT/signal-drain-descendant.release"
+  },
+  "workingDirectory": "$PREFIX",
+  "logSource": "signal-drain-output-test",
+  "liveLogPath": "$SIGNAL_DRAIN_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+
+TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT=0.1 \
+  "$RUNNER" run --plan "$TEST_ROOT/signal-drain-output.json" \
+  >/dev/null 2>/dev/null &
+signal_drain_runner_pid=$!
+printf '%s\n' "$signal_drain_runner_pid" > "$TEST_ROOT/signal-drain-runner.pid"
+for _ in {1..100}; do
+  if [ -s "$TEST_ROOT/signal-drain-descendant.ready" ] \
+    && grep -q 'continuing live log capture' "$SIGNAL_DRAIN_LIVE_LOG" 2>/dev/null; then
+    break
+  fi
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/signal-drain-descendant.ready" ] \
+  || ! grep -q 'continuing live log capture' "$SIGNAL_DRAIN_LIVE_LOG" 2>/dev/null; then
+  echo "signal-drain fixture did not enter extended output draining" >&2
+  exit 1
+fi
+kill -TERM "$signal_drain_runner_pid"
+for _ in {1..100}; do
+  if ! kill -0 "$signal_drain_runner_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.05
+done
+if kill -0 "$signal_drain_runner_pid" >/dev/null 2>&1; then
+  kill -KILL "$signal_drain_runner_pid" >/dev/null 2>&1 || true
+  echo "runner did not leave extended output draining after SIGTERM" >&2
+  exit 1
+fi
+set +e
+wait "$signal_drain_runner_pid"
+signal_drain_status=$?
+set -e
+if [ "$signal_drain_status" -ne 143 ]; then
+  echo "extended-drain runner returned $signal_drain_status instead of 143 after SIGTERM" >&2
+  exit 1
+fi
+kill -TERM "$(cat "$TEST_ROOT/signal-drain-descendant.pid")" >/dev/null 2>&1 || true
+rm -f "$TEST_ROOT/signal-drain-runner.pid" "$TEST_ROOT/signal-drain-descendant.pid"
 
 BOUNDED_PREFIX_LIVE_LOG="$TEST_ROOT/live/bounded-prefix.jsonl"
 cat > "$TEST_ROOT/bounded-prefix-output.json" <<EOF
@@ -801,12 +1187,16 @@ cat > "$TEST_ROOT/signal-child.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 trap 'printf "terminated\n" > "$TEST_SIGNAL_MARKER"; exit 0' TERM INT
+for index in {1..10}; do
+  printf '%d.000:0010:warn:d3d_perf:pending signal warning\n' "$index" >&2
+done
 printf '%s\n' "$$" > "$TEST_SIGNAL_PID_FILE"
 while :; do
   sleep 1
 done
 EOF
 chmod +x "$TEST_ROOT/signal-child.sh"
+SIGNAL_LIVE_LOG="$TEST_ROOT/live/signal.jsonl"
 cat > "$TEST_ROOT/signal.json" <<EOF
 {
   "executable": "$TEST_ROOT/signal-child.sh",
@@ -816,7 +1206,9 @@ cat > "$TEST_ROOT/signal.json" <<EOF
     "TEST_SIGNAL_PID_FILE": "$TEST_ROOT/signal-child.pid"
   },
   "workingDirectory": "$TEST_ROOT",
-  "logSource": "signal-test"
+  "logSource": "signal-test",
+  "liveLogPath": "$SIGNAL_LIVE_LOG",
+  "forwardCapturedOutput": false
 }
 EOF
 
@@ -850,6 +1242,14 @@ for _ in {1..50}; do
 done
 if [ ! -s "$TEST_ROOT/signal-child.terminated" ]; then
   echo "runner did not forward SIGTERM to its child process" >&2
+  exit 1
+fi
+signal_represented_repetitions="$(
+  grep -o '"occurrenceCount":[0-9]*' "$SIGNAL_LIVE_LOG" \
+    | awk -F: '{ total += $2 } END { print total + 0 }'
+)"
+if [ "$signal_represented_repetitions" -ne 9 ]; then
+  echo "runner lost pending live log repetitions during SIGTERM shutdown" >&2
   exit 1
 fi
 

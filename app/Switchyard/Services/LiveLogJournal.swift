@@ -52,11 +52,17 @@ struct LiveLogJournalStore: @unchecked Sendable {
             guard Darwin.fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
                 throw posixError(operation: "protect live log journal")
             }
+            guard flock(descriptor, LOCK_EX) == 0 else {
+                throw posixError(operation: "lock live log journal")
+            }
+            defer { flock(descriptor, LOCK_UN) }
+
+            let generationDescriptor = try openResetGenerationDescriptor(
+                for: url
+            )
+            defer { Darwin.close(generationDescriptor) }
             if reset {
-                guard flock(descriptor, LOCK_EX) == 0 else {
-                    throw posixError(operation: "lock live log journal")
-                }
-                defer { flock(descriptor, LOCK_UN) }
+                try replaceResetGeneration(on: generationDescriptor)
                 guard Darwin.ftruncate(descriptor, 0) == 0 else {
                     throw posixError(operation: "reset live log journal")
                 }
@@ -96,8 +102,11 @@ struct LiveLogJournalStore: @unchecked Sendable {
     func removeJournal(for containerID: UUID) throws {
         try withLock {
             let url = journalURL(for: containerID)
-            guard fileManager.fileExists(atPath: url.path) else { return }
-            try fileManager.removeItem(at: url)
+            let generationURL = resetGenerationURL(for: url)
+            for candidate in [url, generationURL]
+            where fileManager.fileExists(atPath: candidate.path) {
+                try fileManager.removeItem(at: candidate)
+            }
         }
     }
 
@@ -134,8 +143,95 @@ struct LiveLogJournalStore: @unchecked Sendable {
             throw posixError(operation: "lock live log journal")
         }
         defer { flock(descriptor, LOCK_UN) }
+        let generationDescriptor = try openResetGenerationDescriptor(for: url)
+        defer { Darwin.close(generationDescriptor) }
+        try replaceResetGeneration(on: generationDescriptor)
         guard Darwin.ftruncate(descriptor, 0) == 0 else {
             throw posixError(operation: "clear live log journal")
+        }
+    }
+
+    private func resetGenerationURL(for journalURL: URL) -> URL {
+        URL(
+            fileURLWithPath: journalURL.path
+                + LiveLogJournalFormat.resetGenerationSuffix
+        )
+    }
+
+    private func openResetGenerationDescriptor(
+        for journalURL: URL
+    ) throws -> Int32 {
+        let url = resetGenerationURL(for: journalURL)
+        let descriptor = Darwin.open(
+            url.path,
+            O_RDWR | O_CREAT | O_NOFOLLOW,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw posixError(operation: "open live log reset generation")
+        }
+        guard Darwin.fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+            let error = posixError(
+                operation: "protect live log reset generation"
+            )
+            Darwin.close(descriptor)
+            throw error
+        }
+
+        var fileStatus = stat()
+        guard Darwin.fstat(descriptor, &fileStatus) == 0 else {
+            let error = posixError(
+                operation: "inspect live log reset generation"
+            )
+            Darwin.close(descriptor)
+            throw error
+        }
+        if Int64(fileStatus.st_size)
+            != Int64(LiveLogJournalFormat.resetGenerationByteCount) {
+            do {
+                try replaceResetGeneration(on: descriptor)
+            } catch {
+                Darwin.close(descriptor)
+                throw error
+            }
+        }
+        return descriptor
+    }
+
+    private func replaceResetGeneration(on descriptor: Int32) throws {
+        guard Darwin.ftruncate(descriptor, 0) == 0 else {
+            throw posixError(operation: "reset live log generation")
+        }
+
+        let data = LiveLogJournalFormat.makeResetGeneration()
+        var writeError: NSError?
+        data.withUnsafeBytes { rawBuffer in
+            guard var address = rawBuffer.baseAddress else { return }
+            var remaining = rawBuffer.count
+            var offset: off_t = 0
+            while remaining > 0 {
+                let written = Darwin.pwrite(
+                    descriptor,
+                    address,
+                    remaining,
+                    offset
+                )
+                if written > 0 {
+                    remaining -= written
+                    offset += off_t(written)
+                    address = address.advanced(by: written)
+                } else if written < 0, errno == EINTR {
+                    continue
+                } else {
+                    writeError = posixError(
+                        operation: "write live log reset generation"
+                    )
+                    return
+                }
+            }
+        }
+        if let writeError {
+            throw writeError
         }
     }
 

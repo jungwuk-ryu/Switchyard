@@ -318,6 +318,7 @@ private struct WindowsProcessRow: View {
 
 private struct RecentContainerActivity: View {
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var logStore: LogStore
     let container: Container
     var maximumVisibleLogs = 10
     var minimumHeight: CGFloat? = nil
@@ -359,9 +360,16 @@ private struct RecentContainerActivity: View {
                             .padding(.top, 2)
 
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(line.message)
-                                    .font(.callout)
-                                    .lineLimit(2)
+                                HStack(spacing: 6) {
+                                    Text(line.message)
+                                        .font(.callout)
+                                        .lineLimit(2)
+                                    if line.effectiveOccurrenceCount > 1 {
+                                        Text(verbatim: "×\(line.effectiveOccurrenceCount)")
+                                            .font(.caption.monospacedDigit())
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                                 Text(line.timestamp.formatted(date: .abbreviated, time: .shortened))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -398,7 +406,7 @@ private struct RecentContainerActivity: View {
     }
 
     private var logs: [LogLine] {
-        store.recentLogs(
+        logStore.recent(
             for: container.id,
             limit: max(1, maximumVisibleLogs)
         )

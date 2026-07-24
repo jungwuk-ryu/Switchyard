@@ -940,6 +940,106 @@ import Testing
     )
 }
 
+@Test func liveLogPolicyCoalescesInterleavedWineSpamAndPreservesCounts() {
+    let base = Date(timeIntervalSince1970: 1_000)
+    let source = "Rockstar"
+    let firstMessage = "162111.984:0318:warn:d3d_perf:wined3d_cs_map_upload_bo Not accelerating a NOOVERWRITE map."
+    let secondMessage = "162112.101:0440:warn:d3d:state_sample_mask_w Unsupported in local OpenGL implementation."
+    let incoming = [
+        LogLine(timestamp: base, level: "warning", source: source, message: firstMessage),
+        LogLine(
+            timestamp: base.addingTimeInterval(0.1),
+            level: "warning",
+            source: source,
+            message: secondMessage
+        ),
+        LogLine(
+            timestamp: base.addingTimeInterval(0.2),
+            level: "warning",
+            source: source,
+            message: firstMessage.replacingOccurrences(
+                of: "162111.984:0318",
+                with: "162111.985:0520"
+            )
+        ),
+        LogLine(
+            timestamp: base.addingTimeInterval(0.3),
+            level: "warning",
+            source: source,
+            message: secondMessage.replacingOccurrences(
+                of: "162112.101:0440",
+                with: "162112.201:0444"
+            )
+        ),
+        LogLine(
+            timestamp: base.addingTimeInterval(0.4),
+            level: "warning",
+            source: source,
+            message: firstMessage.replacingOccurrences(
+                of: "162111.984:0318",
+                with: "162112.301:0530"
+            )
+        ),
+    ]
+
+    let firstMerge = LiveLogPolicy.merging(
+        chronological: incoming,
+        before: [],
+        limit: 10
+    )
+    #expect(firstMerge.count == 2)
+    #expect(firstMerge.map(\.effectiveOccurrenceCount) == [3, 2])
+    let retainedIDs = Dictionary(
+        uniqueKeysWithValues: firstMerge.map {
+            (LiveLogPolicy.eventKey(for: $0), $0.id)
+        }
+    )
+
+    let nextIncoming = [
+        LogLine(
+            timestamp: base.addingTimeInterval(0.6),
+            level: "warning",
+            source: source,
+            message: firstMessage
+        ),
+        LogLine(
+            timestamp: base.addingTimeInterval(0.7),
+            level: "warning",
+            source: source,
+            message: secondMessage
+        ),
+    ]
+    let secondMerge = LiveLogPolicy.merging(
+        chronological: nextIncoming,
+        before: firstMerge,
+        limit: 10
+    )
+
+    #expect(secondMerge.count == 2)
+    #expect(Set(secondMerge.map(\.effectiveOccurrenceCount)) == [3, 4])
+    #expect(
+        secondMerge.allSatisfy {
+            retainedIDs[LiveLogPolicy.eventKey(for: $0)] == $0.id
+        }
+    )
+}
+
+@Test func liveLogPolicyStartsANewEntryAfterTheCoalescingWindow() {
+    let base = Date(timeIntervalSince1970: 2_000)
+    let message = "100.000:0010:warn:d3d_perf:Repeated warning"
+    let lines = [
+        LogLine(timestamp: base, level: "warning", source: "Wine", message: message),
+        LogLine(
+            timestamp: base.addingTimeInterval(2),
+            level: "warning",
+            source: "Wine",
+            message: message
+        ),
+    ]
+
+    #expect(LiveLogPolicy.compacting(chronological: lines).count == 2)
+}
+
 @Test func logFilterPolicyCombinesContainerLevelAndSearchFilters() {
     let firstContainerID = UUID()
     let secondContainerID = UUID()

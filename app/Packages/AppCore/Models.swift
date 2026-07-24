@@ -615,6 +615,7 @@ public struct LogLine: Identifiable, Codable, Equatable, Sendable {
     public var level: String
     public var source: String
     public var message: String
+    public var occurrenceCount: Int?
 
     public init(
         id: UUID = UUID(),
@@ -622,7 +623,8 @@ public struct LogLine: Identifiable, Codable, Equatable, Sendable {
         containerID: UUID? = nil,
         level: String,
         source: String,
-        message: String
+        message: String,
+        occurrenceCount: Int? = nil
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -630,6 +632,11 @@ public struct LogLine: Identifiable, Codable, Equatable, Sendable {
         self.level = level
         self.source = source
         self.message = message
+        self.occurrenceCount = occurrenceCount
+    }
+
+    public var effectiveOccurrenceCount: Int {
+        max(1, occurrenceCount ?? 1)
     }
 }
 
@@ -643,6 +650,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
     public var debugLogPath: String?
     public var terminateExistingPrefixSession: Bool?
     public var keepLoggingWhilePrefixIsActive: Bool?
+    public var forwardCapturedOutput: Bool?
 
     public init(
         executable: String,
@@ -653,7 +661,8 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         liveLogPath: String? = nil,
         debugLogPath: String? = nil,
         terminateExistingPrefixSession: Bool? = nil,
-        keepLoggingWhilePrefixIsActive: Bool? = nil
+        keepLoggingWhilePrefixIsActive: Bool? = nil,
+        forwardCapturedOutput: Bool? = nil
     ) {
         self.executable = executable
         self.arguments = arguments
@@ -664,6 +673,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         self.debugLogPath = debugLogPath
         self.terminateExistingPrefixSession = terminateExistingPrefixSession
         self.keepLoggingWhilePrefixIsActive = keepLoggingWhilePrefixIsActive
+        self.forwardCapturedOutput = forwardCapturedOutput
     }
 }
 

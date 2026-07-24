@@ -84,7 +84,97 @@ public enum ProcessLogLevelPolicy {
     }
 }
 
+public struct LiveLogEventKey: Hashable, Sendable {
+    fileprivate var containerID: UUID?
+    fileprivate var level: String
+    fileprivate var source: String
+    fileprivate var normalizedMessage: String
+}
+
+public enum LiveLogJournalFormat {
+    public static let resetGenerationSuffix = ".generation"
+    public static let resetGenerationByteCount = 16
+
+    public static func makeResetGeneration() -> Data {
+        var bytes = UUID().uuid
+        return withUnsafeBytes(of: &bytes) { Data($0) }
+    }
+}
+
 public enum LiveLogPolicy {
+    private static let coalescingInterval: TimeInterval = 1
+    private static let maximumExistingCoalescingCandidates = 256
+    private static let wineLevelMarkers = [
+        ":err:",
+        ":warn:",
+        ":fixme:",
+        ":trace:",
+    ]
+
+    private struct Aggregate {
+        var line: LogLine
+        var lastPosition: Int
+    }
+
+    public static func eventKey(
+        containerID: UUID?,
+        level: String,
+        source: String,
+        message: String
+    ) -> LiveLogEventKey {
+        LiveLogEventKey(
+            containerID: containerID,
+            level: level,
+            source: source,
+            normalizedMessage: normalizedMessage(message)
+        )
+    }
+
+    public static func eventKey(for line: LogLine) -> LiveLogEventKey {
+        eventKey(
+            containerID: line.containerID,
+            level: line.level,
+            source: line.source,
+            message: line.message
+        )
+    }
+
+    public static func compacting(chronological lines: [LogLine]) -> [LogLine] {
+        guard lines.count > 1 else { return lines }
+
+        var aggregates: [Aggregate] = []
+        aggregates.reserveCapacity(lines.count)
+        var latestAggregateByKey: [LiveLogEventKey: Int] = [:]
+        latestAggregateByKey.reserveCapacity(min(lines.count, 256))
+
+        for (position, line) in lines.enumerated() {
+            let key = eventKey(for: line)
+            if let aggregateIndex = latestAggregateByKey[key],
+               isWithinCoalescingInterval(
+                   older: aggregates[aggregateIndex].line,
+                   newer: line
+               ) {
+                let retainedID = aggregates[aggregateIndex].line.id
+                let combinedCount = aggregates[aggregateIndex].line.effectiveOccurrenceCount
+                    + line.effectiveOccurrenceCount
+                var combined = line
+                combined.id = retainedID
+                combined.occurrenceCount = combinedCount
+                aggregates[aggregateIndex] = Aggregate(
+                    line: combined,
+                    lastPosition: position
+                )
+            } else {
+                latestAggregateByKey[key] = aggregates.count
+                aggregates.append(Aggregate(line: line, lastPosition: position))
+            }
+        }
+
+        return aggregates
+            .sorted { $0.lastPosition < $1.lastPosition }
+            .map(\.line)
+    }
+
     public static func merging(
         chronological incoming: [LogLine],
         before existing: [LogLine],
@@ -94,15 +184,43 @@ public enum LiveLogPolicy {
             return limit > 0 ? Array(existing.prefix(limit)) : []
         }
 
-        let retainedIncoming = incoming.suffix(limit)
-        let existingLimit = limit - retainedIncoming.count
-        var merged: [LogLine] = []
-        merged.reserveCapacity(min(limit, retainedIncoming.count + existing.count))
-        merged.append(contentsOf: retainedIncoming.reversed())
-        if existingLimit > 0 {
-            merged.append(contentsOf: existing.prefix(existingLimit))
+        let existingCandidateCount = min(
+            existing.count,
+            maximumExistingCoalescingCandidates
+        )
+        var chronologicalCandidates = Array(
+            existing.prefix(existingCandidateCount).reversed()
+        )
+        chronologicalCandidates.append(contentsOf: incoming)
+
+        let compacted = compacting(chronological: chronologicalCandidates)
+        var merged = Array(compacted.reversed())
+        if existingCandidateCount < existing.count {
+            merged.append(contentsOf: existing.dropFirst(existingCandidateCount))
         }
-        return merged
+        return Array(merged.prefix(limit))
+    }
+
+    private static func isWithinCoalescingInterval(
+        older: LogLine,
+        newer: LogLine
+    ) -> Bool {
+        let interval = newer.timestamp.timeIntervalSince(older.timestamp)
+        return interval >= 0
+            && interval <= coalescingInterval
+    }
+
+    private static func normalizedMessage(_ message: String) -> String {
+        var earliestMarkerRange: Range<String.Index>?
+        for marker in wineLevelMarkers {
+            guard let range = message.range(of: marker) else { continue }
+            if earliestMarkerRange == nil
+                || range.lowerBound < earliestMarkerRange!.lowerBound {
+                earliestMarkerRange = range
+            }
+        }
+        guard let earliestMarkerRange else { return message }
+        return String(message[earliestMarkerRange.lowerBound...])
     }
 }
 

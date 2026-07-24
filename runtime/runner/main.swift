@@ -103,6 +103,26 @@ private let outputDrainTimeout: TimeInterval = {
     return seconds
 }()
 
+private let maximumLiveLogJournalBytes: Int64 = {
+    guard let value = ProcessInfo.processInfo.environment[
+        "SWITCHYARD_TEST_LIVE_LOG_MAX_BYTES"
+    ],
+    let bytes = Int64(value),
+    bytes > 0 else {
+        return 8 * 1_024 * 1_024
+    }
+    return bytes
+}()
+
+private let signalExitGracePeriod: TimeInterval = {
+    guard let value = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_SIGNAL_EXIT_TIMEOUT"],
+          let seconds = TimeInterval(value),
+          seconds > 0 else {
+        return 2
+    }
+    return seconds
+}()
+
 private let prefixProcessTerminationTimeout: TimeInterval = {
     guard let value = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_PREFIX_PROCESS_TIMEOUT"],
           let seconds = TimeInterval(value),
@@ -204,13 +224,30 @@ private final class DebugLogWriter: @unchecked Sendable {
 }
 
 private final class LiveLogJournalWriter: @unchecked Sendable {
-    private static let maximumJournalBytes: Int64 = 8 * 1_024 * 1_024
     private static let maximumMessageBytes = 64 * 1_024
+    private static let maximumTrackedEvents = 64
+    private static let maximumSuppressedOccurrences = 256
+    private static let repetitionFlushInterval: TimeInterval = 0.5
+
+    private struct RepetitionState {
+        var latestLine: LogLine
+        var suppressedOccurrenceCount: Int
+        var lastEmissionDate: Date
+    }
+
+    private struct ResetGeneration: Equatable {
+        var firstWord: UInt64 = 0
+        var secondWord: UInt64 = 0
+    }
 
     private let lock = NSLock()
     private let descriptor: Int32
+    private let resetGenerationDescriptor: Int32
     private let source: String
     private let encoder = JSONEncoder()
+    private var repetitionStates: [LiveLogEventKey: RepetitionState] = [:]
+    private var observedResetGeneration: ResetGeneration
+    private var lastKnownJournalSize: Int64 = 0
     private var isClosed = false
 
     init(path: String, source: String) throws {
@@ -235,6 +272,18 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
             throw error
         }
         self.source = source
+        do {
+            let resetGeneration = try Self.openResetGeneration(
+                forJournalPath: url.path,
+                journalDescriptor: descriptor
+            )
+            resetGenerationDescriptor = resetGeneration.descriptor
+            observedResetGeneration = resetGeneration.generation
+        } catch {
+            Darwin.close(descriptor)
+            throw error
+        }
+        updateLastKnownJournalSize()
     }
 
     func write(level: String, message: String) {
@@ -242,38 +291,94 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
         defer { lock.unlock() }
         guard !isClosed else { return }
 
-        let line = LogLine(
+        discardRepetitionStateIfJournalWasReset()
+        let timestamp = Date()
+        let boundedMessage = boundedMessage(message)
+        let key = LiveLogPolicy.eventKey(
+            containerID: nil,
             level: level,
             source: source,
-            message: boundedMessage(message)
+            message: boundedMessage
         )
-        guard let encodedLine = encode(line) else { return }
-
-        guard flock(descriptor, LOCK_EX) == 0 else { return }
-        defer { flock(descriptor, LOCK_UN) }
-
-        var fileStatus = stat()
-        if Darwin.fstat(descriptor, &fileStatus) == 0,
-           Int64(fileStatus.st_size) + Int64(encodedLine.count) > Self.maximumJournalBytes {
-            guard Darwin.ftruncate(descriptor, 0) == 0 else { return }
-            let rolloverLine = LogLine(
-                level: "warning",
-                source: source,
-                message: "Live log journal reached its size limit; older entries were discarded."
-            )
-            if let encodedRollover = encode(rolloverLine) {
-                writeAll(encodedRollover)
+        if var state = repetitionStates[key] {
+            if timestamp.timeIntervalSince(state.latestLine.timestamp)
+                >= Self.repetitionFlushInterval {
+                var linesToPersist = drainPendingRepetitionSummaries()
+                let line = LogLine(
+                    timestamp: timestamp,
+                    level: level,
+                    source: source,
+                    message: boundedMessage
+                )
+                linesToPersist.append(line)
+                _ = persist(linesToPersist, afterJournalReset: [line])
+                repetitionStates[key] = RepetitionState(
+                    latestLine: line,
+                    suppressedOccurrenceCount: 0,
+                    lastEmissionDate: timestamp
+                )
+                return
             }
+
+            state.latestLine.timestamp = timestamp
+            state.latestLine.message = boundedMessage
+            let suppressedCount = state.suppressedOccurrenceCount + 1
+            if timestamp.timeIntervalSince(state.lastEmissionDate)
+                >= Self.repetitionFlushInterval
+                || suppressedCount >= Self.maximumSuppressedOccurrences {
+                state.suppressedOccurrenceCount = suppressedCount
+                repetitionStates[key] = state
+                let resetLine = LogLine(
+                    timestamp: timestamp,
+                    level: level,
+                    source: source,
+                    message: boundedMessage
+                )
+                if persist(
+                    drainPendingRepetitionSummaries(),
+                    afterJournalReset: [resetLine]
+                ) {
+                    repetitionStates[key] = RepetitionState(
+                        latestLine: resetLine,
+                        suppressedOccurrenceCount: 0,
+                        lastEmissionDate: timestamp
+                    )
+                }
+            } else {
+                state.suppressedOccurrenceCount = suppressedCount
+                repetitionStates[key] = state
+            }
+            return
         }
-        writeAll(encodedLine)
+
+        var linesToPersist = drainPendingRepetitionSummaries()
+        if repetitionStates.count >= Self.maximumTrackedEvents {
+            repetitionStates.removeAll(keepingCapacity: true)
+        }
+        let line = LogLine(
+            timestamp: timestamp,
+            level: level,
+            source: source,
+            message: boundedMessage
+        )
+        linesToPersist.append(line)
+        _ = persist(linesToPersist, afterJournalReset: [line])
+        repetitionStates[key] = RepetitionState(
+            latestLine: line,
+            suppressedOccurrenceCount: 0,
+            lastEmissionDate: timestamp
+        )
     }
 
     func close() {
         lock.lock()
         defer { lock.unlock() }
         guard !isClosed else { return }
+        _ = persist(drainPendingRepetitionSummaries())
+        repetitionStates.removeAll()
         Darwin.fsync(descriptor)
         Darwin.close(descriptor)
+        Darwin.close(resetGenerationDescriptor)
         isClosed = true
     }
 
@@ -289,6 +394,119 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
         guard var data = try? encoder.encode(line) else { return nil }
         data.append(0x0A)
         return data
+    }
+
+    private func drainPendingRepetitionSummaries() -> [LogLine] {
+        var summaries: [LogLine] = []
+        summaries.reserveCapacity(repetitionStates.count)
+
+        for key in Array(repetitionStates.keys) {
+            guard var state = repetitionStates[key],
+                  state.suppressedOccurrenceCount > 0 else {
+                continue
+            }
+            var summary = state.latestLine
+            summary.id = UUID()
+            summary.occurrenceCount = state.suppressedOccurrenceCount
+            summaries.append(summary)
+
+            state.suppressedOccurrenceCount = 0
+            state.lastEmissionDate = state.latestLine.timestamp
+            repetitionStates[key] = state
+        }
+        return summaries.sorted { $0.timestamp < $1.timestamp }
+    }
+
+    @discardableResult
+    private func persist(
+        _ lines: [LogLine],
+        afterJournalReset resetLines: [LogLine] = []
+    ) -> Bool {
+        guard flock(descriptor, LOCK_EX) == 0 else { return false }
+        defer { flock(descriptor, LOCK_UN) }
+
+        let journalWasReset = discardRepetitionStateIfJournalWasReset(
+            checkSizeRollback: true
+        )
+        let linesToPersist = journalWasReset ? resetLines : lines
+        var encodedLines = Data()
+        for line in linesToPersist {
+            guard let encodedLine = encode(line) else { continue }
+            encodedLines.append(encodedLine)
+        }
+        guard !encodedLines.isEmpty else { return journalWasReset }
+
+        var payload = Data()
+        var journalRolledOver = false
+        var fileStatus = stat()
+        if Darwin.fstat(descriptor, &fileStatus) == 0,
+           Int64(fileStatus.st_size) + Int64(encodedLines.count)
+                > maximumLiveLogJournalBytes {
+            guard let generation = Self.replaceResetGeneration(
+                on: resetGenerationDescriptor
+            ) else {
+                return journalWasReset
+            }
+            observedResetGeneration = generation
+            repetitionStates.removeAll(keepingCapacity: true)
+            guard Darwin.ftruncate(descriptor, 0) == 0 else {
+                return true
+            }
+            journalRolledOver = true
+            let rolloverLine = LogLine(
+                level: "warning",
+                source: source,
+                message: "Live log journal reached its size limit; older entries were discarded."
+            )
+            payload.append(encodedLines)
+            if let encodedRollover = encode(rolloverLine) {
+                payload.append(encodedRollover)
+            }
+        } else {
+            payload.append(encodedLines)
+        }
+        writeAll(payload)
+        updateLastKnownJournalSize()
+        return journalWasReset || journalRolledOver
+    }
+
+    @discardableResult
+    private func discardRepetitionStateIfJournalWasReset(
+        checkSizeRollback: Bool = false
+    ) -> Bool {
+        var journalWasReset = false
+        if let generation = Self.readResetGeneration(
+            from: resetGenerationDescriptor
+        ), generation != observedResetGeneration {
+            observedResetGeneration = generation
+            journalWasReset = true
+        }
+
+        var currentSize: Int64?
+        if checkSizeRollback || journalWasReset {
+            var fileStatus = stat()
+            if Darwin.fstat(descriptor, &fileStatus) == 0 {
+                currentSize = Int64(fileStatus.st_size)
+                if checkSizeRollback,
+                   let currentSize,
+                   currentSize < lastKnownJournalSize {
+                    journalWasReset = true
+                }
+            }
+        }
+        guard journalWasReset else { return false }
+        repetitionStates.removeAll(keepingCapacity: true)
+        if let currentSize {
+            lastKnownJournalSize = currentSize
+        }
+        return true
+    }
+
+    private func updateLastKnownJournalSize() {
+        var fileStatus = stat()
+        if Darwin.fstat(descriptor, &fileStatus) == 0 {
+            lastKnownJournalSize = Int64(fileStatus.st_size)
+        }
     }
 
     private func writeAll(_ data: Data) {
@@ -307,6 +525,121 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    private static func openResetGeneration(
+        forJournalPath journalPath: String,
+        journalDescriptor: Int32
+    ) throws -> (descriptor: Int32, generation: ResetGeneration) {
+        guard flock(journalDescriptor, LOCK_EX) == 0 else {
+            throw posixError(operation: "lock live log journal")
+        }
+        defer { flock(journalDescriptor, LOCK_UN) }
+
+        let path = journalPath + LiveLogJournalFormat.resetGenerationSuffix
+        let descriptor = Darwin.open(
+            path,
+            O_RDWR | O_CREAT | O_NOFOLLOW,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw posixError(operation: "open live log reset generation")
+        }
+        guard Darwin.fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+            let error = posixError(
+                operation: "protect live log reset generation"
+            )
+            Darwin.close(descriptor)
+            throw error
+        }
+
+        var fileStatus = stat()
+        guard Darwin.fstat(descriptor, &fileStatus) == 0 else {
+            let error = posixError(
+                operation: "inspect live log reset generation"
+            )
+            Darwin.close(descriptor)
+            throw error
+        }
+        if Int64(fileStatus.st_size)
+            != Int64(LiveLogJournalFormat.resetGenerationByteCount) {
+            guard replaceResetGeneration(on: descriptor) != nil else {
+                let error = posixError(
+                    operation: "initialize live log reset generation"
+                )
+                Darwin.close(descriptor)
+                throw error
+            }
+        }
+        guard let generation = readResetGeneration(from: descriptor) else {
+            let error = posixError(operation: "read live log reset generation")
+            Darwin.close(descriptor)
+            throw error
+        }
+        return (descriptor, generation)
+    }
+
+    private static func replaceResetGeneration(
+        on descriptor: Int32
+    ) -> ResetGeneration? {
+        guard Darwin.ftruncate(descriptor, 0) == 0,
+              write(
+                  LiveLogJournalFormat.makeResetGeneration(),
+                  to: descriptor
+              ) else {
+            return nil
+        }
+        return readResetGeneration(from: descriptor)
+    }
+
+    private static func readResetGeneration(
+        from descriptor: Int32
+    ) -> ResetGeneration? {
+        guard MemoryLayout<ResetGeneration>.size
+            == LiveLogJournalFormat.resetGenerationByteCount else {
+            return nil
+        }
+        var generation = ResetGeneration()
+        let readCount = withUnsafeMutableBytes(of: &generation) { buffer in
+            Darwin.pread(
+                descriptor,
+                buffer.baseAddress,
+                buffer.count,
+                0
+            )
+        }
+        guard readCount == MemoryLayout<ResetGeneration>.size else {
+            return nil
+        }
+        return generation
+    }
+
+    private static func write(_ data: Data, to descriptor: Int32) -> Bool {
+        var succeeded = true
+        data.withUnsafeBytes { rawBuffer in
+            guard var address = rawBuffer.baseAddress else { return }
+            var remaining = rawBuffer.count
+            var offset: off_t = 0
+            while remaining > 0 {
+                let written = Darwin.pwrite(
+                    descriptor,
+                    address,
+                    remaining,
+                    offset
+                )
+                if written > 0 {
+                    remaining -= written
+                    offset += off_t(written)
+                    address = address.advanced(by: written)
+                } else if written < 0, errno == EINTR {
+                    continue
+                } else {
+                    succeeded = false
+                    return
+                }
+            }
+        }
+        return succeeded
     }
 
     private static func posixError(operation: String) -> NSError {
@@ -388,8 +721,14 @@ private final class TerminationSignalMonitor {
                 queue: .global(qos: .userInitiated)
             )
             source.setEventHandler {
-                let status = RunnerProcessRegistry.shared.requestTermination(signalNumber: signalNumber)
-                Foundation.exit(status)
+                let status = RunnerProcessRegistry.shared.requestTermination(
+                    signalNumber: signalNumber
+                )
+                DispatchQueue.global(qos: .utility).asyncAfter(
+                    deadline: .now() + signalExitGracePeriod
+                ) {
+                    Foundation.exit(status)
+                }
             }
             source.resume()
             return source
@@ -523,13 +862,14 @@ struct SwitchyardRunner {
 
         let stdoutBuffer = LineAccumulator()
         let stderrBuffer = LineAccumulator()
+        let forwardsCapturedOutput = plan.forwardCapturedOutput != false
         try RunnerProcessRegistry.shared.launch(process)
         let outputGroup = DispatchGroup()
         streamOutput(
             from: stdout.fileHandleForReading,
             source: plan.logSource,
             level: "info",
-            to: FileHandle.standardOutput,
+            to: forwardsCapturedOutput ? FileHandle.standardOutput : nil,
             accumulator: stdoutBuffer,
             debugLogWriter: debugLogWriter,
             liveLogWriter: liveLogWriter,
@@ -539,7 +879,7 @@ struct SwitchyardRunner {
             from: stderr.fileHandleForReading,
             source: plan.logSource,
             level: "error",
-            to: FileHandle.standardError,
+            to: forwardsCapturedOutput ? FileHandle.standardError : nil,
             accumulator: stderrBuffer,
             debugLogWriter: debugLogWriter,
             liveLogWriter: liveLogWriter,
@@ -1554,8 +1894,14 @@ private func waitForOutputDrain(
     debugLogWriter: DebugLogWriter?,
     liveLogWriter: LiveLogJournalWriter?
 ) -> Bool {
+    guard RunnerProcessRegistry.shared.requestedExitStatus == nil else {
+        return false
+    }
     guard group.wait(timeout: .now() + outputDrainTimeout) == .timedOut else {
         return true
+    }
+    guard RunnerProcessRegistry.shared.requestedExitStatus == nil else {
+        return false
     }
     guard plan.keepLoggingWhilePrefixIsActive != false,
           liveLogWriter != nil,
@@ -1567,6 +1913,9 @@ private func waitForOutputDrain(
 
     var didAnnounceExtendedDrain = false
     while true {
+        guard RunnerProcessRegistry.shared.requestedExitStatus == nil else {
+            return false
+        }
         let prefixState: WinePrefixProbeResult
         do {
             prefixState = try probeWinePrefixSession(
@@ -1594,6 +1943,9 @@ private func waitForOutputDrain(
         if group.wait(timeout: .now() + outputDrainTimeout) == .success {
             return true
         }
+        guard RunnerProcessRegistry.shared.requestedExitStatus == nil else {
+            return false
+        }
     }
 }
 
@@ -1601,11 +1953,10 @@ private func emitLine(
     source: String,
     level: String,
     message: String,
-    outputHandle: FileHandle,
+    outputHandle: FileHandle?,
     debugLogWriter: DebugLogWriter?,
     liveLogWriter: LiveLogJournalWriter?
 ) {
-    let text = "[\(source)] \(message)"
     emit(
         source: source,
         level: level,
@@ -1613,7 +1964,10 @@ private func emitLine(
         debugLogWriter: debugLogWriter,
         liveLogWriter: liveLogWriter
     )
-    try? outputHandle.write(contentsOf: Data((text + "\n").utf8))
+    if let outputHandle {
+        let text = "[\(source)] \(message)"
+        try? outputHandle.write(contentsOf: Data((text + "\n").utf8))
+    }
 }
 
 private func emit(
@@ -1657,7 +2011,7 @@ private func streamOutput(
     from inputHandle: FileHandle,
     source: String,
     level: String,
-    to outputHandle: FileHandle,
+    to outputHandle: FileHandle?,
     accumulator: LineAccumulator,
     debugLogWriter: DebugLogWriter?,
     liveLogWriter: LiveLogJournalWriter?,

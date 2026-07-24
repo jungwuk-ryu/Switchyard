@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LogsView: View {
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var logStore: LogStore
     @State private var searchText = ""
     @State private var levelFilter = "all"
     @State private var containerFilter: UUID?
@@ -60,7 +61,7 @@ struct LogsView: View {
                 } label: {
                     Label("Clear Logs", systemImage: "trash")
                 }
-                .disabled(store.logLines.isEmpty)
+                .disabled(logStore.lines.isEmpty)
             }
             .padding()
 
@@ -103,7 +104,7 @@ struct LogsView: View {
 
     private var filteredLogs: [LogLine] {
         LogFilterPolicy.filtering(
-            store.logLines,
+            logStore.lines,
             containerID: containerFilter,
             level: levelFilter == "all" ? nil : levelFilter,
             searchText: searchText
@@ -112,7 +113,10 @@ struct LogsView: View {
 
     private func copyText(for logs: [LogLine]) -> String {
         logs.map { line in
-            "\(switchyardDateFormatter.string(from: line.timestamp)) [\(line.level.uppercased())] [\(line.source)] \(line.message)"
+            let occurrenceSuffix = line.effectiveOccurrenceCount > 1
+                ? " [×\(line.effectiveOccurrenceCount)]"
+                : ""
+            return "\(switchyardDateFormatter.string(from: line.timestamp)) [\(line.level.uppercased())] [\(line.source)] \(line.message)\(occurrenceSuffix)"
         }
         .joined(separator: "\n")
     }
@@ -133,6 +137,14 @@ private struct LogLineView: View {
                 .frame(width: 120, alignment: .leading)
             Text(line.message)
                 .textSelection(.enabled)
+            if line.effectiveOccurrenceCount > 1 {
+                Text(verbatim: "×\(line.effectiveOccurrenceCount)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.quaternary, in: Capsule())
+            }
         }
     }
 
