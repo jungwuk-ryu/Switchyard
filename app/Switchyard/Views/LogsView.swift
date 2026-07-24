@@ -56,11 +56,7 @@ struct LogsView: View {
             Divider()
 
             if filteredLogs.isEmpty {
-                ContentUnavailableView(
-                    "No Matching Logs",
-                    systemImage: "doc.text.magnifyingglass",
-                    description: Text("Run diagnostics, launch a Windows executable, or change the current filters.")
-                )
+                ContentUnavailableView("No Matching Logs", systemImage: "doc.text.magnifyingglass")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {

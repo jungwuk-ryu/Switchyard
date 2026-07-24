@@ -1948,10 +1948,6 @@ final class AppStore: ObservableObject {
         loginCallbackRecoveryStates[containerID]
     }
 
-    func learnedLoginCallbackSchemes(for containerID: UUID) -> [String] {
-        protocolBridge.learnedSchemes(for: containerID)
-    }
-
     func isRecoveringLoginCallback(in containerID: UUID) -> Bool {
         switch loginCallbackRecoveryStates[containerID] {
         case .inspecting, .choosing, .forwarding:

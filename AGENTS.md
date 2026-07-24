@@ -38,6 +38,12 @@ Use Conventional Commits:
 
 Keep commits focused. Do not mix external Wine source changes, app UI changes, and documentation rewrites unless the change is intentionally atomic.
 
+## Interface Copy
+
+- Keep visible copy brief and task-focused. Do not restate an icon, heading, selected tab, nearby control, or obvious status.
+- Put technical detail in Help, Diagnostics, or a disclosure. Keep safety, recovery, licensing, and destructive-action consequences visible where they matter.
+- Review localized copy in context; avoid literal translations and developer-facing jargon on ordinary screens.
+
 ## Release Notes
 
 Write GitHub release bodies as concise, reader-facing changelogs:

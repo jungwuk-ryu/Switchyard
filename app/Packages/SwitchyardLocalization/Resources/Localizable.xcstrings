@@ -1128,7 +1128,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$lld 대용량 로그 항목은 라이브 뷰에서 생략되었습니다; 개발자 로깅이 활성화된 경우 보호된 실행당 디버그 로그는 전체 출력을 유지합니다."
+            "value": "라이브 화면에서 로그 %1$lld개를 생략했습니다. 개발자 로깅이 켜져 있으면 실행별 디버그 로그에서 전체 내용을 확인할 수 있습니다."
           }
         },
         "pt-BR": {
@@ -4725,7 +4725,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "다운로드한 파일을 선택하세요..."
+            "value": "다운로드한 파일 선택…"
           }
         },
         "pt-BR": {
@@ -4783,7 +4783,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Game Porting Toolkit를 선택하세요"
+            "value": "Game Porting Toolkit 선택"
           }
         },
         "pt-BR": {
@@ -5830,7 +5830,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 로그인 요청을 보낸 Windows 앱을 선택하세요."
+            "value": "%1$@ 로그인에 사용할 앱을 선택하세요."
           }
         },
         "pt-BR": {
@@ -7978,7 +7978,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "복구하기 전에 Safari에서 잘못된 콜백 주소를 복사하세요."
+            "value": "Safari에서 열지 못한 주소를 복사한 뒤 다시 시도하세요."
           }
         },
         "pt-BR": {
@@ -10689,7 +10689,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "최신 Game Porting Toolkit 디스크 이미지를 다운로드한 다음 Switchyard로 돌아갑니다."
+            "value": "최신 Game Porting Toolkit 디스크 이미지를 다운로드한 다음 Switchyard로 돌아오세요."
           }
         },
         "pt-BR": {
@@ -10869,7 +10869,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "다운로드된 %1$lld 오픈 폰트 팩 글꼴 파일; %2$lld 파일이 이미 캐시되었습니다."
+            "value": "오픈 폰트 팩 파일 %1$lld개를 다운로드했습니다. %2$lld개는 이미 캐시에 있습니다."
           }
         },
         "pt-BR": {
@@ -11797,7 +11797,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 콜백을 기다리는 Windows 앱을 찾는 중…"
+            "value": "%1$@ 로그인을 기다리는 앱을 찾는 중…"
           }
         },
         "pt-BR": {
@@ -12493,7 +12493,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 전달: Wine로 콜백…"
+            "value": "%1$@ 로그인 정보를 앱으로 전달하는 중…"
           }
         },
         "pt-BR": {
@@ -13247,7 +13247,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "로그인 후 Safari에서 주소가 유효하지 않다고 표시되면 Safari에서 Command-L 및 Command-C를 누른 다음 여기에서 복사된 콜백을 복구하세요."
+            "value": "로그인 후 Safari가 앱으로 돌아가지 못하면 주소를 복사해 여기서 다시 시도하세요."
           }
         },
         "pt-BR": {
@@ -15221,7 +15221,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "복사된 로그인 콜백을 복구하는 동안 Windows 게임을 열어두세요."
+            "value": "로그인 복구가 끝날 때까지 Windows 앱을 열어 두세요."
           }
         },
         "pt-BR": {
@@ -16057,7 +16057,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "인수 실행"
+            "value": "실행 인수"
           }
         },
         "pt-BR": {
@@ -16817,7 +16817,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "로그인 콜백"
+            "value": "로그인 복구"
           }
         },
         "pt-BR": {
@@ -16875,7 +16875,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "컨테이너 폴더가 변경 중이어서 로그인 콜백 복구가 취소되었습니다."
+            "value": "컨테이너 폴더를 변경하는 중이라 로그인 복구를 취소했습니다."
           }
         },
         "pt-BR": {
@@ -16933,7 +16933,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "로그인 콜백 복구가 취소되었습니다."
+            "value": "로그인 복구를 취소했습니다."
           }
         },
         "pt-BR": {
@@ -18269,7 +18269,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "다운로드에서 Game Porting Toolkit 디스크 이미지를 찾을 수 없습니다."
+            "value": "다운로드 폴더에서 Game Porting Toolkit 디스크 이미지를 찾지 못했습니다."
           }
         },
         "pt-BR": {
@@ -18739,7 +18739,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "신청 세부정보가 없습니다."
+            "value": "앱 세부 정보를 사용할 수 없습니다."
           }
         },
         "pt-BR": {
@@ -20543,7 +20543,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오픈 글꼴 준비됨: %1$lld 복사됨, %2$lld 이미 있음, %3$lld 제품군 대체 등록됨."
+            "value": "글꼴 준비 완료: %1$lld개 복사, %2$lld개 유지, 글꼴 모음 대체 %3$lld개 등록."
           }
         },
         "pt-BR": {
@@ -20601,7 +20601,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "열린 글꼴 건너뛰기: %1$@"
+            "value": "글꼴 설정을 건너뜀: %1$@"
           }
         },
         "pt-BR": {
@@ -22516,7 +22516,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "복사된 콜백 복구"
+            "value": "복사한 로그인 완료"
           }
         },
         "pt-BR": {
@@ -22574,7 +22574,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "복사된 로그인 콜백 복구"
+            "value": "복사한 로그인 완료"
           }
         },
         "pt-BR": {
@@ -22638,7 +22638,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%2$@의 %1$@ 콜백을 복구했습니다."
+            "value": "%2$@의 %1$@ 로그인을 완료했습니다."
           }
         },
         "pt-BR": {
@@ -22696,7 +22696,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ 콜백을 복구했습니다. 다음부터는 로그인 후 자동으로 돌아옵니다."
+            "value": "%1$@ 로그인을 완료했습니다. 다음부터는 자동으로 앱으로 돌아갑니다."
           }
         },
         "pt-BR": {
@@ -26050,7 +26050,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "앱 전체의 활성 런타임으로 %1$@ 선택."
+            "value": "앱 전체에서 %1$@ 런타임을 사용합니다."
           }
         },
         "zh-Hans": {
@@ -28163,7 +28163,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Steam 설정이 예상보다 오래 걸렸습니다. 설치 프로그램이 아직 열려 있으면 완료합니다. 그렇지 않으면 동일한 컨테이너에서 다시 시도하세요."
+            "value": "Steam 설정이 예상보다 오래 걸렸습니다. 설치 프로그램이 아직 열려 있으면 설치를 마치세요. 그렇지 않으면 같은 컨테이너에서 다시 시도하세요."
           }
         },
         "pt-BR": {
@@ -32016,7 +32016,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "콜백이 Wine에 도달했지만 자동 복구를 저장할 수 없습니다: %1$@"
+            "value": "로그인 정보는 앱에 전달했지만 자동 연결을 저장하지 못했습니다: %1$@"
           }
         },
         "pt-BR": {
@@ -38817,7 +38817,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "로그인 콜백을 복구하기 전에 컨테이너 폴더 작업이 완료될 때까지 기다리세요."
+            "value": "컨테이너 폴더 작업이 끝난 뒤 로그인을 다시 시도하세요."
           }
         },
         "pt-BR": {
@@ -39629,7 +39629,7 @@
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wine이 복사한 %1$@ 콜백을 처리하지 못했습니다."
+            "value": "앱이 복사한 %1$@ 로그인 정보를 받지 못했습니다."
           }
         },
         "pt-BR": {

@@ -68,11 +68,7 @@ struct ContainerFileBrowserView: View {
                     maxHeight: browserContentMaximumHeight
                 )
             } else if entries.isEmpty {
-                ContentUnavailableView(
-                    "Empty Folder",
-                    systemImage: "folder",
-                    description: Text("There are no visible files in this folder.")
-                )
+                ContentUnavailableView("Empty Folder", systemImage: "folder")
                 .frame(
                     maxWidth: .infinity,
                     minHeight: browserContentMinimumHeight,
@@ -118,7 +114,7 @@ struct ContainerFileBrowserView: View {
     private var browserHeader: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack {
-                Text(compact ? "Recent Files" : "Container Files")
+                Text("Files")
                     .font(.headline)
 
                 Spacer()

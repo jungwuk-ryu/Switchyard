@@ -113,22 +113,6 @@ struct RuntimeSettingsView: View {
                                 color: .accentColor
                             )
                         }
-                        if activeInstallation != nil {
-                            RuntimePill(
-                                title: String(
-                                    localized: "Installed",
-                                    bundle: SwitchyardStrings.bundle
-                                ),
-                                color: .secondary
-                            )
-                        }
-                        RuntimePill(
-                            title: String(
-                                localized: "Active",
-                                bundle: SwitchyardStrings.bundle
-                            ),
-                            color: .green
-                        )
                     }
                 }
 
@@ -189,10 +173,6 @@ struct RuntimeSettingsView: View {
     private var officialReleasesSection: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Download and switch between signed Switchyard Wine releases.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-
                 if !store.canInstallOfficialRuntimeReleases {
                     RuntimeSettingsNotice(
                         message: String(
@@ -311,7 +291,7 @@ struct RuntimeSettingsView: View {
 #endif
 
     private var technicalDetailsSection: some View {
-        GroupBox {
+        DisclosureGroup {
             RuntimeBuildTechnicalDetailsView(runtime: store.currentRuntime)
                 .padding(4)
         } label: {

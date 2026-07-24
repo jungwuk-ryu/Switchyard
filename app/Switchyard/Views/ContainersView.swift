@@ -87,17 +87,9 @@ private struct ContainerLibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            GlobalRuntimeStatusStrip()
-                .padding(.horizontal, 20)
-                .padding(.vertical, 14)
-
-            Divider()
-
             if !store.hasCompletedSetup || !store.runtimeStatus.canLaunch {
                 ContentUnavailableView {
                     Label("Finish Setting Up Switchyard", systemImage: "wand.and.stars")
-                } description: {
-                    Text("Switchyard will guide you through the remaining steps before installing a Windows app.")
                 } actions: {
                     Button("Continue Setup") {
                         store.requestSetupAssistant()
@@ -110,8 +102,6 @@ private struct ContainerLibraryView: View {
                 VStack {
                     ContentUnavailableView {
                         Label("Install Your First Windows App", systemImage: "gamecontroller")
-                    } description: {
-                        Text("Start with Steam, or create an empty private space for another Windows installer.")
                     } actions: {
                         if store.steamInstallationState.isWorking || store.isDownloadingSteamInstaller {
                             HStack(spacing: 8) {
@@ -144,7 +134,7 @@ private struct ContainerLibraryView: View {
                             .accessibilityIdentifier("steam.download")
                         }
 
-                        Button("Create an Empty Container") {
+                        Button("Add Container") {
                             store.cancelSteamDownloadWait()
                             store.addContainer()
                         }
@@ -277,43 +267,5 @@ private struct ContainerLibraryRow: View {
         }
         .contentShape(Rectangle())
         .padding(.vertical, 13)
-    }
-}
-
-private struct GlobalRuntimeStatusStrip: View {
-    @EnvironmentObject private var store: AppStore
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Label("Active Runtime", systemImage: "shippingbox.fill")
-                .font(.callout.weight(.semibold))
-
-            Divider()
-                .frame(height: 20)
-
-            StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
-            StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
-            StatusBadge(
-                status: store.runtimeStatus.wineSource,
-                label: String(
-                    localized: "Runtime Source",
-                    bundle: SwitchyardStrings.bundle
-                )
-            )
-
-            Divider()
-                .frame(height: 20)
-
-            Text(store.runtimeStatus.summary)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            Spacer()
-
-            Button("Re-run Diagnostics") {
-                store.refreshRuntimeStatus()
-            }
-        }
     }
 }

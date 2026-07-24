@@ -14,28 +14,10 @@ struct ContainerApplicationsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Applications")
-                            .font(.title2.weight(.semibold))
-                        Text("\(programs.count) Windows applications found in this container")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-
-                        if store.sessionSnapshot(for: container.id).wineServerState == .active {
-                            Label(
-                                "Windows session active · launch another app without stopping it",
-                                systemImage: "plus.circle.fill"
-                            )
-                            .font(.callout.weight(.medium))
-                            .foregroundStyle(.green)
-                        } else if store.sessionSnapshot(for: container.id).wineServerState == .orphaned {
-                            Label(
-                                "Wine processes need cleanup before this container changes",
-                                systemImage: "exclamationmark.triangle.fill"
-                            )
+                    if store.sessionSnapshot(for: container.id).wineServerState == .orphaned {
+                        Label("Cleanup needed", systemImage: "exclamationmark.triangle.fill")
                             .font(.callout.weight(.medium))
                             .foregroundStyle(.orange)
-                        }
                     }
 
                     Spacer()
@@ -94,8 +76,6 @@ struct ContainerApplicationsView: View {
                     VStack {
                         ContentUnavailableView {
                             Label("No Programs Found", systemImage: "app.dashed")
-                        } description: {
-                            Text("Choose a Windows installer or app. Switchyard keeps it inside this container.")
                         } actions: {
                             Button(isSteamStarterContainer ? "Continue Steam Setup" : "Choose Windows App…") {
                                 if isSteamStarterContainer {
@@ -166,13 +146,8 @@ private struct RecentlyLaunchedProgramsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Recently Launched")
-                        .font(.headline)
-                    Text("Start another app in the same Windows session.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text("Recently Launched")
+                    .font(.headline)
 
                 Spacer()
 
@@ -221,11 +196,6 @@ private struct RecentlyLaunchedProgramsSection: View {
                         }
                         .buttonStyle(.plain)
                         .disabled(store.isContainerTransitioning(container.id))
-                        .help(
-                            store.isContainerRunning(container.id)
-                                ? "Launch alongside the running Windows apps"
-                                : "Launch this Windows app"
-                        )
                     }
                 }
             }

@@ -8,19 +8,15 @@ struct LoginCallbackRecoverySection: View {
     var body: some View {
         GroupBox("Login Callback") {
             VStack(alignment: .leading, spacing: 10) {
-                Text(
-                    "If Safari says the address is invalid after signing in, press Command-L and Command-C in Safari, then recover the copied callback here."
-                )
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
                 Button {
                     store.recoverCopiedLoginCallback(in: container.id)
                 } label: {
                     Label("Recover Copied Callback", systemImage: "link.badge.plus")
                 }
                 .disabled(store.isRecoveringLoginCallback(in: container.id))
+                .help(
+                    "If Safari says the address is invalid after signing in, press Command-L and Command-C in Safari, then recover the copied callback here."
+                )
 
                 if let state = store.loginCallbackRecoveryState(for: container.id) {
                     Label(state.message, systemImage: statusImage(for: state))
@@ -54,26 +50,9 @@ struct LoginCallbackRecoverySection: View {
                         }
                     }
                 }
-
-                if !learnedSchemes.isEmpty {
-                    LabeledContent("Learned Schemes") {
-                        Text(learnedSchemes.map { "\($0):" }.joined(separator: ", "))
-                            .font(.system(.callout, design: .monospaced))
-                            .textSelection(.enabled)
-                    }
-                }
-
-                Text("Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private var learnedSchemes: [String] {
-        store.learnedLoginCallbackSchemes(for: container.id)
     }
 
     private func statusImage(for state: LoginCallbackRecoveryState) -> String {

@@ -115,11 +115,6 @@ struct SettingsView: View {
                     ) {
                         store.persistPreferences()
                     }
-
-                    Text("Containers and portable manifests stay in this user-selected folder. Runtime caches and logs remain in their documented user-local locations.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(4)
             } label: {
@@ -272,15 +267,11 @@ struct SettingsView: View {
                         )
                     }
 
-                    HStack {
-                        Text("GPTK")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        StatusBadge(
-                            status: store.runtimeStatus.gptk,
-                            label: store.runtimeStatus.gptk.label
-                        )
-                    }
+                    StatusBadge(
+                        status: store.runtimeStatus.gptk,
+                        label: store.runtimeStatus.gptk.label
+                    )
+                    .frame(maxWidth: .infinity, alignment: .trailing)
 
                     if let message = store.gptkSetupMessage {
                         SettingsNotice(

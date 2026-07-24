@@ -33,15 +33,9 @@ struct ContentView: View {
                 Button {
                     store.stopAllRuns()
                 } label: {
-                    Label("Stop All Runs", systemImage: "stop.fill")
+                    Label("Stop All Windows Apps", systemImage: "stop.fill")
                 }
                 .disabled(!store.hasRunningContainers)
-
-                Button {
-                    selectSection(.logs)
-                } label: {
-                    Label("Open Logs", systemImage: "doc.text.magnifyingglass")
-                }
             }
         }
         .sheet(isPresented: $store.isSetupAssistantPresented) {

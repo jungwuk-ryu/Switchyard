@@ -163,53 +163,8 @@ struct SetupAssistantView: View {
 
     private var welcomeContent: some View {
         VStack(alignment: .leading, spacing: 22) {
-            Label("Run Windows apps without learning Windows setup tools", systemImage: "sparkles")
+            Label("Set Up Switchyard", systemImage: "sparkles")
                 .font(.title2.weight(.semibold))
-
-            Text(
-                store.canDownloadGPTKAutomatically
-                    ? "Switchyard will check this Mac, download its compatibility files, and show Apple's license before retrieving the reviewed GPTK 3 component. Your apps and games stay on this Mac."
-                    : "Switchyard will check this Mac, download its compatibility files, and guide you through the one Apple download it cannot provide itself. Your apps and games stay on this Mac."
-            )
-                .font(.title3)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(alignment: .leading, spacing: 14) {
-                WelcomeFeature(
-                    icon: "checkmark.shield",
-                    title: String(
-                        localized: "Safe, matching runtime",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "The app verifies the exact signed runtime made for this version of Switchyard.",
-                        bundle: SwitchyardStrings.bundle
-                    )
-                )
-                WelcomeFeature(
-                    icon: "folder.badge.gearshape",
-                    title: String(
-                        localized: "Sensible defaults",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "Storage and technical paths are chosen automatically. You can change them under Advanced Options.",
-                        bundle: SwitchyardStrings.bundle
-                    )
-                )
-                WelcomeFeature(
-                    icon: "gamecontroller",
-                    title: String(
-                        localized: "Steam next",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "When Switchyard is ready, it can take you directly to the official Windows Steam installer.",
-                        bundle: SwitchyardStrings.bundle
-                    )
-                )
-            }
 
             Label("Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.", systemImage: "clock")
                 .font(.callout)
@@ -221,10 +176,6 @@ struct SetupAssistantView: View {
         SetupCenteredProgress(
             title: String(
                 localized: "Checking this Mac…",
-                bundle: SwitchyardStrings.bundle
-            ),
-            detail: String(
-                localized: "This normally takes only a moment.",
                 bundle: SwitchyardStrings.bundle
             )
         )
@@ -342,9 +293,6 @@ struct SetupAssistantView: View {
                 .disabled(!store.canChangeCompatibilityConfiguration)
             }
 
-            Text("The main runtime download is about 700 MB. Switchyard checks its size, fingerprint, developer signature, and Apple notarization before using it.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -374,20 +322,12 @@ struct SetupAssistantView: View {
                     title: String(
                         localized: "Loading the reviewed Apple license…",
                         bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "The component archive will not download until you review and acknowledge the license.",
-                        bundle: SwitchyardStrings.bundle
                     )
                 )
             } else if store.gptkComponentDownloadState == .downloading {
                 SetupCenteredProgress(
                     title: String(
                         localized: "Downloading and verifying GPTK 3…",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "Switchyard is checking the signed manifest, file tree, notices, and Apple code signature.",
                         bundle: SwitchyardStrings.bundle
                     )
                 )
@@ -399,10 +339,6 @@ struct SetupAssistantView: View {
                 SetupCenteredProgress(
                     title: String(
                         localized: "Checking and importing the Apple download…",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "Switchyard verifies the executable code before copying it into its private cache.",
                         bundle: SwitchyardStrings.bundle
                     )
                 )
@@ -423,22 +359,6 @@ struct SetupAssistantView: View {
                 .disabled(!store.canChangeCompatibilityConfiguration)
                 .accessibilityIdentifier("setup.gptk.import")
             } else if store.canDownloadGPTKAutomatically {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label(
-                        "Switchyard will show the exact Apple license before downloading.",
-                        systemImage: "doc.text"
-                    )
-                    Label(
-                        "The separate component is verified against the reviewed GPTK 3 identity.",
-                        systemImage: "checkmark.shield"
-                    )
-                    Label(
-                        "Apple's official download remains available below.",
-                        systemImage: "safari"
-                    )
-                }
-                .font(.callout)
-
                 HStack {
                     Button("Review License and Download") {
                         store.prepareAutomaticGPTKDownload()
@@ -501,36 +421,6 @@ struct SetupAssistantView: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
-            VStack(spacing: 12) {
-                SetupStatusLine(
-                    title: String(localized: "This Mac", bundle: SwitchyardStrings.bundle),
-                    detail: String(localized: "Compatible", bundle: SwitchyardStrings.bundle),
-                    status: .ok
-                )
-                SetupStatusLine(
-                    title: String(
-                        localized: "Windows support",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "Installed and verified",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    status: .ok
-                )
-                SetupStatusLine(
-                    title: String(
-                        localized: "Apple graphics support",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "Imported and verified",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    status: .ok
-                )
-            }
-
             Button {
                 isSettingUpSteam = true
                 if store.downloadedSteamInstallerPath == nil {
@@ -544,9 +434,6 @@ struct SetupAssistantView: View {
             .controlSize(.large)
             .accessibilityIdentifier("setup.steam.start")
 
-            Text("Steam is optional. You can finish now and install any Windows .exe later.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -592,10 +479,6 @@ struct SetupAssistantView: View {
                     title: String(
                         localized: "Downloading securely from Valve…",
                         bundle: SwitchyardStrings.bundle
-                    ),
-                    detail: String(
-                        localized: "Switchyard accepts only the official HTTPS download and keeps it in a private cache.",
-                        bundle: SwitchyardStrings.bundle
                     )
                 )
 
@@ -620,10 +503,7 @@ struct SetupAssistantView: View {
                 .controlSize(.large)
                 .accessibilityIdentifier("setup.steam.install")
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.", systemImage: "lock.shield")
-                    Label("The file is checked and stored only on this Mac.", systemImage: "internaldrive")
-                }
+                Label("Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.", systemImage: "lock.shield")
                 .font(.callout)
 
                 Button("Download Steam") {
@@ -649,9 +529,6 @@ struct SetupAssistantView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Label("Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.", systemImage: "hand.raised")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -1056,7 +933,12 @@ private struct SetupStatusLine: View {
 
 private struct SetupCenteredProgress: View {
     let title: String
-    let detail: String
+    let detail: String?
+
+    init(title: String, detail: String? = nil) {
+        self.title = title
+        self.detail = detail
+    }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -1064,9 +946,11 @@ private struct SetupCenteredProgress: View {
                 .controlSize(.large)
             Text(title)
                 .font(.title2.weight(.semibold))
-            Text(detail)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+            if let detail {
+                Text(detail)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity, minHeight: 260)
     }
@@ -1095,26 +979,5 @@ private struct SetupFoundDownload: View {
         }
         .padding(14)
         .background(.green.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-    }
-}
-
-private struct WelcomeFeature: View {
-    let icon: String
-    let title: String
-    let detail: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(.tint)
-                .frame(width: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .fontWeight(.semibold)
-                Text(detail)
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 }

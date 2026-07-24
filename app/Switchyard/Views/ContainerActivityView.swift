@@ -19,12 +19,6 @@ struct ContainerSessionPanel: View {
 
                     Spacer()
 
-                    if let refreshedAt = snapshot.refreshedAt {
-                        Text("Updated \(refreshedAt.formatted(date: .omitted, time: .shortened))")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-
                     Button {
                         Task {
                             await store.refreshContainerSession(for: container.id)
@@ -55,29 +49,12 @@ struct ContainerSessionPanel: View {
                         .disabled(
                             isStoppingWineServer || store.isContainerLaunching(container.id)
                         )
-                        .help("Stop all Wine processes in this container")
                     }
                 }
 
-                HStack(spacing: 7) {
-                    Text(
-                        snapshot.wineServerState == .orphaned
-                            ? String(
-                                localized: "Wine processes",
-                                bundle: SwitchyardStrings.bundle
-                            )
-                            : "wineserver"
-                    )
-                        .fontWeight(.semibold)
-
-                    Label(sessionLabel, systemImage: sessionSymbol)
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(sessionColor)
-                }
-
-                Text(sessionDescription)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Label(sessionLabel, systemImage: sessionSymbol)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(sessionColor)
             }
             .padding(14)
 
@@ -176,11 +153,11 @@ struct ContainerSessionPanel: View {
         .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .top)
         .dashboardPanel()
         .confirmationDialog(
-            "Stop wineserver?",
+            "Stop all Windows apps?",
             isPresented: $isConfirmingStop,
             titleVisibility: .visible
         ) {
-            Button("Stop wineserver", role: .destructive) {
+            Button("Stop All Windows Apps", role: .destructive) {
                 Task {
                     await store.stopWineServer(in: container.id)
                 }
@@ -259,35 +236,6 @@ struct ContainerSessionPanel: View {
         }
     }
 
-    private var sessionDescription: String {
-        if isStoppingWineServer {
-            return String(
-                localized: "Closing Windows apps and waiting for wineserver to exit",
-                bundle: SwitchyardStrings.bundle
-            )
-        }
-        if let message = snapshot.message {
-            return message
-        }
-        return switch snapshot.wineServerState {
-        case .checking:
-            String(localized: "Inspecting the Wine prefix", bundle: SwitchyardStrings.bundle)
-        case .active:
-            String(localized: "Responding normally", bundle: SwitchyardStrings.bundle)
-        case .orphaned:
-            String(
-                localized: "Wine processes remain after wineserver exited",
-                bundle: SwitchyardStrings.bundle
-            )
-        case .inactive:
-            String(localized: "Ready for the next application", bundle: SwitchyardStrings.bundle)
-        case .unavailable:
-            String(
-                localized: "Session status could not be read",
-                bundle: SwitchyardStrings.bundle
-            )
-        }
-    }
 }
 
 struct ContainerActivityView: View {
@@ -361,11 +309,6 @@ private struct WindowsProcessRow: View {
                 }
             }
 
-            Spacer()
-
-            Label("Running", systemImage: "checkmark.circle.fill")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.green)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
@@ -401,11 +344,7 @@ private struct RecentContainerActivity: View {
             Divider()
 
             if logs.isEmpty {
-                ContentUnavailableView(
-                    "No Recent Activity",
-                    systemImage: "clock",
-                    description: Text("Launches and container events will appear here.")
-                )
+                ContentUnavailableView("No Recent Activity", systemImage: "clock")
                 .frame(maxWidth: .infinity, minHeight: activityContentMinimumHeight)
             } else {
                 LazyVStack(spacing: 0) {

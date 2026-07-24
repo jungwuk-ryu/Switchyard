@@ -23,7 +23,7 @@ struct SwitchyardApp: App {
                 .keyboardShortcut("n")
                 .disabled(!store.hasCompletedSetup || !store.runtimeStatus.canLaunch)
 
-                Button("Run Container") {
+                Button("Launch") {
                     store.runSelectedContainer()
                 }
                 .keyboardShortcut("r")
@@ -33,17 +33,7 @@ struct SwitchyardApp: App {
                         || (store.selectedContainer?.executablePath?.isEmpty ?? true)
                 )
 
-                Button("Recover Copied Login Callback") {
-                    store.recoverCopiedLoginCallbackForSelectedContainer()
-                }
-                .keyboardShortcut("u", modifiers: [.command, .option])
-                .disabled(
-                    store.selectedContainer.map {
-                        store.isRecoveringLoginCallback(in: $0.id)
-                    } ?? true
-                )
-
-                Button("Stop All Runs") {
+                Button("Stop All Windows Apps") {
                     store.stopAllRuns()
                 }
                 .keyboardShortcut(".")

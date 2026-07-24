@@ -99,14 +99,18 @@ struct ContainerDashboardView: View {
                 .help("More Container Actions")
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(container.name)
-                    .font(.largeTitle.weight(.semibold))
-                    .lineLimit(1)
+            HStack(alignment: .center, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(container.name)
+                        .font(.largeTitle.weight(.semibold))
+                        .lineLimit(1)
 
-                Label(containerSummary, systemImage: containerSummarySymbol)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(containerSummaryColor)
+                    Label(containerSummary, systemImage: containerSummarySymbol)
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(containerSummaryColor)
+                }
+
+                Spacer(minLength: 24)
             }
         }
         .padding(.horizontal, 20)
@@ -308,17 +312,14 @@ struct ContainerDashboardView: View {
     private var containerSummary: String {
         switch store.sessionSnapshot(for: container.id).wineServerState {
         case .active:
-            String(
-                localized: "Windows session active · launch more apps",
-                bundle: SwitchyardStrings.bundle
-            )
+            String(localized: "Running", bundle: SwitchyardStrings.bundle)
         case .orphaned:
-            String(localized: "Wine processes need cleanup", bundle: SwitchyardStrings.bundle)
+            String(localized: "Cleanup needed", bundle: SwitchyardStrings.bundle)
         case .checking:
-            String(localized: "Checking Windows session", bundle: SwitchyardStrings.bundle)
+            String(localized: "Checking", bundle: SwitchyardStrings.bundle)
         case .inactive, .unavailable:
             container.executablePath?.isEmpty == false
-                ? String(localized: "Ready to launch", bundle: SwitchyardStrings.bundle)
+                ? String(localized: "Ready", bundle: SwitchyardStrings.bundle)
                 : String(localized: "Choose an application", bundle: SwitchyardStrings.bundle)
         }
     }
@@ -336,11 +337,9 @@ struct ContainerDashboardView: View {
 
     private var containerSummaryColor: Color {
         switch store.sessionSnapshot(for: container.id).wineServerState {
-        case .active, .inactive:
-            container.executablePath?.isEmpty == false ? .green : .secondary
         case .orphaned:
             .orange
-        case .checking, .unavailable:
+        case .active, .checking, .inactive, .unavailable:
             .secondary
         }
     }
@@ -404,29 +403,12 @@ private struct ProgramHeroView: View {
                 }
 
                 if let program {
-                    Text("Location")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
                     Text(ContainerPathPresentation.windowsPath(for: program.executablePath, in: container))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .textSelection(.enabled)
-                } else {
-                    Text(
-                        isSteamStarterContainer
-                            ? String(
-                                localized: "Continue in the same private container; Switchyard will not create a duplicate.",
-                                bundle: SwitchyardStrings.bundle
-                            )
-                            : String(
-                                localized: "Installed Windows applications will appear here after setup.",
-                                bundle: SwitchyardStrings.bundle
-                            )
-                    )
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
                 }
 
                 if let lastRun = container.lastRun {
@@ -505,11 +487,11 @@ private struct ProgramHeroView: View {
                         .multilineTextAlignment(.trailing)
                         .lineLimit(3)
                         .frame(maxWidth: 260, alignment: .trailing)
-                } else {
+                } else if let launchHint {
                     Text(launchHint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
             }
         }
@@ -528,29 +510,15 @@ private struct ProgramHeroView: View {
             && (store.isDownloadingSteamInstaller || store.steamInstallationState.isWorking)
     }
 
-    private var launchHint: String {
+    private var launchHint: String? {
         switch store.sessionSnapshot(for: container.id).wineServerState {
-        case .active:
-            String(
-                localized: "Add another app to the running Windows session",
-                bundle: SwitchyardStrings.bundle
-            )
         case .orphaned:
             String(
                 localized: "Remaining Wine processes will be cleaned up before launch",
                 bundle: SwitchyardStrings.bundle
             )
-        case .checking, .inactive, .unavailable:
-            program.map {
-                String(
-                    localized: "Start \($0.presentationName) in this container",
-                    bundle: SwitchyardStrings.bundle
-                )
-            }
-                ?? String(
-                    localized: "Choose or drop a Windows .exe or .msi file",
-                    bundle: SwitchyardStrings.bundle
-                )
+        case .active, .checking, .inactive, .unavailable:
+            nil
         }
     }
 }
@@ -607,11 +575,7 @@ private struct InstalledProgramShelf: View {
             }
 
             if displayedEntries.isEmpty {
-                ContentUnavailableView(
-                    "No Programs Found",
-                    systemImage: "app.dashed",
-                    description: Text("Install or choose a Windows application to see it here.")
-                )
+                ContentUnavailableView("No Programs Found", systemImage: "app.dashed")
                 .frame(maxWidth: .infinity, minHeight: 110)
             } else {
                 HStack(alignment: .top, spacing: 14) {
@@ -649,17 +613,7 @@ private struct InstalledProgramShelf: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
-                            Button(
-                                store.isContainerRunning(container.id)
-                                    ? String(
-                                        localized: "Launch Alongside",
-                                        bundle: SwitchyardStrings.bundle
-                                    )
-                                    : String(
-                                        localized: "Launch",
-                                        bundle: SwitchyardStrings.bundle
-                                    )
-                            ) {
+                            Button("Launch") {
                                 selectedProgramID = entry.program.id
                                 store.runInstalledProgram(entry.program, in: container.id)
                             }

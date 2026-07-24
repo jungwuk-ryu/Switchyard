@@ -39,7 +39,7 @@
 	<key>%lld entries</key>
 	<string>%1$lld 항목</string>
 	<key>%lld high-volume log entries were omitted from the live view; the protected per-run debug log retains the complete output when developer logging is enabled.</key>
-	<string>%1$lld 대용량 로그 항목은 라이브 뷰에서 생략되었습니다; 개발자 로깅이 활성화된 경우 보호된 실행당 디버그 로그는 전체 출력을 유지합니다.</string>
+	<string>라이브 화면에서 로그 %1$lld개를 생략했습니다. 개발자 로깅이 켜져 있으면 실행별 디버그 로그에서 전체 내용을 확인할 수 있습니다.</string>
 	<key>%lld more items</key>
 	<string>%1$lld개 더 있음</string>
 	<key>1. Open Apple's download page</key>
@@ -163,9 +163,9 @@
 	<key>Checking this Mac…</key>
 	<string>이 Mac을 확인하는 중…</string>
 	<key>Choose Downloaded File…</key>
-	<string>다운로드한 파일을 선택하세요...</string>
+	<string>다운로드한 파일 선택…</string>
 	<key>Choose Game Porting Toolkit</key>
-	<string>Game Porting Toolkit를 선택하세요</string>
+	<string>Game Porting Toolkit 선택</string>
 	<key>Choose Windows App…</key>
 	<string>Windows 앱을 선택하세요…</string>
 	<key>Choose a GPTK disk image before importing.</key>
@@ -201,7 +201,7 @@
 	<key>Choose the Switchyard storage folder.</key>
 	<string>Switchyard 저장 폴더를 선택합니다.</string>
 	<key>Choose the Windows application that requested the %@: sign-in.</key>
-	<string>%1$@ 로그인 요청을 보낸 Windows 앱을 선택하세요.</string>
+	<string>%1$@ 로그인에 사용할 앱을 선택하세요.</string>
 	<key>Choose the Windows executable to run by default in this container.</key>
 	<string>이 컨테이너에서 기본적으로 실행할 Windows 실행 파일을 선택합니다.</string>
 	<key>Choose where Switchyard stores containers and manifests.</key>
@@ -275,7 +275,7 @@
 	<key>Copy filtered logs?</key>
 	<string>필터링한 로그를 복사할까요?</string>
 	<key>Copy the invalid callback address from Safari before recovering it.</key>
-	<string>복구하기 전에 Safari에서 잘못된 콜백 주소를 복사하세요.</string>
+	<string>Safari에서 열지 못한 주소를 복사한 뒤 다시 시도하세요.</string>
 	<key>Could not choose a safe macOS desktop name for %@.</key>
 	<string>%1$@에 대해 안전한 macOS 데스크톱 이름을 선택할 수 없습니다.</string>
 	<key>Could not create a temporary download file.</key>
@@ -375,13 +375,13 @@
 	<key>Download from Apple</key>
 	<string>애플에서 다운로드</string>
 	<key>Download the newest Game Porting Toolkit disk image, then return to Switchyard.</key>
-	<string>최신 Game Porting Toolkit 디스크 이미지를 다운로드한 다음 Switchyard로 돌아갑니다.</string>
+	<string>최신 Game Porting Toolkit 디스크 이미지를 다운로드한 다음 Switchyard로 돌아오세요.</string>
 	<key>Download the selected runtime before making it active.</key>
 	<string>선택한 런타임을 먼저 다운로드한 다음 활성화하세요.</string>
 	<key>Download, verify, and select the latest runtime supported by this Switchyard version</key>
 	<string>이 Switchyard 버전에서 지원하는 최신 런타임을 다운로드, 확인 및 선택하세요.</string>
 	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
-	<string>다운로드된 %1$lld 오픈 폰트 팩 글꼴 파일; %2$lld 파일이 이미 캐시되었습니다.</string>
+	<string>오픈 폰트 팩 파일 %1$lld개를 다운로드했습니다. %2$lld개는 이미 캐시에 있습니다.</string>
 	<key>Downloading and verifying about 700 MB…</key>
 	<string>약 700MB 다운로드 및 확인 중…</string>
 	<key>Downloading open-licensed fonts…</key>
@@ -413,7 +413,7 @@
 	<key>Files</key>
 	<string>파일</string>
 	<key>Finding the Windows application waiting for the %@: callback…</key>
-	<string>%1$@ 콜백을 기다리는 Windows 앱을 찾는 중…</string>
+	<string>%1$@ 로그인을 기다리는 앱을 찾는 중…</string>
 	<key>Finish Setting Up Switchyard</key>
 	<string>Switchyard 설정 완료</string>
 	<key>Finish Switchyard setup before installing Steam.</key>
@@ -437,7 +437,7 @@
 	<key>Fonts for Korean, Japanese, and other languages</key>
 	<string>한국어, 일본어, 기타 언어용 글꼴</string>
 	<key>Forwarding the %@: callback to Wine…</key>
-	<string>%1$@ 전달: Wine로 콜백…</string>
+	<string>%1$@ 로그인 정보를 앱으로 전달하는 중…</string>
 	<key>Found %@; importing it into the local cache…</key>
 	<string>%1$@를 찾았습니다. 로컬 캐시로 가져오는 중...</string>
 	<key>GPTK</key>
@@ -463,7 +463,7 @@
 	<key>Idle</key>
 	<string>유휴</string>
 	<key>If Safari says the address is invalid after signing in, press Command-L and Command-C in Safari, then recover the copied callback here.</key>
-	<string>로그인 후 Safari에서 주소가 유효하지 않다고 표시되면 Safari에서 Command-L 및 Command-C를 누른 다음 여기에서 복사된 콜백을 복구하세요.</string>
+	<string>로그인 후 Safari가 앱으로 돌아가지 못하면 주소를 복사해 여기서 다시 시도하세요.</string>
 	<key>Import</key>
 	<string>가져오기</string>
 	<key>Import Downloaded GPTK</key>
@@ -531,7 +531,7 @@
 	<key>Installing…</key>
 	<string>설치 중…</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
-	<string>복사된 로그인 콜백을 복구하는 동안 Windows 게임을 열어두세요.</string>
+	<string>로그인 복구가 끝날 때까지 Windows 앱을 열어 두세요.</string>
 	<key>Last checked %@</key>
 	<string>마지막 확인: %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -557,7 +557,7 @@
 	<key>Launch Alongside</key>
 	<string>함께 실행</string>
 	<key>Launch Arguments</key>
-	<string>인수 실행</string>
+	<string>실행 인수</string>
 	<key>Launch alongside the running Windows apps</key>
 	<string>실행 중인 Windows 앱과 함께 실행</string>
 	<key>Launch an application to start this container's Windows session.</key>
@@ -583,11 +583,11 @@
 	<key>Location</key>
 	<string>위치</string>
 	<key>Login Callback</key>
-	<string>로그인 콜백</string>
+	<string>로그인 복구</string>
 	<key>Login callback recovery was cancelled because the container folder is changing.</key>
-	<string>컨테이너 폴더가 변경 중이어서 로그인 콜백 복구가 취소되었습니다.</string>
+	<string>컨테이너 폴더를 변경하는 중이라 로그인 복구를 취소했습니다.</string>
 	<key>Login callback recovery was cancelled.</key>
-	<string>로그인 콜백 복구가 취소되었습니다.</string>
+	<string>로그인 복구를 취소했습니다.</string>
 	<key>Logs</key>
 	<string>로그</string>
 	<key>Mac check</key>
@@ -635,7 +635,7 @@
 	<key>No GPTK path has been selected.</key>
 	<string>GPTK 경로가 선택되지 않았습니다.</string>
 	<key>No Game Porting Toolkit disk image was found in Downloads.</key>
-	<string>다운로드에서 Game Porting Toolkit 디스크 이미지를 찾을 수 없습니다.</string>
+	<string>다운로드 폴더에서 Game Porting Toolkit 디스크 이미지를 찾지 못했습니다.</string>
 	<key>No Matching Logs</key>
 	<string>일치하는 로그 없음</string>
 	<key>No Programs Found</key>
@@ -651,7 +651,7 @@
 	<key>No Wine runtime selected</key>
 	<string>Wine 런타임이 선택되지 않았습니다.</string>
 	<key>No application details available</key>
-	<string>신청 세부정보가 없습니다.</string>
+	<string>앱 세부 정보를 사용할 수 없습니다.</string>
 	<key>No eligible official runtime releases were found.</key>
 	<string>사용 가능한 공식 런타임 릴리스를 찾을 수 없습니다.</string>
 	<key>No environment overrides.</key>
@@ -713,9 +713,9 @@
 	<key>Open Wine Settings</key>
 	<string>Wine 설정 열기</string>
 	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
-	<string>오픈 글꼴 준비됨: %1$lld 복사됨, %2$lld 이미 있음, %3$lld 제품군 대체 등록됨.</string>
+	<string>글꼴 준비 완료: %1$lld개 복사, %2$lld개 유지, 글꼴 모음 대체 %3$lld개 등록.</string>
 	<key>Open fonts skipped: %@</key>
-	<string>열린 글꼴 건너뛰기: %1$@</string>
+	<string>글꼴 설정을 건너뜀: %1$@</string>
 	<key>Open in Finder</key>
 	<string>Finder에서 보기</string>
 	<key>Open the latest Switchyard release on GitHub</key>
@@ -781,13 +781,13 @@
 	<key>Recommended</key>
 	<string>권장</string>
 	<key>Recover Copied Callback</key>
-	<string>복사된 콜백 복구</string>
+	<string>복사한 로그인 완료</string>
 	<key>Recover Copied Login Callback</key>
-	<string>복사된 로그인 콜백 복구</string>
+	<string>복사한 로그인 완료</string>
 	<key>Recovered the %@: callback for %@.</key>
-	<string>%2$@의 %1$@ 콜백을 복구했습니다.</string>
+	<string>%2$@의 %1$@ 로그인을 완료했습니다.</string>
 	<key>Recovered the %@: callback. Future sign-ins can return automatically.</key>
-	<string>%1$@ 콜백을 복구했습니다. 다음부터는 로그인 후 자동으로 돌아옵니다.</string>
+	<string>%1$@ 로그인을 완료했습니다. 다음부터는 자동으로 앱으로 돌아갑니다.</string>
 	<key>Refresh</key>
 	<string>새로 고침</string>
 	<key>Refresh Windows Session</key>
@@ -903,7 +903,7 @@
 	<key>Selected</key>
 	<string>선택됨</string>
 	<key>Selected %@ as the active app-wide runtime.</key>
-	<string>앱 전체의 활성 런타임으로 %1$@ 선택.</string>
+	<string>앱 전체에서 %1$@ 런타임을 사용합니다.</string>
 	<key>Selected GPTK path does not exist.</key>
 	<string>선택한 GPTK 경로가 존재하지 않습니다.</string>
 	<key>Selected GPTK path is not a directory or supported .dmg disk image.</key>
@@ -975,7 +975,7 @@
 	<key>Steam setup is paused. You can resume it whenever you are ready.</key>
 	<string>Steam 설정을 잠시 멈췄습니다. 준비되면 언제든 이어서 진행하세요.</string>
 	<key>Steam setup took longer than expected. If the installer is still open, finish it; otherwise try again in the same container.</key>
-	<string>Steam 설정이 예상보다 오래 걸렸습니다. 설치 프로그램이 아직 열려 있으면 완료합니다. 그렇지 않으면 동일한 컨테이너에서 다시 시도하세요.</string>
+	<string>Steam 설정이 예상보다 오래 걸렸습니다. 설치 프로그램이 아직 열려 있으면 설치를 마치세요. 그렇지 않으면 같은 컨테이너에서 다시 시도하세요.</string>
 	<key>Steam setup was paused. Continue whenever you are ready; Switchyard will reuse this container.</key>
 	<string>Steam 설정이 일시중지되었습니다. 준비가 되면 계속하세요. Switchyard는 이 컨테이너를 재사용합니다.</string>
 	<key>Steam was not detected yet. You can safely continue setup in this container.</key>
@@ -1109,7 +1109,7 @@
 	<key>The cached Steam installer changed or could not be verified. Download it again from Valve.</key>
 	<string>캐시된 Steam 설치 프로그램이 변경되었거나 확인할 수 없습니다. Valve에서 다시 다운로드하세요.</string>
 	<key>The callback reached Wine, but automatic recovery could not be saved: %@</key>
-	<string>콜백이 Wine에 도달했지만 자동 복구를 저장할 수 없습니다: %1$@</string>
+	<string>로그인 정보는 앱에 전달했지만 자동 연결을 저장하지 못했습니다: %1$@</string>
 	<key>The clipboard does not contain a supported custom callback URL.</key>
 	<string>클립보드에 지원되는 사용자 정의 콜백 URL이 없습니다.</string>
 	<key>The compatibility runtime and Apple's graphics support are ready. You can now install a Windows app.</key>
@@ -1345,7 +1345,7 @@
 	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
 	<string>Windows 앱을 시작하기 전에 호환성 설정이 끝날 때까지 기다리세요.</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
-	<string>로그인 콜백을 복구하기 전에 컨테이너 폴더 작업이 완료될 때까지 기다리세요.</string>
+	<string>컨테이너 폴더 작업이 끝난 뒤 로그인을 다시 시도하세요.</string>
 	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>
 	<string>현재 Steam 설정이 완료될 때까지 기다리거나 다시 시도하기 전에 중지하세요.</string>
 	<key>Warning</key>
@@ -1375,7 +1375,7 @@
 	<key>Wine Runtime Source</key>
 	<string>Wine 런타임 소스</string>
 	<key>Wine could not accept the copied %@: callback.</key>
-	<string>Wine이 복사한 %1$@ 콜백을 처리하지 못했습니다.</string>
+	<string>앱이 복사한 %1$@ 로그인 정보를 받지 못했습니다.</string>
 	<key>Wine executable found at %@.</key>
 	<string>Wine 실행 파일을 찾았습니다: %1$@</string>
 	<key>Wine has not initialized this container yet.</key>

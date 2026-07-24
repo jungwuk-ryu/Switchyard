@@ -16,19 +16,13 @@ struct DebugLogsSettingsView: View {
             GroupBox {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Developer logging", isOn: $developerLogging)
-                    Text("When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .help("When enabled, launches record Wine errors and warnings in a protected per-run file under ~/Library/Application Support/Switchyard/Logs/DebugRuns.")
 
                     Divider()
 
                     Toggle("Verbose Wine logging", isOn: $verboseWineLogging)
                         .disabled(!developerLogging)
-                    Text("Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .help("Verbose mode additionally records Wine fixme output and targeted SEH, graphics, and window-system traces. It can produce very large logs, so the live view is batched and keeps only its latest 5,000 entries while the protected file keeps the complete run output.")
                 }
                 .padding(4)
             } label: {
@@ -76,10 +70,6 @@ struct DebugLogsSettingsView: View {
                         .frame(width: 140)
                     }
 
-                    Text("Switchyard prunes stored debug logs at launch, when these settings change, and before creating a new log.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(4)
             } label: {
@@ -105,7 +95,7 @@ struct DebugLogsSettingsView: View {
                         )
 
                     HStack(spacing: 8) {
-                        Button("Open Logs") {
+                        Button("Open in Finder") {
                             store.openDebugRunLogFolder()
                         }
                         .buttonStyle(.borderedProminent)

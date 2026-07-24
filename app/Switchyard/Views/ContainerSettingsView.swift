@@ -10,8 +10,6 @@ struct ContainerSettingsView: View {
         GeometryReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    settingsHeader
-
                     if proxy.size.width >= 1_400 {
                         HStack(alignment: .top, spacing: 16) {
                             VStack(spacing: 16) {
@@ -40,16 +38,6 @@ struct ContainerSettingsView: View {
             }
         }
         .disabled(store.isChangingContainerStorage(container.id))
-    }
-
-    private var settingsHeader: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("Container Settings")
-                .font(.title2.weight(.semibold))
-            Text("Launch behavior and advanced compatibility options for \(container.name).")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
     }
 
     private var launchSection: some View {

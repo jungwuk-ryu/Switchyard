@@ -52,7 +52,7 @@ extension ContainerStatus {
         case .failed:
             String(localized: "Failed", bundle: SwitchyardStrings.bundle)
         case .succeeded:
-            String(localized: "Succeeded", bundle: SwitchyardStrings.bundle)
+            String(localized: "Ready", bundle: SwitchyardStrings.bundle)
         }
     }
 

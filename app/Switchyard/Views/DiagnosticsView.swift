@@ -10,17 +10,11 @@ struct DiagnosticsView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Diagnostics")
-                            .font(.largeTitle)
-                            .fontWeight(.semibold)
-                        Text(store.runtimeStatus.summary)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
-                            .truncationMode(.middle)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                    Text(store.runtimeStatus.summary)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
                     Spacer(minLength: 12)
 
@@ -35,7 +29,7 @@ struct DiagnosticsView: View {
                                 } else {
                                     Image(systemName: "arrow.clockwise")
                                 }
-                                Text(checksAreRunning ? "Running…" : "Re-run All Checks")
+                                Text(checksAreRunning ? "Running…" : "Re-run Diagnostics")
                             }
                         }
                         .disabled(checksAreRunning)
@@ -288,18 +282,6 @@ private struct DiagnosticsVersionOverview: View {
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
                 .textSelection(.enabled)
-            Text(wineSourceLabel)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
-            if let runtimeVersionDateLabel {
-                Label(runtimeVersionDateLabel, systemImage: "calendar")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
             Text(runtimeOnlineDetail)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -311,14 +293,32 @@ private struct DiagnosticsVersionOverview: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(runtimePathLabel)
-                .font(.caption2.monospaced())
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
-                .help(runtime.winePath)
+
+            DisclosureGroup("Technical Details") {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(wineSourceLabel)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                    if let runtimeVersionDateLabel {
+                        Label(runtimeVersionDateLabel, systemImage: "calendar")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Text(runtimePathLabel)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .help(runtime.winePath)
+                }
+                .padding(.top, 4)
+            }
 
             if let message = store.runtimeInstallationState.message {
                 Text(message)
@@ -326,11 +326,6 @@ private struct DiagnosticsVersionOverview: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Text("Download and switch between signed Switchyard Wine releases.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.top, 3)
 
             HStack(spacing: 8) {
                 Button(action: openRuntimeSettings) {
