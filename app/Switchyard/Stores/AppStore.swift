@@ -45,6 +45,45 @@ private let maximumRecentProgramLaunches = 8
 private let onlineReleaseCacheInterval: TimeInterval = 15 * 60
 private let activeRuntimeSourceRevisionDefaultsKey = "activeRuntimeSourceRevision.v1"
 
+enum ActiveRuntimeSourcePreference: Equatable {
+    case appPinned
+    case localDevelopment
+    case selectedRevision(String)
+
+    init(storedValue: String?) {
+        switch storedValue {
+        case nil:
+            self = .appPinned
+        case "":
+            self = .localDevelopment
+        case .some(let revision):
+            self = .selectedRevision(revision)
+        }
+    }
+
+    var storedValue: String? {
+        switch self {
+        case .appPinned:
+            nil
+        case .localDevelopment:
+            ""
+        case .selectedRevision(let revision):
+            revision
+        }
+    }
+
+    func expectedSourceRevision(pinnedRevision: String) -> String? {
+        switch self {
+        case .appPinned:
+            pinnedRevision.isEmpty ? nil : pinnedRevision
+        case .localDevelopment:
+            nil
+        case .selectedRevision(let revision):
+            revision
+        }
+    }
+}
+
 private struct SwitchyardWineSourcePolicy {
     var revision: String
     var revisionTimestamp: UInt64?
@@ -331,9 +370,11 @@ final class AppStore: ObservableObject {
         let initialLibraryPath = defaults.string(forKey: "libraryPath") ?? defaultLibrary
         libraryPath = initialLibraryPath
         let runtimeLocator = RuntimeLocator()
-        let expectedRuntimeSourceRevision = defaults.string(
-            forKey: activeRuntimeSourceRevisionDefaultsKey
-        ) ?? wineSourcePolicy.revision
+        let expectedRuntimeSourceRevision = ActiveRuntimeSourcePreference(
+            storedValue: defaults.string(
+                forKey: activeRuntimeSourceRevisionDefaultsKey
+            )
+        ).expectedSourceRevision(pinnedRevision: wineSourcePolicy.revision)
         gptkPath = defaults.string(forKey: "gptkPath") ?? ""
         if let storedWinePath = defaults.string(forKey: "winePath"), !storedWinePath.isEmpty {
             let defaultWinePath = runtimeLocator.defaultWineRuntimePath()
@@ -401,9 +442,12 @@ final class AppStore: ObservableObject {
         )
     }
 
-    private var expectedActiveRuntimeSourceRevision: String {
-        defaults.string(forKey: activeRuntimeSourceRevisionDefaultsKey)
-            ?? wineSourcePolicy.revision
+    private var expectedActiveRuntimeSourceRevision: String? {
+        ActiveRuntimeSourcePreference(
+            storedValue: defaults.string(
+                forKey: activeRuntimeSourceRevisionDefaultsKey
+            )
+        ).expectedSourceRevision(pinnedRevision: wineSourcePolicy.revision)
     }
 
     private var activeRuntimeVersionDate: Date? {
@@ -859,8 +903,10 @@ final class AppStore: ObservableObject {
             )
             return
         }
-        defaults.removeObject(forKey: activeRuntimeSourceRevisionDefaultsKey)
-        persistPreferences()
+        activateRuntime(
+            at: winePath,
+            sourcePreference: .localDevelopment
+        )
         runtimeManagementState = .ready(
             String(
                 localized: "Selected the local development runtime path.",
@@ -886,9 +932,10 @@ final class AppStore: ObservableObject {
             return
         }
 
-        winePath = installation.runtime.winePath
-        defaults.removeObject(forKey: activeRuntimeSourceRevisionDefaultsKey)
-        persistPreferences()
+        activateRuntime(
+            at: installation.runtime.winePath,
+            sourcePreference: .localDevelopment
+        )
         runtimeManagementState = .ready(
             String(
                 localized: "Selected the local development runtime path.",
@@ -900,8 +947,27 @@ final class AppStore: ObservableObject {
 #endif
 
     private func activateRuntime(at path: String, sourceRevision: String) {
+        activateRuntime(
+            at: path,
+            sourcePreference: .selectedRevision(sourceRevision)
+        )
+    }
+
+    private func activateRuntime(
+        at path: String,
+        sourcePreference: ActiveRuntimeSourcePreference
+    ) {
         winePath = path
-        defaults.set(sourceRevision, forKey: activeRuntimeSourceRevisionDefaultsKey)
+        if let storedValue = sourcePreference.storedValue {
+            defaults.set(
+                storedValue,
+                forKey: activeRuntimeSourceRevisionDefaultsKey
+            )
+        } else {
+            defaults.removeObject(
+                forKey: activeRuntimeSourceRevisionDefaultsKey
+            )
+        }
         persistPreferences()
     }
 

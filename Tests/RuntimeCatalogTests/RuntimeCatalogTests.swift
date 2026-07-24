@@ -211,16 +211,17 @@ import Foundation
     let newRoot = cacheRoot.appendingPathComponent("switchyard-local-new", isDirectory: true)
     defer { try? FileManager.default.removeItem(at: cacheRoot) }
 
-    let sourceRevision = String(repeating: "a", count: 40)
+    let oldSourceRevision = String(repeating: "a", count: 40)
+    let newSourceRevision = String(repeating: "b", count: 40)
     let oldWine = try createSwitchyardWineRuntime(
         at: oldRoot,
         peArchitectures: ["i386", "x86_64"],
-        sourceRevision: sourceRevision
+        sourceRevision: oldSourceRevision
     )
     let newWine = try createSwitchyardWineRuntime(
         at: newRoot,
         peArchitectures: ["i386", "x86_64"],
-        sourceRevision: sourceRevision
+        sourceRevision: newSourceRevision
     )
     try setManifestModificationDate(at: oldRoot, to: Date(timeIntervalSince1970: 100))
     try setManifestModificationDate(at: newRoot, to: Date(timeIntervalSince1970: 200))
@@ -229,7 +230,18 @@ import Foundation
 
     #expect(locator.preferredWineExecutablePath(for: nil) == newWine.path)
     #expect(locator.preferredWineExecutablePath(for: oldWine.path) == oldWine.path)
-    #expect(locator.preferredWineExecutablePath(for: oldWine.path, expectedSourceRevision: sourceRevision) == oldWine.path)
+    #expect(
+        locator.preferredWineExecutablePath(
+            for: oldWine.path,
+            expectedSourceRevision: oldSourceRevision
+        ) == oldWine.path
+    )
+    #expect(
+        locator.preferredWineExecutablePath(
+            for: oldWine.path,
+            expectedSourceRevision: newSourceRevision
+        ) == newWine.path
+    )
 }
 
 @Test func preferredWineExecutablePathRecoversDeletedManagedRuntimeSelection() throws {
