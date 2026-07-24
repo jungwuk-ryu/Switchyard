@@ -168,9 +168,16 @@ private struct ContainerLibraryView: View {
                             Button {
                                 onOpen(container)
                             } label: {
-                                ContainerLibraryRow(container: container)
+                                ContainerLibraryRow(
+                                    container: container,
+                                    isWineServerRunning: store.sessionSnapshot(for: container.id)
+                                        .wineServerState.isWineServerRunning
+                                )
                             }
                             .buttonStyle(.plain)
+                            .task(id: container.id) {
+                                await store.monitorContainerSession(for: container.id)
+                            }
                             .windowsApplicationDropTarget(
                                 containerName: container.name,
                                 isEnabled: !store.isContainerTransitioning(container.id)
@@ -211,6 +218,7 @@ private struct ContainerLibraryView: View {
 
 private struct ContainerLibraryRow: View {
     let container: Container
+    let isWineServerRunning: Bool
 
     var body: some View {
         HStack(spacing: 14) {
@@ -242,9 +250,17 @@ private struct ContainerLibraryRow: View {
             Spacer(minLength: 20)
 
             VStack(alignment: .trailing, spacing: 4) {
-                Label(container.status.label, systemImage: container.status.health.symbolName)
+                if isWineServerRunning {
+                    Label(
+                        String(
+                            localized: "Running",
+                            bundle: SwitchyardStrings.bundle
+                        ),
+                        systemImage: "play.circle.fill"
+                    )
                     .font(.callout)
-                    .foregroundStyle(container.status.health.tint)
+                    .foregroundStyle(.green)
+                }
 
                 Text(
                     container.lastRun.map { switchyardDateFormatter.string(from: $0) }

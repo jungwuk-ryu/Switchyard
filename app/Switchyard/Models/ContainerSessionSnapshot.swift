@@ -7,6 +7,10 @@ enum WineServerState: Equatable, Sendable {
     case inactive
     case unavailable
 
+    var isWineServerRunning: Bool {
+        self == .active
+    }
+
     var hasRunningProcesses: Bool {
         self == .active || self == .orphaned
     }
