@@ -110,7 +110,7 @@ struct ContainerSessionPanel: View {
                 .frame(maxWidth: .infinity, minHeight: sessionContentMinimumHeight)
                 .padding(.horizontal, 20)
             } else {
-                LazyVStack(spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(displayedProcesses) { process in
                         WindowsProcessRow(process: process, showsPath: !compact)
 
@@ -310,6 +310,7 @@ private struct WindowsProcessRow: View {
             }
 
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
     }
@@ -347,7 +348,7 @@ private struct RecentContainerActivity: View {
                 ContentUnavailableView("No Recent Activity", systemImage: "clock")
                 .frame(maxWidth: .infinity, minHeight: activityContentMinimumHeight)
             } else {
-                LazyVStack(spacing: 0) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(logs) { line in
                         HStack(alignment: .top, spacing: 10) {
                             Image(
@@ -368,6 +369,7 @@ private struct RecentContainerActivity: View {
 
                             Spacer()
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
 
