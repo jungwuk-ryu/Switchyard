@@ -774,11 +774,12 @@ public struct RuntimeLocator {
         }
 
         if let expectedSourceRevision, sourceRevision != expectedSourceRevision {
+            let expectedShortRevision = String(expectedSourceRevision.prefix(12))
             return RuntimeSourceValidation(
                 status: .warning,
                 version: shortRevision,
                 message: String(
-                    localized: "Switchyard Wine runtime \(runtimeID) was built from source \(shortRevision), but this Switchyard build pins \(expectedSourceRevision.prefix(12)). Rebuild the runtime from the pinned revision.",
+                    localized: "Switchyard Wine runtime \(runtimeID) was built from source \(shortRevision), but this Switchyard build pins \(expectedShortRevision). Rebuild the runtime from the pinned revision.",
                     bundle: SwitchyardStrings.bundle
                 )
             )
