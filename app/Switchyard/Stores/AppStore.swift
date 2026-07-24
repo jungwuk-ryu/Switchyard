@@ -4206,10 +4206,8 @@ final class AppStore: ObservableObject {
         )
 
         do {
-            var plan = try jobEngine.runPlan(
+            var plan = jobEngine.runtimePreparationPlan(
                 container: container,
-                executablePath: "wineboot.exe",
-                executableArguments: ["-u"],
                 runtime: runtime,
                 gptkPath: gptkPath
             )

@@ -100,6 +100,23 @@ public struct JobEngine {
         )
     }
 
+    public func runtimePreparationPlan(
+        container: Container,
+        runtime: RuntimeBuild,
+        gptkPath: String?
+    ) -> CommandPlan {
+        commandPlan(
+            runtime: runtime,
+            container: container,
+            executablePath: "wineboot.exe",
+            executableArguments: ["-u", "-r"],
+            gptkPath: gptkPath,
+            overrides: container.environmentOverrides,
+            logSource: container.name,
+            keepLoggingWhilePrefixIsActive: false
+        )
+    }
+
     public func run(
         container: Container,
         executablePath: String? = nil,
@@ -131,7 +148,8 @@ private func commandPlan(
     overrides: [String: String] = [:],
     logSource: String,
     debugLogPath: String? = nil,
-    terminateExistingPrefixSession: Bool = false
+    terminateExistingPrefixSession: Bool = false,
+    keepLoggingWhilePrefixIsActive: Bool? = nil
 ) -> CommandPlan {
     var environment = [
         "WINEPREFIX": container.path,
@@ -179,6 +197,7 @@ private func commandPlan(
         workingDirectory: container.path,
         logSource: logSource,
         debugLogPath: debugLogPath,
-        terminateExistingPrefixSession: terminateExistingPrefixSession
+        terminateExistingPrefixSession: terminateExistingPrefixSession,
+        keepLoggingWhilePrefixIsActive: keepLoggingWhilePrefixIsActive
     )
 }

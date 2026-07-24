@@ -642,6 +642,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
     public var liveLogPath: String?
     public var debugLogPath: String?
     public var terminateExistingPrefixSession: Bool?
+    public var keepLoggingWhilePrefixIsActive: Bool?
 
     public init(
         executable: String,
@@ -651,7 +652,8 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         logSource: String,
         liveLogPath: String? = nil,
         debugLogPath: String? = nil,
-        terminateExistingPrefixSession: Bool? = nil
+        terminateExistingPrefixSession: Bool? = nil,
+        keepLoggingWhilePrefixIsActive: Bool? = nil
     ) {
         self.executable = executable
         self.arguments = arguments
@@ -661,6 +663,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         self.liveLogPath = liveLogPath
         self.debugLogPath = debugLogPath
         self.terminateExistingPrefixSession = terminateExistingPrefixSession
+        self.keepLoggingWhilePrefixIsActive = keepLoggingWhilePrefixIsActive
     }
 }
 

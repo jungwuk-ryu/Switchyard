@@ -1557,7 +1557,8 @@ private func waitForOutputDrain(
     guard group.wait(timeout: .now() + outputDrainTimeout) == .timedOut else {
         return true
     }
-    guard liveLogWriter != nil,
+    guard plan.keepLoggingWhilePrefixIsActive != false,
+          liveLogWriter != nil,
           let prefixPath = plan.environment["WINEPREFIX"],
           !prefixPath.isEmpty,
           let wineServerURL = wineServerURL(forWineExecutable: plan.executable) else {

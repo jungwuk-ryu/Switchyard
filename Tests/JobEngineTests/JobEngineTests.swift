@@ -225,6 +225,31 @@ import Testing
     #expect(plan.terminateExistingPrefixSession == true)
 }
 
+@Test func runtimePreparationUpdatesWithoutRunningStartupProgramsOrFollowingThePrefix() {
+    let container = Container(
+        name: "Steam",
+        path: "/tmp/Steam.container",
+        environmentOverrides: ["DXVK_LOG_LEVEL": "none"]
+    )
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+
+    let plan = JobEngine().runtimePreparationPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.arguments == ["wineboot.exe", "-u", "-r"])
+    #expect(plan.environment["WINEPREFIX"] == container.path)
+    #expect(plan.environment["DXVK_LOG_LEVEL"] == "none")
+    #expect(plan.keepLoggingWhilePrefixIsActive == false)
+}
+
 @Test func jobEngineUsesAdHocExecutableArgumentsForProgramRuns() throws {
     let container = Container(
         name: "Toolbox",

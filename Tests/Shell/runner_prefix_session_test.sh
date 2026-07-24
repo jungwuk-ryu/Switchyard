@@ -49,6 +49,12 @@ cleanup() {
   if [ -f "$TEST_ROOT/live-prefix-descendant.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/live-prefix-descendant.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/bounded-prefix-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/bounded-prefix-runner.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/bounded-prefix-descendant.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/bounded-prefix-descendant.pid")" >/dev/null 2>&1 || true
+  fi
   if [ -f "$TEST_ROOT/orphan-wine.pid" ]; then
     kill -KILL "$(cat "$TEST_ROOT/orphan-wine.pid")" >/dev/null 2>&1 || true
   fi
@@ -587,6 +593,54 @@ wait "$live_prefix_runner_pid"
 rm -f "$TEST_ROOT/live-prefix-runner.pid" "$TEST_ROOT/live-prefix-descendant.pid"
 if ! grep -q 'after-direct-child-exit' "$ACTIVE_PREFIX_LIVE_LOG"; then
   echo "runner did not retain descendant output while wineserver remained active" >&2
+  exit 1
+fi
+
+BOUNDED_PREFIX_LIVE_LOG="$TEST_ROOT/live/bounded-prefix.jsonl"
+cat > "$TEST_ROOT/bounded-prefix-output.json" <<EOF
+{
+  "executable": "$BIN_DIR/switchyard-wine",
+  "arguments": ["wineboot.exe", "-u", "-r"],
+  "environment": {
+    "WINEPREFIX": "$PREFIX",
+    "TEST_LIVE_DESCENDANT_PID_FILE": "$TEST_ROOT/bounded-prefix-descendant.pid",
+    "TEST_LIVE_DESCENDANT_READY": "$TEST_ROOT/bounded-prefix-descendant.ready",
+    "TEST_LIVE_DESCENDANT_RELEASE": "$TEST_ROOT/bounded-prefix-descendant.release"
+  },
+  "workingDirectory": "$PREFIX",
+  "logSource": "bounded-prefix-output-test",
+  "liveLogPath": "$BOUNDED_PREFIX_LIVE_LOG",
+  "keepLoggingWhilePrefixIsActive": false
+}
+EOF
+
+TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT=0.1 \
+  "$RUNNER" run --plan "$TEST_ROOT/bounded-prefix-output.json" >/dev/null 2>/dev/null &
+bounded_prefix_runner_pid=$!
+printf '%s\n' "$bounded_prefix_runner_pid" > "$TEST_ROOT/bounded-prefix-runner.pid"
+for _ in {1..100}; do
+  [ -s "$TEST_ROOT/bounded-prefix-descendant.ready" ] && break
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/bounded-prefix-descendant.ready" ]; then
+  echo "bounded prefix output fixture did not start its descendant" >&2
+  exit 1
+fi
+for _ in {1..100}; do
+  if ! kill -0 "$bounded_prefix_runner_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.05
+done
+if kill -0 "$bounded_prefix_runner_pid" >/dev/null 2>&1; then
+  echo "bounded prefix command followed the active Wine session indefinitely" >&2
+  exit 1
+fi
+wait "$bounded_prefix_runner_pid"
+touch "$TEST_ROOT/bounded-prefix-descendant.release"
+rm -f "$TEST_ROOT/bounded-prefix-runner.pid"
+if ! grep -q 'output drain timed out' "$BOUNDED_PREFIX_LIVE_LOG"; then
+  echo "bounded prefix command did not report its intentionally truncated descendant output" >&2
   exit 1
 fi
 
