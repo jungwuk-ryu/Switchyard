@@ -15,7 +15,7 @@ If sub-agents are unavailable, do not silently skip the gate. Record the blocker
 
 ## Worktree Tasks
 
-When the user explicitly identifies a task as worktree work—for example, by saying `worktree 작업입니다.` or equivalent wording—complete the entire task in a newly created, dedicated Git worktree:
+Do not create or retain a worktree in advance for an unspecified future task. When the user explicitly identifies a task as worktree work—for example, by saying `worktree 작업입니다.` or equivalent wording—the agent assigned to that task must create a new, dedicated Git worktree when starting the task and complete the entire task there:
 
 1. Create the worktree and its task branch before making implementation changes.
 2. Perform all implementation, edits, patches, verification, review fixes, and commits in that worktree.
