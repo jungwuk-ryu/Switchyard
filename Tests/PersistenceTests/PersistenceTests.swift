@@ -332,7 +332,20 @@ private enum TestContainerRenameError: Error, Equatable {
     let steamHelper = containerURL.appendingPathComponent("drive_c/Program Files (x86)/Steam/bin/cef/steamwebhelper.exe")
     let battleNet = containerURL.appendingPathComponent("drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe")
     let battleNetUpdater = containerURL.appendingPathComponent("drive_c/Program Files (x86)/Battle.net/Battle.net Update Agent.exe")
-    for executable in [steam, steamHelper, battleNet, battleNetUpdater] {
+    let epicGames = containerURL.appendingPathComponent(
+        "drive_c/Program Files (x86)/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe"
+    )
+    let rockstarGames = containerURL.appendingPathComponent(
+        "drive_c/Program Files/Rockstar Games/Launcher/Launcher.exe"
+    )
+    for executable in [
+        steam,
+        steamHelper,
+        battleNet,
+        battleNetUpdater,
+        epicGames,
+        rockstarGames,
+    ] {
         try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data().write(to: executable)
     }
@@ -344,8 +357,15 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let programs = InstalledProgramCatalog().installedPrograms(in: container)
 
-    #expect(programs.map(\.name) == ["Battle.net Launcher", "Steam"])
-    let expectedPaths = [battleNet, steam].map { $0.standardizedFileURL.resolvingSymlinksInPath().path }
+    #expect(programs.map(\.name) == [
+        "Battle.net Launcher",
+        "EpicGamesLauncher",
+        "Launcher",
+        "Steam",
+    ])
+    let expectedPaths = [battleNet, epicGames, rockstarGames, steam].map {
+        $0.standardizedFileURL.resolvingSymlinksInPath().path
+    }
     let discoveredPaths = programs.map { URL(fileURLWithPath: $0.executablePath).standardizedFileURL.resolvingSymlinksInPath().path }
     #expect(discoveredPaths == expectedPaths)
 }

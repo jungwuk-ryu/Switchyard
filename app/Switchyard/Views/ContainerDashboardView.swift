@@ -178,7 +178,11 @@ struct ContainerDashboardView: View {
                 VStack(spacing: 16) {
                     if usesWideLayout {
                         HStack(alignment: .top, spacing: 16) {
-                            ProgramHeroView(container: container, program: selectedProgram)
+                            ProgramHeroView(
+                                container: container,
+                                program: selectedProgram,
+                                onBrowseLaunchers: { selectedSection = .applications }
+                            )
                                 .frame(maxWidth: .infinity)
                             InstalledProgramShelf(
                                 container: container,
@@ -196,7 +200,11 @@ struct ContainerDashboardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                     } else {
                         VStack(spacing: 16) {
-                            ProgramHeroView(container: container, program: selectedProgram)
+                            ProgramHeroView(
+                                container: container,
+                                program: selectedProgram,
+                                onBrowseLaunchers: { selectedSection = .applications }
+                            )
                             InstalledProgramShelf(
                                 container: container,
                                 programs: programs,
@@ -360,6 +368,7 @@ private struct ProgramHeroView: View {
     @EnvironmentObject private var store: AppStore
     let container: Container
     let program: InstalledProgram?
+    let onBrowseLaunchers: () -> Void
 
     var body: some View {
         HStack(spacing: 20) {
@@ -478,6 +487,17 @@ private struct ProgramHeroView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .disabled(store.isContainerTransitioning(container.id) || starterSetupIsBusy)
+
+                if program == nil {
+                    Button(
+                        String(
+                            localized: "Browse Game Launchers",
+                            bundle: SwitchyardStrings.bundle
+                        ),
+                        action: onBrowseLaunchers
+                    )
+                    .buttonStyle(.link)
+                }
 
                 if isSteamStarterContainer,
                    let message = store.steamInstallationState.errorMessage {

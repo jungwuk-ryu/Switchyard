@@ -26,10 +26,14 @@
 	<string>%1$@ が オープンフォントパック キャッシュにありません: %2$@</string>
 	<key>%@ is now the active app-wide runtime.</key>
 	<string>%1$@ をアプリ全体のアクティブなランタイムに設定しました。</string>
+	<key>%@ was detected and is ready to launch.</key>
+	<string>%1$@ を検出しました。起動できます。</string>
 	<key>%@ was removed from Switchyard, but its folder was already missing.</key>
 	<string>%1$@ は Switchyard から削除されましたが、そのフォルダーはすでに見つかりませんでした。</string>
 	<key>%@ · %@ · source %@</key>
 	<string>%1$@ · %2$@ · ソース %3$@</string>
+	<key>%@'s download service did not return a complete installer.</key>
+	<string>%1$@ のダウンロードサービスから完全なインストーラが返されませんでした。</string>
 	<key>%@, %@</key>
 	<string>%1$@、%2$@</string>
 	<key>%lld</key>
@@ -120,6 +124,8 @@
 	<string>戻る</string>
 	<key>Back to Containers</key>
 	<string>コンテナに戻る</string>
+	<key>Browse Game Launchers</key>
+	<string>ゲームランチャーを表示</string>
 	<key>Build %@</key>
 	<string>ビルド %1$@</string>
 	<key>Build not available</key>
@@ -130,6 +136,8 @@
 	<string>キャンセル</string>
 	<key>Cancel Download</key>
 	<string>ダウンロードのキャンセル</string>
+	<key>Cancelled the %@ installer download.</key>
+	<string>%1$@ インストーラのダウンロードをキャンセルしました。</string>
 	<key>Check Failed</key>
 	<string>チェックに失敗しました</string>
 	<key>Check for Releases</key>
@@ -184,6 +192,8 @@
 	<string>Wine 実行可能ファイルまたは Wine ランタイム フォルダーを選択します。</string>
 	<key>Choose a Wine executable or runtime folder manually.</key>
 	<string>Wine 実行可能ファイルまたはランタイム フォルダーを手動で選択します。</string>
+	<key>Choose a launcher and Switchyard will securely download its official Windows installer, open it here, and detect when setup finishes.</key>
+	<string>ランチャーを選ぶと、Switchyard が公式の Windows インストーラを安全にダウンロードしてここで開き、セットアップの完了を検出します。</string>
 	<key>Choose a local GPTK directory or disk image.</key>
 	<string>ローカルの GPTK ディレクトリまたはディスク イメージを選択します。</string>
 	<key>Choose a locally built Wine executable or runtime folder.</key>
@@ -278,6 +288,10 @@
 	<string>無効なコールバック アドレスを回復する前に、Safari からコピーしてください。</string>
 	<key>Could not choose a safe macOS desktop name for %@.</key>
 	<string>%1$@ の安全な macOS デスクトップ名を選択できませんでした。</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>ライブログジャーナルを消去できませんでした: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>このコンテナのライブログを継続できませんでした: %1$@</string>
 	<key>Could not create a temporary download file.</key>
 	<string>一時ダウンロードファイルを作成できませんでした。</string>
 	<key>Could not create debug log directory %@: %@</key>
@@ -320,10 +334,6 @@
 	<string>Wine プロセスを停止できませんでした: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>この公式ランタイムを信頼できません：%1$@</string>
-	<key>Could not clear the live log journal: %@</key>
-	<string>ライブログジャーナルを消去できませんでした: %1$@</string>
-	<key>Could not continue this container's live log: %@</key>
-	<string>このコンテナのライブログを継続できませんでした: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>保存済みのデバッグログを更新できませんでした: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
@@ -368,6 +378,8 @@
 	<string>異なるビルドが記録されました</string>
 	<key>Download</key>
 	<string>ダウンロード</string>
+	<key>Download &amp; Install</key>
+	<string>ダウンロードしてインストール</string>
 	<key>Download Steam</key>
 	<string>Steam をダウンロード</string>
 	<key>Download and switch between signed Switchyard Wine releases.</key>
@@ -386,6 +398,12 @@
 	<string>この Switchyard バージョンでサポートされている最新のランタイムをダウンロード、確認、選択します</string>
 	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
 	<string>%1$lld オープンフォントパック フォント ファイルをダウンロードしました。 %2$lld ファイルはすでにキャッシュされています。</string>
+	<key>Downloading</key>
+	<string>ダウンロード中</string>
+	<key>Downloading %@… %@</key>
+	<string>%1$@ をダウンロード中… %2$@</string>
+	<key>Downloading %@… %@ of %@</key>
+	<string>%1$@ をダウンロード中… %2$@ / %3$@</string>
 	<key>Downloading and verifying about 700 MB…</key>
 	<string>約700MBをダウンロードして確認中…</string>
 	<key>Downloading open-licensed fonts…</key>
@@ -420,16 +438,22 @@
 	<string>%1$@: コールバックを待機している Windows アプリケーションを見つけています…</string>
 	<key>Finish Setting Up Switchyard</key>
 	<string>Switchyard のセットアップを完了する</string>
+	<key>Finish Switchyard setup before installing %@.</key>
+	<string>Switchyard のセットアップを完了してから %1$@ をインストールしてください。</string>
 	<key>Finish Switchyard setup before installing Steam.</key>
 	<string>Steam をインストールする前に、Switchyard のセットアップを完了してください。</string>
 	<key>Finish Without Steam</key>
 	<string>Steam なしで終了</string>
+	<key>Finish in Installer</key>
+	<string>インストーラで完了</string>
 	<key>Finish installing Steam…</key>
 	<string>Steam のインストールを終了します…</string>
 	<key>Finish setting up Steam</key>
 	<string>Steam のセットアップを完了する</string>
 	<key>Finish setup before creating a container</key>
 	<string>コンテナを作成する前にセットアップを完了してください</string>
+	<key>Finish the normal Windows setup. Switchyard is checking this container automatically.</key>
+	<string>通常の Windows セットアップを完了してください。Switchyard がこのコンテナを自動的に確認します。</string>
 	<key>Finish the remaining setup step before completing setup.</key>
 	<string>セットアップを完了する前に、残りのセットアップ手順を完了してください。</string>
 	<key>Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.</key>
@@ -450,6 +474,8 @@
 	<string>GPTK 実行可能コードには無効な Apple 署名があります: %1$@。</string>
 	<key>GPTK import completed.</key>
 	<string>GPTK インポートが完了しました。</string>
+	<key>Game Launchers</key>
+	<string>ゲームランチャー</string>
 	<key>Game Porting Toolkit</key>
 	<string>Game Porting Toolkit</string>
 	<key>General</key>
@@ -524,10 +550,16 @@
 	<string>インストールされているプログラム</string>
 	<key>Installed Windows applications will appear here after setup.</key>
 	<string>インストールされた Windows アプリケーションは、セットアップ後にここに表示されます。</string>
+	<key>Installed and ready to launch.</key>
+	<string>インストール済みで、起動できます。</string>
 	<key>Installed and verified</key>
 	<string>インストールおよび検証済み</string>
 	<key>Installed compatible runtime %@.</key>
 	<string>互換性のあるランタイム %1$@ がインストールされています。</string>
+	<key>Installers come directly from each publisher, are verified before use, and stay in Switchyard's private cache. Publisher terms appear in the Windows installer.</key>
+	<string>インストーラは各提供元から直接取得し、使用前に検証して Switchyard のプライベートキャッシュに保存します。提供元の利用条件は Windows インストーラに表示されます。</string>
+	<key>Installing</key>
+	<string>インストール中</string>
 	<key>Installing Compatible Runtime…</key>
 	<string>互換性のあるランタイムをインストールしています…</string>
 	<key>Installing Rosetta 2…</key>
@@ -536,6 +568,8 @@
 	<string>インストール中…</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>コピーされたログイン コールバックを回復している間、Windows ゲームを開いたままにします。</string>
+	<key>Language</key>
+	<string>言語</string>
 	<key>Last checked %@</key>
 	<string>最終チェック日 %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -662,6 +696,8 @@
 	<string>環境の上書きはありません。</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>公開済みのランタイムマニフェストを読み込めませんでした。</string>
+	<key>Not Installed</key>
+	<string>未インストール</string>
 	<key>Not Now</key>
 	<string>今はしない</string>
 	<key>Not Recommended</key>
@@ -670,6 +706,8 @@
 	<string>利用できません</string>
 	<key>Not checked in this session</key>
 	<string>このセッションではチェックされていません</string>
+	<key>Not installed in this container.</key>
+	<string>このコンテナにはインストールされていません。</string>
 	<key>Not recorded</key>
 	<string>記録なし</string>
 	<key>Not selected</key>
@@ -680,6 +718,8 @@
 	<string>OK</string>
 	<key>Official Releases</key>
 	<string>公式リリース</string>
+	<key>Official download page</key>
+	<string>公式ダウンロードページ</string>
 	<key>One more step</key>
 	<string>もう一歩</string>
 	<key>Online Unknown</key>
@@ -724,8 +764,14 @@
 	<string>Finderで開く</string>
 	<key>Open the latest Switchyard release on GitHub</key>
 	<string>GitHub で最新の Switchyard リリースを開きます</string>
+	<key>Open the publisher's official download page</key>
+	<string>提供元の公式ダウンロードページを開く</string>
+	<key>Opening</key>
+	<string>開いています</string>
 	<key>Opening the Steam installer…</key>
 	<string>Steam インストーラーを開いています…</string>
+	<key>Opening…</key>
+	<string>開いています…</string>
 	<key>Optional launch arguments</key>
 	<string>オプションの起動引数</string>
 	<key>Optional — Switchyard will try again before launch</key>
@@ -742,6 +788,8 @@
 	<string>Steam の場所を準備しています…</string>
 	<key>Preparing automatically…</key>
 	<string>自動的に準備しています…</string>
+	<key>Preparing the official %@ installer from %@.</key>
+	<string>%2$@ 公式の %1$@ インストーラを準備しています。</string>
 	<key>Preparing this Windows container for the active Switchyard runtime.</key>
 	<string>アクティブな Switchyard ランタイム向けにこの Windows コンテナを準備しています。</string>
 	<key>Press Return or leave the field to rename the container and its folder</key>
@@ -840,6 +888,8 @@
 	<string>正常に応答します</string>
 	<key>Restart</key>
 	<string>再起動</string>
+	<key>Restart Switchyard to apply the selected language.</key>
+	<string>選択した言語を適用するには、Switchyard を再起動してください。</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>再起動すると、ゲームやインストーラを含む、このコンテナ内のすべてのWindowsプロセスが終了します。新しい状態で再起動しますか？</string>
 	<key>Retention (days)</key>
@@ -1054,12 +1104,16 @@
 	<string>Switchyard は、プライベート キャッシュ内のダウンロードされたインストーラーを保護できませんでした: %1$@</string>
 	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
 	<string>Switchyardを使用するには、Apple Silicon搭載MacとmacOS 14以降が必要です。</string>
+	<key>Switchyard did not detect %@ after the installer closed. Try again in this same container.</key>
+	<string>インストーラが閉じた後も %1$@ を検出できませんでした。同じコンテナでもう一度お試しください。</string>
 	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
 	<string>Switchyard は、GPTK をダウンロードまたはバンドルしません。 Apple がサインインとライセンスの受け入れを処理します。 Switchyard は、DMG の実行可能コードで Apple 署名を確認した後にのみインポートします。</string>
 	<key>Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.</key>
 	<string>Switchyard は、HTTPS を介して Valve から SteamSetup.exe を直接ダウンロードします。</string>
 	<key>Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.</key>
 	<string>Switchyard は、Valve のインストーラーのみをダウンロードします。通常の Steam 画面は、ゲーム、アップデート、アカウントのサインインを処理します。</string>
+	<key>Switchyard has not detected %@ yet. Finish or close the installer, then try again in this same container.</key>
+	<string>Switchyard はまだ %1$@ を検出していません。インストーラを完了するか閉じてから、この同じコンテナでもう一度試してください。</string>
 	<key>Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.</key>
 	<string>Switchyard は、OFL Noto フォントをコンテナーにインストールし、Microsoft フォントをバンドルせずに一般的な Windows フォント ファミリ名をマップします。</string>
 	<key>Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.</key>
@@ -1088,8 +1142,16 @@
 	<string>Switchyard は、コピーする前に共通のシークレットとホーム フォルダーのパスを編集します。</string>
 	<key>System</key>
 	<string>システム</string>
+	<key>System Default</key>
+	<string>システム設定</string>
 	<key>Technical Details</key>
 	<string>技術的な詳細</string>
+	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
+	<string>%1$@ のダウンロードサイズが想定より大きいため、Switchyard は使用前に停止しました。</string>
+	<key>The %@ installer could not be opened. Check Logs, then try again.</key>
+	<string>%1$@ インストーラを開けませんでした。ログを確認して、もう一度お試しください。</string>
+	<key>The %@ installer is open. Switchyard will detect the launcher automatically.</key>
+	<string>%1$@ インストーラが開いています。Switchyard がランチャーを自動的に検出します。</string>
 	<key>The Apple code-signing requirement could not be created.</key>
 	<string>Apple コード署名要件を作成できませんでした。</string>
 	<key>The GPTK source contains a symbolic link outside its import directory.</key>
@@ -1128,12 +1190,16 @@
 	<string>ディスク イメージには、既知の D3DMetal/GPTK マーカー ファイルが含まれていませんでした。</string>
 	<key>The download is ready. Switchyard will verify Apple's signature before importing it.</key>
 	<string>ダウンロードの準備ができました。 Switchyard は、インポートする前に Apple の署名を検証します。</string>
+	<key>The download left %@'s approved installer service, so Switchyard stopped it.</key>
+	<string>ダウンロード先が %1$@ の承認済みインストーラサービスから外れたため、Switchyard は停止しました。</string>
 	<key>The download left the official Valve download service, so Switchyard stopped it.</key>
 	<string>ダウンロードにより公式の Valve ダウンロード サービスが終了したため、Switchyard がサービスを停止しました。</string>
 	<key>The download was unexpectedly large, so Switchyard stopped before using it.</key>
 	<string>ダウンロードが予想外に大きかったため、Switchyard は使用する前に停止しました。</string>
 	<key>The downloaded file is not a complete Windows Steam installer.</key>
 	<string>ダウンロードされたファイルは、完全な Windows Steam インストーラーではありません。</string>
+	<key>The downloaded file is not a complete Windows installer for %@.</key>
+	<string>ダウンロードしたファイルは %1$@ 用の完全な Windows インストーラではありません。</string>
 	<key>The downloaded runtime checksum does not match its release manifest.</key>
 	<string>ダウンロードされたランタイム チェックサムがリリース マニフェストと一致しません。</string>
 	<key>The downloaded runtime size does not match its release manifest.</key>
@@ -1252,6 +1318,8 @@
 	<string>標準の Windows インストーラーがすぐに表示されます。</string>
 	<key>The verified Valve download is ready to install.</key>
 	<string>検証済みの Valve ダウンロードをインストールする準備ができました。</string>
+	<key>The verified download is ready. Opening the Windows installer…</key>
+	<string>検証済みのダウンロードを準備できました。Windows インストーラを開いています…</string>
 	<key>There are no visible files in this folder.</key>
 	<string>このフォルダーには表示されるファイルはありません。</string>
 	<key>These runtimes are in Switchyard's managed cache but do not match the currently loaded official release list.</key>
@@ -1340,12 +1408,12 @@
 	<string>%1$@ が現在のアクションを完了するまで待ってから、コンテナを削除します。</string>
 	<key>Wait for %@ to finish its current session action before starting another executable.</key>
 	<string>%1$@ が現在のセッション アクションを終了するまで待ってから、別の実行可能ファイルを開始します。</string>
+	<key>Wait for all container activity to stop before changing GPTK.</key>
+	<string>GPTK を変更する前に、すべてのコンテナの処理が停止するまで待ってください。</string>
 	<key>Wait for all container activity to stop before changing the active runtime.</key>
 	<string>アクティブなランタイムを変更する前に、すべてのコンテナ処理が終了するまでお待ちください。</string>
 	<key>Wait for all container activity to stop before removing a runtime.</key>
 	<string>ランタイムを削除する前に、すべてのコンテナ処理が終了するまでお待ちください。</string>
-	<key>Wait for all container activity to stop before changing GPTK.</key>
-	<string>GPTK を変更する前に、すべてのコンテナの処理が停止するまで待ってください。</string>
 	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
 	<string>Windows アプリを起動する前に、互換性設定が完了するまで待ってください。</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
@@ -1442,11 +1510,5 @@
 	<string>wineserver を停止できませんでした (終了コード %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo が失敗しました</string>
-	<key>Language</key>
-	<string>言語</string>
-	<key>Restart Switchyard to apply the selected language.</key>
-	<string>選択した言語を適用するには、Switchyard を再起動してください。</string>
-	<key>System Default</key>
-	<string>システム設定</string>
 </dict>
 </plist>

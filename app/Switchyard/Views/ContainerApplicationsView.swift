@@ -64,6 +64,8 @@ struct ContainerApplicationsView: View {
                     .disabled(store.isContainerTransitioning(container.id) || starterSetupIsBusy)
                 }
 
+                LauncherInstallerSection(container: container)
+
                 if !recentPrograms.isEmpty {
                     RecentlyLaunchedProgramsSection(
                         container: container,
@@ -114,6 +116,7 @@ struct ContainerApplicationsView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
         }
     }

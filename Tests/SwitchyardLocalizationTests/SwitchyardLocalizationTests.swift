@@ -17,6 +17,8 @@ final class SwitchyardLocalizationTests: XCTestCase {
     func testEverySupportedLocaleTranslatesRepresentativeInterfaceText() {
         let requiredKeys = [
             "Add Container",
+            "Download & Install",
+            "Game Launchers",
             "Language",
             "System Default",
             "Restart Switchyard to apply the selected language."

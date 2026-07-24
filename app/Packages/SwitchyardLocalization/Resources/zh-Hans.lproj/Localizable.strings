@@ -26,10 +26,14 @@
 	<string>开放字体包 缓存中缺少 %1$@：%2$@</string>
 	<key>%@ is now the active app-wide runtime.</key>
 	<string>%1$@ 现已设为全局活动运行时。</string>
+	<key>%@ was detected and is ready to launch.</key>
+	<string>已检测到 %1$@，可以启动。</string>
 	<key>%@ was removed from Switchyard, but its folder was already missing.</key>
 	<string>%1$@ 已从 Switchyard 中删除，但其文件夹已丢失。</string>
 	<key>%@ · %@ · source %@</key>
 	<string>%1$@ · %2$@ · 来源 %3$@</string>
+	<key>%@'s download service did not return a complete installer.</key>
+	<string>%1$@ 的下载服务未返回完整的安装程序。</string>
 	<key>%@, %@</key>
 	<string>%1$@、%2$@</string>
 	<key>%lld</key>
@@ -120,6 +124,8 @@
 	<string>返回</string>
 	<key>Back to Containers</key>
 	<string>返回容器</string>
+	<key>Browse Game Launchers</key>
+	<string>浏览游戏启动器</string>
 	<key>Build %@</key>
 	<string>构建版本 %1$@</string>
 	<key>Build not available</key>
@@ -130,6 +136,8 @@
 	<string>取消</string>
 	<key>Cancel Download</key>
 	<string>取消下载</string>
+	<key>Cancelled the %@ installer download.</key>
+	<string>已取消下载 %1$@ 安装程序。</string>
 	<key>Check Failed</key>
 	<string>检查失败</string>
 	<key>Check for Releases</key>
@@ -184,6 +192,8 @@
 	<string>选择 Wine 可执行文件或 Wine 运行时文件夹。</string>
 	<key>Choose a Wine executable or runtime folder manually.</key>
 	<string>手动选择 Wine 可执行文件或运行时文件夹。</string>
+	<key>Choose a launcher and Switchyard will securely download its official Windows installer, open it here, and detect when setup finishes.</key>
+	<string>选择启动器后，Switchyard 会安全下载其官方 Windows 安装程序，在此处打开，并检测安装何时完成。</string>
 	<key>Choose a local GPTK directory or disk image.</key>
 	<string>选择本地 GPTK 目录或磁盘映像。</string>
 	<key>Choose a locally built Wine executable or runtime folder.</key>
@@ -278,6 +288,10 @@
 	<string>在恢复之前从 Safari 复制无效的回调地址。</string>
 	<key>Could not choose a safe macOS desktop name for %@.</key>
 	<string>无法为 %1$@ 选择安全的 macOS 桌面名称。</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>无法清除实时日志文件：%1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>无法继续更新此容器的实时日志：%1$@</string>
 	<key>Could not create a temporary download file.</key>
 	<string>无法创建临时下载文件。</string>
 	<key>Could not create debug log directory %@: %@</key>
@@ -320,10 +334,6 @@
 	<string>无法停止 Wine 进程：%1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>无法信任此官方运行时：%1$@</string>
-	<key>Could not clear the live log journal: %@</key>
-	<string>无法清除实时日志文件：%1$@</string>
-	<key>Could not continue this container's live log: %@</key>
-	<string>无法继续更新此容器的实时日志：%1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>无法更新存储的调试日志：%1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
@@ -368,6 +378,8 @@
 	<string>记录不同的构建</string>
 	<key>Download</key>
 	<string>下载</string>
+	<key>Download &amp; Install</key>
+	<string>下载并安装</string>
 	<key>Download Steam</key>
 	<string>下载Steam</string>
 	<key>Download and switch between signed Switchyard Wine releases.</key>
@@ -386,6 +398,12 @@
 	<string>下载、验证并选择此 Switchyard 版本支持的最新运行时</string>
 	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
 	<string>下载 %1$lld 开放字体包 字体文件； %2$lld 文件已被缓存。</string>
+	<key>Downloading</key>
+	<string>正在下载</string>
+	<key>Downloading %@… %@</key>
+	<string>正在下载 %1$@… %2$@</string>
+	<key>Downloading %@… %@ of %@</key>
+	<string>正在下载 %1$@… %2$@ / %3$@</string>
 	<key>Downloading and verifying about 700 MB…</key>
 	<string>下载并验证大约 700 MB...</string>
 	<key>Downloading open-licensed fonts…</key>
@@ -420,16 +438,22 @@
 	<string>查找正在等待 %1$@: 回调的 Windows 应用程序...</string>
 	<key>Finish Setting Up Switchyard</key>
 	<string>完成设置 Switchyard</string>
+	<key>Finish Switchyard setup before installing %@.</key>
+	<string>请先完成 Switchyard 设置，再安装 %1$@。</string>
 	<key>Finish Switchyard setup before installing Steam.</key>
 	<string>在安装 Steam 之前完成 Switchyard 设置。</string>
 	<key>Finish Without Steam</key>
 	<string>不带 Steam 完成</string>
+	<key>Finish in Installer</key>
+	<string>在安装程序中完成</string>
 	<key>Finish installing Steam…</key>
 	<string>完成安装 Steam...</string>
 	<key>Finish setting up Steam</key>
 	<string>完成设置 Steam</string>
 	<key>Finish setup before creating a container</key>
 	<string>创建容器之前完成设置</string>
+	<key>Finish the normal Windows setup. Switchyard is checking this container automatically.</key>
+	<string>请完成常规 Windows 安装。Switchyard 会自动检查此容器。</string>
 	<key>Finish the remaining setup step before completing setup.</key>
 	<string>在完成设置之前完成剩余的设置步骤。</string>
 	<key>Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.</key>
@@ -450,6 +474,8 @@
 	<string>GPTK 可执行代码具有无效的 Apple 签名：%1$@。</string>
 	<key>GPTK import completed.</key>
 	<string>GPTK 导入完成。</string>
+	<key>Game Launchers</key>
+	<string>游戏启动器</string>
 	<key>Game Porting Toolkit</key>
 	<string>Game Porting Toolkit</string>
 	<key>General</key>
@@ -524,10 +550,16 @@
 	<string>已安装的程序</string>
 	<key>Installed Windows applications will appear here after setup.</key>
 	<string>安装后，已安装的 Windows 应用程序将出现在此处。</string>
+	<key>Installed and ready to launch.</key>
+	<string>已安装，可以启动。</string>
 	<key>Installed and verified</key>
 	<string>安装并验证</string>
 	<key>Installed compatible runtime %@.</key>
 	<string>安装了兼容运行时 %1$@。</string>
+	<key>Installers come directly from each publisher, are verified before use, and stay in Switchyard's private cache. Publisher terms appear in the Windows installer.</key>
+	<string>安装程序直接来自各发行商，使用前会经过验证，并保存在 Switchyard 的私有缓存中。发行商条款会显示在 Windows 安装程序中。</string>
+	<key>Installing</key>
+	<string>正在安装</string>
 	<key>Installing Compatible Runtime…</key>
 	<string>正在安装兼容的运行时...</string>
 	<key>Installing Rosetta 2…</key>
@@ -536,6 +568,8 @@
 	<string>正在安装...</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>保持 Windows 游戏打开，同时恢复其复制的登录回调。</string>
+	<key>Language</key>
+	<string>语言</string>
 	<key>Last checked %@</key>
 	<string>最后检查 %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -662,6 +696,8 @@
 	<string>没有环境覆盖。</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>无法加载已发布的运行时清单。</string>
+	<key>Not Installed</key>
+	<string>未安装</string>
 	<key>Not Now</key>
 	<string>以后再说</string>
 	<key>Not Recommended</key>
@@ -670,6 +706,8 @@
 	<string>不可用</string>
 	<key>Not checked in this session</key>
 	<string>本次会话中未检查</string>
+	<key>Not installed in this container.</key>
+	<string>未安装在此容器中。</string>
 	<key>Not recorded</key>
 	<string>未记录</string>
 	<key>Not selected</key>
@@ -680,6 +718,8 @@
 	<string>好</string>
 	<key>Official Releases</key>
 	<string>官方版本</string>
+	<key>Official download page</key>
+	<string>官方下载页面</string>
 	<key>One more step</key>
 	<string>又一步</string>
 	<key>Online Unknown</key>
@@ -724,8 +764,14 @@
 	<string>在“访达”中打开</string>
 	<key>Open the latest Switchyard release on GitHub</key>
 	<string>在GitHub上打开最新的Switchyard版本</string>
+	<key>Open the publisher's official download page</key>
+	<string>打开发行商的官方下载页面</string>
+	<key>Opening</key>
+	<string>正在打开</string>
 	<key>Opening the Steam installer…</key>
 	<string>打开 Steam 安装程序...</string>
+	<key>Opening…</key>
+	<string>正在打开…</string>
 	<key>Optional launch arguments</key>
 	<string>可选的启动参数</string>
 	<key>Optional — Switchyard will try again before launch</key>
@@ -742,6 +788,8 @@
 	<string>正在为 Steam 准备地方……</string>
 	<key>Preparing automatically…</key>
 	<string>自动准备...</string>
+	<key>Preparing the official %@ installer from %@.</key>
+	<string>正在准备由 %2$@ 提供的官方 %1$@ 安装程序。</string>
 	<key>Preparing this Windows container for the active Switchyard runtime.</key>
 	<string>正在为活动的 Switchyard 运行时准备此 Windows 容器。</string>
 	<key>Press Return or leave the field to rename the container and its folder</key>
@@ -840,6 +888,8 @@
 	<string>反应正常</string>
 	<key>Restart</key>
 	<string>重新启动</string>
+	<key>Restart Switchyard to apply the selected language.</key>
+	<string>重新启动 Switchyard 以应用所选语言。</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>重新启动会关闭此容器中的所有 Windows 进程，包括游戏和安装程序。要以全新状态重新启动吗？</string>
 	<key>Retention (days)</key>
@@ -1054,12 +1104,16 @@
 	<string>Switchyard 无法保护其私有缓存中下载的安装程序：%1$@</string>
 	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
 	<string>Switchyard 需要配备 Apple Silicon 且运行 macOS 14 或更高版本的 Mac。</string>
+	<key>Switchyard did not detect %@ after the installer closed. Try again in this same container.</key>
+	<string>安装程序关闭后，Switchyard 未检测到 %1$@。请在同一容器中重试。</string>
 	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
 	<string>Switchyard 不下载或捆绑 GPTK。 Apple 处理登录和许可接受； Switchyard 仅在检查 DMG 的可执行代码的 Apple 签名后导入。</string>
 	<key>Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.</key>
 	<string>Switchyard 通过 HTTPS 直接从 Valve 下载 SteamSetup.exe。</string>
 	<key>Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.</key>
 	<string>Switchyard 仅下载 Valve 的安装程序。普通的 Steam 屏幕处理游戏、更新和帐户登录。</string>
+	<key>Switchyard has not detected %@ yet. Finish or close the installer, then try again in this same container.</key>
+	<string>Switchyard 尚未检测到 %1$@。请完成或关闭安装程序，然后在同一容器中重试。</string>
 	<key>Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.</key>
 	<string>Switchyard 将 OFL Noto 字体安装到容器中，并映射常见的 Windows 字体系列名称，而无需捆绑 Microsoft 字体。</string>
 	<key>Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.</key>
@@ -1088,8 +1142,16 @@
 	<string>Switchyard 将在复制之前编辑常见机密和您的主文件夹路径。</string>
 	<key>System</key>
 	<string>系统</string>
+	<key>System Default</key>
+	<string>跟随系统</string>
 	<key>Technical Details</key>
 	<string>技术细节</string>
+	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
+	<string>%1$@ 下载文件异常大，因此 Switchyard 在使用前停止了下载。</string>
+	<key>The %@ installer could not be opened. Check Logs, then try again.</key>
+	<string>无法打开 %1$@ 安装程序。请检查日志，然后重试。</string>
+	<key>The %@ installer is open. Switchyard will detect the launcher automatically.</key>
+	<string>%1$@ 安装程序已打开。Switchyard 会自动检测启动器。</string>
 	<key>The Apple code-signing requirement could not be created.</key>
 	<string>无法创建 Apple 代码签名要求。</string>
 	<key>The GPTK source contains a symbolic link outside its import directory.</key>
@@ -1128,12 +1190,16 @@
 	<string>磁盘映像不包含已知的 D3DMetal/GPTK 标记文件。</string>
 	<key>The download is ready. Switchyard will verify Apple's signature before importing it.</key>
 	<string>下载已准备就绪。 Switchyard在导入之前会验证Apple的签名。</string>
+	<key>The download left %@'s approved installer service, so Switchyard stopped it.</key>
+	<string>下载离开了 %1$@ 批准的安装程序服务，因此 Switchyard 已将其停止。</string>
 	<key>The download left the official Valve download service, so Switchyard stopped it.</key>
 	<string>该下载离开了官方Valve下载服务，因此Switchyard停止了它。</string>
 	<key>The download was unexpectedly large, so Switchyard stopped before using it.</key>
 	<string>下载量出乎意料地大，因此 Switchyard 在使用之前停止了。</string>
 	<key>The downloaded file is not a complete Windows Steam installer.</key>
 	<string>下载的文件不是完整的 Windows Steam 安装程序。</string>
+	<key>The downloaded file is not a complete Windows installer for %@.</key>
+	<string>下载的文件不是 %1$@ 的完整 Windows 安装程序。</string>
 	<key>The downloaded runtime checksum does not match its release manifest.</key>
 	<string>下载的运行时校验和与其发布清单不匹配。</string>
 	<key>The downloaded runtime size does not match its release manifest.</key>
@@ -1252,6 +1318,8 @@
 	<string>标准的 Windows 安装程序很快就会出现。</string>
 	<key>The verified Valve download is ready to install.</key>
 	<string>经过验证的 Valve 下载已准备好安装。</string>
+	<key>The verified download is ready. Opening the Windows installer…</key>
+	<string>已验证下载内容。正在打开 Windows 安装程序…</string>
 	<key>There are no visible files in this folder.</key>
 	<string>此文件夹中没有可见文件。</string>
 	<key>These runtimes are in Switchyard's managed cache but do not match the currently loaded official release list.</key>
@@ -1340,12 +1408,12 @@
 	<string>等待 %1$@ 完成当前操作，然后再删除其容器。</string>
 	<key>Wait for %@ to finish its current session action before starting another executable.</key>
 	<string>等待 %1$@ 完成其当前会话操作，然后再启动另一个可执行文件。</string>
+	<key>Wait for all container activity to stop before changing GPTK.</key>
+	<string>请等待所有容器活动停止后再更改 GPTK。</string>
 	<key>Wait for all container activity to stop before changing the active runtime.</key>
 	<string>更改活动运行时前，请等待所有容器任务结束。</string>
 	<key>Wait for all container activity to stop before removing a runtime.</key>
 	<string>移除运行时前，请等待所有容器任务结束。</string>
-	<key>Wait for all container activity to stop before changing GPTK.</key>
-	<string>请等待所有容器活动停止后再更改 GPTK。</string>
 	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
 	<string>请等待兼容性设置完成后再启动 Windows 应用。</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
@@ -1442,11 +1510,5 @@
 	<string>wineserver 无法停止（退出代码 %1$d）：%2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo 失败</string>
-	<key>Language</key>
-	<string>语言</string>
-	<key>Restart Switchyard to apply the selected language.</key>
-	<string>重新启动 Switchyard 以应用所选语言。</string>
-	<key>System Default</key>
-	<string>跟随系统</string>
 </dict>
 </plist>

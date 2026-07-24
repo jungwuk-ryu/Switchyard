@@ -28,12 +28,13 @@ This is a compatibility snapshot, not a blanket support guarantee. Results can v
 - Creates Wine containers with portable manifests and last-used runtime provenance.
 - Detects Apple Silicon, macOS, a user-selected Game Porting Toolkit installation, and a compatible Wine runtime.
 - Runs install and launch plans through a separate `switchyard-runner` process.
+- Downloads reviewed Steam, Battle.net, Epic Games, and Rockstar Games Windows installers from fixed official endpoints, then detects the installed launcher inside the selected container.
 - Records the active Wine build, source revision, and GPTK fingerprint most recently used by each container for diagnostics.
 - Installs verified Noto fonts as open replacements for common Windows UI fonts.
 - Bridges application-registered custom URL schemes back into the originating Wine container after a macOS browser login.
 - Keeps diagnostic and debug logs local unless the user explicitly copies them.
 
-The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher, and GOG Galaxy are development targets, not guaranteed compatibility claims. Switchyard does not bypass DRM or anti-cheat systems.
+The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher, and Rockstar Games Launcher are development targets, not guaranteed compatibility claims. Switchyard does not bypass DRM or anti-cheat systems.
 
 ## Runtime and License Boundaries
 
@@ -97,7 +98,7 @@ The first full source build can take a while. Wine source, build products, impor
 - `Tests`: Swift package and shell integration tests
 - `docs`: architecture decisions, development notes, privacy, testing, and licensing
 
-Start with [Architecture](docs/architecture.md) and [Development](docs/development.md). Contributions are welcome through [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities according to [SECURITY.md](SECURITY.md).
+Start with [Architecture](docs/architecture.md), [Development](docs/development.md), and the [official launcher installer catalog](docs/launcher-installers.md). Contributions are welcome through [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities according to [SECURITY.md](SECURITY.md).
 
 ## License
 

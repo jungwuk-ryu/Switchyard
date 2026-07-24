@@ -26,10 +26,14 @@
 	<string>Falta %1$@ en la caché paquete de fuentes abiertas: %2$@</string>
 	<key>%@ is now the active app-wide runtime.</key>
 	<string>%1$@ es ahora el entorno de ejecución activo de toda la app.</string>
+	<key>%@ was detected and is ready to launch.</key>
+	<string>Se detectó %1$@ y está listo para iniciarse.</string>
 	<key>%@ was removed from Switchyard, but its folder was already missing.</key>
 	<string>%1$@ se eliminó de Switchyard, pero ya faltaba su carpeta.</string>
 	<key>%@ · %@ · source %@</key>
 	<string>%1$@ · %2$@ · fuente %3$@</string>
+	<key>%@'s download service did not return a complete installer.</key>
+	<string>El servicio de descarga de %1$@ no devolvió un instalador completo.</string>
 	<key>%@, %@</key>
 	<string>%1$@, %2$@</string>
 	<key>%lld</key>
@@ -120,6 +124,8 @@
 	<string>Atrás</string>
 	<key>Back to Containers</key>
 	<string>Volver a los contenedores</string>
+	<key>Browse Game Launchers</key>
+	<string>Explorar lanzadores de juegos</string>
 	<key>Build %@</key>
 	<string>Compilación %1$@</string>
 	<key>Build not available</key>
@@ -130,6 +136,8 @@
 	<string>Cancelar</string>
 	<key>Cancel Download</key>
 	<string>Cancelar descarga</string>
+	<key>Cancelled the %@ installer download.</key>
+	<string>Se canceló la descarga del instalador de %1$@.</string>
 	<key>Check Failed</key>
 	<string>Verificación fallida</string>
 	<key>Check for Releases</key>
@@ -184,6 +192,8 @@
 	<string>Elija un ejecutable Wine o una carpeta de tiempo de ejecución Wine.</string>
 	<key>Choose a Wine executable or runtime folder manually.</key>
 	<string>Elija manualmente un ejecutable Wine o una carpeta de tiempo de ejecución.</string>
+	<key>Choose a launcher and Switchyard will securely download its official Windows installer, open it here, and detect when setup finishes.</key>
+	<string>Elige un lanzador y Switchyard descargará de forma segura su instalador oficial para Windows, lo abrirá aquí y detectará cuándo termine la instalación.</string>
 	<key>Choose a local GPTK directory or disk image.</key>
 	<string>Elija un directorio GPTK o una imagen de disco local.</string>
 	<key>Choose a locally built Wine executable or runtime folder.</key>
@@ -278,6 +288,10 @@
 	<string>Copie la dirección de devolución de llamada no válida de Safari antes de recuperarla.</string>
 	<key>Could not choose a safe macOS desktop name for %@.</key>
 	<string>No se pudo elegir un nombre de escritorio macOS seguro para %1$@.</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>No se pudo borrar el diario de registros en vivo: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>No se pudo continuar el registro en vivo de este contenedor: %1$@</string>
 	<key>Could not create a temporary download file.</key>
 	<string>No se pudo crear un archivo de descarga temporal.</string>
 	<key>Could not create debug log directory %@: %@</key>
@@ -320,10 +334,6 @@
 	<string>No se pudieron detener los procesos Wine: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>No se pudo confiar en este entorno de ejecución oficial: %1$@</string>
-	<key>Could not clear the live log journal: %@</key>
-	<string>No se pudo borrar el diario de registros en vivo: %1$@</string>
-	<key>Could not continue this container's live log: %@</key>
-	<string>No se pudo continuar el registro en vivo de este contenedor: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>No se pudieron actualizar los registros de depuración almacenados: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
@@ -368,6 +378,8 @@
 	<string>Construcción diferente registrada</string>
 	<key>Download</key>
 	<string>Descargar</string>
+	<key>Download &amp; Install</key>
+	<string>Descargar e instalar</string>
 	<key>Download Steam</key>
 	<string>Descargar Steam</string>
 	<key>Download and switch between signed Switchyard Wine releases.</key>
@@ -386,6 +398,12 @@
 	<string>Descargue, verifique y seleccione el tiempo de ejecución más reciente compatible con esta versión Switchyard</string>
 	<key>Downloaded %lld Open Font Pack font file(s); %lld file(s) were already cached.</key>
 	<string>Se descargaron %1$lld archivos del paquete de fuentes abiertas; %2$lld ya estaban en caché.</string>
+	<key>Downloading</key>
+	<string>Descargando</string>
+	<key>Downloading %@… %@</key>
+	<string>Descargando %1$@… %2$@</string>
+	<key>Downloading %@… %@ of %@</key>
+	<string>Descargando %1$@… %2$@ de %3$@</string>
 	<key>Downloading and verifying about 700 MB…</key>
 	<string>Descargando y verificando unos 700 MB…</string>
 	<key>Downloading open-licensed fonts…</key>
@@ -420,16 +438,22 @@
 	<string>Encontrar la aplicación Windows esperando el %1$@: devolución de llamada…</string>
 	<key>Finish Setting Up Switchyard</key>
 	<string>Terminar de configurar Switchyard</string>
+	<key>Finish Switchyard setup before installing %@.</key>
+	<string>Termina de configurar Switchyard antes de instalar %1$@.</string>
 	<key>Finish Switchyard setup before installing Steam.</key>
 	<string>Finalice la configuración de Switchyard antes de instalar Steam.</string>
 	<key>Finish Without Steam</key>
 	<string>Terminar sin Steam</string>
+	<key>Finish in Installer</key>
+	<string>Finalizar en el instalador</string>
 	<key>Finish installing Steam…</key>
 	<string>Termine de instalar Steam…</string>
 	<key>Finish setting up Steam</key>
 	<string>Terminar de configurar Steam</string>
 	<key>Finish setup before creating a container</key>
 	<string>Finalice la configuración antes de crear un contenedor</string>
+	<key>Finish the normal Windows setup. Switchyard is checking this container automatically.</key>
+	<string>Completa la instalación normal de Windows. Switchyard comprobará este contenedor automáticamente.</string>
 	<key>Finish the remaining setup step before completing setup.</key>
 	<string>Finalice el paso de configuración restante antes de completar la configuración.</string>
 	<key>Finish the standard Steam installer. Switchyard will detect Steam and continue automatically.</key>
@@ -450,6 +474,8 @@
 	<string>El código ejecutable GPTK tiene una firma de Apple no válida: %1$@.</string>
 	<key>GPTK import completed.</key>
 	<string>Se completó la importación de GPTK.</string>
+	<key>Game Launchers</key>
+	<string>Lanzadores de juegos</string>
 	<key>Game Porting Toolkit</key>
 	<string>Game Porting Toolkit</string>
 	<key>General</key>
@@ -524,10 +550,16 @@
 	<string>Programas instalados</string>
 	<key>Installed Windows applications will appear here after setup.</key>
 	<string>Las aplicaciones Windows instaladas aparecerán aquí después de la instalación.</string>
+	<key>Installed and ready to launch.</key>
+	<string>Instalado y listo para iniciarse.</string>
 	<key>Installed and verified</key>
 	<string>Instalado y verificado</string>
 	<key>Installed compatible runtime %@.</key>
 	<string>Tiempo de ejecución compatible instalado %1$@.</string>
+	<key>Installers come directly from each publisher, are verified before use, and stay in Switchyard's private cache. Publisher terms appear in the Windows installer.</key>
+	<string>Los instaladores proceden directamente de cada editor, se verifican antes de usarse y permanecen en la caché privada de Switchyard. Las condiciones del editor aparecen en el instalador de Windows.</string>
+	<key>Installing</key>
+	<string>Instalando</string>
 	<key>Installing Compatible Runtime…</key>
 	<string>Instalando tiempo de ejecución compatible...</string>
 	<key>Installing Rosetta 2…</key>
@@ -536,6 +568,8 @@
 	<string>Instalando…</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>Mantenga abierto el juego Windows mientras recupera la devolución de llamada de inicio de sesión copiada.</string>
+	<key>Language</key>
+	<string>Idioma</string>
 	<key>Last checked %@</key>
 	<string>Última comprobación %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -662,6 +696,8 @@
 	<string>No se anula ningún entorno.</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>No se pudo cargar ningún manifiesto publicado del entorno de ejecución.</string>
+	<key>Not Installed</key>
+	<string>No instalado</string>
 	<key>Not Now</key>
 	<string>Ahora no</string>
 	<key>Not Recommended</key>
@@ -670,6 +706,8 @@
 	<string>No disponible</string>
 	<key>Not checked in this session</key>
 	<string>No marcado en esta sesión</string>
+	<key>Not installed in this container.</key>
+	<string>No está instalado en este contenedor.</string>
 	<key>Not recorded</key>
 	<string>Sin registrar</string>
 	<key>Not selected</key>
@@ -680,6 +718,8 @@
 	<string>Aceptar</string>
 	<key>Official Releases</key>
 	<string>Versiones oficiales</string>
+	<key>Official download page</key>
+	<string>Página oficial de descarga</string>
 	<key>One more step</key>
 	<string>un paso mas</string>
 	<key>Online Unknown</key>
@@ -724,8 +764,14 @@
 	<string>Abrir en el Finder</string>
 	<key>Open the latest Switchyard release on GitHub</key>
 	<string>Abra la última versión de Switchyard en GitHub</string>
+	<key>Open the publisher's official download page</key>
+	<string>Abrir la página oficial de descarga del editor</string>
+	<key>Opening</key>
+	<string>Abriendo</string>
 	<key>Opening the Steam installer…</key>
 	<string>Abriendo el instalador Steam…</string>
+	<key>Opening…</key>
+	<string>Abriendo…</string>
 	<key>Optional launch arguments</key>
 	<string>Argumentos de lanzamiento opcionales</string>
 	<key>Optional — Switchyard will try again before launch</key>
@@ -742,6 +788,8 @@
 	<string>Preparando un lugar para Steam…</string>
 	<key>Preparing automatically…</key>
 	<string>Preparándose automáticamente…</string>
+	<key>Preparing the official %@ installer from %@.</key>
+	<string>Preparando el instalador oficial de %1$@ de %2$@.</string>
 	<key>Preparing this Windows container for the active Switchyard runtime.</key>
 	<string>Preparando este contenedor de Windows para el entorno de ejecución activo de Switchyard.</string>
 	<key>Press Return or leave the field to rename the container and its folder</key>
@@ -840,6 +888,8 @@
 	<string>Respondiendo normalmente</string>
 	<key>Restart</key>
 	<string>Reiniciar</string>
+	<key>Restart Switchyard to apply the selected language.</key>
+	<string>Reinicia Switchyard para aplicar el idioma seleccionado.</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>Al reiniciar se cerrarán todos los procesos de Windows de este contenedor, incluidos los juegos y los instaladores. ¿Quieres reiniciar con una sesión nueva?</string>
 	<key>Retention (days)</key>
@@ -1054,12 +1104,16 @@
 	<string>Switchyard no pudo proteger el instalador descargado en su caché privada: %1$@</string>
 	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
 	<string>Switchyard requiere un Mac con Apple Silicon y macOS 14 o posterior.</string>
+	<key>Switchyard did not detect %@ after the installer closed. Try again in this same container.</key>
+	<string>Switchyard no detectó %1$@ después de cerrar el instalador. Inténtalo de nuevo en este mismo contenedor.</string>
 	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
 	<string>Switchyard no descarga ni incluye GPTK. Apple maneja el inicio de sesión y la aceptación de licencias; Switchyard importa solo después de verificar el código ejecutable de DMG para buscar firmas de Apple.</string>
 	<key>Switchyard downloads SteamSetup.exe directly from Valve over HTTPS.</key>
 	<string>Switchyard descarga SteamSetup.exe directamente desde Valve a través de HTTPS.</string>
 	<key>Switchyard downloads only Valve's installer. The normal Steam screens handle games, updates, and account sign-in.</key>
 	<string>Switchyard descarga únicamente el instalador de Valve. Las pantallas normales Steam manejan juegos, actualizaciones e inicio de sesión de cuenta.</string>
+	<key>Switchyard has not detected %@ yet. Finish or close the installer, then try again in this same container.</key>
+	<string>Switchyard aún no ha detectado %1$@. Finaliza o cierra el instalador y vuelve a intentarlo en este mismo contenedor.</string>
 	<key>Switchyard installs OFL Noto fonts into containers and maps common Windows font family names without bundling Microsoft fonts.</key>
 	<string>Switchyard instala las fuentes Noto OFL en contenedores y asigna nombres de familias de fuentes Windows comunes sin agrupar fuentes de Microsoft.</string>
 	<key>Switchyard is downloading and verifying the files it needs. Keep the app open while this finishes.</key>
@@ -1088,8 +1142,16 @@
 	<string>Switchyard redactará los secretos comunes y la ruta de su carpeta de inicio antes de copiar.</string>
 	<key>System</key>
 	<string>Sistema</string>
+	<key>System Default</key>
+	<string>Configuración del sistema</string>
 	<key>Technical Details</key>
 	<string>Detalles técnicos</string>
+	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
+	<string>La descarga de %1$@ era inesperadamente grande, así que Switchyard la detuvo antes de usarla.</string>
+	<key>The %@ installer could not be opened. Check Logs, then try again.</key>
+	<string>No se pudo abrir el instalador de %1$@. Consulta los registros y vuelve a intentarlo.</string>
+	<key>The %@ installer is open. Switchyard will detect the launcher automatically.</key>
+	<string>El instalador de %1$@ está abierto. Switchyard detectará el lanzador automáticamente.</string>
 	<key>The Apple code-signing requirement could not be created.</key>
 	<string>No se pudo crear el requisito de firma de código de Apple.</string>
 	<key>The GPTK source contains a symbolic link outside its import directory.</key>
@@ -1128,12 +1190,16 @@
 	<string>La imagen del disco no contenía archivos de marcadores D3DMetal/GPTK conocidos.</string>
 	<key>The download is ready. Switchyard will verify Apple's signature before importing it.</key>
 	<string>La descarga está lista. Switchyard verificará la firma de Apple antes de importarla.</string>
+	<key>The download left %@'s approved installer service, so Switchyard stopped it.</key>
+	<string>La descarga salió del servicio de instalación aprobado de %1$@, así que Switchyard la detuvo.</string>
 	<key>The download left the official Valve download service, so Switchyard stopped it.</key>
 	<string>La descarga salió del servicio de descarga oficial Valve, por lo que Switchyard la detuvo.</string>
 	<key>The download was unexpectedly large, so Switchyard stopped before using it.</key>
 	<string>La descarga fue inesperadamente grande, por lo que Switchyard se detuvo antes de usarla.</string>
 	<key>The downloaded file is not a complete Windows Steam installer.</key>
 	<string>El archivo descargado no es un instalador completo de Windows Steam.</string>
+	<key>The downloaded file is not a complete Windows installer for %@.</key>
+	<string>El archivo descargado no es un instalador completo de Windows para %1$@.</string>
 	<key>The downloaded runtime checksum does not match its release manifest.</key>
 	<string>La suma de comprobación del tiempo de ejecución descargada no coincide con su manifiesto de lanzamiento.</string>
 	<key>The downloaded runtime size does not match its release manifest.</key>
@@ -1252,6 +1318,8 @@
 	<string>El instalador estándar Windows aparecerá en un momento.</string>
 	<key>The verified Valve download is ready to install.</key>
 	<string>La descarga verificada de Valve está lista para instalarse.</string>
+	<key>The verified download is ready. Opening the Windows installer…</key>
+	<string>La descarga verificada está lista. Abriendo el instalador de Windows…</string>
 	<key>There are no visible files in this folder.</key>
 	<string>No hay archivos visibles en esta carpeta.</string>
 	<key>These runtimes are in Switchyard's managed cache but do not match the currently loaded official release list.</key>
@@ -1340,12 +1408,12 @@
 	<string>Espere a que %1$@ finalice su acción actual antes de eliminar su contenedor.</string>
 	<key>Wait for %@ to finish its current session action before starting another executable.</key>
 	<string>Espere a que %1$@ finalice la acción de la sesión actual antes de iniciar otro ejecutable.</string>
+	<key>Wait for all container activity to stop before changing GPTK.</key>
+	<string>Espera a que finalice toda la actividad de los contenedores antes de cambiar GPTK.</string>
 	<key>Wait for all container activity to stop before changing the active runtime.</key>
 	<string>Espera a que termine toda la actividad de los contenedores antes de cambiar el entorno activo.</string>
 	<key>Wait for all container activity to stop before removing a runtime.</key>
 	<string>Espera a que termine toda la actividad de los contenedores antes de eliminar un entorno.</string>
-	<key>Wait for all container activity to stop before changing GPTK.</key>
-	<string>Espera a que finalice toda la actividad de los contenedores antes de cambiar GPTK.</string>
 	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
 	<string>Espera a que finalice la configuración de compatibilidad antes de iniciar una app de Windows.</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
@@ -1442,11 +1510,5 @@
 	<string>No se pudo detener wineserver (código de salida %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo falló</string>
-	<key>Language</key>
-	<string>Idioma</string>
-	<key>Restart Switchyard to apply the selected language.</key>
-	<string>Reinicia Switchyard para aplicar el idioma seleccionado.</string>
-	<key>System Default</key>
-	<string>Configuración del sistema</string>
 </dict>
 </plist>

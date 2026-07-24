@@ -324,6 +324,39 @@ enum StarterApplicationInstallationState: Equatable {
     }
 }
 
+enum LauncherInstallationState: Equatable {
+    case idle
+    case downloading(receivedByteCount: Int64, expectedByteCount: Int64?)
+    case openingInstaller
+    case installerOpen
+    case installed
+    case failed(String)
+
+    var isWorking: Bool {
+        switch self {
+        case .downloading, .openingInstaller, .installerOpen:
+            true
+        case .idle, .installed, .failed:
+            false
+        }
+    }
+
+    var isDownloading: Bool {
+        if case .downloading = self { return true }
+        return false
+    }
+
+    var errorMessage: String? {
+        if case .failed(let message) = self { return message }
+        return nil
+    }
+}
+
+private struct LauncherInstallationKey: Hashable, Sendable {
+    var containerID: UUID
+    var applicationID: String
+}
+
 @MainActor
 final class AppStore: ObservableObject {
     @Published var selectedSection: SidebarSelection = .containers
@@ -364,6 +397,8 @@ final class AppStore: ObservableObject {
     @Published private(set) var startingPrefixContainerIDs: Set<UUID> = []
     @Published private(set) var launchingExecutablePathByContainerID: [UUID: String] = [:]
     @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
+    @Published private var launcherInstallationStates:
+        [LauncherInstallationKey: LauncherInstallationState] = [:]
     @Published private(set) var recentProgramLaunchesByContainerID: [UUID: [RecentProgramLaunch]] = [:]
     @Published private(set) var sessionSnapshotsByContainerID: [UUID: ContainerSessionSnapshot] = [:]
     @Published private(set) var stoppingWineServerContainerIDs: Set<UUID> = []
@@ -399,6 +434,9 @@ final class AppStore: ObservableObject {
     private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
     private var starterApplicationDetectionTask: Task<Void, Never>?
+    private var launcherInstallationIDs: [LauncherInstallationKey: UUID] = [:]
+    private var launcherDownloadTasks: [LauncherInstallationKey: Task<URL, Error>] = [:]
+    private var launcherInstallationTasks: [LauncherInstallationKey: Task<Void, Never>] = [:]
     private var activeRunSessionIDsByContainerID: [UUID: Set<UUID>] = [:]
     private var userStoppedRunSessionIDs: Set<UUID> = []
     private var prefixStartupTasks: [UUID: Task<Void, Never>] = [:]
@@ -1431,8 +1469,8 @@ final class AppStore: ObservableObject {
     }
 
     func downloadSteamInstaller() {
-        guard !isDownloadingSteamInstaller else { return }
         let starter = StarterApplicationCatalog.steam
+        guard !isLauncherInstallationInProgress(for: starter.id) else { return }
         steamDownloadTask?.cancel()
         downloadedSteamInstallerPath = nil
         isDownloadingSteamInstaller = true
@@ -1490,7 +1528,11 @@ final class AppStore: ObservableObject {
     }
 
     func installSteam() {
-        guard !steamInstallationState.isWorking else { return }
+        guard !isLauncherInstallationInProgress(
+            for: StarterApplicationCatalog.steam.id
+        ) else {
+            return
+        }
         guard runtimeStatus.canLaunch else {
             steamInstallationState = .failed(
                 String(
@@ -2170,6 +2212,263 @@ final class AppStore: ObservableObject {
         runExecutable(program.executablePath, in: containerID)
     }
 
+    func launcherInstallationState(
+        for applicationID: String,
+        in containerID: UUID
+    ) -> LauncherInstallationState {
+        guard let application = StarterApplicationCatalog.application(id: applicationID),
+              let container = containers.first(where: { $0.id == containerID }) else {
+            return .idle
+        }
+        if application.installedProgram(in: installedPrograms(for: containerID)) != nil {
+            return .installed
+        }
+
+        if isGuidedSteamInstallation(application, container: container) {
+            if isDownloadingSteamInstaller {
+                return .downloading(receivedByteCount: 0, expectedByteCount: nil)
+            }
+            switch steamInstallationState {
+            case .preparing, .launching:
+                return .openingInstaller
+            case .installerStarted(let activeContainerID)
+                where activeContainerID == containerID:
+                return .installerOpen
+            case .installed(let installedContainerID)
+                where installedContainerID == containerID:
+                return .installed
+            case .failed(let message):
+                return .failed(message)
+            case .idle, .installerStarted, .installed:
+                break
+            }
+        }
+
+        let key = LauncherInstallationKey(
+            containerID: containerID,
+            applicationID: applicationID
+        )
+        return launcherInstallationStates[key] ?? .idle
+    }
+
+    func installedLauncherProgram(
+        for applicationID: String,
+        in containerID: UUID
+    ) -> InstalledProgram? {
+        StarterApplicationCatalog.application(id: applicationID)?
+            .installedProgram(in: installedPrograms(for: containerID))
+    }
+
+    func isLauncherInstallationInProgress(in containerID: UUID) -> Bool {
+        StarterApplicationCatalog.all.contains {
+            launcherInstallationState(for: $0.id, in: containerID).isWorking
+        }
+    }
+
+    func isLauncherInstallationInProgress(for applicationID: String) -> Bool {
+        if applicationID == StarterApplicationCatalog.steam.id,
+           isDownloadingSteamInstaller || steamInstallationState.isWorking {
+            return true
+        }
+        return launcherInstallationStates.contains { entry in
+            entry.key.applicationID == applicationID && entry.value.isWorking
+        }
+    }
+
+    func installLauncher(_ applicationID: String, in containerID: UUID) {
+        guard let application = StarterApplicationCatalog.application(id: applicationID),
+              let container = containers.first(where: { $0.id == containerID }) else {
+            return
+        }
+        if let program = application.installedProgram(
+            in: installedPrograms(for: containerID)
+        ) {
+            runInstalledProgram(program, in: containerID)
+            return
+        }
+        if isGuidedSteamInstallation(application, container: container) {
+            continueSteamSetup()
+            return
+        }
+        guard !isContainerTransitioning(containerID),
+              !isLauncherInstallationInProgress(in: containerID),
+              !isLauncherInstallationInProgress(for: applicationID) else {
+            return
+        }
+        guard runtimeStatus.canLaunch else {
+            let key = LauncherInstallationKey(
+                containerID: containerID,
+                applicationID: applicationID
+            )
+            launcherInstallationStates[key] = .failed(
+                String(
+                    localized: "Finish Switchyard setup before installing \(application.displayName).",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+            requestSetupAssistant()
+            return
+        }
+
+        let key = LauncherInstallationKey(
+            containerID: containerID,
+            applicationID: applicationID
+        )
+        let installationID = UUID()
+        launcherInstallationIDs[key] = installationID
+        launcherInstallationStates[key] = .downloading(
+            receivedByteCount: 0,
+            expectedByteCount: nil
+        )
+        logLines.insert(
+            LogLine(
+                containerID: containerID,
+                level: "info",
+                source: container.name,
+                message: String(
+                    localized: "Preparing the official \(application.displayName) installer from \(application.publisherName).",
+                    bundle: SwitchyardStrings.bundle
+                )
+            ),
+            at: 0
+        )
+
+        let progressHandler: @Sendable (StarterApplicationDownloadProgress) -> Void = {
+            [weak self] progress in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.launcherInstallationIDs[key] == installationID,
+                      self.launcherInstallationStates[key]?.isDownloading == true else {
+                    return
+                }
+                self.launcherInstallationStates[key] = .downloading(
+                    receivedByteCount: progress.receivedByteCount,
+                    expectedByteCount: progress.expectedByteCount
+                )
+            }
+        }
+        let downloadTask: Task<URL, Error> = Task.detached(priority: .userInitiated) {
+            let downloader = StarterApplicationDownloader()
+            if let cachedInstaller = downloader.trustedCachedInstaller(for: application) {
+                return cachedInstaller
+            }
+            return try await downloader.download(application, progress: progressHandler)
+        }
+        launcherDownloadTasks[key] = downloadTask
+
+        launcherInstallationTasks[key] = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if self.launcherInstallationIDs[key] == installationID {
+                    self.launcherDownloadTasks.removeValue(forKey: key)
+                    self.launcherInstallationTasks.removeValue(forKey: key)
+                    self.launcherInstallationIDs.removeValue(forKey: key)
+                }
+            }
+
+            do {
+                let installerURL = try await downloadTask.value
+                try Task.checkCancellation()
+                guard self.launcherInstallationIDs[key] == installationID else {
+                    return
+                }
+
+                self.launcherDownloadTasks.removeValue(forKey: key)
+                self.launcherInstallationStates[key] = .openingInstaller
+                let didLaunch = await self.runContainer(
+                    containerID: containerID,
+                    executablePath: installerURL.path,
+                    executableArguments: []
+                )
+                try Task.checkCancellation()
+                guard self.launcherInstallationIDs[key] == installationID else {
+                    return
+                }
+                guard didLaunch else {
+                    self.launcherInstallationStates[key] = .failed(
+                        String(
+                            localized: "The \(application.displayName) installer could not be opened. Check Logs, then try again.",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    )
+                    return
+                }
+
+                self.launcherInstallationStates[key] = .installerOpen
+                self.logLines.insert(
+                    LogLine(
+                        containerID: containerID,
+                        level: "info",
+                        source: container.name,
+                        message: String(
+                            localized: "The \(application.displayName) installer is open. Switchyard will detect the launcher automatically.",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    ),
+                    at: 0
+                )
+                await self.monitorLauncherInstallation(
+                    application,
+                    containerID: containerID,
+                    key: key,
+                    installationID: installationID
+                )
+            } catch is CancellationError {
+                if self.launcherInstallationIDs[key] == installationID {
+                    self.launcherInstallationStates[key] = .idle
+                }
+            } catch {
+                guard self.launcherInstallationIDs[key] == installationID else {
+                    return
+                }
+                let message = Self.errorDescription(error)
+                self.launcherInstallationStates[key] = .failed(message)
+                self.logLines.insert(
+                    LogLine(
+                        containerID: containerID,
+                        level: "error",
+                        source: container.name,
+                        message: message
+                    ),
+                    at: 0
+                )
+            }
+        }
+    }
+
+    func cancelLauncherDownload(_ applicationID: String, in containerID: UUID) {
+        guard let application = StarterApplicationCatalog.application(id: applicationID),
+              let container = containers.first(where: { $0.id == containerID }) else {
+            return
+        }
+        if isGuidedSteamInstallation(application, container: container) {
+            cancelSteamDownloadWait()
+            return
+        }
+
+        let key = LauncherInstallationKey(
+            containerID: containerID,
+            applicationID: applicationID
+        )
+        guard launcherInstallationStates[key]?.isDownloading == true else { return }
+        launcherInstallationIDs.removeValue(forKey: key)
+        launcherDownloadTasks.removeValue(forKey: key)?.cancel()
+        launcherInstallationTasks.removeValue(forKey: key)?.cancel()
+        launcherInstallationStates[key] = .idle
+        logLines.insert(
+            LogLine(
+                containerID: containerID,
+                level: "info",
+                source: container.name,
+                message: String(
+                    localized: "Cancelled the \(application.displayName) installer download.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            ),
+            at: 0
+        )
+    }
+
     func installedPrograms(for containerID: UUID) -> [InstalledProgram] {
         installedProgramsByContainerID[containerID] ?? []
     }
@@ -2446,6 +2745,14 @@ final class AppStore: ObservableObject {
         launchingExecutablePathByContainerID.removeValue(forKey: containerID)
     }
 
+    private func isGuidedSteamInstallation(
+        _ application: StarterApplication,
+        container: Container
+    ) -> Bool {
+        application.id == StarterApplicationCatalog.steam.id
+            && container.starterApplicationID == StarterApplicationCatalog.steam.id
+    }
+
     func refreshInstalledPrograms(for containerID: UUID) {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
         installedProgramTasks[containerID]?.cancel()
@@ -2461,8 +2768,184 @@ final class AppStore: ObservableObject {
                 programs,
                 containerID: containerID
             )
+            self.reconcileLauncherInstallations(
+                programs,
+                containerID: containerID
+            )
             self.installedProgramTasks.removeValue(forKey: containerID)
         }
+    }
+
+    private func monitorLauncherInstallation(
+        _ application: StarterApplication,
+        containerID: UUID,
+        key: LauncherInstallationKey,
+        installationID: UUID
+    ) async {
+        for _ in 0..<120 {
+            guard !Task.isCancelled,
+                  launcherInstallationIDs[key] == installationID,
+                  let container = containers.first(where: { $0.id == containerID }) else {
+                return
+            }
+            let programs = await Task.detached(priority: .utility) {
+                InstalledProgramCatalog().installedPrograms(in: container)
+            }.value
+            guard !Task.isCancelled,
+                  launcherInstallationIDs[key] == installationID else {
+                return
+            }
+            installedProgramsByContainerID[containerID] = programs
+            selectStarterApplicationAsDefaultIfNeeded(
+                programs,
+                containerID: containerID
+            )
+            if let program = application.installedProgram(in: programs) {
+                finishLauncherInstallation(
+                    application,
+                    program: program,
+                    containerID: containerID,
+                    key: key
+                )
+                return
+            }
+
+            if !isContainerRunning(containerID)
+                && !isContainerTransitioning(containerID) {
+                failLauncherDetection(
+                    application,
+                    containerID: containerID,
+                    key: key
+                )
+                return
+            }
+
+            do {
+                try await Task.sleep(for: .seconds(3))
+            } catch {
+                return
+            }
+        }
+        guard !Task.isCancelled,
+              launcherInstallationIDs[key] == installationID else {
+            return
+        }
+        timeOutLauncherDetection(
+            application,
+            containerID: containerID,
+            key: key
+        )
+    }
+
+    private func reconcileLauncherInstallations(
+        _ programs: [InstalledProgram],
+        containerID: UUID
+    ) {
+        for application in StarterApplicationCatalog.all {
+            let key = LauncherInstallationKey(
+                containerID: containerID,
+                applicationID: application.id
+            )
+            if let program = application.installedProgram(in: programs) {
+                if let state = launcherInstallationStates[key],
+                   state != .installed {
+                    finishLauncherInstallation(
+                        application,
+                        program: program,
+                        containerID: containerID,
+                        key: key
+                    )
+                }
+            } else if launcherInstallationStates[key] == .installed {
+                launcherInstallationStates.removeValue(forKey: key)
+            } else if launcherInstallationStates[key] == .installerOpen,
+                      !isContainerRunning(containerID),
+                      !isContainerTransitioning(containerID) {
+                failLauncherDetection(
+                    application,
+                    containerID: containerID,
+                    key: key
+                )
+            }
+        }
+    }
+
+    private func finishLauncherInstallation(
+        _ application: StarterApplication,
+        program: InstalledProgram,
+        containerID: UUID,
+        key: LauncherInstallationKey
+    ) {
+        guard launcherInstallationStates[key] != .installed else { return }
+        if containers.first(where: { $0.id == containerID })
+            .map({ $0.executablePath?.isEmpty ?? true }) == true {
+            updateDefaultExecutable(
+                for: containerID,
+                to: program.executablePath,
+                arguments: []
+            )
+        }
+        launcherInstallationStates[key] = .installed
+        let containerName = containers.first(where: { $0.id == containerID })?.name
+            ?? application.displayName
+        logLines.insert(
+            LogLine(
+                containerID: containerID,
+                level: "info",
+                source: containerName,
+                message: String(
+                    localized: "\(application.displayName) was detected and is ready to launch.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            ),
+            at: 0
+        )
+    }
+
+    private func failLauncherDetection(
+        _ application: StarterApplication,
+        containerID: UUID,
+        key: LauncherInstallationKey
+    ) {
+        let message = String(
+            localized: "Switchyard did not detect \(application.displayName) after the installer closed. Try again in this same container.",
+            bundle: SwitchyardStrings.bundle
+        )
+        launcherInstallationStates[key] = .failed(message)
+        let containerName = containers.first(where: { $0.id == containerID })?.name
+            ?? application.displayName
+        logLines.insert(
+            LogLine(
+                containerID: containerID,
+                level: "warning",
+                source: containerName,
+                message: message
+            ),
+            at: 0
+        )
+    }
+
+    private func timeOutLauncherDetection(
+        _ application: StarterApplication,
+        containerID: UUID,
+        key: LauncherInstallationKey
+    ) {
+        let message = String(
+            localized: "Switchyard has not detected \(application.displayName) yet. Finish or close the installer, then try again in this same container.",
+            bundle: SwitchyardStrings.bundle
+        )
+        launcherInstallationStates[key] = .failed(message)
+        let containerName = containers.first(where: { $0.id == containerID })?.name
+            ?? application.displayName
+        logLines.insert(
+            LogLine(
+                containerID: containerID,
+                level: "warning",
+                source: containerName,
+                message: message
+            ),
+            at: 0
+        )
     }
 
     private func selectStarterApplicationAsDefaultIfNeeded(
@@ -3002,6 +3485,15 @@ final class AppStore: ObservableObject {
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)
+        let launcherKeys = launcherInstallationStates.keys.filter {
+            $0.containerID == containerID
+        }
+        for key in launcherKeys {
+            launcherDownloadTasks.removeValue(forKey: key)?.cancel()
+            launcherInstallationTasks.removeValue(forKey: key)?.cancel()
+            launcherInstallationIDs.removeValue(forKey: key)
+            launcherInstallationStates.removeValue(forKey: key)
+        }
         if steamInstallationState.containerID == containerID {
             starterApplicationDetectionTask?.cancel()
             starterApplicationDetectionTask = nil
@@ -3034,8 +3526,15 @@ final class AppStore: ObservableObject {
         await runContainer(containerID: containerID, executablePath: nil, executableArguments: [])
     }
 
-    private func runContainer(containerID: UUID, executablePath: String?, executableArguments: [String]) async {
-        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+    @discardableResult
+    private func runContainer(
+        containerID: UUID,
+        executablePath: String?,
+        executableArguments: [String]
+    ) async -> Bool {
+        guard let container = containers.first(where: { $0.id == containerID }) else {
+            return false
+        }
         guard !isChangingCompatibilityConfiguration else {
             logLines.insert(
                 LogLine(
@@ -3048,7 +3547,7 @@ final class AppStore: ObservableObject {
                 ),
                 at: 0
             )
-            return
+            return false
         }
         guard !isContainerTransitioning(containerID) else {
             logLines.insert(
@@ -3063,12 +3562,12 @@ final class AppStore: ObservableObject {
                 ),
                 at: 0
             )
-            return
+            return false
         }
 
         guard runtimeStatus.canLaunch else {
             appendFailedRun(for: container, message: runtimeStatus.summary)
-            return
+            return false
         }
 
         let activeRuntime = currentRuntime
@@ -3116,7 +3615,9 @@ final class AppStore: ObservableObject {
         var terminateExistingPrefixSession = executablePath != nil && prefixWasOrphaned
         if executablePath == nil {
             if prefixWasActive {
-                guard confirmRestartOfExistingPrefixSession(for: container) else { return }
+                guard confirmRestartOfExistingPrefixSession(for: container) else {
+                    return false
+                }
                 terminateExistingPrefixSession = true
             } else if case .unavailable = inspectedPrefixState {
                 logLines.insert(
@@ -3253,6 +3754,7 @@ final class AppStore: ObservableObject {
                     at: 0
                 )
             }
+            return true
         } catch {
             appendFailedRun(
                 for: container,
@@ -3261,6 +3763,7 @@ final class AppStore: ObservableObject {
                     bundle: SwitchyardStrings.bundle
                 )
             )
+            return false
         }
     }
 

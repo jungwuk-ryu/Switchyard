@@ -182,6 +182,143 @@ import Testing
     #expect(!starter.recognizesInstaller(at: partial))
 }
 
+@Test func launcherCatalogPinsOfficialWindowsDownloadsAndRedirects() {
+    let applications = StarterApplicationCatalog.all
+    #expect(applications.map(\.id) == [
+        "steam",
+        "battle-net",
+        "epic-games",
+        "rockstar-games",
+    ])
+    #expect(Set(applications.map(\.id)).count == applications.count)
+    #expect(applications.allSatisfy { $0.trustsDownloadURL($0.downloadURL) })
+
+    let battleNet = StarterApplicationCatalog.battleNet
+    #expect(
+        battleNet.trustsDownloadURL(
+            URL(
+                string: "https://downloader.battle.net/download/installer/win/1.2.3/Battle.net-Setup.exe"
+            )!
+        )
+    )
+    #expect(
+        !battleNet.trustsDownloadURL(
+            URL(
+                string: "https://downloader.battle.net/download/getInstallerForGame?os=mac&gameProgram=BATTLENET_APP&version=Live"
+            )!
+        )
+    )
+    #expect(
+        !battleNet.trustsDownloadURL(
+            URL(
+                string: "https://downloader.battle.net/download/installer/win/1.2.3/Other-Setup.exe"
+            )!
+        )
+    )
+
+    let epicGames = StarterApplicationCatalog.epicGames
+    #expect(
+        epicGames.trustsDownloadURL(
+            URL(
+                string: "https://epicgames-download1.akamaized.net/Builds/UnrealEngineLauncher/Installers/Windows/EpicInstaller-20.1.4.msi?launcherfilename=EpicInstaller-20.1.4.msi"
+            )!
+        )
+    )
+    #expect(
+        !epicGames.trustsDownloadURL(
+            URL(
+                string: "https://epicgames-download1.akamaized.net.example.com/Builds/UnrealEngineLauncher/Installers/Windows/EpicInstaller-20.1.4.msi"
+            )!
+        )
+    )
+    #expect(
+        !epicGames.trustsDownloadURL(
+            URL(
+                string: "https://epicgames-download1.akamaized.net/Builds/UnrealEngineLauncher/Installers/Windows/EpicInstaller-20.1.4.msi?redirect=https://example.com"
+            )!
+        )
+    )
+
+    #expect(
+        StarterApplicationCatalog.rockstarGames.downloadURL.absoluteString
+            == "https://gamedownloads.rockstargames.com/public/installer/Rockstar-Games-Launcher.exe"
+    )
+}
+
+@Test func launcherCatalogValidatesExeAndMSIInstallerHeaders() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let epicInstaller = root.appendingPathComponent("EpicGamesLauncherInstaller.msi")
+    try Data([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0x00])
+        .write(to: epicInstaller)
+    let renamedExecutable = root.appendingPathComponent("EpicGamesLauncherInstaller (2).msi")
+    try Data([0x4d, 0x5a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+        .write(to: renamedExecutable)
+
+    let epicGames = StarterApplicationCatalog.epicGames
+    #expect(epicGames.recognizesInstaller(at: epicInstaller))
+    #expect(epicGames.hasExpectedInstallerHeader(at: epicInstaller))
+    #expect(epicGames.recognizesInstaller(at: renamedExecutable))
+    #expect(!epicGames.hasExpectedInstallerHeader(at: renamedExecutable))
+}
+
+@Test func launcherCatalogDetectsInstalledLauncherExecutables() throws {
+    let programs = [
+        InstalledProgram(
+            name: "Steam",
+            executablePath: "/Library/Test.container/drive_c/Program Files (x86)/Steam/steam.exe",
+            installDirectory: "/Library/Test.container/drive_c/Program Files (x86)/Steam",
+            source: .programFiles
+        ),
+        InstalledProgram(
+            name: "Battle.net Launcher",
+            executablePath: "/Library/Test.container/drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe",
+            installDirectory: "/Library/Test.container/drive_c/Program Files (x86)/Battle.net",
+            source: .programFiles
+        ),
+        InstalledProgram(
+            name: "Epic Games Launcher",
+            executablePath: "/Library/Test.container/drive_c/Program Files (x86)/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe",
+            installDirectory: "/Library/Test.container/drive_c/Program Files (x86)/Epic Games",
+            source: .programFiles
+        ),
+        InstalledProgram(
+            name: "Rockstar Games Launcher",
+            executablePath: "/Library/Test.container/drive_c/Program Files/Rockstar Games/Launcher/Launcher.exe",
+            installDirectory: "/Library/Test.container/drive_c/Program Files/Rockstar Games",
+            source: .programFiles
+        ),
+        InstalledProgram(
+            name: "Unrelated Launcher",
+            executablePath: "/Library/Test.container/drive_c/Program Files/Unrelated/Launcher.exe",
+            installDirectory: "/Library/Test.container/drive_c/Program Files/Unrelated",
+            source: .programFiles
+        ),
+    ]
+
+    #expect(StarterApplicationCatalog.steam.installedProgram(in: programs)?.name == "Steam")
+    #expect(
+        StarterApplicationCatalog.battleNet.installedProgram(in: programs)?.name
+            == "Battle.net Launcher"
+    )
+    #expect(
+        StarterApplicationCatalog.epicGames.installedProgram(in: programs)?.name
+            == "Epic Games Launcher"
+    )
+    #expect(
+        StarterApplicationCatalog.rockstarGames.installedProgram(in: programs)?.name
+            == "Rockstar Games Launcher"
+    )
+    #expect(
+        !StarterApplicationCatalog.rockstarGames.recognizesInstalledProgram(
+            try #require(programs.last)
+        )
+    )
+}
+
 @Test func containerRecordsLastRuntimeUsageWithoutSelectingIt() throws {
     let usedAt = Date(timeIntervalSince1970: 1_753_075_800)
     let runtime = RuntimeBuild(
