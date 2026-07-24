@@ -11,6 +11,9 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("Switchyard")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            SidebarSettingsLink()
+        }
     }
 }
 
@@ -20,5 +23,34 @@ private struct SidebarRow: View {
     var body: some View {
         Label(selection.title, systemImage: selection.symbolName)
             .tag(selection)
+    }
+}
+
+private struct SidebarSettingsLink: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+
+            SettingsLink {
+                Label(
+                    String(
+                        localized: "Settings",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    systemImage: "gearshape"
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .help(
+                String(
+                    localized: "Open Settings",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+            .padding(10)
+        }
+        .background(.bar)
     }
 }
