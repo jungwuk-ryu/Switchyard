@@ -37,6 +37,18 @@ cleanup() {
   if [ -f "$TEST_ROOT/high-volume-drainer.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/high-volume-drainer.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/disconnected-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/disconnected-runner.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/disconnected-reader.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/disconnected-reader.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/live-prefix-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/live-prefix-runner.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/live-prefix-descendant.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/live-prefix-descendant.pid")" >/dev/null 2>&1 || true
+  fi
   if [ -f "$TEST_ROOT/orphan-wine.pid" ]; then
     kill -KILL "$(cat "$TEST_ROOT/orphan-wine.pid")" >/dev/null 2>&1 || true
   fi
@@ -82,6 +94,17 @@ cat > "$BIN_DIR/switchyard-wine" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'wine %s prefix=%s\n' "$*" "$WINEPREFIX" >> "$TEST_EVENTS"
+if [ -n "${TEST_LIVE_DESCENDANT_READY:-}" ]; then
+  (
+    printf 'ready\n' > "$TEST_LIVE_DESCENDANT_READY"
+    while [ ! -e "$TEST_LIVE_DESCENDANT_RELEASE" ]; do
+      sleep 0.05
+    done
+    printf 'after-direct-child-exit\n'
+  ) &
+  printf '%s\n' "$!" > "$TEST_LIVE_DESCENDANT_PID_FILE"
+  exit 0
+fi
 if [ "${1:-}" = "winemenubuilder.exe" ] && [ "${2:-}" = "-m" ] && [ -n "${TEST_MONITOR_PID_FILE:-}" ]; then
   printf '%s\n' "$$" > "$TEST_MONITOR_PID_FILE"
   trap 'printf "stopped\n" > "$TEST_MONITOR_STOPPED_FILE"; exit 0' TERM INT
@@ -460,6 +483,110 @@ if grep -q 'do-not-record' "$DEBUG_LOG"; then
 fi
 if ! grep -q 'argumentCount=3' "$DEBUG_LOG"; then
   echo "runner did not record redacted launch metadata" >&2
+  exit 1
+fi
+
+cat > "$TEST_ROOT/disconnected-output.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'before-disconnect\n'
+printf 'ready\n' > "$TEST_DISCONNECTED_READY"
+while [ ! -e "$TEST_DISCONNECTED_RELEASE" ]; do
+  sleep 0.05
+done
+printf 'after-disconnect\n'
+EOF
+chmod +x "$TEST_ROOT/disconnected-output.sh"
+DISCONNECTED_LIVE_LOG="$TEST_ROOT/live/disconnected.jsonl"
+cat > "$TEST_ROOT/disconnected-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/disconnected-output.sh",
+  "arguments": [],
+  "environment": {
+    "TEST_DISCONNECTED_READY": "$TEST_ROOT/disconnected-output.ready",
+    "TEST_DISCONNECTED_RELEASE": "$TEST_ROOT/disconnected-output.release"
+  },
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "disconnected-output-test",
+  "liveLogPath": "$DISCONNECTED_LIVE_LOG"
+}
+EOF
+
+mkfifo "$TEST_ROOT/disconnected-runner.out"
+(
+  IFS= read -r _
+  printf 'closed\n' > "$TEST_ROOT/disconnected-reader.closed"
+) <"$TEST_ROOT/disconnected-runner.out" &
+disconnected_reader_pid=$!
+printf '%s\n' "$disconnected_reader_pid" > "$TEST_ROOT/disconnected-reader.pid"
+"$RUNNER" run --plan "$TEST_ROOT/disconnected-output.json" \
+  >"$TEST_ROOT/disconnected-runner.out" 2>&1 &
+disconnected_runner_pid=$!
+printf '%s\n' "$disconnected_runner_pid" > "$TEST_ROOT/disconnected-runner.pid"
+for _ in {1..100}; do
+  [ -s "$TEST_ROOT/disconnected-output.ready" ] \
+    && [ -s "$TEST_ROOT/disconnected-reader.closed" ] \
+    && break
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/disconnected-output.ready" ] \
+  || [ ! -s "$TEST_ROOT/disconnected-reader.closed" ]; then
+  echo "disconnected output fixture did not reach its release gate" >&2
+  exit 1
+fi
+touch "$TEST_ROOT/disconnected-output.release"
+wait "$disconnected_runner_pid"
+wait "$disconnected_reader_pid"
+rm -f "$TEST_ROOT/disconnected-runner.pid" "$TEST_ROOT/disconnected-reader.pid"
+if ! grep -q 'after-disconnect' "$DISCONNECTED_LIVE_LOG"; then
+  echo "runner stopped updating the live journal after its app output pipe closed" >&2
+  exit 1
+fi
+if [ "$(stat -f '%Lp' "$DISCONNECTED_LIVE_LOG")" != "600" ] \
+  || [ "$(stat -f '%Lp' "$(dirname "$DISCONNECTED_LIVE_LOG")")" != "700" ]; then
+  echo "runner live log journals must be private to the current user" >&2
+  exit 1
+fi
+
+ACTIVE_PREFIX_LIVE_LOG="$TEST_ROOT/live/active-prefix.jsonl"
+cat > "$TEST_ROOT/active-prefix-output.json" <<EOF
+{
+  "executable": "$BIN_DIR/switchyard-wine",
+  "arguments": ["C:\\\\Games\\\\Launcher.exe"],
+  "environment": {
+    "WINEPREFIX": "$PREFIX",
+    "TEST_LIVE_DESCENDANT_PID_FILE": "$TEST_ROOT/live-prefix-descendant.pid",
+    "TEST_LIVE_DESCENDANT_READY": "$TEST_ROOT/live-prefix-descendant.ready",
+    "TEST_LIVE_DESCENDANT_RELEASE": "$TEST_ROOT/live-prefix-descendant.release"
+  },
+  "workingDirectory": "$PREFIX",
+  "logSource": "active-prefix-output-test",
+  "liveLogPath": "$ACTIVE_PREFIX_LIVE_LOG"
+}
+EOF
+
+TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT=0.1 \
+  "$RUNNER" run --plan "$TEST_ROOT/active-prefix-output.json" >/dev/null 2>/dev/null &
+live_prefix_runner_pid=$!
+printf '%s\n' "$live_prefix_runner_pid" > "$TEST_ROOT/live-prefix-runner.pid"
+for _ in {1..100}; do
+  [ -s "$TEST_ROOT/live-prefix-descendant.ready" ] && break
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/live-prefix-descendant.ready" ]; then
+  echo "active-prefix output fixture did not start its descendant" >&2
+  exit 1
+fi
+sleep 0.5
+if ! kill -0 "$live_prefix_runner_pid" >/dev/null 2>&1; then
+  echo "runner stopped live logging while wineserver still reported an active prefix" >&2
+  exit 1
+fi
+touch "$TEST_ROOT/live-prefix-descendant.release"
+wait "$live_prefix_runner_pid"
+rm -f "$TEST_ROOT/live-prefix-runner.pid" "$TEST_ROOT/live-prefix-descendant.pid"
+if ! grep -q 'after-direct-child-exit' "$ACTIVE_PREFIX_LIVE_LOG"; then
+  echo "runner did not retain descendant output while wineserver remained active" >&2
   exit 1
 fi
 

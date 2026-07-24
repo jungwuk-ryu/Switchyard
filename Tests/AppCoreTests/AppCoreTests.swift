@@ -803,6 +803,49 @@ import Testing
     )
 }
 
+@Test func logFilterPolicyCombinesContainerLevelAndSearchFilters() {
+    let firstContainerID = UUID()
+    let secondContainerID = UUID()
+    let logs = [
+        LogLine(
+            containerID: firstContainerID,
+            level: "warning",
+            source: "Steam",
+            message: "DXGI fallback enabled"
+        ),
+        LogLine(
+            containerID: firstContainerID,
+            level: "info",
+            source: "Steam",
+            message: "Launch completed"
+        ),
+        LogLine(
+            containerID: secondContainerID,
+            level: "warning",
+            source: "Battle.net",
+            message: "Network retry"
+        ),
+        LogLine(level: "warning", source: "runtime", message: "Runtime warning"),
+    ]
+
+    #expect(
+        LogFilterPolicy.filtering(logs, containerID: firstContainerID)
+            .map(\.message) == ["DXGI fallback enabled", "Launch completed"]
+    )
+    #expect(
+        LogFilterPolicy.filtering(
+            logs,
+            containerID: firstContainerID,
+            level: "warning",
+            searchText: "dxgi"
+        ).map(\.message) == ["DXGI fallback enabled"]
+    )
+    #expect(
+        LogFilterPolicy.filtering(logs, searchText: "battle")
+            .map(\.message) == ["Network retry"]
+    )
+}
+
 @Test func recentProgramLaunchPolicyMovesRelaunchesToTheFrontAndCapsHistory() {
     let firstPath = "/tmp/Container/first.exe"
     let secondPath = "/tmp/Container/second.exe"

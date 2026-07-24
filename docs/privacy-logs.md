@@ -22,7 +22,9 @@ The current bundle includes:
 
 Runner and Wine output can contain application-specific or account-specific text. Review copied diagnostic data even after automated redaction. Future bundles may add Wine version metadata, patchset metadata, and container manifests.
 
-Developer logging is opt-in. Per-run files are stored with account-only permissions under `~/Library/Application Support/Switchyard/Logs/DebugRuns` and omit argument values from runner metadata. The default policy keeps files for 14 days and caps storage at 50 files; both limits can be changed in Settings > Logs. Pruning runs when Switchyard starts, when the policy changes, and before a new debug log is created. Stopping `wineserver` does not delete logs.
+Each container has an account-only live journal under `~/Library/Application Support/Switchyard/Logs/Live`. The external runner writes structured entries there so a relaunched Switchyard app can resume the log stream while that container's `wineserver` is still active. Each journal is capped at 8 MiB and discards its oldest entries at the cap. A fresh Wine session resets that container's journal, and clearing the Logs screen truncates the corresponding live journal.
+
+Developer logging is opt-in. Per-run files are stored separately with account-only permissions under `~/Library/Application Support/Switchyard/Logs/DebugRuns` and omit argument values from runner metadata. The default policy keeps files for 14 days and caps storage at 50 files; both limits can be changed in Settings > Logs. Pruning runs when Switchyard starts, when the policy changes, and before a new debug log is created. Stopping `wineserver` does not delete debug logs.
 
 The Logs screen keeps only the latest 5,000 entries in memory. Clearing that screen does not delete per-run debug files, and deleting stored debug files does not clear the current in-memory view.
 

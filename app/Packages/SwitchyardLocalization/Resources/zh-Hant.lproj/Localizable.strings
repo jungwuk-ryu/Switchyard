@@ -320,6 +320,10 @@
 	<string>無法停止 Wine 進程：%1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>無法信任此官方執行環境：%1$@</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>無法清除即時日誌檔案：%1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>無法繼續更新此容器的即時日誌：%1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>無法更新儲存的偵錯日誌：%1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>

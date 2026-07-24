@@ -320,6 +320,10 @@
 	<string>Wine プロセスを停止できませんでした: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>この公式ランタイムを信頼できません：%1$@</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>ライブログジャーナルを消去できませんでした: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>このコンテナのライブログを継続できませんでした: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>保存済みのデバッグログを更新できませんでした: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>

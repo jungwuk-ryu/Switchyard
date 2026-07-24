@@ -35,7 +35,7 @@ These packages do not own SwiftUI state. `RuntimeCatalog` may invoke narrow macO
 
 ### Runner
 
-`runtime/runner` is the only boundary that executes Wine and Windows workloads. It accepts a serialized `CommandPlan`, constructs an explicit process environment, streams output, handles cancellation, and returns the child status. Application-specific compatibility behavior belongs in the runtime source, not in the runner.
+`runtime/runner` is the only boundary that executes Wine and Windows workloads. It accepts a serialized `CommandPlan`, constructs an explicit process environment, streams output, handles cancellation, and returns the child status. The runner also appends structured output to a protected, bounded per-container live journal. `AppStore` tails that journal off the main thread and reconnects to it after app relaunch when the container's `wineserver` is still active. Application-specific compatibility behavior belongs in the runtime source, not in the runner.
 
 The runner also accepts protected URL callback request files from the bundled `switchyard-url-handler` helper. It validates the requested scheme and prefix, deletes the request file before launch, and delivers the unchanged URL through `wine start` in that prefix. Callback URLs never appear in runner command-line arguments or Switchyard logs.
 

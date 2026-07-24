@@ -5,9 +5,12 @@ struct LogsView: View {
     @EnvironmentObject private var store: AppStore
     @State private var searchText = ""
     @State private var levelFilter = "all"
+    @State private var containerFilter: UUID?
     @State private var isConfirmingClear = false
 
     var body: some View {
+        let displayedLogs = filteredLogs
+
         VStack(spacing: 0) {
             HStack {
                 TextField("Search logs", text: $searchText)
@@ -23,7 +26,15 @@ struct LogsView: View {
                 }
                 .frame(width: 140)
 
-                Text("\(filteredLogs.count) entries")
+                Picker("Containers", selection: $containerFilter) {
+                    Text("All").tag(nil as UUID?)
+                    ForEach(store.containers) { container in
+                        Text(container.name).tag(container.id as UUID?)
+                    }
+                }
+                .frame(width: 180)
+
+                Text("\(displayedLogs.count) entries")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
@@ -39,10 +50,10 @@ struct LogsView: View {
                             localized: "Switchyard will redact common secrets and your home folder path before copying.",
                             bundle: SwitchyardStrings.bundle
                         ),
-                        text: copyText
+                        text: copyText(for: displayedLogs)
                     )
                 }
-                .disabled(filteredLogs.isEmpty)
+                .disabled(displayedLogs.isEmpty)
 
                 Button(role: .destructive) {
                     isConfirmingClear = true
@@ -55,13 +66,13 @@ struct LogsView: View {
 
             Divider()
 
-            if filteredLogs.isEmpty {
+            if displayedLogs.isEmpty {
                 ContentUnavailableView("No Matching Logs", systemImage: "doc.text.magnifyingglass")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 6) {
-                        ForEach(filteredLogs) { line in
+                        ForEach(displayedLogs) { line in
                             LogLineView(line: line)
                         }
                     }
@@ -71,6 +82,11 @@ struct LogsView: View {
             }
         }
         .navigationTitle("Logs")
+        .onChange(of: store.containers.map(\.id)) { _, containerIDs in
+            if let containerFilter, !containerIDs.contains(containerFilter) {
+                self.containerFilter = nil
+            }
+        }
         .confirmationDialog(
             "Clear all logs?",
             isPresented: $isConfirmingClear,
@@ -86,15 +102,16 @@ struct LogsView: View {
     }
 
     private var filteredLogs: [LogLine] {
-        store.logLines.filter { line in
-            let matchesLevel = levelFilter == "all" || line.level == levelFilter
-            let matchesSearch = searchText.isEmpty || line.message.localizedCaseInsensitiveContains(searchText) || line.source.localizedCaseInsensitiveContains(searchText)
-            return matchesLevel && matchesSearch
-        }
+        LogFilterPolicy.filtering(
+            store.logLines,
+            containerID: containerFilter,
+            level: levelFilter == "all" ? nil : levelFilter,
+            searchText: searchText
+        )
     }
 
-    private var copyText: String {
-        filteredLogs.map { line in
+    private func copyText(for logs: [LogLine]) -> String {
+        logs.map { line in
             "\(switchyardDateFormatter.string(from: line.timestamp)) [\(line.level.uppercased())] [\(line.source)] \(line.message)"
         }
         .joined(separator: "\n")

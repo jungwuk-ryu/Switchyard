@@ -2,7 +2,7 @@ import AppCore
 import Darwin
 import Foundation
 
-enum WinePrefixSessionState {
+enum WinePrefixSessionState: Equatable {
     case active
     case orphaned
     case inactive
@@ -179,37 +179,24 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         process.executableURL = runnerURL
         process.arguments = ["run", "--plan", planURL.path]
 
-        let stdout = Pipe()
-        let stderr = Pipe()
-        let logBatcher = ProcessLogBatcher(
-            containerID: containerID,
-            source: containerName,
-            onLogs: onLogs
-        )
-        let stdoutStream = ProcessLogStream(
-            handle: stdout.fileHandleForReading,
-            level: "info",
-            containerID: containerID,
-            source: containerName,
-            batcher: logBatcher
-        )
-        let stderrStream = ProcessLogStream(
-            handle: stderr.fileHandleForReading,
-            level: "error",
-            containerID: containerID,
-            source: containerName,
-            batcher: logBatcher
-        )
-        process.standardOutput = stdout
-        process.standardError = stderr
-
-        stdoutStream.start()
-        stderrStream.start()
+        let logCapture: ProcessLogCapture?
+        if plan.liveLogPath == nil {
+            let capture = ProcessLogCapture(
+                containerID: containerID,
+                source: containerName,
+                onLogs: onLogs
+            )
+            capture.configure(process)
+            capture.start()
+            logCapture = capture
+        } else {
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            logCapture = nil
+        }
 
         process.terminationHandler = { [weak self] process in
-            stdoutStream.finish()
-            stderrStream.finish()
-            logBatcher.finish()
+            logCapture?.finish()
             try? FileManager.default.removeItem(at: planURL)
             self?.removeProcess(session.id)
 
@@ -231,9 +218,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         do {
             try process.run()
         } catch {
-            stdoutStream.cancel()
-            stderrStream.cancel()
-            logBatcher.finish()
+            logCapture?.cancel()
             removeProcess(session.id)
             try? FileManager.default.removeItem(at: planURL)
             throw error
@@ -361,6 +346,63 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
     }
 }
 
+private final class ProcessLogCapture: @unchecked Sendable {
+    private let stdout = Pipe()
+    private let stderr = Pipe()
+    private let batcher: ProcessLogBatcher
+    private let stdoutStream: ProcessLogStream
+    private let stderrStream: ProcessLogStream
+
+    init(
+        containerID: UUID,
+        source: String,
+        onLogs: @escaping @Sendable ([LogLine]) -> Void
+    ) {
+        let batcher = ProcessLogBatcher(
+            containerID: containerID,
+            source: source,
+            onLogs: onLogs
+        )
+        self.batcher = batcher
+        stdoutStream = ProcessLogStream(
+            handle: stdout.fileHandleForReading,
+            level: "info",
+            containerID: containerID,
+            source: source,
+            batcher: batcher
+        )
+        stderrStream = ProcessLogStream(
+            handle: stderr.fileHandleForReading,
+            level: "error",
+            containerID: containerID,
+            source: source,
+            batcher: batcher
+        )
+    }
+
+    func configure(_ process: Process) {
+        process.standardOutput = stdout
+        process.standardError = stderr
+    }
+
+    func start() {
+        stdoutStream.start()
+        stderrStream.start()
+    }
+
+    func finish() {
+        stdoutStream.finish()
+        stderrStream.finish()
+        batcher.finish()
+    }
+
+    func cancel() {
+        stdoutStream.cancel()
+        stderrStream.cancel()
+        batcher.finish()
+    }
+}
+
 private final class ProcessLogStream: @unchecked Sendable {
     private let handle: FileHandle
     private let level: String
@@ -483,10 +525,14 @@ final class ProcessLogBatcher: @unchecked Sendable {
 
         let overflow = pending.count + logs.count - maximumPendingLineCount
         if overflow > 0 {
-            var combined = pending
-            combined.append(contentsOf: logs)
             omittedLineCount += overflow
-            pending = Array(combined.suffix(maximumPendingLineCount))
+            if logs.count >= maximumPendingLineCount {
+                pending.removeAll(keepingCapacity: true)
+                pending.append(contentsOf: logs.suffix(maximumPendingLineCount))
+            } else {
+                pending.removeFirst(min(overflow, pending.count))
+                pending.append(contentsOf: logs)
+            }
         } else {
             pending.append(contentsOf: logs)
         }
@@ -542,10 +588,15 @@ private final class LogStreamAccumulator: @unchecked Sendable {
 
         buffer.append(data)
         var lines: [String] = []
-        while let newlineIndex = buffer.firstIndex(of: 0x0A) {
-            let lineData = buffer[..<newlineIndex]
-            buffer.removeSubrange(...newlineIndex)
+        var lineStart = buffer.startIndex
+        while lineStart < buffer.endIndex,
+              let newlineIndex = buffer[lineStart...].firstIndex(of: 0x0A) {
+            let lineData = buffer[lineStart..<newlineIndex]
             appendDecodedLine(lineData, to: &lines)
+            lineStart = buffer.index(after: newlineIndex)
+        }
+        if lineStart > buffer.startIndex {
+            buffer.removeSubrange(buffer.startIndex..<lineStart)
         }
 
         if finish {

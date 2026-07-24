@@ -105,3 +105,27 @@ public enum LiveLogPolicy {
         return merged
     }
 }
+
+public enum LogFilterPolicy {
+    public static func filtering(
+        _ logs: [LogLine],
+        containerID: UUID? = nil,
+        level: String? = nil,
+        searchText: String = ""
+    ) -> [LogLine] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasQuery = !query.isEmpty
+
+        return logs.filter { line in
+            if let containerID, line.containerID != containerID {
+                return false
+            }
+            if let level, line.level != level {
+                return false
+            }
+            guard hasQuery else { return true }
+            return line.message.localizedCaseInsensitiveContains(query)
+                || line.source.localizedCaseInsensitiveContains(query)
+        }
+    }
+}

@@ -94,6 +94,7 @@ Generated and user-owned data stays out of Git:
 - `~/Library/Caches/Switchyard/Sources/`: synchronized Wine source cache
 - `~/.switchyard/runtimes/`: immutable local Wine runtimes
 - `~/Library/Application Support/Switchyard/Runtimes/GPTK/`: imported user-provided or separately downloaded reviewed GPTK copy
+- `~/Library/Application Support/Switchyard/Logs/Live/`: protected, bounded container live-log journals
 - `~/Library/Application Support/Switchyard/Logs/DebugRuns/`: protected per-run debug logs
 - the storage folder selected in the app: user-managed containers and manifests
 

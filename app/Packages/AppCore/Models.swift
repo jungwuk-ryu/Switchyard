@@ -639,6 +639,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
     public var environment: [String: String]
     public var workingDirectory: String?
     public var logSource: String
+    public var liveLogPath: String?
     public var debugLogPath: String?
     public var terminateExistingPrefixSession: Bool?
 
@@ -648,6 +649,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         environment: [String: String] = [:],
         workingDirectory: String? = nil,
         logSource: String,
+        liveLogPath: String? = nil,
         debugLogPath: String? = nil,
         terminateExistingPrefixSession: Bool? = nil
     ) {
@@ -656,6 +658,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         self.environment = environment
         self.workingDirectory = workingDirectory
         self.logSource = logSource
+        self.liveLogPath = liveLogPath
         self.debugLogPath = debugLogPath
         self.terminateExistingPrefixSession = terminateExistingPrefixSession
     }

@@ -320,6 +320,10 @@
 	<string>Wine 프로세스를 중지할 수 없습니다: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>이 공식 런타임을 신뢰할 수 없습니다: %1$@</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>실시간 로그 저널을 지울 수 없습니다: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>이 컨테이너의 실시간 로그를 계속 수집할 수 없습니다: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>저장된 디버그 로그를 업데이트할 수 없습니다: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>

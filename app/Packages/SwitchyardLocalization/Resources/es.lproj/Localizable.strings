@@ -320,6 +320,10 @@
 	<string>No se pudieron detener los procesos Wine: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>No se pudo confiar en este entorno de ejecución oficial: %1$@</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>No se pudo borrar el diario de registros en vivo: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>No se pudo continuar el registro en vivo de este contenedor: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>No se pudieron actualizar los registros de depuración almacenados: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>

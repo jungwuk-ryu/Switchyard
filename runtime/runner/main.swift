@@ -181,7 +181,7 @@ private final class DebugLogWriter: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         guard !isClosed else { return }
-        handle.write(data)
+        try? handle.write(contentsOf: data)
     }
 
     func close() {
@@ -191,6 +191,122 @@ private final class DebugLogWriter: @unchecked Sendable {
         try? handle.synchronize()
         try? handle.close()
         isClosed = true
+    }
+
+    private static func posixError(operation: String) -> NSError {
+        let code = errno
+        return NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(code),
+            userInfo: [NSLocalizedDescriptionKey: "\(operation): \(String(cString: strerror(code)))"]
+        )
+    }
+}
+
+private final class LiveLogJournalWriter: @unchecked Sendable {
+    private static let maximumJournalBytes: Int64 = 8 * 1_024 * 1_024
+    private static let maximumMessageBytes = 64 * 1_024
+
+    private let lock = NSLock()
+    private let descriptor: Int32
+    private let source: String
+    private let encoder = JSONEncoder()
+    private var isClosed = false
+
+    init(path: String, source: String) throws {
+        let url = URL(fileURLWithPath: path)
+        let directory = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        guard Darwin.chmod(directory.path, mode_t(S_IRWXU)) == 0 else {
+            throw Self.posixError(operation: "protect live log directory")
+        }
+
+        descriptor = Darwin.open(
+            url.path,
+            O_WRONLY | O_CREAT | O_APPEND | O_NOFOLLOW,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw Self.posixError(operation: "open live log journal")
+        }
+        guard Darwin.fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+            let error = Self.posixError(operation: "protect live log journal")
+            Darwin.close(descriptor)
+            throw error
+        }
+        self.source = source
+    }
+
+    func write(level: String, message: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isClosed else { return }
+
+        let line = LogLine(
+            level: level,
+            source: source,
+            message: boundedMessage(message)
+        )
+        guard let encodedLine = encode(line) else { return }
+
+        guard flock(descriptor, LOCK_EX) == 0 else { return }
+        defer { flock(descriptor, LOCK_UN) }
+
+        var fileStatus = stat()
+        if Darwin.fstat(descriptor, &fileStatus) == 0,
+           Int64(fileStatus.st_size) + Int64(encodedLine.count) > Self.maximumJournalBytes {
+            guard Darwin.ftruncate(descriptor, 0) == 0 else { return }
+            let rolloverLine = LogLine(
+                level: "warning",
+                source: source,
+                message: "Live log journal reached its size limit; older entries were discarded."
+            )
+            if let encodedRollover = encode(rolloverLine) {
+                writeAll(encodedRollover)
+            }
+        }
+        writeAll(encodedLine)
+    }
+
+    func close() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isClosed else { return }
+        Darwin.fsync(descriptor)
+        Darwin.close(descriptor)
+        isClosed = true
+    }
+
+    private func boundedMessage(_ message: String) -> String {
+        let bytes = message.utf8
+        guard bytes.count > Self.maximumMessageBytes else { return message }
+        let retained = bytes.prefix(Self.maximumMessageBytes - 64)
+        return String(decoding: retained, as: UTF8.self)
+            + " … [live log entry truncated]"
+    }
+
+    private func encode(_ line: LogLine) -> Data? {
+        guard var data = try? encoder.encode(line) else { return nil }
+        data.append(0x0A)
+        return data
+    }
+
+    private func writeAll(_ data: Data) {
+        data.withUnsafeBytes { rawBuffer in
+            guard var baseAddress = rawBuffer.baseAddress else { return }
+            var remaining = rawBuffer.count
+            while remaining > 0 {
+                let written = Darwin.write(descriptor, baseAddress, remaining)
+                if written > 0 {
+                    remaining -= written
+                    baseAddress = baseAddress.advanced(by: written)
+                } else if written < 0, errno == EINTR {
+                    continue
+                } else {
+                    return
+                }
+            }
+        }
     }
 
     private static func posixError(operation: String) -> NSError {
@@ -264,6 +380,7 @@ private final class TerminationSignalMonitor {
     private let sources: [DispatchSourceSignal]
 
     init() {
+        signal(SIGPIPE, SIG_IGN)
         sources = [SIGTERM, SIGINT].map { signalNumber in
             signal(signalNumber, SIG_IGN)
             let source = DispatchSource.makeSignalSource(
@@ -361,19 +478,25 @@ struct SwitchyardRunner {
         let data = try Data(contentsOf: planURL)
         let plan = try JSONDecoder().decode(CommandPlan.self, from: data)
         let debugLogWriter = openDebugLogWriter(path: plan.debugLogPath, source: plan.logSource)
-        defer { debugLogWriter?.close() }
+        let liveLogWriter = openLiveLogWriter(path: plan.liveLogPath, source: plan.logSource)
+        defer {
+            debugLogWriter?.close()
+            liveLogWriter?.close()
+        }
         let environmentKeys = plan.environment.keys.sorted().joined(separator: ",")
         emit(
             source: plan.logSource,
             level: "info",
             message: "switchyard-runner start: executable=\(plan.executable) argumentCount=\(plan.arguments.count)",
-            logWriter: debugLogWriter
+            debugLogWriter: debugLogWriter,
+            liveLogWriter: liveLogWriter
         )
         emit(
             source: plan.logSource,
             level: "info",
             message: "environment-keys=\(environmentKeys)",
-            logWriter: debugLogWriter
+            debugLogWriter: debugLogWriter,
+            liveLogWriter: liveLogWriter
         )
 
         if plan.terminateExistingPrefixSession == true {
@@ -408,7 +531,8 @@ struct SwitchyardRunner {
             level: "info",
             to: FileHandle.standardOutput,
             accumulator: stdoutBuffer,
-            logWriter: debugLogWriter,
+            debugLogWriter: debugLogWriter,
+            liveLogWriter: liveLogWriter,
             group: outputGroup
         )
         streamOutput(
@@ -417,26 +541,35 @@ struct SwitchyardRunner {
             level: "error",
             to: FileHandle.standardError,
             accumulator: stderrBuffer,
-            logWriter: debugLogWriter,
+            debugLogWriter: debugLogWriter,
+            liveLogWriter: liveLogWriter,
             group: outputGroup
         )
         process.waitUntilExit()
         RunnerProcessRegistry.shared.clear(process)
-        if outputGroup.wait(timeout: .now() + outputDrainTimeout) == .timedOut {
+        if !waitForOutputDrain(
+            outputGroup,
+            plan: plan,
+            debugLogWriter: debugLogWriter,
+            liveLogWriter: liveLogWriter
+        ) {
             emit(
                 source: plan.logSource,
                 level: "warning",
                 message: "output drain timed out after the launched process exited; a descendant may still hold its output streams open",
-                logWriter: debugLogWriter
+                debugLogWriter: debugLogWriter,
+                liveLogWriter: liveLogWriter
             )
         }
         emit(
             source: plan.logSource,
             level: "info",
             message: "switchyard-runner exit: status=\(process.terminationStatus)",
-            logWriter: debugLogWriter
+            debugLogWriter: debugLogWriter,
+            liveLogWriter: liveLogWriter
         )
         debugLogWriter?.close()
+        liveLogWriter?.close()
         stopProtocolAssociationMonitor(&protocolMonitor)
         runnerExit(process.terminationStatus)
     }
@@ -1415,25 +1548,82 @@ private func stopProcessWithinDeadline(_ process: Process) {
     _ = waitForExit(process, timeout: 0.5)
 }
 
+private func waitForOutputDrain(
+    _ group: DispatchGroup,
+    plan: CommandPlan,
+    debugLogWriter: DebugLogWriter?,
+    liveLogWriter: LiveLogJournalWriter?
+) -> Bool {
+    guard group.wait(timeout: .now() + outputDrainTimeout) == .timedOut else {
+        return true
+    }
+    guard liveLogWriter != nil,
+          let prefixPath = plan.environment["WINEPREFIX"],
+          !prefixPath.isEmpty,
+          let wineServerURL = wineServerURL(forWineExecutable: plan.executable) else {
+        return false
+    }
+
+    var didAnnounceExtendedDrain = false
+    while true {
+        let prefixState: WinePrefixProbeResult
+        do {
+            prefixState = try probeWinePrefixSession(
+                wineExecutablePath: plan.executable,
+                wineServerURL: wineServerURL,
+                prefixPath: prefixPath
+            )
+        } catch {
+            return false
+        }
+        guard case .active = prefixState else {
+            return false
+        }
+
+        if !didAnnounceExtendedDrain {
+            emit(
+                source: plan.logSource,
+                level: "info",
+                message: "launched process exited; continuing live log capture while wineserver remains active",
+                debugLogWriter: debugLogWriter,
+                liveLogWriter: liveLogWriter
+            )
+            didAnnounceExtendedDrain = true
+        }
+        if group.wait(timeout: .now() + outputDrainTimeout) == .success {
+            return true
+        }
+    }
+}
+
 private func emitLine(
     source: String,
     level: String,
     message: String,
     outputHandle: FileHandle,
-    logWriter: DebugLogWriter?
+    debugLogWriter: DebugLogWriter?,
+    liveLogWriter: LiveLogJournalWriter?
 ) {
     let text = "[\(source)] \(message)"
-    outputHandle.write(Data((text + "\n").utf8))
-    emit(source: source, level: level, message: message, logWriter: logWriter)
+    emit(
+        source: source,
+        level: level,
+        message: message,
+        debugLogWriter: debugLogWriter,
+        liveLogWriter: liveLogWriter
+    )
+    try? outputHandle.write(contentsOf: Data((text + "\n").utf8))
 }
 
 private func emit(
     source: String,
     level: String,
     message: String,
-    logWriter: DebugLogWriter?
+    debugLogWriter: DebugLogWriter?,
+    liveLogWriter: LiveLogJournalWriter?
 ) {
-    logWriter?.write(source: source, level: level, message: message)
+    debugLogWriter?.write(source: source, level: level, message: message)
+    liveLogWriter?.write(level: level, message: message)
 }
 
 private func openDebugLogWriter(path: String?, source: String) -> DebugLogWriter? {
@@ -1448,13 +1638,28 @@ private func openDebugLogWriter(path: String?, source: String) -> DebugLogWriter
     }
 }
 
+private func openLiveLogWriter(path: String?, source: String) -> LiveLogJournalWriter? {
+    guard let path else { return nil }
+    do {
+        let writer = try LiveLogJournalWriter(path: path, source: source)
+        writer.write(level: "info", message: "opened protected live log journal")
+        return writer
+    } catch {
+        try? FileHandle.standardError.write(
+            contentsOf: Data("[\(source)] Unable to open live log journal: \(error)\n".utf8)
+        )
+        return nil
+    }
+}
+
 private func streamOutput(
     from inputHandle: FileHandle,
     source: String,
     level: String,
     to outputHandle: FileHandle,
     accumulator: LineAccumulator,
-    logWriter: DebugLogWriter?,
+    debugLogWriter: DebugLogWriter?,
+    liveLogWriter: LiveLogJournalWriter?,
     group: DispatchGroup
 ) {
     group.enter()
@@ -1469,7 +1674,8 @@ private func streamOutput(
                     ),
                     message: tail,
                     outputHandle: outputHandle,
-                    logWriter: logWriter
+                    debugLogWriter: debugLogWriter,
+                    liveLogWriter: liveLogWriter
                 )
             }
             group.leave()
@@ -1491,7 +1697,8 @@ private func streamOutput(
                         ),
                         message: line,
                         outputHandle: outputHandle,
-                        logWriter: logWriter
+                        debugLogWriter: debugLogWriter,
+                        liveLogWriter: liveLogWriter
                     )
                 }
                 return false

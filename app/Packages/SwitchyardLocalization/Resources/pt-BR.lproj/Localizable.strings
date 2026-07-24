@@ -320,6 +320,10 @@
 	<string>Não foi possível interromper os processos do Wine: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>Não foi possível confiar neste runtime oficial: %1$@</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>Não foi possível limpar o diário de logs em tempo real: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>Não foi possível continuar o log em tempo real deste contêiner: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>Não foi possível atualizar os registros de depuração armazenados: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>

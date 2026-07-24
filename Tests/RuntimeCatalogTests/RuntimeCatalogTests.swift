@@ -29,18 +29,14 @@ import Foundation
     )
     defer { try? FileManager.default.removeItem(at: root) }
 
-    let framework = root.appendingPathComponent(
-        "D3DMetal.framework",
-        isDirectory: true
+    let framework = try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
     )
     let resources = framework.appendingPathComponent("Resources", isDirectory: true)
     try FileManager.default.createDirectory(
         at: resources,
         withIntermediateDirectories: true
-    )
-    try FileManager.default.copyItem(
-        at: URL(fileURLWithPath: "/bin/echo"),
-        to: root.appendingPathComponent("libd3dshared.dylib")
     )
     let info: [String: Any] = [
         "CFBundleShortVersionString": "3.1",

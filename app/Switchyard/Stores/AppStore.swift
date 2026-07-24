@@ -380,6 +380,8 @@ final class AppStore: ObservableObject {
     private let protocolBridge = WineProtocolBridge()
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
     private let debugRunLogStore = DebugRunLogStore()
+    private let liveLogJournalStore = LiveLogJournalStore()
+    private let liveLogJournalMonitor = LiveLogJournalMonitor()
     private let defaults = UserDefaults.standard
     private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
     private let gptkComponentPolicy = GPTKComponentChannelConfiguration
@@ -405,6 +407,9 @@ final class AppStore: ObservableObject {
     private var callbackRecoveryTasks: [UUID: Task<Void, Never>] = [:]
     private var pendingLoginCallbackRecoveries: [UUID: PendingLoginCallbackRecovery] = [:]
     private var protocolBridgeTask: Task<Void, Never>?
+    private var liveLogRecoveryTask: Task<Void, Never>?
+    private var liveLogMonitoringFailureContainerIDs: Set<UUID> = []
+    private var liveLogMonitorGenerations: [UUID: UUID] = [:]
     private var lastProtocolBridgeError: String?
     private var lastDesktopShortcutBridgeError: String?
 
@@ -457,12 +462,18 @@ final class AppStore: ObservableObject {
         persistRecentProgramLaunches()
         pruneDebugRunLogs()
         startProtocolBridgeMonitoring()
+        startLiveLogRecovery()
 
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--show-setup-assistant") {
             isSetupAssistantPresented = true
         }
 #endif
+    }
+
+    deinit {
+        liveLogRecoveryTask?.cancel()
+        liveLogJournalMonitor.stopAll()
     }
 
     var selectedContainer: Container? {
@@ -2038,7 +2049,12 @@ final class AppStore: ObservableObject {
         let message = Self.errorDescription(error)
         loginCallbackRecoveryStates[containerID] = .failed(message: message)
         logLines.insert(
-            LogLine(level: "warning", source: "protocols", message: message),
+            LogLine(
+                containerID: containerID,
+                level: "warning",
+                source: "protocols",
+                message: message
+            ),
             at: 0
         )
     }
@@ -2063,6 +2079,7 @@ final class AppStore: ObservableObject {
         guard !isContainerTransitioning(containerID) else {
             logLines.insert(
                 LogLine(
+                    containerID: container.id,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2124,6 +2141,7 @@ final class AppStore: ObservableObject {
               !isDirectory.boolValue else {
             logLines.insert(
                 LogLine(
+                    containerID: container.id,
                     level: "warning",
                     source: container.name,
                     message: String(
@@ -2350,6 +2368,11 @@ final class AppStore: ObservableObject {
               sessionRefreshTokens[containerID] == refreshToken,
               containers.contains(where: { $0.id == containerID }) else { return }
         sessionSnapshotsByContainerID[containerID] = snapshot
+        if snapshot.wineServerState == .active {
+            startMonitoringExistingLiveLog(for: container)
+        } else if snapshot.wineServerState == .inactive {
+            stopMonitoringLiveLog(containerID: containerID)
+        }
         if snapshot.wineServerState == .inactive {
             prefixStartupsAwaitingInactiveTransition.remove(containerID)
             if activeRunSessionIDsByContainerID[containerID]?.isEmpty != false,
@@ -2549,6 +2572,7 @@ final class AppStore: ObservableObject {
         guard !isContainerBusy(containerID) else {
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2578,6 +2602,7 @@ final class AppStore: ObservableObject {
         case .active, .orphaned:
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2591,6 +2616,7 @@ final class AppStore: ObservableObject {
         case .unavailable:
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "error",
                     source: "containers",
                     message: String(
@@ -2616,6 +2642,7 @@ final class AppStore: ObservableObject {
         } catch {
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "error",
                     source: "containers",
                     message: String(
@@ -2639,6 +2666,7 @@ final class AppStore: ObservableObject {
         case .active, .orphaned:
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2652,6 +2680,7 @@ final class AppStore: ObservableObject {
         case .unavailable:
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "error",
                     source: "containers",
                     message: String(
@@ -2713,6 +2742,7 @@ final class AppStore: ObservableObject {
             refreshProtocolAssociations()
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "info",
                     source: "containers",
                     message: String(
@@ -2726,6 +2756,7 @@ final class AppStore: ObservableObject {
         } catch {
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "error",
                     source: "containers",
                     message: String(
@@ -2774,6 +2805,7 @@ final class AppStore: ObservableObject {
                 : trimmedKey
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2795,6 +2827,7 @@ final class AppStore: ObservableObject {
             removeEnvironmentOverride(for: containerID, key: key)
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2861,6 +2894,7 @@ final class AppStore: ObservableObject {
         guard !isContainerTransitioning(containerID) else {
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2878,6 +2912,7 @@ final class AppStore: ObservableObject {
             guard isSafeTrashTarget(containerURL) else {
                 logLines.insert(
                     LogLine(
+                        containerID: containerID,
                         level: "error",
                         source: "containers",
                         message: String(
@@ -2918,6 +2953,7 @@ final class AppStore: ObservableObject {
                 }.value
                 logLines.insert(
                     LogLine(
+                        containerID: containerID,
                         level: "info",
                         source: "containers",
                         message: String(
@@ -2931,6 +2967,7 @@ final class AppStore: ObservableObject {
                 userStoppedRunSessionIDs.subtract(targetedRunSessionIDs)
                 logLines.insert(
                     LogLine(
+                        containerID: containerID,
                         level: "error",
                         source: "containers",
                         message: String(
@@ -2945,6 +2982,7 @@ final class AppStore: ObservableObject {
         } else {
             logLines.insert(
                 LogLine(
+                    containerID: containerID,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -2983,6 +3021,9 @@ final class AppStore: ObservableObject {
         sessionRefreshTokens.removeValue(forKey: containerID)
         sessionSnapshotsByContainerID.removeValue(forKey: containerID)
         stoppingWineServerContainerIDs.remove(containerID)
+        stopMonitoringLiveLog(containerID: containerID)
+        try? liveLogJournalStore.removeJournal(for: containerID)
+        liveLogMonitoringFailureContainerIDs.remove(containerID)
         selectedContainerID = containers.first?.id
         persistLibrary()
         persistRecentProgramLaunches()
@@ -3012,6 +3053,7 @@ final class AppStore: ObservableObject {
         guard !isContainerTransitioning(containerID) else {
             logLines.insert(
                 LogLine(
+                    containerID: container.id,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -3079,6 +3121,7 @@ final class AppStore: ObservableObject {
             } else if case .unavailable = inspectedPrefixState {
                 logLines.insert(
                     LogLine(
+                        containerID: container.id,
                         level: "warning",
                         source: container.name,
                         message: String(
@@ -3091,26 +3134,32 @@ final class AppStore: ObservableObject {
             }
         }
 
+        let liveLogPath = prepareLiveLogJournal(
+            for: container,
+            reset: !prefixWasActive || terminateExistingPrefixSession
+        )
         var prefixSessionIsActiveForFonts = prefixWasActive
         if !prefixWasActive {
             prefixSessionIsActiveForFonts = await preparePrefixForActiveRuntimeIfNeeded(
                 container,
                 runtime: activeRuntime,
                 gptkPath: activeGPTKPath,
-                gptkFingerprint: activeGPTKFingerprint
+                gptkFingerprint: activeGPTKFingerprint,
+                liveLogPath: liveLogPath
             )
         }
-        let fontPreparationLog = await prepareOpenFontsForLaunch(
+        var fontPreparationLog = await prepareOpenFontsForLaunch(
             for: container,
             prefixSessionIsActive: prefixSessionIsActiveForFonts
         )
+        fontPreparationLog.containerID = container.id
         logLines.insert(fontPreparationLog, at: 0)
 
         do {
             let debugEnvironmentOverrides = debugRunEnvironmentOverrides(for: container)
             let debugLogPath = debugRunLogPath(for: container, executablePath: launchedExecutable)
 
-            let plan = try jobEngine.runPlan(
+            var plan = try jobEngine.runPlan(
                 container: container,
                 executablePath: executablePath,
                 executableArguments: executableArguments,
@@ -3120,6 +3169,7 @@ final class AppStore: ObservableObject {
                 debugLogPath: debugLogPath,
                 terminateExistingPrefixSession: terminateExistingPrefixSession
             )
+            plan.liveLogPath = liveLogPath
             let runSession = try runnerClient.launch(
                 plan,
                 containerID: container.id,
@@ -3192,6 +3242,7 @@ final class AppStore: ObservableObject {
                     )
                 logLines.insert(
                     LogLine(
+                        containerID: container.id,
                         level: "info",
                         source: container.name,
                         message: String(
@@ -3231,6 +3282,136 @@ final class AppStore: ObservableObject {
             withTitle: String(localized: "Cancel", bundle: SwitchyardStrings.bundle)
         )
         return alert.runModal() == .alertFirstButtonReturn
+    }
+
+    private func prepareLiveLogJournal(
+        for container: Container,
+        reset: Bool
+    ) -> String? {
+        if reset {
+            stopMonitoringLiveLog(
+                containerID: container.id,
+                deliverPending: false
+            )
+        }
+        do {
+            let journalURL = try liveLogJournalStore.prepareJournal(
+                for: container.id,
+                reset: reset
+            )
+            try startMonitoringLiveLog(for: container, journalURL: journalURL)
+            return journalURL.path
+        } catch {
+            recordLiveLogMonitoringFailure(error, for: container)
+            return nil
+        }
+    }
+
+    private func startMonitoringExistingLiveLog(for container: Container) {
+        guard let journalURL = liveLogJournalStore.existingJournalURL(
+            for: container.id
+        ) else {
+            return
+        }
+        do {
+            try startMonitoringLiveLog(for: container, journalURL: journalURL)
+        } catch {
+            recordLiveLogMonitoringFailure(error, for: container)
+        }
+    }
+
+    private func startMonitoringLiveLog(
+        for container: Container,
+        journalURL: URL
+    ) throws {
+        guard !liveLogJournalMonitor.isMonitoring(containerID: container.id) else {
+            return
+        }
+
+        let generation = UUID()
+        liveLogMonitorGenerations[container.id] = generation
+        do {
+            try liveLogJournalMonitor.start(
+                containerID: container.id,
+                source: container.name,
+                journalURL: journalURL,
+                replayLimit: maximumLiveLogLines,
+                onLogs: { [weak self] lines in
+                    Task { @MainActor in
+                        guard self?.liveLogMonitorGenerations[container.id] == generation else {
+                            return
+                        }
+                        self?.recordIncomingLogs(lines)
+                    }
+                }
+            )
+        } catch {
+            if liveLogMonitorGenerations[container.id] == generation {
+                liveLogMonitorGenerations.removeValue(forKey: container.id)
+            }
+            throw error
+        }
+        liveLogMonitoringFailureContainerIDs.remove(container.id)
+    }
+
+    private func stopMonitoringLiveLog(
+        containerID: UUID,
+        deliverPending: Bool = true
+    ) {
+        liveLogMonitorGenerations.removeValue(forKey: containerID)
+        liveLogJournalMonitor.stop(
+            containerID: containerID,
+            deliverPending: deliverPending
+        )
+    }
+
+    private func recordLiveLogMonitoringFailure(
+        _ error: Error,
+        for container: Container
+    ) {
+        guard liveLogMonitoringFailureContainerIDs.insert(container.id).inserted else {
+            return
+        }
+        logLines.insert(
+            LogLine(
+                containerID: container.id,
+                level: "warning",
+                source: container.name,
+                message: String(
+                    localized: "Could not continue this container's live log: \(Self.errorDescription(error))",
+                    bundle: SwitchyardStrings.bundle
+                )
+            ),
+            at: 0
+        )
+    }
+
+    private func startLiveLogRecovery() {
+        liveLogRecoveryTask?.cancel()
+        liveLogRecoveryTask = Task { [weak self] in
+            guard let self else { return }
+            let candidates = containers.filter {
+                liveLogJournalStore.existingJournalURL(for: $0.id) != nil
+            }
+            guard !candidates.isEmpty else { return }
+
+            let winePath = currentRuntime.winePath
+            let runnerClient = runnerClient
+            let activeContainerIDs = await Task.detached(priority: .utility) {
+                candidates.compactMap { container in
+                    runnerClient.prefixSessionState(
+                        winePath: winePath,
+                        prefixPath: container.path
+                    ) == .active ? container.id : nil
+                }
+            }.value
+            guard !Task.isCancelled else { return }
+
+            let activeIDSet = Set(activeContainerIDs)
+            for container in candidates where activeIDSet.contains(container.id) {
+                startMonitoringExistingLiveLog(for: container)
+            }
+        }
     }
 
     private func startProtocolBridgeMonitoring() {
@@ -3350,6 +3531,7 @@ final class AppStore: ObservableObject {
         } catch {
             logLines.insert(
                 LogLine(
+                    containerID: container.id,
                     level: "warning",
                     source: "containers",
                     message: String(
@@ -3493,7 +3675,8 @@ final class AppStore: ObservableObject {
         _ container: Container,
         runtime: RuntimeBuild,
         gptkPath: String,
-        gptkFingerprint: String?
+        gptkFingerprint: String?,
+        liveLogPath: String?
     ) async -> Bool {
         let preparation = container.runtimePreparation(
             for: runtime,
@@ -3520,13 +3703,14 @@ final class AppStore: ObservableObject {
         )
 
         do {
-            let plan = try jobEngine.runPlan(
+            var plan = try jobEngine.runPlan(
                 container: container,
                 executablePath: "wineboot.exe",
                 executableArguments: ["-u"],
                 runtime: runtime,
                 gptkPath: gptkPath
             )
+            plan.liveLogPath = liveLogPath
             let session = try await runnerClient.launchAndWait(
                 plan,
                 containerID: container.id,
@@ -3607,6 +3791,63 @@ final class AppStore: ObservableObject {
 
     func clearLogs(for containerID: UUID? = nil) {
         logLines = LogClearPolicy.clearing(logLines, for: containerID)
+        let monitoredContainerIDs: Set<UUID>
+        if let containerID {
+            monitoredContainerIDs = liveLogJournalMonitor.isMonitoring(
+                containerID: containerID
+            ) ? [containerID] : []
+            stopMonitoringLiveLog(
+                containerID: containerID,
+                deliverPending: false
+            )
+        } else {
+            monitoredContainerIDs = liveLogJournalMonitor.monitoredContainerIDs
+            liveLogMonitorGenerations.removeAll()
+            liveLogJournalMonitor.stopAll(deliverPending: false)
+        }
+
+        do {
+            if let containerID {
+                try liveLogJournalStore.clearJournal(for: containerID)
+            } else {
+                try liveLogJournalStore.clearAllJournals()
+            }
+        } catch {
+            logLines.insert(
+                LogLine(
+                    containerID: containerID,
+                    level: "warning",
+                    source: "logs",
+                    message: String(
+                        localized: "Could not clear the live log journal: \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+        }
+
+        for monitoredContainerID in monitoredContainerIDs {
+            guard let container = containers.first(where: {
+                $0.id == monitoredContainerID
+            }) else {
+                continue
+            }
+            startMonitoringExistingLiveLog(for: container)
+        }
+    }
+
+    func recentLogs(for containerID: UUID, limit: Int) -> [LogLine] {
+        guard limit > 0 else { return [] }
+        var result: [LogLine] = []
+        result.reserveCapacity(limit)
+        for line in logLines where line.containerID == containerID {
+            result.append(line)
+            if result.count == limit {
+                break
+            }
+        }
+        return result
     }
 
     private func recordIncomingLogs(_ logs: [LogLine]) {

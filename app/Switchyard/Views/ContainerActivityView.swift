@@ -396,10 +396,10 @@ private struct RecentContainerActivity: View {
     }
 
     private var logs: [LogLine] {
-        Array(
-            store.logLines.filter {
-                $0.containerID == container.id
-            }.prefix(max(1, maximumVisibleLogs)))
+        store.recentLogs(
+            for: container.id,
+            limit: max(1, maximumVisibleLogs)
+        )
     }
 
     private var activityContentMinimumHeight: CGFloat {

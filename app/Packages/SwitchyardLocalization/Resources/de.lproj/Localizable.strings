@@ -320,6 +320,10 @@
 	<string>Wine-Prozesse konnten nicht gestoppt werden: %1$@</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>Dieser offiziellen Laufzeitumgebung konnte nicht vertraut werden: %1$@</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>Das Live-Protokolljournal konnte nicht gelöscht werden: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>Das Live-Protokoll dieses Containers konnte nicht fortgesetzt werden: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>Gespeicherte Debug-Protokolle konnten nicht aktualisiert werden: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>

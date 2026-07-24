@@ -320,6 +320,10 @@
 	<string>Не удалось остановить процессы Wine: %1$@.</string>
 	<key>Could not trust this official runtime: %@</key>
 	<string>Не удалось подтвердить доверие к официальной среде выполнения: %1$@</string>
+	<key>Could not clear the live log journal: %@</key>
+	<string>Не удалось очистить журнал оперативных логов: %1$@</string>
+	<key>Could not continue this container's live log: %@</key>
+	<string>Не удалось продолжить обновление журнала этого контейнера: %1$@</string>
 	<key>Could not update stored debug logs: %@</key>
 	<string>Не удалось обновить сохранённые журналы отладки: %1$@</string>
 	<key>Could not verify that %@ is idle, so its folder was not renamed.</key>
