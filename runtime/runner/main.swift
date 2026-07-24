@@ -1476,21 +1476,27 @@ private func streamOutput(
         }
 
         while true {
-            let data = inputHandle.availableData
-            guard !data.isEmpty else { break }
-            let chunk = String(decoding: data, as: UTF8.self)
-            for line in accumulator.consume(chunk) where !line.isEmpty {
-                emitLine(
-                    source: source,
-                    level: ProcessLogLevelPolicy.normalizedLevel(
-                        for: line,
-                        fallbackLevel: level
-                    ),
-                    message: line,
-                    outputHandle: outputHandle,
-                    logWriter: logWriter
-                )
+            // This task lives for the launched process, so drain Foundation's
+            // temporary Data objects after every output chunk.
+            let reachedEnd = autoreleasepool {
+                let data = inputHandle.availableData
+                guard !data.isEmpty else { return true }
+                let chunk = String(decoding: data, as: UTF8.self)
+                for line in accumulator.consume(chunk) where !line.isEmpty {
+                    emitLine(
+                        source: source,
+                        level: ProcessLogLevelPolicy.normalizedLevel(
+                            for: line,
+                            fallbackLevel: level
+                        ),
+                        message: line,
+                        outputHandle: outputHandle,
+                        logWriter: logWriter
+                    )
+                }
+                return false
             }
+            if reachedEnd { break }
         }
     }
 }

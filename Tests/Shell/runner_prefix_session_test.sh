@@ -31,6 +31,12 @@ cleanup() {
   if [ -f "$TEST_ROOT/protocol-monitor.pid" ]; then
     kill "$(cat "$TEST_ROOT/protocol-monitor.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/high-volume-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/high-volume-runner.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/high-volume-drainer.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/high-volume-drainer.pid")" >/dev/null 2>&1 || true
+  fi
   if [ -f "$TEST_ROOT/orphan-wine.pid" ]; then
     kill -KILL "$(cat "$TEST_ROOT/orphan-wine.pid")" >/dev/null 2>&1 || true
   fi
@@ -456,6 +462,129 @@ if ! grep -q 'argumentCount=3' "$DEBUG_LOG"; then
   echo "runner did not record redacted launch metadata" >&2
   exit 1
 fi
+
+cat > "$TEST_ROOT/high-volume-output.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+exec 3< "$TEST_HIGH_VOLUME_ACK"
+printf 'waiting\n' > "$TEST_HIGH_VOLUME_WAITING"
+while [ ! -e "$TEST_HIGH_VOLUME_START" ]; do
+  sleep 0.05
+done
+line_number=0
+while [ "$line_number" -lt 12000 ]; do
+  printf 'high-volume-output-%05d warning payload\n' "$line_number"
+  IFS= read -r _ <&3
+  line_number=$((line_number + 1))
+done
+printf 'high-volume-output-finished\n'
+IFS= read -r _ <&3
+printf 'ready\n' > "$TEST_HIGH_VOLUME_READY"
+while [ ! -e "$TEST_HIGH_VOLUME_RELEASE" ]; do
+  sleep 0.05
+done
+EOF
+chmod +x "$TEST_ROOT/high-volume-output.sh"
+HIGH_VOLUME_DEBUG_LOG="$TEST_ROOT/logs/high-volume.log"
+cat > "$TEST_ROOT/high-volume-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/high-volume-output.sh",
+  "arguments": [],
+  "environment": {
+    "TEST_HIGH_VOLUME_ACK": "$TEST_ROOT/high-volume-runner.ack",
+    "TEST_HIGH_VOLUME_READY": "$TEST_ROOT/high-volume-output.ready",
+    "TEST_HIGH_VOLUME_RELEASE": "$TEST_ROOT/high-volume-output.release",
+    "TEST_HIGH_VOLUME_START": "$TEST_ROOT/high-volume-output.start",
+    "TEST_HIGH_VOLUME_WAITING": "$TEST_ROOT/high-volume-output.waiting"
+  },
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "high-volume-output-test",
+  "debugLogPath": "$HIGH_VOLUME_DEBUG_LOG"
+}
+EOF
+
+runner_footprint_kb() {
+  local runner_pid="$1"
+  local footprint_output
+  local footprint_kb
+  if ! footprint_output="$(footprint -p "$runner_pid" 2>&1)"; then
+    echo "runner memory usage could not be inspected" >&2
+    printf '%s\n' "$footprint_output" >&2
+    return 1
+  fi
+  footprint_kb="$(
+    printf '%s\n' "$footprint_output" \
+      | awk '$4 == "Footprint:" {
+          if ($6 == "MB") print int($5 * 1024)
+          else if ($6 == "KB") print int($5)
+          exit
+        }'
+  )"
+  if [ -z "$footprint_kb" ]; then
+    echo "runner memory usage could not be inspected" >&2
+    printf '%s\n' "$footprint_output" >&2
+    return 1
+  fi
+  printf '%s\n' "$footprint_kb"
+}
+
+mkfifo "$TEST_ROOT/high-volume-runner.out"
+mkfifo "$TEST_ROOT/high-volume-runner.ack"
+while IFS= read -r _; do
+  printf 'continue\n' >&3
+done <"$TEST_ROOT/high-volume-runner.out" 3>"$TEST_ROOT/high-volume-runner.ack" &
+high_volume_drainer_pid=$!
+printf '%s\n' "$high_volume_drainer_pid" > "$TEST_ROOT/high-volume-drainer.pid"
+"$RUNNER" run --plan "$TEST_ROOT/high-volume-output.json" \
+  >"$TEST_ROOT/high-volume-runner.out" 2>"$TEST_ROOT/high-volume-runner.err" &
+high_volume_runner_pid=$!
+printf '%s\n' "$high_volume_runner_pid" > "$TEST_ROOT/high-volume-runner.pid"
+for _ in {1..200}; do
+  [ -s "$TEST_ROOT/high-volume-output.waiting" ] && break
+  if ! kill -0 "$high_volume_runner_pid" >/dev/null 2>&1; then
+    echo "high-volume output runner exited before the baseline memory check" >&2
+    exit 1
+  fi
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/high-volume-output.waiting" ]; then
+  echo "high-volume output fixture did not reach its start gate" >&2
+  exit 1
+fi
+high_volume_baseline_kb="$(runner_footprint_kb "$high_volume_runner_pid")"
+touch "$TEST_ROOT/high-volume-output.start"
+for _ in {1..600}; do
+  if [ -s "$TEST_ROOT/high-volume-output.ready" ] \
+    && grep -q 'high-volume-output-finished' "$HIGH_VOLUME_DEBUG_LOG"; then
+    break
+  fi
+  if ! kill -0 "$high_volume_runner_pid" >/dev/null 2>&1; then
+    set +e
+    wait "$high_volume_runner_pid"
+    high_volume_runner_status=$?
+    set -e
+    echo "high-volume output runner exited with status $high_volume_runner_status before the memory check" >&2
+    tail -n 20 "$TEST_ROOT/high-volume-runner.err" >&2
+    exit 1
+  fi
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/high-volume-output.ready" ] \
+  || ! grep -q 'high-volume-output-finished' "$HIGH_VOLUME_DEBUG_LOG"; then
+  echo "high-volume output fixture did not finish streaming logs" >&2
+  exit 1
+fi
+high_volume_footprint_kb="$(runner_footprint_kb "$high_volume_runner_pid")"
+high_volume_growth_kb=$((high_volume_footprint_kb - high_volume_baseline_kb))
+if [ "$high_volume_growth_kb" -gt 65536 ]; then
+  echo "runner retained ${high_volume_growth_kb}KB while streaming high-volume output" >&2
+  exit 1
+fi
+touch "$TEST_ROOT/high-volume-output.release"
+wait "$high_volume_runner_pid"
+wait "$high_volume_drainer_pid"
+rm -f "$TEST_ROOT/high-volume-runner.pid"
+rm -f "$TEST_ROOT/high-volume-drainer.pid"
 
 cat > "$TEST_ROOT/inherit-pipes.sh" <<'EOF'
 #!/usr/bin/env bash
