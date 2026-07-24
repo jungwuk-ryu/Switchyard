@@ -63,7 +63,7 @@ At launch, `JobEngine` points Wine's external DLL, dylib, and framework search p
 
 Each container has a portable JSON manifest. The manifest is the source of truth and records the last-used Wine build, source identity, GPTK fingerprint, executable, environment overrides, schema version, and last-run status. Runtime provenance is diagnostic history, not a container-level selection or pin. Any future database must be a rebuildable index rather than the sole copy of container state.
 
-Switchyard has one active runtime selected in app settings; automatic setup selects the app's exactly pinned recommended release. Every container operation runs through that app-wide runtime. When the active runtime changes, an idle container is prepared automatically with `wineboot -u` on its next launch; users never choose or migrate runtime versions per container. See ADR 0003.
+Switchyard has one active Wine runtime and one active GPTK path selected in app settings. Every container operation snapshots and uses those app-wide components; neither can change while a container is running or transitioning. When the Wine runtime changes, an idle container is prepared automatically with `wineboot -u` on its next launch. GPTK remains externally injected and does not require prefix preparation. Users never choose or migrate runtime components per container. See ADR 0003.
 
 ## Decisions
 

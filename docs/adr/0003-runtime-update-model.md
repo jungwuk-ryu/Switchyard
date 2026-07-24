@@ -14,6 +14,8 @@ Runtime archives remain immutable and content-addressed. Downloading a release d
 
 Each container records the runtime provenance that most recently touched it. The record exists only for diagnostics and automatic prefix preparation; it never overrides the active app-wide runtime.
 
+The selected GPTK path is also app-wide. Launches snapshot the active Wine runtime, GPTK path, and GPTK fingerprint together, and no global compatibility component may change while a container is running or transitioning. GPTK is injected through external library paths and does not by itself trigger Wine prefix preparation.
+
 Selecting an older installed official release is a whole-app rollback. Per-container rollback is not part of the product model, and prefix mutations mean rollback cannot be presented as lossless.
 
 ## Consequences

@@ -23,10 +23,10 @@ public enum GuidedSetupPolicy {
         if status.rosetta != .ok {
             return .rosetta
         }
-        if status.wine == .unknown || status.patchset == .unknown {
+        if status.wine == .unknown || status.wineSource == .unknown {
             return .checking
         }
-        if status.wine != .ok || status.patchset != .ok {
+        if status.wine != .ok || status.wineSource != .ok {
             return .runtime
         }
         if status.gptk == .unknown {

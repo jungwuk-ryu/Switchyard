@@ -423,7 +423,7 @@ private func makeLaunchReadyGPTKLayout(
     let sourceCheck = try #require(result.1.first { $0.id == "runtime-source" })
     let runtime = locator.runtimeBuild(for: externalWine.path)
 
-    #expect(result.0.patchset == .warning)
+    #expect(result.0.wineSource == .warning)
     #expect(!result.0.canLaunch)
     #expect(sourceCheck.result.contains("cannot be verified"))
     #expect(runtime.id == "external-unverified")
@@ -563,7 +563,7 @@ private func makeLaunchReadyGPTKLayout(
     let sourceCheck = try #require(result.1.first { $0.id == "runtime-source" })
 
     #expect(result.0.wine == .ok)
-    #expect(result.0.patchset == .warning)
+    #expect(result.0.wineSource == .warning)
     #expect(!result.0.canLaunch)
     #expect(sourceCheck.result.contains(oldRevision.prefix(12)))
     #expect(sourceCheck.result.contains(expectedRevision.prefix(12)))
@@ -588,7 +588,7 @@ private func makeLaunchReadyGPTKLayout(
     )
     let sourceCheck = try #require(result.1.first { $0.id == "runtime-source" })
 
-    #expect(result.0.patchset == .warning)
+    #expect(result.0.wineSource == .warning)
     #expect(sourceCheck.result.contains("dirty source tree"))
 }
 
@@ -602,7 +602,7 @@ private func makeLaunchReadyGPTKLayout(
         winePath: nil,
         expectedSourceRevision: String(repeating: "d", count: 40)
     )
-    #expect(result.0.patchset == .missing)
+    #expect(result.0.wineSource == .missing)
     #expect(!result.0.canLaunch)
 }
 

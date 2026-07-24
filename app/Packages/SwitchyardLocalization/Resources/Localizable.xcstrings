@@ -3536,64 +3536,6 @@
         }
       }
     },
-    "Build Not Available": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Build nicht verfügbar"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compilación no disponible"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Build indisponible"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ビルドは利用できません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "빌드를 사용할 수 없음"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Build indisponível"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сборка недоступна"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "构建版本不可用"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "建置版本無法取得"
-          }
-        }
-      }
-    },
     "Build not available": {
       "localizations": {
         "de": {
@@ -3648,64 +3590,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "建置版本無法取得"
-          }
-        }
-      }
-    },
-    "Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kalender-Build-Nummern verwenden die angeheftete Quellrevisionszeit in UTC, sodass spätere Zahlen auf neuere Laufzeiten hinweisen."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Los números de compilación del calendario utilizan la hora de revisión de la fuente fijada en UTC, por lo que los números posteriores indican tiempos de ejecución más nuevos."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Les numéros de version du calendrier utilisent l'heure de révision de la source épinglée en UTC, de sorte que les numéros ultérieurs indiquent des environnements d'exécution plus récents."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "カレンダーのビルド番号は、固定されたソース リビジョン時刻 (UTC) を使用するため、後の番号は新しいランタイムを示します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "캘린더 빌드 번호는 고정된 소스 리비전의 UTC 시각을 기준으로 합니다. 숫자가 클수록 최신 런타임입니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Os números de compilação de calendário usam o horário UTC da revisão fixada do código-fonte; números maiores indicam runtimes mais recentes."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "В номерах сборок календаря используется время версии закрепленного исходного кода в формате UTC, поэтому более поздние номера указывают на более новые среды выполнения."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日历版本号使用 UTC 格式的固定源修订时间，因此后面的数字表示较新的运行时。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日曆版本號碼使用 UTC 格式的固定來源修訂時間，因此後面的數字表示較新的執行時間。"
           }
         }
       }
@@ -6787,64 +6671,6 @@
         }
       }
     },
-    "Comparison unavailable": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vergleich nicht verfügbar"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comparación no disponible"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comparaison indisponible"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "比較できません"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "비교할 수 없음"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Comparação indisponível"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сравнение недоступно"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法比较"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法比較"
-          }
-        }
-      }
-    },
     "Compatibility": {
       "localizations": {
         "de": {
@@ -7365,64 +7191,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "容器設定"
-          }
-        }
-      }
-    },
-    "Container Template": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Containervorlage"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Plantilla de contenedor"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modèle de conteneur"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "コンテナテンプレート"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "컨테이너 템플릿"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Modelo de contêiner"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Шаблон контейнера"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "容器模板"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "容器模板"
           }
         }
       }
@@ -13914,64 +13682,6 @@
         }
       }
     },
-    "Imported from a legacy manifest; the exact usage time was not recorded.": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이전 형식의 매니페스트에서 가져왔으며 정확한 사용 시각은 기록되지 않았습니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此记录来自旧版清单，未记录确切使用时间。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此記錄來自舊版資訊清單，未記錄確切使用時間。"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "旧形式のマニフェストから読み込まれたため、正確な使用日時は記録されていません。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Импортировано из устаревшего манифеста; точное время использования не записано."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aus einem älteren Manifest importiert; der genaue Nutzungszeitpunkt wurde nicht aufgezeichnet."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importé depuis un ancien manifeste ; l’heure exacte d’utilisation n’a pas été enregistrée."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importado desde un manifiesto antiguo; no se registró la hora exacta de uso."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Importado de um manifesto antigo; o horário exato de uso não foi registrado."
-          }
-        }
-      }
-    },
     "Info": {
       "localizations": {
         "de": {
@@ -15540,64 +15250,6 @@
         }
       }
     },
-    "Last Runtime Use": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "마지막 런타임 사용"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用运行时"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用執行環境"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "前回使用したランタイム"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последнее использование среды выполнения"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Letzte Laufzeitnutzung"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernière utilisation de l’environnement"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último uso del entorno"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último uso do runtime"
-          }
-        }
-      }
-    },
     "Last checked %@": {
       "localizations": {
         "de": {
@@ -15838,354 +15490,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "上次啟動：%1$@"
-          }
-        }
-      }
-    },
-    "Last used with active build": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "활성 빌드에서 마지막으로 사용"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用时与活动构建一致"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用時與目前建置版本相符"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "現在のビルドで前回使用"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последний раз использовалась с активной сборкой"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt mit dem aktiven Build verwendet"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernière utilisation avec le build actif"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usado por última vez con la compilación activa"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usado por último com o build ativo"
-          }
-        }
-      }
-    },
-    "Last used with another build": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "다른 빌드에서 마지막으로 사용"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用时为其他构建"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用時為其他建置版本"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "別のビルドで前回使用"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последний раз использовалась с другой сборкой"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt mit einem anderen Build verwendet"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernière utilisation avec un autre build"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usado por última vez con otra compilación"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usado por último com outro build"
-          }
-        }
-      }
-    },
-    "Last-used GPTK": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "마지막 사용 GPTK"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的 GPTK"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的 GPTK"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "前回使用した GPTK"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последний использованный GPTK"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt verwendetes GPTK"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernier GPTK utilisé"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último GPTK utilizado"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último GPTK usado"
-          }
-        }
-      }
-    },
-    "Last-used Patch Set": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "마지막 사용 패치 세트"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的补丁集"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的修補程式集"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "前回使用したパッチセット"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последний использованный набор патчей"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt verwendeter Patchsatz"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernier jeu de correctifs utilisé"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último conjunto de parches utilizado"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último conjunto de patches usado"
-          }
-        }
-      }
-    },
-    "Last-used Runtime ID": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "마지막 사용 런타임 ID"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的运行时 ID"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的執行環境 ID"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "前回使用したランタイム ID"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ID последней среды выполнения"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt verwendete Laufzeit-ID"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernier ID d’environnement utilisé"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último ID de entorno utilizado"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Último ID de runtime usado"
-          }
-        }
-      }
-    },
-    "Last-used Source": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "마지막 사용 소스"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的来源"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上次使用的來源"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "前回使用したソース"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последний использованный источник"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Zuletzt verwendete Quelle"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dernière source utilisée"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Última fuente utilizada"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Última fonte usada"
           }
         }
       }
@@ -23183,241 +22487,6 @@
         }
       }
     },
-    "Recorded %@.": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@에 기록됨."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "记录于 %1$@。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記錄於 %1$@。"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%1$@ に記録。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Записано %1$@."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aufgezeichnet am %1$@."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enregistré le %1$@."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Registrado el %1$@."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Registrado em %1$@."
-          }
-        }
-      }
-    },
-    "Recorded GPTK": {
-      "extractionState": "stale",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erfasstes GPTK"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GPTK registrado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GPTK enregistré"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録済みGPTK"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기록된 GPTK"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "GPTK registrado"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сохранённый GPTK"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已记录的 GPTK"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已記錄的 GPTK"
-          }
-        }
-      }
-    },
-    "Recorded Patch Set": {
-      "extractionState": "stale",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erfasster Patchsatz"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Conjunto de parches registrado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jeu de correctifs enregistré"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録済みパッチセット"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기록된 패치 세트"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Conjunto de patches registrado"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сохранённый набор патчей"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已记录的补丁集"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已記錄的修補程式集"
-          }
-        }
-      }
-    },
-    "Recorded Runtime ID": {
-      "extractionState": "stale",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Erfasste Laufzeit-ID"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ID de entorno de ejecución registrado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ID d’environnement d’exécution enregistré"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録済みランタイムID"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기록된 런타임 ID"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ID de runtime registrado"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сохранённый ID среды выполнения"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已记录的运行时 ID"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已記錄的執行環境 ID"
-          }
-        }
-      }
-    },
     "Recover Copied Callback": {
       "localizations": {
         "de": {
@@ -24702,64 +23771,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "將%1$@及其資料夾重新命名為%2$@。"
-          }
-        }
-      }
-    },
-    "Renderer": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Renderer"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "renderizador"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Moteur de rendu"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "レンダラー"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "렌더러"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Renderizador"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Рендерер"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "渲染器"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "渲染器"
           }
         }
       }
@@ -26505,64 +25516,6 @@
         }
       }
     },
-    "Runtime Scope": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "런타임 적용 범위"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "运行时范围"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "執行環境套用範圍"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ランタイムの適用範囲"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Область действия среды выполнения"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Geltungsbereich der Laufzeitumgebung"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Portée de l’environnement d’exécution"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ámbito del entorno de ejecución"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Escopo do runtime"
-          }
-        }
-      }
-    },
     "Runtime Source": {
       "localizations": {
         "de": {
@@ -26734,64 +25687,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "尚未檢查運轉時間。"
-          }
-        }
-      }
-    },
-    "Runtime provenance will be recorded after this container first uses Wine.": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 컨테이너에서 Wine을 처음 사용하면 런타임 출처가 기록됩니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此容器首次使用 Wine 后会记录运行时来源。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此容器首次使用 Wine 後會記錄執行環境來源。"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このコンテナで初めて Wine を使用すると、ランタイムの来歴が記録されます。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сведения о среде выполнения будут записаны после первого запуска Wine в этом контейнере."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Die Herkunft der Laufzeitumgebung wird aufgezeichnet, sobald dieser Container Wine erstmals verwendet."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "La provenance de l’environnement sera enregistrée lors de la première utilisation de Wine dans ce conteneur."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El origen del entorno se registrará cuando este contenedor use Wine por primera vez."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A origem do runtime será registrada quando este contêiner usar o Wine pela primeira vez."
           }
         }
       }
@@ -29993,123 +28888,6 @@
         }
       }
     },
-    "Stop all running containers before changing the selected runtime.": {
-      "extractionState": "stale",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stoppen Sie alle laufenden Container, bevor Sie die ausgewählte Laufzeit ändern."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detenga todos los contenedores en ejecución antes de cambiar el tiempo de ejecución seleccionado."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrêtez tous les conteneurs en cours d’exécution avant de modifier le runtime sélectionné."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "選択したランタイムを変更する前に、実行中のコンテナをすべて停止してください。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "선택한 런타임을 변경하기 전에 실행 중인 모든 컨테이너를 중지하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Interrompa todos os contêineres em execução antes de trocar o runtime selecionado."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Остановите все запущенные контейнеры перед изменением выбранной среды выполнения."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在更改所选运行时之前停止所有正在运行的容器。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在變更所選運行時之前停止所有正在運行的容器。"
-          }
-        }
-      }
-    },
-    "Stop all running containers before importing a toolkit.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Stoppen Sie alle laufenden Container, bevor Sie ein Toolkit importieren."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Detenga todos los contenedores en ejecución antes de importar un kit de herramientas."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrêtez tous les conteneurs en cours d’exécution avant d’importer une boîte à outils."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ツールキットをインポートする前に、実行中のすべてのコンテナを停止します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "툴킷을 가져오기 전에 실행 중인 모든 컨테이너를 중지하세요."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Interrompa todos os contêineres em execução antes de importar um toolkit."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Остановите все запущенные контейнеры перед импортом набора инструментов."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在导入工具包之前停止所有正在运行的容器。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "在導入工具包之前停止所有正在執行的容器。"
-          }
-        }
-      }
-    },
     "Stop and Continue": {
       "localizations": {
         "de": {
@@ -31236,64 +30014,6 @@
         }
       }
     },
-    "Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard는 항상 위에 표시된 앱 전체 활성 런타임을 사용합니다. 컨테이너별로 런타임 버전을 선택하거나 고정하지 않습니다."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard 始终使用上方显示的全局活动运行时。容器不能单独选择或固定运行时版本。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard 一律使用上方顯示、全 App 共用的執行環境。容器無法個別選擇或固定執行環境版本。"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard は常に上に表示されたアプリ全体のアクティブなランタイムを使用します。コンテナごとにランタイムのバージョンを選択または固定することはできません。"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard всегда использует показанную выше активную среду выполнения для всего приложения. Контейнеры не выбирают и не закрепляют отдельные версии."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard verwendet immer die oben angezeigte appweit aktive Laufzeitumgebung. Container wählen oder fixieren keine eigenen Versionen."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard utilise toujours l’environnement d’exécution actif affiché ci-dessus pour toute l’app. Les conteneurs ne choisissent ni ne fixent leur propre version."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard usa siempre el entorno de ejecución activo que aparece arriba para toda la app. Los contenedores no eligen ni fijan versiones propias."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Switchyard sempre usa o runtime ativo de todo o app mostrado acima. Os contêineres não escolhem nem fixam versões próprias."
-          }
-        }
-      }
-    },
     "Switchyard can remove only a runtime stored directly in its managed cache.": {
       "localizations": {
         "ko": {
@@ -31522,65 +30242,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Switchyard 無法保護其私人快取中下載的安裝程式：%1$@"
-          }
-        }
-      }
-    },
-    "Switchyard currently launches all containers with the active runtime shown above.": {
-      "extractionState": "stale",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard startet derzeit alle Container mit der oben gezeigten aktiven Laufzeit."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard actualmente lanza todos los contenedores con el tiempo de ejecución activo que se muestra arriba."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard lance actuellement tous les conteneurs avec le runtime actif indiqué ci-dessus."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard は現在、上記のアクティブなランタイムを使用してすべてのコンテナを起動します。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard는 현재 모든 컨테이너에 위의 활성 런타임을 사용합니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O Switchyard usa o runtime ativo acima em todos os contêineres."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard в настоящее время запускает все контейнеры с активной средой выполнения, показанной выше."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard 当前启动具有上面显示的活动运行时的所有容器。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Switchyard 目前啟動具有上面顯示的活動運行時的所有容器。"
           }
         }
       }
@@ -38091,64 +36752,6 @@
         }
       }
     },
-    "This runtime has no trusted source revision date for a calendar build number.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Diese Laufzeit verfügt über kein vertrauenswürdiges Quellrevisionsdatum für eine Kalender-Build-Nummer."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este tiempo de ejecución no tiene una fecha de revisión de fuente confiable para un número de compilación del calendario."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ce runtime n’a pas de date de révision source fiable pour un numéro de build de calendrier."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このランタイムには、カレンダー ビルド番号の信頼できるソース リビジョン日付がありません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 런타임에는 캘린더 빌드 번호에 대한 신뢰할 수 있는 소스 개정 날짜가 없습니다."
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Este runtime não tem uma data confiável de revisão do código-fonte para gerar um número de compilação de calendário."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Эта среда выполнения не имеет даты редакции доверенного источника для номера сборки календаря."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此运行时没有日历内部版本号的可信源修订日期。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "此運行時沒有日曆內部版本號的可信任來源修訂日期。"
-          }
-        }
-      }
-    },
     "Toolkit": {
       "localizations": {
         "de": {
@@ -38841,64 +37444,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Usar"
-          }
-        }
-      }
-    },
-    "Used by every container": {
-      "localizations": {
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "모든 컨테이너에서 사용"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "供所有容器使用"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "供所有容器使用"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すべてのコンテナで使用"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Используется всеми контейнерами"
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Von allen Containern verwendet"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Utilisé par tous les conteneurs"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usado por todos los contenedores"
-          }
-        },
-        "pt-BR": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Usado por todos os contêineres"
           }
         }
       }
@@ -40069,6 +38614,64 @@
         }
       }
     },
+    "Wait for all container activity to stop before changing GPTK.": {
+      "localizations": {
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPTK를 변경하기 전에 모든 컨테이너 작업이 끝날 때까지 기다리세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请等待所有容器活动停止后再更改 GPTK。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請等待所有容器活動停止後再變更 GPTK。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GPTK を変更する前に、すべてのコンテナの処理が停止するまで待ってください。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дождитесь завершения всех операций с контейнерами, прежде чем менять GPTK."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warten Sie, bis alle Containeraktivitäten beendet sind, bevor Sie GPTK ändern."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attendez la fin de toute activité des conteneurs avant de modifier GPTK."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera a que finalice toda la actividad de los contenedores antes de cambiar GPTK."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aguarde o término de todas as atividades dos contêineres antes de alterar o GPTK."
+          }
+        }
+      }
+    },
     "Wait for all container activity to stop before removing a runtime.": {
       "localizations": {
         "ko": {
@@ -40123,6 +38726,64 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aguarde o término de todas as atividades dos contêineres antes de remover um runtime."
+          }
+        }
+      }
+    },
+    "Wait for compatibility setup to finish before starting a Windows app.": {
+      "localizations": {
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windows 앱을 시작하기 전에 호환성 설정이 끝날 때까지 기다리세요."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请等待兼容性设置完成后再启动 Windows 应用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請等待相容性設定完成後再啟動 Windows App。"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Windows アプリを起動する前に、互換性設定が完了するまで待ってください。"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дождитесь завершения настройки совместимости, прежде чем запускать приложение Windows."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warten Sie, bis die Kompatibilitätseinrichtung abgeschlossen ist, bevor Sie eine Windows-App starten."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attendez la fin de la configuration de compatibilité avant de lancer une app Windows."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera a que finalice la configuración de compatibilidad antes de iniciar una app de Windows."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aguarde a conclusão da configuração de compatibilidade antes de iniciar um app do Windows."
           }
         }
       }

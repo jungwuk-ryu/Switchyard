@@ -47,7 +47,7 @@ struct SetupAssistantView: View {
             guard hasStarted,
                   !isSettingUpSteam,
                   requirement == .runtime,
-                  !store.hasRunningContainers else { return }
+                  store.canChangeCompatibilityConfiguration else { return }
             store.installCompatibleWineRuntimeIfNeeded()
         }
         .task(id: downloadScanTaskID) {
@@ -310,7 +310,7 @@ struct SetupAssistantView: View {
                     bundle: SwitchyardStrings.bundle
                 ),
                 detail: runtimeStatusDetail,
-                status: store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok
+                status: store.runtimeStatus.wine == .ok && store.runtimeStatus.wineSource == .ok
                     ? .ok
                     : (runtimeFailed ? .warning : .unknown),
                 showsProgress: store.runtimeInstallationState.isWorking
@@ -339,7 +339,7 @@ struct SetupAssistantView: View {
                     store.installCompatibleWineRuntime()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(store.hasRunningContainers)
+                .disabled(!store.canChangeCompatibilityConfiguration)
             }
 
             Text("The main runtime download is about 700 MB. Switchyard checks its size, fingerprint, developer signature, and Apple notarization before using it.")
@@ -420,7 +420,7 @@ struct SetupAssistantView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(store.hasRunningContainers)
+                .disabled(!store.canChangeCompatibilityConfiguration)
                 .accessibilityIdentifier("setup.gptk.import")
             } else if store.canDownloadGPTKAutomatically {
                 VStack(alignment: .leading, spacing: 10) {
@@ -445,7 +445,7 @@ struct SetupAssistantView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .disabled(store.hasRunningContainers)
+                    .disabled(!store.canChangeCompatibilityConfiguration)
                     .accessibilityIdentifier("setup.gptk.automaticDownload")
 
                     Button("Download from Apple") {
@@ -455,6 +455,7 @@ struct SetupAssistantView: View {
                     Button("Choose Downloaded File…") {
                         store.chooseGPTKDiskImageAndImport()
                     }
+                    .disabled(!store.canChangeCompatibilityConfiguration)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 10) {
@@ -475,6 +476,7 @@ struct SetupAssistantView: View {
                     Button("Choose Downloaded File…") {
                         store.chooseGPTKDiskImageAndImport()
                     }
+                    .disabled(!store.canChangeCompatibilityConfiguration)
                 }
             }
 
@@ -672,15 +674,22 @@ struct SetupAssistantView: View {
                         localized: "Choose a local GPTK directory or disk image.",
                         bundle: SwitchyardStrings.bundle
                     ),
-                    path: $store.gptkPath
-                ) {
-                    store.refreshRuntimeStatus()
-                }
+                    path: gptkPathBinding
+                ) {}
+                .disabled(
+                    !store.canChangeCompatibilityConfiguration
+                        || store.isImportingGPTK
+                        || store.gptkComponentDownloadState.isWorking
+                )
                 if URL(fileURLWithPath: store.gptkPath).pathExtension.lowercased() == "dmg" {
                     Button("Import Selected Toolkit") {
                         store.importSelectedGPTKDiskImage()
                     }
-                    .disabled(store.isImportingGPTK)
+                    .disabled(
+                        store.isImportingGPTK
+                            || store.gptkComponentDownloadState.isWorking
+                            || !store.canChangeCompatibilityConfiguration
+                    )
                 }
 #if DEBUG
                 PathPickerRow(
@@ -697,7 +706,7 @@ struct SetupAssistantView: View {
                     store.useSelectedLocalDevelopmentRuntime()
                 }
                 .disabled(
-                    !store.canChangeActiveRuntime
+                    !store.canChangeCompatibilityConfiguration
                         || store.runtimeInstallationState.isWorking
                         || store.runtimeManagementState.isWorking
                 )
@@ -772,6 +781,14 @@ struct SetupAssistantView: View {
 
     private var automaticSetupTaskID: String {
         "\(hasStarted)-\(isSettingUpSteam)-\(requirement.rawValue)"
+    }
+
+    private var gptkPathBinding: Binding<String> {
+        Binding {
+            store.gptkPath
+        } set: { path in
+            store.selectGPTKPath(path)
+        }
     }
 
     private var downloadScanTaskID: String {

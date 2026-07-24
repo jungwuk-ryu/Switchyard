@@ -329,12 +329,6 @@ public enum EnvironmentOverridePolicy {
     }
 }
 
-public enum RuntimeIdentityComparison: Equatable, Sendable {
-    case matches
-    case differs
-    case unavailable
-}
-
 public enum ContainerRuntimePreparation: Equatable, Sendable {
     case none
     case initialize
@@ -394,21 +388,6 @@ public struct RuntimeBuild: Identifiable, Codable, Equatable, Sendable {
             minute
         )
     }
-
-    public func comparison(
-        toLastRuntime record: ContainerRuntimeRecord?
-    ) -> RuntimeIdentityComparison {
-        guard !sourceRevision.isEmpty,
-              let record,
-              let recordedSourceRevision = record.sourceRevision else {
-            return .unavailable
-        }
-        return id == record.runtimeID
-            && patchsetID == record.patchsetID
-            && sourceRevision == recordedSourceRevision
-            ? .matches
-            : .differs
-    }
 }
 
 public extension Container {
@@ -449,7 +428,7 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
     public var rosetta: HealthStatus
     public var gptk: HealthStatus
     public var wine: HealthStatus
-    public var patchset: HealthStatus
+    public var wineSource: HealthStatus
     public var summary: String
     public var gptkFingerprint: String?
 
@@ -459,7 +438,7 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
         rosetta: HealthStatus = .unknown,
         gptk: HealthStatus = .unknown,
         wine: HealthStatus = .unknown,
-        patchset: HealthStatus = .unknown,
+        wineSource: HealthStatus = .unknown,
         summary: String? = nil,
         gptkFingerprint: String? = nil
     ) {
@@ -468,7 +447,7 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
         self.rosetta = rosetta
         self.gptk = gptk
         self.wine = wine
-        self.patchset = patchset
+        self.wineSource = wineSource
         self.summary = summary
             ?? String(
                 localized: "Runtime has not been checked yet.",
@@ -483,7 +462,7 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
             && rosetta == .ok
             && gptk == .ok
             && wine == .ok
-            && patchset == .ok
+            && wineSource == .ok
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -492,7 +471,8 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
         case rosetta
         case gptk
         case wine
-        case patchset
+        case wineSource
+        case legacyPatchset = "patchset"
         case summary
         case gptkFingerprint
     }
@@ -504,9 +484,24 @@ public struct RuntimeStatus: Codable, Equatable, Sendable {
         rosetta = try container.decodeIfPresent(HealthStatus.self, forKey: .rosetta) ?? .unknown
         gptk = try container.decode(HealthStatus.self, forKey: .gptk)
         wine = try container.decode(HealthStatus.self, forKey: .wine)
-        patchset = try container.decode(HealthStatus.self, forKey: .patchset)
+        wineSource = try container.decodeIfPresent(
+            HealthStatus.self,
+            forKey: .wineSource
+        ) ?? container.decode(HealthStatus.self, forKey: .legacyPatchset)
         summary = try container.decode(String.self, forKey: .summary)
         gptkFingerprint = try container.decodeIfPresent(String.self, forKey: .gptkFingerprint)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(architecture, forKey: .architecture)
+        try container.encode(macOS, forKey: .macOS)
+        try container.encode(rosetta, forKey: .rosetta)
+        try container.encode(gptk, forKey: .gptk)
+        try container.encode(wine, forKey: .wine)
+        try container.encode(wineSource, forKey: .wineSource)
+        try container.encode(summary, forKey: .summary)
+        try container.encodeIfPresent(gptkFingerprint, forKey: .gptkFingerprint)
     }
 }
 

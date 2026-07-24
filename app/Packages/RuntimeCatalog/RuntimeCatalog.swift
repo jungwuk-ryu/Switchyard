@@ -208,7 +208,7 @@ public struct RuntimeLocator {
             rosetta: rosettaStatus,
             gptk: gptkValidation.status,
             wine: wineValidation.status,
-            patchset: wineValidation.sourceStatus,
+            wineSource: wineValidation.sourceStatus,
             summary: summary,
             gptkFingerprint: gptkValidation.fingerprint
         )

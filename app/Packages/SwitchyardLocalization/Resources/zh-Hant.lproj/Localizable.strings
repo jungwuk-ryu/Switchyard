@@ -122,12 +122,8 @@
 	<string>返回容器</string>
 	<key>Build %@</key>
 	<string>建置版本 %1$@</string>
-	<key>Build Not Available</key>
-	<string>建置版本無法取得</string>
 	<key>Build not available</key>
 	<string>建置版本無法取得</string>
-	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
-	<string>日曆版本號碼使用 UTC 格式的固定來源修訂時間，因此後面的數字表示較新的執行時間。</string>
 	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
 	<string>回呼 URL 和登入權杖只會透過受保護的一次性檔案傳送，不會儲存或寫入記錄。</string>
 	<key>Cancel</key>
@@ -234,8 +230,6 @@
 	<string>關閉 Windows 應用程式並等待 wineserver 退出</string>
 	<key>Command plan could not be serialized for the runner.</key>
 	<string>無法序列化 switchyard-runner 的指令規劃。</string>
-	<key>Comparison unavailable</key>
-	<string>無法比較</string>
 	<key>Compatibility</key>
 	<string>相容性</string>
 	<key>Compatibility Pending</key>
@@ -254,8 +248,6 @@
 	<string>容器設定</string>
 	<key>Container Setup</key>
 	<string>容器設定</string>
-	<key>Container Template</key>
-	<string>容器模板</string>
 	<key>Container names cannot be empty.</key>
 	<string>容器名稱不能為空。</string>
 	<key>Container path is empty or invalid: %@</key>
@@ -486,8 +478,6 @@
 	<string>已匯入的項目</string>
 	<key>Imported and verified</key>
 	<string>導入並驗證</string>
-	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
-	<string>此記錄來自舊版資訊清單，未記錄確切使用時間。</string>
 	<key>Info</key>
 	<string>資訊</string>
 	<key>Initializing this Windows container before its first app opens.</key>
@@ -542,8 +532,6 @@
 	<string>正在安裝...</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>保持 Windows 遊戲打開，同時恢復其複製的登入回呼。</string>
-	<key>Last Runtime Use</key>
-	<string>上次使用執行環境</string>
 	<key>Last checked %@</key>
 	<string>最後檢查 %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -552,18 +540,6 @@
 	<string>最後在線已知：%1$@ · 來源 %2$@</string>
 	<key>Last launched %@</key>
 	<string>上次啟動：%1$@</string>
-	<key>Last used with active build</key>
-	<string>上次使用時與目前建置版本相符</string>
-	<key>Last used with another build</key>
-	<string>上次使用時為其他建置版本</string>
-	<key>Last-used GPTK</key>
-	<string>上次使用的 GPTK</string>
-	<key>Last-used Patch Set</key>
-	<string>上次使用的修補程式集</string>
-	<key>Last-used Runtime ID</key>
-	<string>上次使用的執行環境 ID</string>
-	<key>Last-used Source</key>
-	<string>上次使用的來源</string>
 	<key>Latest Online</key>
 	<string>最新線上</string>
 	<key>Latest online release not available</key>
@@ -804,14 +780,6 @@
 	<string>最近啟動</string>
 	<key>Recommended</key>
 	<string>建議</string>
-	<key>Recorded %@.</key>
-	<string>記錄於 %1$@。</string>
-	<key>Recorded GPTK</key>
-	<string>已記錄的 GPTK</string>
-	<key>Recorded Patch Set</key>
-	<string>已記錄的修補程式集</string>
-	<key>Recorded Runtime ID</key>
-	<string>已記錄的執行環境 ID</string>
 	<key>Recover Copied Callback</key>
 	<string>恢復複製的回呼</string>
 	<key>Recover Copied Login Callback</key>
@@ -856,8 +824,6 @@
 	<string>正在移除所選未使用的執行環境…</string>
 	<key>Renamed %@ and its folder to %@.</key>
 	<string>將%1$@及其資料夾重新命名為%2$@。</string>
-	<key>Renderer</key>
-	<string>渲染器</string>
 	<key>Required</key>
 	<string>必要</string>
 	<key>Reset Cached Setup State</key>
@@ -918,16 +884,12 @@
 	<string>執行環境 ID</string>
 	<key>Runtime Management</key>
 	<string>執行環境管理</string>
-	<key>Runtime Scope</key>
-	<string>執行環境套用範圍</string>
 	<key>Runtime Source</key>
 	<string>執行環境來源</string>
 	<key>Runtime Version</key>
 	<string>執行環境版本</string>
 	<key>Runtime has not been checked yet.</key>
 	<string>尚未檢查運轉時間。</string>
-	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
-	<string>此容器首次使用 Wine 後會記錄執行環境來源。</string>
 	<key>Runtime release manifest version %lld is unsupported.</key>
 	<string>運行時發布清單版本 %1$lld 不受支援。</string>
 	<key>Runtime source verified at %@ revision %@.</key>
@@ -1038,10 +1000,6 @@
 	<string>要停止所有 Windows App 嗎？</string>
 	<key>Stop all Wine processes in this container</key>
 	<string>停止此容器中的所有 Wine 進程</string>
-	<key>Stop all running containers before changing the selected runtime.</key>
-	<string>在變更所選運行時之前停止所有正在運行的容器。</string>
-	<key>Stop all running containers before importing a toolkit.</key>
-	<string>在導入工具包之前停止所有正在執行的容器。</string>
 	<key>Stop and Continue</key>
 	<string>停止並繼續</string>
 	<key>Stop or wait for %@ before renaming its folder.</key>
@@ -1082,8 +1040,6 @@
 	<string>Switchyard Wine 運行時 %1$@ 是從來源 %2$@ 建構的，但此 Switchyard 建構引腳 %3$@。從固定版本重建運行時。</string>
 	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
 	<string>Switchyard 僅接受官方 HTTPS 下載並將其保存在私人快取中。</string>
-	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
-	<string>Switchyard 一律使用上方顯示、全 App 共用的執行環境。容器無法個別選擇或固定執行環境版本。</string>
 	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
 	<string>Switchyard 只能移除直接儲存在其管理快取中的執行環境。</string>
 	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
@@ -1092,8 +1048,6 @@
 	<string>Switchyard 無法檢查此 Wine 會話。</string>
 	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
 	<string>Switchyard 無法保護其私人快取中下載的安裝程式：%1$@</string>
-	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
-	<string>Switchyard 目前啟動具有上面顯示的活動運行時的所有容器。</string>
 	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
 	<string>Switchyard 需要配備 Apple Silicon 且執行 macOS 14 或以上版本的 Mac。</string>
 	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
@@ -1320,8 +1274,6 @@
 	<string>這會永久刪除每次執行產生的所有偵錯日誌檔案。目前 Switchyard 顯示的日誌不受影響。</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>此版本會開啟 Apple 的下載頁面，以便您可以登入、檢視其條款並選擇要匯入的工具包副本。</string>
-	<key>This runtime has no trusted source revision date for a calendar build number.</key>
-	<string>此運行時沒有日曆內部版本號的可信任來源修訂日期。</string>
 	<key>Toolkit</key>
 	<string>工具包</string>
 	<key>Try Again</key>
@@ -1346,8 +1298,6 @@
 	<string>更新%1$@</string>
 	<key>Use</key>
 	<string>使用</string>
-	<key>Used by every container</key>
-	<string>供所有容器使用</string>
 	<key>Value</key>
 	<string>值</string>
 	<key>Valve's download service did not return a complete installer.</key>
@@ -1390,6 +1340,10 @@
 	<string>變更使用中的執行環境前，請等待所有容器工作結束。</string>
 	<key>Wait for all container activity to stop before removing a runtime.</key>
 	<string>移除執行環境前，請等待所有容器工作結束。</string>
+	<key>Wait for all container activity to stop before changing GPTK.</key>
+	<string>請等待所有容器活動停止後再變更 GPTK。</string>
+	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
+	<string>請等待相容性設定完成後再啟動 Windows App。</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
 	<string>等待容器資料夾操作完成，然後再恢復登入回呼。</string>
 	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>

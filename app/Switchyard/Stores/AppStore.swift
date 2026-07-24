@@ -332,7 +332,7 @@ final class AppStore: ObservableObject {
     @Published var hasCompletedSetup: Bool
     @Published var isSetupAssistantPresented = false
     @Published var libraryPath: String
-    @Published var gptkPath: String
+    @Published private(set) var gptkPath: String
     @Published var winePath: String
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
@@ -698,7 +698,7 @@ final class AppStore: ObservableObject {
     }
 
     func installCompatibleWineRuntimeIfNeeded() {
-        guard runtimeStatus.wine != .ok || runtimeStatus.patchset != .ok else { return }
+        guard runtimeStatus.wine != .ok || runtimeStatus.wineSource != .ok else { return }
         guard !runtimeInstallationState.isWorking,
               !runtimeManagementState.isWorking else {
             return
@@ -711,7 +711,7 @@ final class AppStore: ObservableObject {
               !runtimeManagementState.isWorking else {
             return
         }
-        guard canChangeActiveRuntime else {
+        guard canChangeCompatibilityConfiguration else {
             runtimeInstallationState = .failed(
                 String(
                     localized: "Wait for all container activity to stop before changing the active runtime.",
@@ -839,7 +839,7 @@ final class AppStore: ObservableObject {
               !runtimeManagementState.isWorking else {
             return
         }
-        guard canChangeActiveRuntime else {
+        guard canChangeCompatibilityConfiguration else {
             runtimeManagementState = .failed(
                 String(
                     localized: "Wait for all container activity to stop before changing the active runtime.",
@@ -896,7 +896,7 @@ final class AppStore: ObservableObject {
               !runtimeManagementState.isWorking else {
             return
         }
-        guard canChangeActiveRuntime else {
+        guard canChangeCompatibilityConfiguration else {
             runtimeManagementState = .failed(
                 String(
                     localized: "Wait for all container activity to stop before removing a runtime.",
@@ -952,7 +952,7 @@ final class AppStore: ObservableObject {
               !runtimeManagementState.isWorking else {
             return
         }
-        guard canChangeActiveRuntime else {
+        guard canChangeCompatibilityConfiguration else {
             runtimeManagementState = .failed(
                 String(
                     localized: "Wait for all container activity to stop before changing the active runtime.",
@@ -980,7 +980,7 @@ final class AppStore: ObservableObject {
               !runtimeManagementState.isWorking else {
             return
         }
-        guard canChangeActiveRuntime else {
+        guard canChangeCompatibilityConfiguration else {
             runtimeManagementState = .failed(
                 String(
                     localized: "Wait for all container activity to stop before changing the active runtime.",
@@ -1016,6 +1016,7 @@ final class AppStore: ObservableObject {
         sourcePreference: ActiveRuntimeSourcePreference
     ) {
         winePath = path
+        runtimeStatus = RuntimeStatus()
         if let storedValue = sourcePreference.storedValue {
             defaults.set(
                 storedValue,
@@ -1064,18 +1065,17 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func selectGPTKPath(_ path: String) {
+        guard ensureGPTKCanChange() else { return }
+        activateGPTK(at: path)
+    }
+
     func prepareAutomaticGPTKDownload() {
         guard !gptkComponentDownloadState.isWorking,
               gptkComponentConsentRequest == nil else {
             return
         }
-        guard !hasRunningContainers else {
-            gptkSetupMessage = String(
-                localized: "Stop all running containers before importing a toolkit.",
-                bundle: SwitchyardStrings.bundle
-            )
-            return
-        }
+        guard ensureGPTKCanChange() else { return }
         guard let gptkComponentPolicy else {
             gptkSetupMessage = String(
                 localized: "Automatic GPTK download is not enabled in this Switchyard build. Use Apple's official download instead.",
@@ -1151,13 +1151,7 @@ final class AppStore: ObservableObject {
               let gptkComponentPolicy else {
             return
         }
-        guard !hasRunningContainers else {
-            gptkSetupMessage = String(
-                localized: "Stop all running containers before importing a toolkit.",
-                bundle: SwitchyardStrings.bundle
-            )
-            return
-        }
+        guard ensureGPTKCanChange() else { return }
 
         recordGPTKComponentConsent(request)
         gptkComponentConsentRequest = nil
@@ -1179,8 +1173,7 @@ final class AppStore: ObservableObject {
                 )
                 try Task.checkCancellation()
                 guard gptkComponentTaskID == taskID else { return }
-                gptkPath = result.rootPath
-                persistPreferences()
+                activateGPTK(at: result.rootPath)
                 gptkComponentDownloadState = .idle
                 gptkSetupMessage = String(
                     localized: "Downloaded, verified, and selected the reviewed GPTK 3 component.",
@@ -1195,7 +1188,6 @@ final class AppStore: ObservableObject {
                     ),
                     at: 0
                 )
-                refreshRuntimeStatus()
             } catch is CancellationError {
                 if gptkComponentTaskID == taskID {
                     gptkComponentDownloadState = .idle
@@ -1269,6 +1261,7 @@ final class AppStore: ObservableObject {
               !gptkComponentDownloadState.isWorking else {
             return
         }
+        guard ensureGPTKCanChange() else { return }
         let panel = NSOpenPanel()
         panel.title = String(
             localized: "Choose Game Porting Toolkit",
@@ -1291,8 +1284,7 @@ final class AppStore: ObservableObject {
         }
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        gptkPath = url.path
-        persistPreferences()
+        guard ensureGPTKCanChange() else { return }
         importGPTKDiskImage(at: url.path)
     }
 
@@ -1313,13 +1305,7 @@ final class AppStore: ObservableObject {
     }
 
     private func importGPTKDiskImage(at downloadedPath: String) {
-        guard !hasRunningContainers else {
-            gptkSetupMessage = String(
-                localized: "Stop all running containers before importing a toolkit.",
-                bundle: SwitchyardStrings.bundle
-            )
-            return
-        }
+        guard ensureGPTKCanChange() else { return }
         isImportingGPTK = true
         gptkSetupMessage = String(
             localized: "Found \(URL(fileURLWithPath: downloadedPath).lastPathComponent); importing it into the local cache…",
@@ -1336,10 +1322,9 @@ final class AppStore: ObservableObject {
                 }
             }.value
 
-            isImportingGPTK = false
             if let importedPath = result.path {
-                gptkPath = importedPath
-                persistPreferences()
+                activateGPTK(at: importedPath)
+                isImportingGPTK = false
                 gptkSetupMessage = String(
                     localized: "Imported Apple-signed GPTK code into Switchyard's local cache.",
                     bundle: SwitchyardStrings.bundle
@@ -1356,8 +1341,8 @@ final class AppStore: ObservableObject {
                     ),
                     at: 0
                 )
-                refreshRuntimeStatus()
             } else {
+                isImportingGPTK = false
                 let error = result.error
                     ?? String(localized: "Unknown error", bundle: SwitchyardStrings.bundle)
                 let message = String(
@@ -1369,6 +1354,23 @@ final class AppStore: ObservableObject {
             }
             gptkImportTask = nil
         }
+    }
+
+    private func ensureGPTKCanChange() -> Bool {
+        guard canChangeCompatibilityConfiguration else {
+            gptkSetupMessage = String(
+                localized: "Wait for all container activity to stop before changing GPTK.",
+                bundle: SwitchyardStrings.bundle
+            )
+            return false
+        }
+        return true
+    }
+
+    private func activateGPTK(at path: String) {
+        gptkPath = path
+        runtimeStatus = RuntimeStatus()
+        refreshRuntimeStatus()
     }
 
     private func recordGPTKComponentConsent(
@@ -2206,7 +2208,8 @@ final class AppStore: ObservableObject {
     }
 
     func isContainerTransitioning(_ containerID: UUID) -> Bool {
-        isContainerLaunching(containerID)
+        isChangingCompatibilityConfiguration
+            || isContainerLaunching(containerID)
             || isStoppingWineServer(in: containerID)
             || containerStorageOperationIDs.contains(containerID)
     }
@@ -2832,8 +2835,15 @@ final class AppStore: ObservableObject {
         isContainerTransitioning(containerID) || isContainerRunning(containerID)
     }
 
-    var canChangeActiveRuntime: Bool {
-        !containers.contains { isContainerBusy($0.id) }
+    var isChangingCompatibilityConfiguration: Bool {
+        runtimeInstallationState.isWorking
+            || isImportingGPTK
+            || gptkComponentDownloadState.isWorking
+    }
+
+    var canChangeCompatibilityConfiguration: Bool {
+        !isChangingCompatibilityConfiguration
+            && !containers.contains { isContainerBusy($0.id) }
     }
 
     func openContainerInFinder(_ containerID: UUID) {
@@ -2989,6 +2999,20 @@ final class AppStore: ObservableObject {
 
     private func runContainer(containerID: UUID, executablePath: String?, executableArguments: [String]) async {
         guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard !isChangingCompatibilityConfiguration else {
+            logLines.insert(
+                LogLine(
+                    level: "warning",
+                    source: "runtime",
+                    message: String(
+                        localized: "Wait for compatibility setup to finish before starting a Windows app.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+            return
+        }
         guard !isContainerTransitioning(containerID) else {
             logLines.insert(
                 LogLine(
@@ -3010,6 +3034,7 @@ final class AppStore: ObservableObject {
         }
 
         let activeRuntime = currentRuntime
+        let activeGPTKPath = gptkPath
         let activeGPTKFingerprint = runtimeStatus.gptkFingerprint
         let launchedExecutable = executablePath ?? container.executablePath ?? ""
         launchingContainerIDs.insert(containerID)
@@ -3075,6 +3100,7 @@ final class AppStore: ObservableObject {
             prefixSessionIsActiveForFonts = await preparePrefixForActiveRuntimeIfNeeded(
                 container,
                 runtime: activeRuntime,
+                gptkPath: activeGPTKPath,
                 gptkFingerprint: activeGPTKFingerprint
             )
         }
@@ -3093,7 +3119,7 @@ final class AppStore: ObservableObject {
                 executablePath: executablePath,
                 executableArguments: executableArguments,
                 runtime: activeRuntime,
-                gptkPath: gptkPath,
+                gptkPath: activeGPTKPath,
                 environmentOverrides: debugEnvironmentOverrides,
                 debugLogPath: debugLogPath,
                 terminateExistingPrefixSession: terminateExistingPrefixSession
@@ -3470,6 +3496,7 @@ final class AppStore: ObservableObject {
     private func preparePrefixForActiveRuntimeIfNeeded(
         _ container: Container,
         runtime: RuntimeBuild,
+        gptkPath: String,
         gptkFingerprint: String?
     ) async -> Bool {
         let preparation = container.runtimePreparation(

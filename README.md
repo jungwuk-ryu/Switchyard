@@ -62,7 +62,7 @@ The GPTK 3 review conditionally permits a separate, non-commercial component cha
 3. Return to Switchyard after the DMG finishes downloading and choose **Import Downloaded GPTK**. The app locates it in Downloads, verifies that its executable code is Apple-signed, and imports it into the local cache.
 4. Re-run diagnostics and create a container.
 
-The signed app pins the recommended runtime's exact archive size and SHA-256 for automatic setup. Under **Settings → Wine Runtime**, users can also download, activate, and remove stable releases from the official `switchyard-wine` GitHub channel. The manager restricts manifests and archives to that channel and the app's trusted Developer ID team; installation verifies each release's exact size and digest, Git source revision, safe archive paths, full extracted file-tree digest, supported architectures, and Developer ID signatures. The selected runtime is app-wide, never per-container. GPTK is never included in either release.
+The signed app pins the recommended runtime's exact archive size and SHA-256 for automatic setup. Under **Settings → Wine Runtime**, users can also download, activate, and remove stable releases from the official `switchyard-wine` GitHub channel. The manager restricts manifests and archives to that channel and the app's trusted Developer ID team; installation verifies each release's exact size and digest, Git source revision, safe archive paths, full extracted file-tree digest, supported architectures, and Developer ID signatures. The selected Wine runtime and GPTK path are app-wide, never per-container. GPTK is never included in either release.
 
 ## Build and Verify
 

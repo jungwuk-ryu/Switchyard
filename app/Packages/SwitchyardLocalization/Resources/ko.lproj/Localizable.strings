@@ -122,12 +122,8 @@
 	<string>컨테이너로 돌아가기</string>
 	<key>Build %@</key>
 	<string>빌드 %1$@</string>
-	<key>Build Not Available</key>
-	<string>빌드를 사용할 수 없음</string>
 	<key>Build not available</key>
 	<string>빌드를 사용할 수 없음</string>
-	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
-	<string>캘린더 빌드 번호는 고정된 소스 리비전의 UTC 시각을 기준으로 합니다. 숫자가 클수록 최신 런타임입니다.</string>
 	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
 	<string>콜백 URL과 로그인 토큰은 보호된 일회용 파일로만 전달하며, 저장하거나 로그에 남기지 않습니다.</string>
 	<key>Cancel</key>
@@ -234,8 +230,6 @@
 	<string>Windows 앱을 닫고 wineserver가 종료되기를 기다리는 중</string>
 	<key>Command plan could not be serialized for the runner.</key>
 	<string>switchyard-runner용 명령 계획을 직렬화할 수 없습니다.</string>
-	<key>Comparison unavailable</key>
-	<string>비교할 수 없음</string>
 	<key>Compatibility</key>
 	<string>호환성</string>
 	<key>Compatibility Pending</key>
@@ -254,8 +248,6 @@
 	<string>컨테이너 설정</string>
 	<key>Container Setup</key>
 	<string>컨테이너 설정</string>
-	<key>Container Template</key>
-	<string>컨테이너 템플릿</string>
 	<key>Container names cannot be empty.</key>
 	<string>컨테이너 이름은 비워둘 수 없습니다.</string>
 	<key>Container path is empty or invalid: %@</key>
@@ -486,8 +478,6 @@
 	<string>가져온 항목</string>
 	<key>Imported and verified</key>
 	<string>가져오고 검증됨</string>
-	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
-	<string>이전 형식의 매니페스트에서 가져왔으며 정확한 사용 시각은 기록되지 않았습니다.</string>
 	<key>Info</key>
 	<string>정보</string>
 	<key>Initializing this Windows container before its first app opens.</key>
@@ -542,8 +532,6 @@
 	<string>설치 중…</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>복사된 로그인 콜백을 복구하는 동안 Windows 게임을 열어두세요.</string>
-	<key>Last Runtime Use</key>
-	<string>마지막 런타임 사용</string>
 	<key>Last checked %@</key>
 	<string>마지막 확인: %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -552,18 +540,6 @@
 	<string>마지막으로 알려진 온라인: %1$@ · 소스 %2$@</string>
 	<key>Last launched %@</key>
 	<string>마지막 실행: %1$@</string>
-	<key>Last used with active build</key>
-	<string>활성 빌드에서 마지막으로 사용</string>
-	<key>Last used with another build</key>
-	<string>다른 빌드에서 마지막으로 사용</string>
-	<key>Last-used GPTK</key>
-	<string>마지막 사용 GPTK</string>
-	<key>Last-used Patch Set</key>
-	<string>마지막 사용 패치 세트</string>
-	<key>Last-used Runtime ID</key>
-	<string>마지막 사용 런타임 ID</string>
-	<key>Last-used Source</key>
-	<string>마지막 사용 소스</string>
 	<key>Latest Online</key>
 	<string>최신 온라인</string>
 	<key>Latest online release not available</key>
@@ -804,14 +780,6 @@
 	<string>최근 실행</string>
 	<key>Recommended</key>
 	<string>권장</string>
-	<key>Recorded %@.</key>
-	<string>%1$@에 기록됨.</string>
-	<key>Recorded GPTK</key>
-	<string>기록된 GPTK</string>
-	<key>Recorded Patch Set</key>
-	<string>기록된 패치 세트</string>
-	<key>Recorded Runtime ID</key>
-	<string>기록된 런타임 ID</string>
 	<key>Recover Copied Callback</key>
 	<string>복사된 콜백 복구</string>
 	<key>Recover Copied Login Callback</key>
@@ -856,8 +824,6 @@
 	<string>선택한 비활성 런타임을 제거하는 중…</string>
 	<key>Renamed %@ and its folder to %@.</key>
 	<string>%1$@ 및 해당 폴더의 이름이 %2$@로 변경되었습니다.</string>
-	<key>Renderer</key>
-	<string>렌더러</string>
 	<key>Required</key>
 	<string>필수</string>
 	<key>Reset Cached Setup State</key>
@@ -918,16 +884,12 @@
 	<string>런타임 ID</string>
 	<key>Runtime Management</key>
 	<string>런타임 관리</string>
-	<key>Runtime Scope</key>
-	<string>런타임 적용 범위</string>
 	<key>Runtime Source</key>
 	<string>런타임 소스</string>
 	<key>Runtime Version</key>
 	<string>런타임 버전</string>
 	<key>Runtime has not been checked yet.</key>
 	<string>런타임은 아직 확인되지 않았습니다.</string>
-	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
-	<string>이 컨테이너에서 Wine을 처음 사용하면 런타임 출처가 기록됩니다.</string>
 	<key>Runtime release manifest version %lld is unsupported.</key>
 	<string>런타임 릴리스 매니페스트 버전 %1$lld는 지원되지 않습니다.</string>
 	<key>Runtime source verified at %@ revision %@.</key>
@@ -1038,10 +1000,6 @@
 	<string>모든 Windows 앱을 중지할까요?</string>
 	<key>Stop all Wine processes in this container</key>
 	<string>이 컨테이너의 모든 Wine 프로세스를 중지합니다.</string>
-	<key>Stop all running containers before changing the selected runtime.</key>
-	<string>선택한 런타임을 변경하기 전에 실행 중인 모든 컨테이너를 중지하세요.</string>
-	<key>Stop all running containers before importing a toolkit.</key>
-	<string>툴킷을 가져오기 전에 실행 중인 모든 컨테이너를 중지하세요.</string>
 	<key>Stop and Continue</key>
 	<string>중지하고 계속하기</string>
 	<key>Stop or wait for %@ before renaming its folder.</key>
@@ -1082,8 +1040,6 @@
 	<string>Switchyard Wine 런타임 %1$@는 소스 %2$@에서 빌드되었지만, 이 Switchyard 빌드는 %3$@ 리비전으로 고정되어 있습니다. 고정된 리비전에서 런타임을 다시 빌드하세요.</string>
 	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
 	<string>Switchyard는 공식 HTTPS 다운로드만 허용하고 이를 개인 캐시에 보관합니다.</string>
-	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
-	<string>Switchyard는 항상 위에 표시된 앱 전체 활성 런타임을 사용합니다. 컨테이너별로 런타임 버전을 선택하거나 고정하지 않습니다.</string>
 	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
 	<string>Switchyard가 직접 관리하는 캐시에 저장된 런타임만 제거할 수 있습니다.</string>
 	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
@@ -1092,8 +1048,6 @@
 	<string>Switchyard는 이 Wine 세션을 검사할 수 없습니다.</string>
 	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
 	<string>Switchyard는 다운로드한 설치 프로그램을 개인 캐시(%1$@)에서 보호할 수 없습니다.</string>
-	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
-	<string>Switchyard는 현재 모든 컨테이너에 위의 활성 런타임을 사용합니다.</string>
 	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
 	<string>Switchyard에는 Apple Silicon Mac과 macOS 14 이상이 필요합니다.</string>
 	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
@@ -1320,8 +1274,6 @@
 	<string>실행별 디버그 로그 파일을 모두 영구적으로 삭제합니다. 현재 Switchyard에 표시된 로그에는 영향을 주지 않습니다.</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>Apple 다운로드 페이지가 열립니다. 여기에서 로그인하고 약관을 확인한 뒤 가져올 툴킷 파일을 선택하세요.</string>
-	<key>This runtime has no trusted source revision date for a calendar build number.</key>
-	<string>이 런타임에는 캘린더 빌드 번호에 대한 신뢰할 수 있는 소스 개정 날짜가 없습니다.</string>
 	<key>Toolkit</key>
 	<string>툴킷</string>
 	<key>Try Again</key>
@@ -1346,8 +1298,6 @@
 	<string>%1$@ 업데이트됨</string>
 	<key>Use</key>
 	<string>사용</string>
-	<key>Used by every container</key>
-	<string>모든 컨테이너에서 사용</string>
 	<key>Value</key>
 	<string>값</string>
 	<key>Valve's download service did not return a complete installer.</key>
@@ -1390,6 +1340,10 @@
 	<string>활성 런타임을 변경하기 전에 모든 컨테이너 작업이 끝날 때까지 기다리세요.</string>
 	<key>Wait for all container activity to stop before removing a runtime.</key>
 	<string>런타임을 제거하기 전에 모든 컨테이너 작업이 끝날 때까지 기다리세요.</string>
+	<key>Wait for all container activity to stop before changing GPTK.</key>
+	<string>GPTK를 변경하기 전에 모든 컨테이너 작업이 끝날 때까지 기다리세요.</string>
+	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
+	<string>Windows 앱을 시작하기 전에 호환성 설정이 끝날 때까지 기다리세요.</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
 	<string>로그인 콜백을 복구하기 전에 컨테이너 폴더 작업이 완료될 때까지 기다리세요.</string>
 	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>

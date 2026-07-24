@@ -43,7 +43,7 @@ import Testing
     #expect(plan.arguments == ["msiexec.exe", "/i", "/tmp/Epic Installer.msi"])
 }
 
-@Test func jobEngineUsesGPTKThroughExternalLibraryPaths() throws {
+@Test func jobEngineUsesExplicitGlobalRuntimeComponentsInsteadOfContainerHistory() throws {
     let gptkRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
         "Switchyard-GPTK-\(UUID().uuidString)",
         isDirectory: true
@@ -76,7 +76,13 @@ import Testing
 
     let container = Container(
         name: "Toolbox",
-        path: "/tmp/Toolbox.container"
+        path: "/tmp/Toolbox.container",
+        lastRuntime: ContainerRuntimeRecord(
+            runtimeID: "old-wine",
+            patchsetID: "old-patch",
+            sourceRevision: "old-source",
+            gptkFingerprint: "old-gptk"
+        )
     )
     let runtime = RuntimeBuild(
         id: "wine-a",
@@ -96,6 +102,7 @@ import Testing
         installerPath: "/tmp/Setup.exe"
     )
 
+    #expect(plan.executable == runtime.winePath)
     #expect(
         plan.environment["SWITCHYARD_GPTK_PATH"] == canonicalGPTKPath
     )

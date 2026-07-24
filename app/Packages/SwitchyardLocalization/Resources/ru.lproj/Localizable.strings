@@ -122,12 +122,8 @@
 	<string>Назад к контейнерам</string>
 	<key>Build %@</key>
 	<string>Сборка %1$@</string>
-	<key>Build Not Available</key>
-	<string>Сборка недоступна</string>
 	<key>Build not available</key>
 	<string>Сборка недоступна</string>
-	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
-	<string>В номерах сборок календаря используется время версии закрепленного исходного кода в формате UTC, поэтому более поздние номера указывают на более новые среды выполнения.</string>
 	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
 	<string>URL обратного вызова и токены входа передаются только через защищённый одноразовый файл; они не сохраняются и не попадают в журнал.</string>
 	<key>Cancel</key>
@@ -234,8 +230,6 @@
 	<string>Закрытие приложений Windows и ожидание выхода wineserver.</string>
 	<key>Command plan could not be serialized for the runner.</key>
 	<string>Не удалось сериализовать план команд для switchyard-runner.</string>
-	<key>Comparison unavailable</key>
-	<string>Сравнение недоступно</string>
 	<key>Compatibility</key>
 	<string>Совместимость</string>
 	<key>Compatibility Pending</key>
@@ -254,8 +248,6 @@
 	<string>Настройки контейнера</string>
 	<key>Container Setup</key>
 	<string>Настройка контейнера</string>
-	<key>Container Template</key>
-	<string>Шаблон контейнера</string>
 	<key>Container names cannot be empty.</key>
 	<string>Имена контейнеров не могут быть пустыми.</string>
 	<key>Container path is empty or invalid: %@</key>
@@ -486,8 +478,6 @@
 	<string>Импортированная запись</string>
 	<key>Imported and verified</key>
 	<string>Импортировано и проверено</string>
-	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
-	<string>Импортировано из устаревшего манифеста; точное время использования не записано.</string>
 	<key>Info</key>
 	<string>Информация</string>
 	<key>Initializing this Windows container before its first app opens.</key>
@@ -542,8 +532,6 @@
 	<string>Установка…</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>Оставьте игру Windows открытой, пока восстанавливается скопированный обратный вызов для входа в систему.</string>
-	<key>Last Runtime Use</key>
-	<string>Последнее использование среды выполнения</string>
 	<key>Last checked %@</key>
 	<string>Последняя проверка %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -552,18 +540,6 @@
 	<string>Последнее известное в сети: %1$@ · источник %2$@</string>
 	<key>Last launched %@</key>
 	<string>Последний запуск %1$@</string>
-	<key>Last used with active build</key>
-	<string>Последний раз использовалась с активной сборкой</string>
-	<key>Last used with another build</key>
-	<string>Последний раз использовалась с другой сборкой</string>
-	<key>Last-used GPTK</key>
-	<string>Последний использованный GPTK</string>
-	<key>Last-used Patch Set</key>
-	<string>Последний использованный набор патчей</string>
-	<key>Last-used Runtime ID</key>
-	<string>ID последней среды выполнения</string>
-	<key>Last-used Source</key>
-	<string>Последний использованный источник</string>
 	<key>Latest Online</key>
 	<string>Последние онлайн</string>
 	<key>Latest online release not available</key>
@@ -804,14 +780,6 @@
 	<string>Недавно запущенный</string>
 	<key>Recommended</key>
 	<string>Рекомендуется</string>
-	<key>Recorded %@.</key>
-	<string>Записано %1$@.</string>
-	<key>Recorded GPTK</key>
-	<string>Сохранённый GPTK</string>
-	<key>Recorded Patch Set</key>
-	<string>Сохранённый набор патчей</string>
-	<key>Recorded Runtime ID</key>
-	<string>Сохранённый ID среды выполнения</string>
 	<key>Recover Copied Callback</key>
 	<string>Восстановить скопированный обратный вызов</string>
 	<key>Recover Copied Login Callback</key>
@@ -856,8 +824,6 @@
 	<string>Удаление выбранной неактивной среды выполнения…</string>
 	<key>Renamed %@ and its folder to %@.</key>
 	<string>Переименовал %1$@ и его папку в %2$@.</string>
-	<key>Renderer</key>
-	<string>Рендерер</string>
 	<key>Required</key>
 	<string>Требуется</string>
 	<key>Reset Cached Setup State</key>
@@ -918,16 +884,12 @@
 	<string>Идентификатор среды выполнения</string>
 	<key>Runtime Management</key>
 	<string>Управление средой выполнения</string>
-	<key>Runtime Scope</key>
-	<string>Область действия среды выполнения</string>
 	<key>Runtime Source</key>
 	<string>Источник среды выполнения</string>
 	<key>Runtime Version</key>
 	<string>Версия среды выполнения</string>
 	<key>Runtime has not been checked yet.</key>
 	<string>Время выполнения еще не проверялось.</string>
-	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
-	<string>Сведения о среде выполнения будут записаны после первого запуска Wine в этом контейнере.</string>
 	<key>Runtime release manifest version %lld is unsupported.</key>
 	<string>Версия манифеста выпуска среды выполнения %1$lld не поддерживается.</string>
 	<key>Runtime source verified at %@ revision %@.</key>
@@ -1038,10 +1000,6 @@
 	<string>Остановить все приложения Windows?</string>
 	<key>Stop all Wine processes in this container</key>
 	<string>Остановите все процессы Wine в этом контейнере.</string>
-	<key>Stop all running containers before changing the selected runtime.</key>
-	<string>Остановите все запущенные контейнеры перед изменением выбранной среды выполнения.</string>
-	<key>Stop all running containers before importing a toolkit.</key>
-	<string>Остановите все запущенные контейнеры перед импортом набора инструментов.</string>
 	<key>Stop and Continue</key>
 	<string>Остановиться и продолжить</string>
 	<key>Stop or wait for %@ before renaming its folder.</key>
@@ -1082,8 +1040,6 @@
 	<string>Switchyard Wine среда выполнения %1$@ была собрана из исходного кода %2$@, но в этой сборке Switchyard используются контакты %3$@. Пересоберите среду выполнения из закрепленной версии.</string>
 	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
 	<string>Switchyard принимает только официальную загрузку HTTPS и сохраняет ее в частном кеше.</string>
-	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
-	<string>Switchyard всегда использует показанную выше активную среду выполнения для всего приложения. Контейнеры не выбирают и не закрепляют отдельные версии.</string>
 	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
 	<string>Switchyard может удалить только среду выполнения, которая хранится непосредственно в управляемом кэше.</string>
 	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
@@ -1092,8 +1048,6 @@
 	<string>Switchyard не удалось проверить этот сеанс Wine.</string>
 	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
 	<string>Switchyard не удалось защитить загруженный установщик в своем личном кеше: %1$@</string>
-	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
-	<string>Switchyard в настоящее время запускает все контейнеры с активной средой выполнения, показанной выше.</string>
 	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
 	<string>Для работы Switchyard требуется Mac с Apple Silicon и macOS 14 или новее.</string>
 	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
@@ -1320,8 +1274,6 @@
 	<string>Это навсегда удалит все файлы журналов отладки для отдельных запусков. Журналы, которые сейчас отображаются в Switchyard, не изменятся.</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>В этом выпуске открывается страница загрузки Apple, на которой вы можете войти в систему, просмотреть условия и выбрать копию набора инструментов для импорта.</string>
-	<key>This runtime has no trusted source revision date for a calendar build number.</key>
-	<string>Эта среда выполнения не имеет даты редакции доверенного источника для номера сборки календаря.</string>
 	<key>Toolkit</key>
 	<string>Инструментарий</string>
 	<key>Try Again</key>
@@ -1346,8 +1298,6 @@
 	<string>Обновлен %1$@</string>
 	<key>Use</key>
 	<string>Использовать</string>
-	<key>Used by every container</key>
-	<string>Используется всеми контейнерами</string>
 	<key>Value</key>
 	<string>Значение</string>
 	<key>Valve's download service did not return a complete installer.</key>
@@ -1390,6 +1340,10 @@
 	<string>Перед сменой активной среды выполнения дождитесь завершения всех операций с контейнерами.</string>
 	<key>Wait for all container activity to stop before removing a runtime.</key>
 	<string>Перед удалением среды выполнения дождитесь завершения всех операций с контейнерами.</string>
+	<key>Wait for all container activity to stop before changing GPTK.</key>
+	<string>Дождитесь завершения всех операций с контейнерами, прежде чем менять GPTK.</string>
+	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
+	<string>Дождитесь завершения настройки совместимости, прежде чем запускать приложение Windows.</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
 	<string>Дождитесь завершения операции с папкой контейнера, прежде чем восстанавливать обратный вызов входа в систему.</string>
 	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>

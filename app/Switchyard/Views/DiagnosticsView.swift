@@ -121,7 +121,7 @@ struct DiagnosticsView: View {
         if store.runtimeStatus.gptk != .ok {
             return .gptk
         }
-        if store.runtimeStatus.wine != .ok || store.runtimeStatus.patchset != .ok {
+        if store.runtimeStatus.wine != .ok || store.runtimeStatus.wineSource != .ok {
             return .wine
         }
         return .general
@@ -288,7 +288,7 @@ private struct DiagnosticsVersionOverview: View {
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
                 .textSelection(.enabled)
-            Text(runtimeSourceLabel)
+            Text(wineSourceLabel)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -366,7 +366,7 @@ private struct DiagnosticsVersionOverview: View {
         } ?? String(localized: "Build not available", bundle: SwitchyardStrings.bundle)
     }
 
-    private var runtimeSourceLabel: String {
+    private var wineSourceLabel: String {
         runtime.sourceRevision.isEmpty
             ? String(
                 localized: "Source revision not available",
@@ -509,7 +509,7 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var selectedRuntimeIsUsable: Bool {
-        store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok
+        store.runtimeStatus.wine == .ok && store.runtimeStatus.wineSource == .ok
     }
 
     private var shouldOfferRuntimeInstall: Bool {

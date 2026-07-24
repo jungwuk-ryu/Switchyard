@@ -99,32 +99,14 @@ struct ContainerDashboardView: View {
                 .help("More Container Actions")
             }
 
-            HStack(alignment: .center, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(container.name)
-                        .font(.largeTitle.weight(.semibold))
-                        .lineLimit(1)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(container.name)
+                    .font(.largeTitle.weight(.semibold))
+                    .lineLimit(1)
 
-                    Label(containerSummary, systemImage: containerSummarySymbol)
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(containerSummaryColor)
-                }
-
-                Spacer(minLength: 24)
-
-                StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
-                StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
-                StatusBadge(
-                    status: store.runtimeStatus.patchset,
-                    label: String(
-                        localized: "Runtime Source",
-                        bundle: SwitchyardStrings.bundle
-                    )
-                )
-
-                Button("Re-run Diagnostics") {
-                    store.refreshRuntimeStatus()
-                }
+                Label(containerSummary, systemImage: containerSummarySymbol)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(containerSummaryColor)
             }
         }
         .padding(.horizontal, 20)

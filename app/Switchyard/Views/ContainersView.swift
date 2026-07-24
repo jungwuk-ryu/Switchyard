@@ -87,7 +87,7 @@ private struct ContainerLibraryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            RuntimeStatusStrip()
+            GlobalRuntimeStatusStrip()
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
 
@@ -280,15 +280,21 @@ private struct ContainerLibraryRow: View {
     }
 }
 
-private struct RuntimeStatusStrip: View {
+private struct GlobalRuntimeStatusStrip: View {
     @EnvironmentObject private var store: AppStore
 
     var body: some View {
         HStack(spacing: 10) {
+            Label("Active Runtime", systemImage: "shippingbox.fill")
+                .font(.callout.weight(.semibold))
+
+            Divider()
+                .frame(height: 20)
+
             StatusBadge(status: store.runtimeStatus.wine, label: "Wine")
             StatusBadge(status: store.runtimeStatus.gptk, label: "GPTK")
             StatusBadge(
-                status: store.runtimeStatus.patchset,
+                status: store.runtimeStatus.wineSource,
                 label: String(
                     localized: "Runtime Source",
                     bundle: SwitchyardStrings.bundle

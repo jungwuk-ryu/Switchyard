@@ -122,12 +122,8 @@
 	<string>Zurück zu den Containern</string>
 	<key>Build %@</key>
 	<string>Build %1$@</string>
-	<key>Build Not Available</key>
-	<string>Build nicht verfügbar</string>
 	<key>Build not available</key>
 	<string>Build nicht verfügbar</string>
-	<key>Calendar build numbers use the pinned source revision time in UTC, so later numbers indicate newer runtimes.</key>
-	<string>Kalender-Build-Nummern verwenden die angeheftete Quellrevisionszeit in UTC, sodass spätere Zahlen auf neuere Laufzeiten hinweisen.</string>
 	<key>Callback URLs and sign-in tokens are passed through a protected one-time file and are not saved or logged.</key>
 	<string>Callback-URLs und Anmeldetokens werden nur über eine geschützte Einmaldatei weitergegeben und weder gespeichert noch protokolliert.</string>
 	<key>Cancel</key>
@@ -234,8 +230,6 @@
 	<string>Schließen der Windows-Apps und Warten auf das Beenden von wineserver</string>
 	<key>Command plan could not be serialized for the runner.</key>
 	<string>Der Befehlsplan für switchyard-runner konnte nicht serialisiert werden.</string>
-	<key>Comparison unavailable</key>
-	<string>Vergleich nicht verfügbar</string>
 	<key>Compatibility</key>
 	<string>Kompatibilität</string>
 	<key>Compatibility Pending</key>
@@ -254,8 +248,6 @@
 	<string>Containereinstellungen</string>
 	<key>Container Setup</key>
 	<string>Container-Setup</string>
-	<key>Container Template</key>
-	<string>Containervorlage</string>
 	<key>Container names cannot be empty.</key>
 	<string>Containernamen dürfen nicht leer sein.</string>
 	<key>Container path is empty or invalid: %@</key>
@@ -486,8 +478,6 @@
 	<string>Importierter Eintrag</string>
 	<key>Imported and verified</key>
 	<string>Importiert und verifiziert</string>
-	<key>Imported from a legacy manifest; the exact usage time was not recorded.</key>
-	<string>Aus einem älteren Manifest importiert; der genaue Nutzungszeitpunkt wurde nicht aufgezeichnet.</string>
 	<key>Info</key>
 	<string>Infos</string>
 	<key>Initializing this Windows container before its first app opens.</key>
@@ -542,8 +532,6 @@
 	<string>Installieren…</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>Lassen Sie das Spiel Windows geöffnet, während der kopierte Anmelderückruf wiederhergestellt wird.</string>
-	<key>Last Runtime Use</key>
-	<string>Letzte Laufzeitnutzung</string>
 	<key>Last checked %@</key>
 	<string>Zuletzt überprüft %1$@</string>
 	<key>Last known online: %@ · %@</key>
@@ -552,18 +540,6 @@
 	<string>Zuletzt online bekannt: %1$@ · Quelle %2$@</string>
 	<key>Last launched %@</key>
 	<string>Zuletzt gestartet %1$@</string>
-	<key>Last used with active build</key>
-	<string>Zuletzt mit dem aktiven Build verwendet</string>
-	<key>Last used with another build</key>
-	<string>Zuletzt mit einem anderen Build verwendet</string>
-	<key>Last-used GPTK</key>
-	<string>Zuletzt verwendetes GPTK</string>
-	<key>Last-used Patch Set</key>
-	<string>Zuletzt verwendeter Patchsatz</string>
-	<key>Last-used Runtime ID</key>
-	<string>Zuletzt verwendete Laufzeit-ID</string>
-	<key>Last-used Source</key>
-	<string>Zuletzt verwendete Quelle</string>
 	<key>Latest Online</key>
 	<string>Neueste online</string>
 	<key>Latest online release not available</key>
@@ -804,14 +780,6 @@
 	<string>Kürzlich gestartet</string>
 	<key>Recommended</key>
 	<string>Empfohlen</string>
-	<key>Recorded %@.</key>
-	<string>Aufgezeichnet am %1$@.</string>
-	<key>Recorded GPTK</key>
-	<string>Erfasstes GPTK</string>
-	<key>Recorded Patch Set</key>
-	<string>Erfasster Patchsatz</string>
-	<key>Recorded Runtime ID</key>
-	<string>Erfasste Laufzeit-ID</string>
 	<key>Recover Copied Callback</key>
 	<string>Kopierten Rückruf wiederherstellen</string>
 	<key>Recover Copied Login Callback</key>
@@ -856,8 +824,6 @@
 	<string>Die ausgewählte inaktive Laufzeitumgebung wird entfernt…</string>
 	<key>Renamed %@ and its folder to %@.</key>
 	<string>%1$@ und sein Ordner in %2$@ umbenannt.</string>
-	<key>Renderer</key>
-	<string>Renderer</string>
 	<key>Required</key>
 	<string>Erforderlich</string>
 	<key>Reset Cached Setup State</key>
@@ -918,16 +884,12 @@
 	<string>Laufzeitumgebungs-ID</string>
 	<key>Runtime Management</key>
 	<string>Laufzeitverwaltung</string>
-	<key>Runtime Scope</key>
-	<string>Geltungsbereich der Laufzeitumgebung</string>
 	<key>Runtime Source</key>
 	<string>Quelle der Laufzeitumgebung</string>
 	<key>Runtime Version</key>
 	<string>Version der Laufzeitumgebung</string>
 	<key>Runtime has not been checked yet.</key>
 	<string>Die Laufzeit wurde noch nicht überprüft.</string>
-	<key>Runtime provenance will be recorded after this container first uses Wine.</key>
-	<string>Die Herkunft der Laufzeitumgebung wird aufgezeichnet, sobald dieser Container Wine erstmals verwendet.</string>
 	<key>Runtime release manifest version %lld is unsupported.</key>
 	<string>Die Runtime-Release-Manifestversion %1$lld wird nicht unterstützt.</string>
 	<key>Runtime source verified at %@ revision %@.</key>
@@ -1038,10 +1000,6 @@
 	<string>Alle Windows-Apps beenden?</string>
 	<key>Stop all Wine processes in this container</key>
 	<string>Stoppen Sie alle Wine-Prozesse in diesem Container</string>
-	<key>Stop all running containers before changing the selected runtime.</key>
-	<string>Stoppen Sie alle laufenden Container, bevor Sie die ausgewählte Laufzeit ändern.</string>
-	<key>Stop all running containers before importing a toolkit.</key>
-	<string>Stoppen Sie alle laufenden Container, bevor Sie ein Toolkit importieren.</string>
 	<key>Stop and Continue</key>
 	<string>Anhalten und weitermachen</string>
 	<key>Stop or wait for %@ before renaming its folder.</key>
@@ -1082,8 +1040,6 @@
 	<string>Switchyard Wine Laufzeit %1$@ wurde aus der Quelle %2$@ erstellt, aber dieser Switchyard-Build steckt %3$@ fest. Erstellen Sie die Laufzeit aus der angehefteten Revision neu.</string>
 	<key>Switchyard accepts only the official HTTPS download and keeps it in a private cache.</key>
 	<string>Switchyard akzeptiert nur den offiziellen HTTPS-Download und speichert ihn in einem privaten Cache.</string>
-	<key>Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.</key>
-	<string>Switchyard verwendet immer die oben angezeigte appweit aktive Laufzeitumgebung. Container wählen oder fixieren keine eigenen Versionen.</string>
 	<key>Switchyard can remove only a runtime stored directly in its managed cache.</key>
 	<string>Switchyard kann nur Laufzeitumgebungen entfernen, die direkt im verwalteten Cache gespeichert sind.</string>
 	<key>Switchyard could not close every Windows app. Save your work, close any remaining windows, and try again.</key>
@@ -1092,8 +1048,6 @@
 	<string>Switchyard konnte diese Wine-Sitzung nicht überprüfen.</string>
 	<key>Switchyard could not protect the downloaded installer in its private cache: %@</key>
 	<string>Switchyard konnte das heruntergeladene Installationsprogramm in seinem privaten Cache nicht schützen: %1$@</string>
-	<key>Switchyard currently launches all containers with the active runtime shown above.</key>
-	<string>Switchyard startet derzeit alle Container mit der oben gezeigten aktiven Laufzeit.</string>
 	<key>Switchyard currently requires an Apple Silicon Mac running macOS 14 or later.</key>
 	<string>Switchyard benötigt einen Mac mit Apple Silicon und macOS 14 oder neuer.</string>
 	<key>Switchyard does not download or bundle GPTK. Apple handles sign-in and license acceptance; Switchyard imports only after checking the DMG's executable code for Apple signatures.</key>
@@ -1320,8 +1274,6 @@
 	<string>Dadurch werden alle Debug-Protokolldateien einzelner Ausführungen dauerhaft gelöscht. Die aktuell in Switchyard angezeigten Protokolle bleiben erhalten.</string>
 	<key>This release opens Apple's download page so you can sign in, review its terms, and choose the toolkit copy to import.</key>
 	<string>Diese Version öffnet die Download-Seite von Apple, sodass Sie sich anmelden, die Bedingungen lesen und die zu importierende Toolkit-Kopie auswählen können.</string>
-	<key>This runtime has no trusted source revision date for a calendar build number.</key>
-	<string>Diese Laufzeit verfügt über kein vertrauenswürdiges Quellrevisionsdatum für eine Kalender-Build-Nummer.</string>
 	<key>Toolkit</key>
 	<string>Toolkit</string>
 	<key>Try Again</key>
@@ -1346,8 +1298,6 @@
 	<string>Aktualisiert %1$@</string>
 	<key>Use</key>
 	<string>Verwenden</string>
-	<key>Used by every container</key>
-	<string>Von allen Containern verwendet</string>
 	<key>Value</key>
 	<string>Wert</string>
 	<key>Valve's download service did not return a complete installer.</key>
@@ -1390,6 +1340,10 @@
 	<string>Warten Sie, bis alle Containeraktivitäten beendet sind, bevor Sie die aktive Laufzeitumgebung ändern.</string>
 	<key>Wait for all container activity to stop before removing a runtime.</key>
 	<string>Warten Sie, bis alle Containeraktivitäten beendet sind, bevor Sie eine Laufzeitumgebung entfernen.</string>
+	<key>Wait for all container activity to stop before changing GPTK.</key>
+	<string>Warten Sie, bis alle Containeraktivitäten beendet sind, bevor Sie GPTK ändern.</string>
+	<key>Wait for compatibility setup to finish before starting a Windows app.</key>
+	<string>Warten Sie, bis die Kompatibilitätseinrichtung abgeschlossen ist, bevor Sie eine Windows-App starten.</string>
 	<key>Wait for the container folder operation to finish before recovering a login callback.</key>
 	<string>Warten Sie, bis der Containerordnervorgang abgeschlossen ist, bevor Sie einen Anmelderückruf wiederherstellen.</string>
 	<key>Wait for the current Steam setup to finish, or stop it before trying again.</key>

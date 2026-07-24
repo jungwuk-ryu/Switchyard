@@ -16,7 +16,7 @@ struct ContainerSettingsView: View {
                         HStack(alignment: .top, spacing: 16) {
                             VStack(spacing: 16) {
                                 launchSection
-                                runtimeSection
+                                storageSection
                             }
                             .frame(maxWidth: .infinity, alignment: .top)
 
@@ -28,7 +28,7 @@ struct ContainerSettingsView: View {
                         }
                     } else {
                         launchSection
-                        runtimeSection
+                        storageSection
                         LoginCallbackRecoverySection(container: container)
                         environmentSection
                     }
@@ -87,126 +87,18 @@ struct ContainerSettingsView: View {
         }
     }
 
-    private var runtimeSection: some View {
-        let runtime = store.currentRuntime
-
-        return GroupBox("Runtime") {
+    private var storageSection: some View {
+        GroupBox("Storage") {
             VStack(alignment: .leading, spacing: 11) {
-                RuntimeBuildSummaryView(runtime: runtime)
-
-                LabeledContent("Runtime Scope") {
-                    Label("Used by every container", systemImage: "square.stack.3d.up.fill")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Text("Switchyard always uses the active app-wide runtime shown above. Containers do not select or pin runtime versions.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                LabeledContent("Last Runtime Use") {
-                    if let lastRuntime = container.lastRuntime {
-                        let identityComparison = runtime.comparison(
-                            toLastRuntime: lastRuntime
-                        )
-                        Label(
-                            identityComparison.label,
-                            systemImage: identityComparison.symbolName
-                        )
-                        .font(.caption)
-                        .foregroundStyle(identityComparison.color)
-                    } else {
-                        Label("Not used yet", systemImage: "clock")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Text(lastRuntimeUseDetail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
                 LabeledContent("Container Path") {
-                    HStack {
-                        Text(container.path)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                            .textSelection(.enabled)
-                        Button {
-                            store.openContainerInFinder(container.id)
-                        } label: {
-                            Image(systemName: "folder")
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Show in Finder")
-                    }
-                }
-
-                DisclosureGroup("Technical Details") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        RuntimeBuildTechnicalDetailsView(runtime: runtime)
-                        if let lastRuntime = container.lastRuntime {
-                            Divider()
-                            runtimeHistoryValue(
-                                String(
-                                    localized: "Last-used Runtime ID",
-                                    bundle: SwitchyardStrings.bundle
-                                ),
-                                lastRuntime.runtimeID
-                            )
-                            runtimeHistoryValue(
-                                String(
-                                    localized: "Last-used Patch Set",
-                                    bundle: SwitchyardStrings.bundle
-                                ),
-                                lastRuntime.patchsetID
-                            )
-                            runtimeHistoryValue(
-                                String(
-                                    localized: "Last-used Source",
-                                    bundle: SwitchyardStrings.bundle
-                                ),
-                                lastRuntime.sourceRevision
-                                    ?? String(
-                                        localized: "Not recorded",
-                                        bundle: SwitchyardStrings.bundle
-                                    )
-                            )
-                            runtimeHistoryValue(
-                                String(
-                                    localized: "Last-used GPTK",
-                                    bundle: SwitchyardStrings.bundle
-                                ),
-                                lastRuntime.gptkFingerprint
-                                    ?? String(
-                                        localized: "Not recorded",
-                                        bundle: SwitchyardStrings.bundle
-                                    )
-                            )
-                        }
-                    }
-                    .padding(.top, 6)
+                    Text(container.path)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private var lastRuntimeUseDetail: String {
-        guard let lastRuntime = container.lastRuntime else {
-            return String(
-                localized: "Runtime provenance will be recorded after this container first uses Wine.",
-                bundle: SwitchyardStrings.bundle
-            )
-        }
-        guard let usedAt = lastRuntime.usedAt else {
-            return String(
-                localized: "Imported from a legacy manifest; the exact usage time was not recorded.",
-                bundle: SwitchyardStrings.bundle
-            )
-        }
-        return String(
-            localized: "Recorded \(usedAt.formatted(date: .abbreviated, time: .shortened)).",
-            bundle: SwitchyardStrings.bundle
-        )
     }
 
     private var environmentSection: some View {
@@ -238,17 +130,6 @@ struct ContainerSettingsView: View {
             store.containers.first(where: { $0.id == container.id })?.executablePath ?? ""
         } set: { path in
             store.updateExecutablePath(for: container.id, to: path)
-        }
-    }
-
-    private func runtimeHistoryValue(_ label: String, _ value: String) -> some View {
-        LabeledContent(label) {
-            Text(value)
-                .font(.system(.caption, design: .monospaced))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .textSelection(.enabled)
-                .help(value)
         }
     }
 }
@@ -309,35 +190,6 @@ private struct ContainerNameField: View {
             _ = await store.renameContainer(containerID, to: requestedName)
             draft = storedName
             isCommitting = false
-        }
-    }
-}
-
-private extension RuntimeIdentityComparison {
-    var label: String {
-        switch self {
-        case .matches:
-            String(localized: "Last used with active build", bundle: SwitchyardStrings.bundle)
-        case .differs:
-            String(localized: "Last used with another build", bundle: SwitchyardStrings.bundle)
-        case .unavailable:
-            String(localized: "Comparison unavailable", bundle: SwitchyardStrings.bundle)
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .matches: "checkmark.circle.fill"
-        case .differs: "clock.arrow.circlepath"
-        case .unavailable: "questionmark.circle.fill"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .matches: .green
-        case .differs: .blue
-        case .unavailable: .gray
         }
     }
 }

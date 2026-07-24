@@ -294,7 +294,7 @@ struct RuntimeSettingsView: View {
                     store.useSelectedLocalDevelopmentRuntime()
                 }
                 .disabled(
-                    !store.canChangeActiveRuntime
+                    !store.canChangeCompatibilityConfiguration
                         || store.runtimeInstallationState.isWorking
                         || store.runtimeManagementState.isWorking
                 )
@@ -408,12 +408,12 @@ struct RuntimeSettingsView: View {
 
     private var runtimeCompatibilityStatus: HealthStatus {
         store.runtimeStatus.wine == .ok
-            ? store.runtimeStatus.patchset
+            ? store.runtimeStatus.wineSource
             : store.runtimeStatus.wine
     }
 
     private var runtimeCompatibilityMessage: String {
-        if store.runtimeStatus.wine == .ok && store.runtimeStatus.patchset == .ok {
+        if store.runtimeStatus.wine == .ok && store.runtimeStatus.wineSource == .ok {
             return String(
                 localized: "The active runtime is ready.",
                 bundle: SwitchyardStrings.bundle
@@ -548,7 +548,7 @@ private struct OfficialRuntimeReleaseRow: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .fixedSize()
-                    .disabled(!store.canChangeActiveRuntime || managerIsBusy)
+                    .disabled(!store.canChangeCompatibilityConfiguration || managerIsBusy)
 
                     Button(role: .destructive) {
                         isConfirmingRemoval = true
@@ -557,7 +557,7 @@ private struct OfficialRuntimeReleaseRow: View {
                     }
                     .help("Remove this inactive runtime")
                     .accessibilityLabel("Remove \(release.release.tagName)")
-                    .disabled(!store.canChangeActiveRuntime || managerIsBusy)
+                    .disabled(!store.canChangeCompatibilityConfiguration || managerIsBusy)
                     .confirmationDialog(
                         "Remove \(release.release.tagName)?",
                         isPresented: $isConfirmingRemoval
@@ -664,7 +664,7 @@ private struct ManagedRuntimeInstallationRow: View {
                     .buttonStyle(.borderedProminent)
                     .fixedSize()
                     .disabled(
-                        !store.canChangeActiveRuntime
+                        !store.canChangeCompatibilityConfiguration
                             || store.runtimeInstallationState.isWorking
                             || store.runtimeManagementState.isWorking
                     )
@@ -678,7 +678,7 @@ private struct ManagedRuntimeInstallationRow: View {
                     .help("Remove this inactive managed runtime")
                     .accessibilityLabel("Remove \(installation.runtime.id)")
                     .disabled(
-                        !store.canChangeActiveRuntime
+                        !store.canChangeCompatibilityConfiguration
                             || store.runtimeInstallationState.isWorking
                             || store.runtimeManagementState.isWorking
                     )

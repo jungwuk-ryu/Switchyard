@@ -3,17 +3,43 @@ import Foundation
 import Testing
 
 @Test func runtimeStatusCanLaunchOnlyWhenRequiredComponentsAreReady() {
-    let ready = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .ok, wine: .ok, patchset: .ok)
+    let ready = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .ok, wine: .ok, wineSource: .ok)
     #expect(ready.canLaunch)
 
-    let missingRosetta = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .missing, gptk: .ok, wine: .ok, patchset: .ok)
+    let missingRosetta = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .missing, gptk: .ok, wine: .ok, wineSource: .ok)
     #expect(!missingRosetta.canLaunch)
 
-    let missingGPTK = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .missing, wine: .ok, patchset: .ok)
+    let missingGPTK = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .missing, wine: .ok, wineSource: .ok)
     #expect(!missingGPTK.canLaunch)
 
-    let missingPatchset = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .ok, wine: .ok, patchset: .missing)
-    #expect(!missingPatchset.canLaunch)
+    let missingWineSource = RuntimeStatus(architecture: .ok, macOS: .ok, rosetta: .ok, gptk: .ok, wine: .ok, wineSource: .missing)
+    #expect(!missingWineSource.canLaunch)
+}
+
+@Test func runtimeStatusMigratesTheLegacyPatchsetStatusKey() throws {
+    let legacyData = try #require(
+        """
+        {
+          "architecture": "ok",
+          "macOS": "ok",
+          "rosetta": "ok",
+          "gptk": "ok",
+          "wine": "ok",
+          "patchset": "warning",
+          "summary": "Legacy diagnostic"
+        }
+        """.data(using: .utf8)
+    )
+
+    let status = try JSONDecoder().decode(RuntimeStatus.self, from: legacyData)
+    #expect(status.wineSource == .warning)
+
+    let encoded = try JSONEncoder().encode(status)
+    let object = try #require(
+        JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+    )
+    #expect(object["wineSource"] as? String == "warning")
+    #expect(object["patchset"] == nil)
 }
 
 @Test func runtimeBuildNumberUsesSortableUTCRevisionTime() throws {
@@ -49,57 +75,6 @@ import Testing
     )
 }
 
-@Test func runtimeIdentityComparisonRejectsUnverifiedExternalRuntimeMatches() {
-    let verified = RuntimeBuild(
-        id: "runtime-a",
-        winePath: "/opt/wine/bin/wine",
-        patchsetID: "patch-a",
-        sourceRevision: "abc123"
-    )
-    let external = RuntimeBuild(
-        id: "external-unverified",
-        winePath: "/opt/external/bin/wine",
-        patchsetID: "external-unverified",
-        sourceRevision: ""
-    )
-    let matchingRecord = ContainerRuntimeRecord(
-        runtimeID: "runtime-a",
-        patchsetID: "patch-a",
-        sourceRevision: "abc123"
-    )
-    let differentRecord = ContainerRuntimeRecord(
-        runtimeID: "runtime-b",
-        patchsetID: "patch-b",
-        sourceRevision: "abc123"
-    )
-    let rebuiltRecord = ContainerRuntimeRecord(
-        runtimeID: "runtime-a",
-        patchsetID: "patch-a",
-        sourceRevision: "def456"
-    )
-
-    #expect(
-        verified.comparison(toLastRuntime: matchingRecord) == .matches
-    )
-    #expect(
-        verified.comparison(toLastRuntime: differentRecord) == .differs
-    )
-    #expect(
-        verified.comparison(toLastRuntime: rebuiltRecord) == .differs
-    )
-    #expect(
-        external.comparison(toLastRuntime: matchingRecord) == .unavailable
-    )
-    #expect(
-        verified.comparison(
-            toLastRuntime: ContainerRuntimeRecord(
-                runtimeID: "runtime-a",
-                patchsetID: "patch-a"
-            )
-        ) == .unavailable
-    )
-}
-
 @Test func guidedSetupPolicyPresentsOnlyTheNextRequiredAction() {
     #expect(GuidedSetupPolicy.nextRequirement(for: RuntimeStatus()) == .checking)
     #expect(
@@ -120,7 +95,7 @@ import Testing
                 rosetta: .ok,
                 gptk: .missing,
                 wine: .missing,
-                patchset: .missing
+                wineSource: .missing
             )
         ) == .runtime
     )
@@ -132,7 +107,7 @@ import Testing
                 rosetta: .ok,
                 gptk: .missing,
                 wine: .ok,
-                patchset: .ok
+                wineSource: .ok
             )
         ) == .toolkit
     )
@@ -143,7 +118,7 @@ import Testing
         rosetta: .ok,
         gptk: .ok,
         wine: .ok,
-        patchset: .ok
+        wineSource: .ok
     )
     #expect(GuidedSetupPolicy.nextRequirement(for: ready) == .ready)
     #expect(GuidedSetupPolicy.canComplete(with: ready))

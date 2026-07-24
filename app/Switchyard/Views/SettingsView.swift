@@ -252,10 +252,13 @@ struct SettingsView: View {
                             localized: "Choose your local Apple Game Porting Toolkit installation.",
                             bundle: SwitchyardStrings.bundle
                         ),
-                        path: $store.gptkPath
-                    ) {
-                        store.refreshRuntimeStatus()
-                    }
+                        path: gptkPathBinding
+                    ) {}
+                    .disabled(
+                        !store.canChangeCompatibilityConfiguration
+                            || store.isImportingGPTK
+                            || store.gptkComponentDownloadState.isWorking
+                    )
 
                     if URL(fileURLWithPath: store.gptkPath)
                         .pathExtension.lowercased() == "dmg" {
@@ -265,6 +268,7 @@ struct SettingsView: View {
                         .disabled(
                             store.isImportingGPTK
                                 || store.gptkComponentDownloadState.isWorking
+                                || !store.canChangeCompatibilityConfiguration
                         )
                     }
 
@@ -309,19 +313,6 @@ struct SettingsView: View {
         ) {
             GroupBox {
                 VStack(alignment: .leading, spacing: 10) {
-                    LabeledContent("Renderer", value: "D3DMetal when GPTK is valid")
-                    LabeledContent(
-                        "Container Template",
-                        value: "Per-container Wine prefix"
-                    )
-                }
-                .padding(4)
-            } label: {
-                Label("Renderer", systemImage: "display")
-            }
-
-            GroupBox {
-                VStack(alignment: .leading, spacing: 10) {
                     if let fontCheck = store.diagnostics.first(
                         where: { $0.id == "open-font-pack" }
                     ) {
@@ -353,6 +344,14 @@ struct SettingsView: View {
             } label: {
                 Label("Open Font Pack", systemImage: "textformat")
             }
+        }
+    }
+
+    private var gptkPathBinding: Binding<String> {
+        Binding {
+            store.gptkPath
+        } set: { path in
+            store.selectGPTKPath(path)
         }
     }
 
@@ -407,7 +406,7 @@ struct SettingsView: View {
         .disabled(
             store.isImportingGPTK
                 || (
-                    store.hasRunningContainers
+                    !store.canChangeCompatibilityConfiguration
                         && !store.gptkComponentDownloadState.isWorking
                 )
         )
@@ -428,6 +427,7 @@ struct SettingsView: View {
         .disabled(
             store.isImportingGPTK
                 || store.gptkComponentDownloadState.isWorking
+                || !store.canChangeCompatibilityConfiguration
         )
     }
 
