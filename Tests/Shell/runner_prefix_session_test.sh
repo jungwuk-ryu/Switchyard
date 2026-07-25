@@ -85,6 +85,15 @@ cleanup() {
   if [ -f "$TEST_ROOT/signal-locked-list.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/signal-locked-list.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/live-activity-lock-holder.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/live-activity-lock-holder.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/live-activation-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/live-activation-runner.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/live-activation-lock-holder.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/live-activation-lock-holder.pid")" >/dev/null 2>&1 || true
+  fi
   if [ -f "$TEST_ROOT/locked-probe.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/locked-probe.pid")" >/dev/null 2>&1 || true
   fi
@@ -557,6 +566,34 @@ EOF
 chmod +x "$TEST_ROOT/repeated-output.sh"
 REPEATED_LIVE_LOG="$TEST_ROOT/live/repeated.jsonl"
 REPEATED_FORWARDED_OUTPUT="$TEST_ROOT/repeated-forwarded-output.log"
+LIVE_ACTIVITY_LOCK="$TEST_ROOT/live/.view-active.lock"
+LIVE_ACTIVITY_READY="$TEST_ROOT/live-activity.ready"
+LIVE_ACTIVITY_RELEASE="$TEST_ROOT/live-activity.release"
+mkdir -p "$TEST_ROOT/live"
+: > "$LIVE_ACTIVITY_LOCK"
+chmod 600 "$LIVE_ACTIVITY_LOCK"
+perl -MFcntl=:flock -e '
+  my ($lock_path, $ready_path, $release_path) = @ARGV;
+  open(my $lock_handle, "+<", $lock_path) or die $!;
+  flock($lock_handle, LOCK_EX) or die $!;
+  open(my $ready_handle, ">", $ready_path) or die $!;
+  print {$ready_handle} "ready\n";
+  close($ready_handle);
+  while (!-e $release_path) {
+    select(undef, undef, undef, 0.05);
+  }
+' "$LIVE_ACTIVITY_LOCK" "$LIVE_ACTIVITY_READY" "$LIVE_ACTIVITY_RELEASE" &
+printf '%s\n' "$!" > "$TEST_ROOT/live-activity-lock-holder.pid"
+for _ in {1..50}; do
+  if [ -s "$LIVE_ACTIVITY_READY" ]; then
+    break
+  fi
+  sleep 0.05
+done
+if [ ! -s "$LIVE_ACTIVITY_READY" ]; then
+  echo "live log view activity lock holder did not start" >&2
+  exit 1
+fi
 cat > "$TEST_ROOT/repeated-output.json" <<EOF
 {
   "executable": "$TEST_ROOT/repeated-output.sh",
@@ -608,6 +645,134 @@ if [ "$repeated_summary_line" -ge "$repeated_exit_line" ]; then
   echo "runner persisted a repetition summary after a newer log entry" >&2
   exit 1
 fi
+
+touch "$LIVE_ACTIVITY_RELEASE"
+wait "$(cat "$TEST_ROOT/live-activity-lock-holder.pid")"
+rm -f "$TEST_ROOT/live-activity-lock-holder.pid"
+
+INACTIVE_LIVE_LOG="$TEST_ROOT/live/inactive.jsonl"
+cat > "$TEST_ROOT/inactive-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/repeated-output.sh",
+  "arguments": [],
+  "environment": {},
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "inactive-output-test",
+  "liveLogPath": "$INACTIVE_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+
+"$RUNNER" run --plan "$TEST_ROOT/inactive-output.json" >/dev/null 2>/dev/null
+if grep -q '"occurrenceCount":' "$INACTIVE_LIVE_LOG"; then
+  echo "runner filtered live logs while the Logs view was inactive" >&2
+  exit 1
+fi
+inactive_repeated_line_count="$(
+  grep -c 'repeated warning' "$INACTIVE_LIVE_LOG" | tr -d ' '
+)"
+if [ "$inactive_repeated_line_count" -ne 1000 ]; then
+  echo "runner did not retain inactive live logs for later replay" >&2
+  exit 1
+fi
+
+LIVE_ACTIVATION_READY="$TEST_ROOT/live-activation-child.ready"
+LIVE_ACTIVATION_RELEASE="$TEST_ROOT/live-activation-child.release"
+LIVE_ACTIVATION_LOCK_READY="$TEST_ROOT/live-activation-lock.ready"
+LIVE_ACTIVATION_LOCK_RELEASE="$TEST_ROOT/live-activation-lock.release"
+LIVE_ACTIVATION_LOG="$TEST_ROOT/live/activation.jsonl"
+cat > "$TEST_ROOT/live-activation-output.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'buffered-before-activation\n' >&2
+printf 'ready\n' > "$TEST_LIVE_ACTIVATION_READY"
+while [ ! -e "$TEST_LIVE_ACTIVATION_RELEASE" ]; do
+  sleep 0.05
+done
+printf 'written-after-activation\n' >&2
+EOF
+chmod +x "$TEST_ROOT/live-activation-output.sh"
+cat > "$TEST_ROOT/live-activation-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/live-activation-output.sh",
+  "arguments": [],
+  "environment": {
+    "TEST_LIVE_ACTIVATION_READY": "$LIVE_ACTIVATION_READY",
+    "TEST_LIVE_ACTIVATION_RELEASE": "$LIVE_ACTIVATION_RELEASE"
+  },
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "live-activation-test",
+  "liveLogPath": "$LIVE_ACTIVATION_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+
+"$RUNNER" run --plan "$TEST_ROOT/live-activation-output.json" >/dev/null 2>/dev/null &
+printf '%s\n' "$!" > "$TEST_ROOT/live-activation-runner.pid"
+for _ in {1..50}; do
+  if [ -s "$LIVE_ACTIVATION_READY" ]; then
+    break
+  fi
+  sleep 0.05
+done
+if [ ! -s "$LIVE_ACTIVATION_READY" ]; then
+  echo "inactive live log fixture did not start" >&2
+  exit 1
+fi
+sleep 0.35
+if ! grep -q 'buffered-before-activation' "$LIVE_ACTIVATION_LOG"; then
+  echo "runner did not durably batch logs while the Logs view was inactive" >&2
+  exit 1
+fi
+if grep -q '"occurrenceCount":' "$LIVE_ACTIVATION_LOG"; then
+  echo "runner filtered batched logs while the Logs view was inactive" >&2
+  exit 1
+fi
+
+perl -MFcntl=:flock -e '
+  my ($lock_path, $ready_path, $release_path) = @ARGV;
+  open(my $lock_handle, "+<", $lock_path) or die $!;
+  flock($lock_handle, LOCK_EX) or die $!;
+  open(my $ready_handle, ">", $ready_path) or die $!;
+  print {$ready_handle} "ready\n";
+  close($ready_handle);
+  while (!-e $release_path) {
+    select(undef, undef, undef, 0.05);
+  }
+' "$LIVE_ACTIVITY_LOCK" "$LIVE_ACTIVATION_LOCK_READY" "$LIVE_ACTIVATION_LOCK_RELEASE" &
+printf '%s\n' "$!" > "$TEST_ROOT/live-activation-lock-holder.pid"
+for _ in {1..50}; do
+  if [ -s "$LIVE_ACTIVATION_LOCK_READY" ]; then
+    break
+  fi
+  sleep 0.05
+done
+if [ ! -s "$LIVE_ACTIVATION_LOCK_READY" ]; then
+  echo "live log activation lock holder did not start" >&2
+  exit 1
+fi
+for _ in {1..50}; do
+  if grep -q 'buffered-before-activation' "$LIVE_ACTIVATION_LOG"; then
+    break
+  fi
+  sleep 0.05
+done
+if ! grep -q 'buffered-before-activation' "$LIVE_ACTIVATION_LOG"; then
+  echo "runner did not flush existing logs when Logs became active" >&2
+  exit 1
+fi
+
+touch "$LIVE_ACTIVATION_RELEASE"
+wait "$(cat "$TEST_ROOT/live-activation-runner.pid")"
+rm -f "$TEST_ROOT/live-activation-runner.pid"
+touch "$LIVE_ACTIVATION_LOCK_RELEASE"
+wait "$(cat "$TEST_ROOT/live-activation-lock-holder.pid")"
+rm -f "$TEST_ROOT/live-activation-lock-holder.pid"
+if ! grep -q 'written-after-activation' "$LIVE_ACTIVATION_LOG"; then
+  echo "runner did not keep filtering after Logs became active" >&2
+  exit 1
+fi
+rm -f "$LIVE_ACTIVITY_LOCK"
 
 cat > "$TEST_ROOT/clear-pending-output.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -698,6 +863,60 @@ if ! grep -q 'after-clear-marker' "$CLEAR_LIVE_LOG"; then
   echo "runner stopped live logging after the journal was cleared" >&2
   exit 1
 fi
+
+: > "$LIVE_ACTIVITY_LOCK"
+chmod 600 "$LIVE_ACTIVITY_LOCK"
+INACTIVE_CLEAR_LIVE_LOG="$TEST_ROOT/live/inactive-clear.jsonl"
+cat > "$TEST_ROOT/inactive-clear-output.json" <<EOF
+{
+  "executable": "$TEST_ROOT/clear-pending-output.sh",
+  "arguments": [],
+  "environment": {
+    "TEST_CLEAR_READY": "$TEST_ROOT/inactive-clear-output.ready",
+    "TEST_CLEAR_RELEASE": "$TEST_ROOT/inactive-clear-output.release"
+  },
+  "workingDirectory": "$TEST_ROOT",
+  "logSource": "inactive-clear-output-test",
+  "liveLogPath": "$INACTIVE_CLEAR_LIVE_LOG",
+  "forwardCapturedOutput": false
+}
+EOF
+
+"$RUNNER" run --plan "$TEST_ROOT/inactive-clear-output.json" \
+  >/dev/null 2>/dev/null &
+inactive_clear_runner_pid=$!
+printf '%s\n' "$inactive_clear_runner_pid" > "$TEST_ROOT/clear-runner.pid"
+for _ in {1..100}; do
+  if [ -s "$TEST_ROOT/inactive-clear-output.ready" ] \
+    && grep -q 'pending clear warning' "$INACTIVE_CLEAR_LIVE_LOG" 2>/dev/null; then
+    break
+  fi
+  sleep 0.05
+done
+if [ ! -s "$TEST_ROOT/inactive-clear-output.ready" ] \
+  || ! grep -q 'pending clear warning' "$INACTIVE_CLEAR_LIVE_LOG" 2>/dev/null; then
+  echo "inactive clear fixture did not durably batch its initial logs" >&2
+  exit 1
+fi
+dd if=/dev/urandom of="${INACTIVE_CLEAR_LIVE_LOG}.generation" \
+  bs=16 count=1 2>/dev/null
+: > "$INACTIVE_CLEAR_LIVE_LOG"
+touch "$TEST_ROOT/inactive-clear-output.release"
+wait "$inactive_clear_runner_pid"
+rm -f "$TEST_ROOT/clear-runner.pid"
+if [ "$(grep -c 'pending clear warning' "$INACTIVE_CLEAR_LIVE_LOG")" -ne 1 ]; then
+  echo "inactive runner restored logs removed by clearing the journal" >&2
+  exit 1
+fi
+if grep -q '"occurrenceCount":' "$INACTIVE_CLEAR_LIVE_LOG"; then
+  echo "inactive runner filtered post-clear logs" >&2
+  exit 1
+fi
+if ! grep -q 'after-clear-marker' "$INACTIVE_CLEAR_LIVE_LOG"; then
+  echo "inactive runner discarded logs emitted immediately after clear" >&2
+  exit 1
+fi
+rm -f "$LIVE_ACTIVITY_LOCK"
 
 cat > "$TEST_ROOT/rollover-pending-output.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -1212,7 +1431,10 @@ cat > "$TEST_ROOT/signal.json" <<EOF
 }
 EOF
 
-"$RUNNER" run --plan "$TEST_ROOT/signal.json" >/dev/null 2>/dev/null &
+: > "$LIVE_ACTIVITY_LOCK"
+chmod 600 "$LIVE_ACTIVITY_LOCK"
+SWITCHYARD_TEST_SIGNAL_EXIT_TIMEOUT=0.1 \
+  "$RUNNER" run --plan "$TEST_ROOT/signal.json" >/dev/null 2>/dev/null &
 runner_pid=$!
 for _ in {1..50}; do
   if [ -s "$TEST_ROOT/signal-child.pid" ]; then
@@ -1222,6 +1444,16 @@ for _ in {1..50}; do
 done
 if [ ! -s "$TEST_ROOT/signal-child.pid" ]; then
   echo "signal test did not start its child process" >&2
+  exit 1
+fi
+for _ in {1..50}; do
+  if [ "$(grep -c 'pending signal warning' "$SIGNAL_LIVE_LOG" 2>/dev/null || true)" -eq 10 ]; then
+    break
+  fi
+  sleep 0.05
+done
+if [ "$(grep -c 'pending signal warning' "$SIGNAL_LIVE_LOG" 2>/dev/null || true)" -ne 10 ]; then
+  echo "inactive runner did not durably batch logs before termination" >&2
   exit 1
 fi
 
@@ -1244,13 +1476,14 @@ if [ ! -s "$TEST_ROOT/signal-child.terminated" ]; then
   echo "runner did not forward SIGTERM to its child process" >&2
   exit 1
 fi
-signal_represented_repetitions="$(
-  grep -o '"occurrenceCount":[0-9]*' "$SIGNAL_LIVE_LOG" \
-    | awk -F: '{ total += $2 } END { print total + 0 }'
-)"
-if [ "$signal_represented_repetitions" -ne 9 ]; then
-  echo "runner lost pending live log repetitions during SIGTERM shutdown" >&2
+if [ "$(grep -c 'pending signal warning' "$SIGNAL_LIVE_LOG")" -ne 10 ]; then
+  echo "inactive runner lost durably batched logs during SIGTERM shutdown" >&2
   exit 1
 fi
+if grep -q '"occurrenceCount":' "$SIGNAL_LIVE_LOG"; then
+  echo "inactive runner filtered logs during SIGTERM shutdown" >&2
+  exit 1
+fi
+rm -f "$LIVE_ACTIVITY_LOCK"
 
 echo "runner_prefix_session tests passed"

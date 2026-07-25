@@ -38,6 +38,7 @@ struct LiveLogJournalStore: @unchecked Sendable {
     ) throws -> URL {
         try withLock {
             try ensureDirectory()
+            try ensureViewActivityLockFile()
             let url = journalURL(for: containerID)
             let descriptor = Darwin.open(
                 url.path,
@@ -114,6 +115,25 @@ struct LiveLogJournalStore: @unchecked Sendable {
         try fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
         guard Darwin.chmod(rootURL.path, mode_t(S_IRWXU)) == 0 else {
             throw posixError(operation: "protect live log directory")
+        }
+    }
+
+    private func ensureViewActivityLockFile() throws {
+        let url = rootURL.appendingPathComponent(
+            LiveLogJournalFormat.viewActivityLockFilename,
+            isDirectory: false
+        )
+        let descriptor = Darwin.open(
+            url.path,
+            O_RDWR | O_CREAT | O_NOFOLLOW,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw posixError(operation: "open live log view activity lock")
+        }
+        defer { Darwin.close(descriptor) }
+        guard Darwin.fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+            throw posixError(operation: "protect live log view activity lock")
         }
     }
 
@@ -251,13 +271,99 @@ struct LiveLogJournalStore: @unchecked Sendable {
     }
 }
 
+final class LiveLogViewActivityLease {
+    let lockURL: URL
+
+    private let rootURL: URL
+    private var descriptor: Int32 = -1
+    private var isActive = false
+
+    init(rootURL: URL = LiveLogJournalStore.defaultRootURL()) {
+        self.rootURL = rootURL
+        lockURL = rootURL.appendingPathComponent(
+            LiveLogJournalFormat.viewActivityLockFilename,
+            isDirectory: false
+        )
+    }
+
+    deinit {
+        if descriptor >= 0 {
+            if isActive {
+                flock(descriptor, LOCK_UN)
+            }
+            Darwin.close(descriptor)
+        }
+    }
+
+    func setActive(_ isActive: Bool) throws {
+        guard self.isActive != isActive else { return }
+        if isActive {
+            let descriptor = try openDescriptorIfNeeded()
+            guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+                throw posixError(operation: "activate live log view")
+            }
+        } else if descriptor >= 0 {
+            guard flock(descriptor, LOCK_UN) == 0 else {
+                throw posixError(operation: "deactivate live log view")
+            }
+        }
+        self.isActive = isActive
+    }
+
+    private func openDescriptorIfNeeded() throws -> Int32 {
+        if descriptor >= 0 {
+            return descriptor
+        }
+
+        try FileManager.default.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        guard Darwin.chmod(rootURL.path, mode_t(S_IRWXU)) == 0 else {
+            throw posixError(operation: "protect live log directory")
+        }
+
+        let descriptor = Darwin.open(
+            lockURL.path,
+            O_RDWR | O_CREAT | O_NOFOLLOW,
+            mode_t(S_IRUSR | S_IWUSR)
+        )
+        guard descriptor >= 0 else {
+            throw posixError(operation: "open live log view activity lock")
+        }
+        guard Darwin.fchmod(descriptor, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+            let error = posixError(
+                operation: "protect live log view activity lock"
+            )
+            Darwin.close(descriptor)
+            throw error
+        }
+        self.descriptor = descriptor
+        return descriptor
+    }
+
+    private func posixError(operation: String) -> NSError {
+        let code = errno
+        return NSError(
+            domain: NSPOSIXErrorDomain,
+            code: Int(code),
+            userInfo: [NSLocalizedDescriptionKey: "\(operation): \(String(cString: strerror(code)))"]
+        )
+    }
+}
+
 final class LiveLogJournalMonitor: @unchecked Sendable {
     private let lock = NSLock()
     private let deliveryInterval: TimeInterval
+    private var isActive: Bool
     private var tailers: [UUID: LiveLogJournalTailer] = [:]
 
-    init(deliveryInterval: TimeInterval = 0.25) {
+    init(
+        deliveryInterval: TimeInterval = 0.25,
+        isActive: Bool = true
+    ) {
         self.deliveryInterval = max(0, deliveryInterval)
+        self.isActive = isActive
     }
 
     func start(
@@ -288,8 +394,22 @@ final class LiveLogJournalMonitor: @unchecked Sendable {
 
         lock.lock()
         tailers[containerID] = tailer
+        tailer.setActive(isActive)
         lock.unlock()
         tailer.start()
+    }
+
+    func setActive(_ isActive: Bool) {
+        lock.lock()
+        guard self.isActive != isActive else {
+            lock.unlock()
+            return
+        }
+        self.isActive = isActive
+        let activeTailers = Array(tailers.values)
+        lock.unlock()
+
+        activeTailers.forEach { $0.setActive(isActive) }
     }
 
     func stop(containerID: UUID, deliverPending: Bool = true) {
@@ -353,6 +473,8 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
     private var omittedLineCount = 0
     private var isDeliveryScheduled = false
     private var hasStarted = false
+    private var hasCompletedInitialReplay = false
+    private var isActive = false
     private var isCancelled = false
     private var deliverPendingAfterCancellation = false
 
@@ -402,6 +524,7 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
                 cancel()
                 return
             }
+            guard isReadingActive else { return }
             readAvailable(replaying: false)
         }
         sourceHandle.setCancelHandler { [descriptor] in
@@ -409,8 +532,25 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
         }
 
         queue.sync {
-            readAvailable(replaying: true)
+            readForActivation()
             sourceHandle.resume()
+        }
+    }
+
+    func setActive(_ isActive: Bool) {
+        lifecycleLock.lock()
+        guard !isCancelled else {
+            lifecycleLock.unlock()
+            return
+        }
+        let shouldResume = isActive && !self.isActive && hasStarted
+        self.isActive = isActive
+        lifecycleLock.unlock()
+
+        if shouldResume {
+            queue.async { [weak self] in
+                self?.readForActivation()
+            }
         }
     }
 
@@ -441,11 +581,25 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
         queue.sync { pendingDelivery.count }
     }
 
-    private func readAvailable(replaying: Bool) {
+    private var isReadingActive: Bool {
         lifecycleLock.lock()
-        let shouldRead = !isCancelled
-        lifecycleLock.unlock()
-        guard shouldRead else { return }
+        defer { lifecycleLock.unlock() }
+        return isActive && !isCancelled
+    }
+
+    private func readForActivation() {
+        guard isReadingActive else { return }
+        if hasCompletedInitialReplay {
+            readAvailable(replaying: false)
+        } else {
+            readAvailable(replaying: true)
+            hasCompletedInitialReplay = true
+        }
+        flushPendingDelivery()
+    }
+
+    private func readAvailable(replaying: Bool) {
+        guard isReadingActive else { return }
 
         var fileStatus = stat()
         guard Darwin.fstat(descriptor, &fileStatus) == 0 else { return }
@@ -464,6 +618,7 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
 
         var decodedLines: [LogLine] = []
         while offset < fileSize {
+            guard isReadingActive else { break }
             let requestedCount = min(
                 Self.readChunkSize,
                 Int(fileSize - offset)
@@ -494,15 +649,20 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
             if decodedLines.count > replayLimit {
                 decodedLines = Array(decodedLines.suffix(replayLimit))
             }
-            flushPendingDelivery()
-            if !decodedLines.isEmpty {
-                onLogs(decodedLines)
+            if isReadingActive {
+                flushPendingDelivery()
+                if !decodedLines.isEmpty {
+                    onLogs(decodedLines)
+                }
+            } else {
+                enqueueForDelivery(decodedLines)
             }
         }
 
         var latestStatus = stat()
         if Darwin.fstat(descriptor, &latestStatus) == 0,
-           Int64(latestStatus.st_size) != offset {
+           Int64(latestStatus.st_size) != offset,
+           isReadingActive {
             queue.async { [weak self] in
                 self?.readAvailable(replaying: false)
             }
@@ -527,6 +687,10 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
             pendingDelivery.append(contentsOf: lines)
         }
 
+        guard isReadingActive else {
+            isDeliveryScheduled = false
+            return
+        }
         guard !isDeliveryScheduled else { return }
         isDeliveryScheduled = true
         queue.asyncAfter(
@@ -538,9 +702,20 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
 
     private func flushPendingDelivery() {
         lifecycleLock.lock()
-        let shouldDeliver = !isCancelled || deliverPendingAfterCancellation
+        let shouldDeliver = (!isCancelled && isActive)
+            || (isCancelled && deliverPendingAfterCancellation)
         if isCancelled {
             deliverPendingAfterCancellation = false
+        }
+
+        guard shouldDeliver else {
+            if isCancelled {
+                pendingDelivery.removeAll(keepingCapacity: true)
+                omittedLineCount = 0
+            }
+            isDeliveryScheduled = false
+            lifecycleLock.unlock()
+            return
         }
 
         var lines = pendingDelivery
@@ -549,10 +724,6 @@ private final class LiveLogJournalTailer: @unchecked Sendable {
         omittedLineCount = 0
         isDeliveryScheduled = false
 
-        guard shouldDeliver else {
-            lifecycleLock.unlock()
-            return
-        }
         if omitted > 0 {
             lines.append(
                 LogLine(

@@ -223,16 +223,63 @@ private final class DebugLogWriter: @unchecked Sendable {
     }
 }
 
+private final class LiveLogViewActivityProbe {
+    private let lockPath: String
+    private var descriptor: Int32 = -1
+
+    init(journalPath: String) {
+        lockPath = URL(fileURLWithPath: journalPath)
+            .deletingLastPathComponent()
+            .appendingPathComponent(
+                LiveLogJournalFormat.viewActivityLockFilename,
+                isDirectory: false
+            )
+            .path
+    }
+
+    deinit {
+        if descriptor >= 0 {
+            Darwin.close(descriptor)
+        }
+    }
+
+    func isViewActive() -> Bool {
+        if descriptor < 0 {
+            descriptor = Darwin.open(lockPath, O_RDONLY | O_NOFOLLOW)
+        }
+        guard descriptor >= 0 else {
+            // Journals created before the activity protocol remain live.
+            return true
+        }
+
+        if flock(descriptor, LOCK_SH | LOCK_NB) == 0 {
+            flock(descriptor, LOCK_UN)
+            return false
+        }
+        return true
+    }
+}
+
 private final class LiveLogJournalWriter: @unchecked Sendable {
     private static let maximumMessageBytes = 64 * 1_024
     private static let maximumTrackedEvents = 64
     private static let maximumSuppressedOccurrences = 256
     private static let repetitionFlushInterval: TimeInterval = 0.5
+    private static let activityPollInterval: TimeInterval = 0.25
+    private static let maximumBufferedLineCount = 5_000
+    private static let maximumBufferedBytes = 4 * 1_024 * 1_024
 
     private struct RepetitionState {
         var latestLine: LogLine
         var suppressedOccurrenceCount: Int
         var lastEmissionDate: Date
+    }
+
+    private struct BufferedLine {
+        var timestamp: Date
+        var level: String
+        var message: String
+        var estimatedByteCount: Int
     }
 
     private struct ResetGeneration: Equatable {
@@ -245,9 +292,17 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
     private let resetGenerationDescriptor: Int32
     private let source: String
     private let encoder = JSONEncoder()
+    private let viewActivityProbe: LiveLogViewActivityProbe
+    private var activityTimer: DispatchSourceTimer?
     private var repetitionStates: [LiveLogEventKey: RepetitionState] = [:]
+    private var bufferedLines: [BufferedLine] = []
+    private var bufferedLineStartIndex = 0
+    private var bufferedByteCount = 0
+    private var omittedBufferedLineCount = 0
     private var observedResetGeneration: ResetGeneration
     private var lastKnownJournalSize: Int64 = 0
+    private var lastDetectedJournalResetDate: Date?
+    private var isFilteringActive: Bool
     private var isClosed = false
 
     init(path: String, source: String) throws {
@@ -272,6 +327,8 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
             throw error
         }
         self.source = source
+        viewActivityProbe = LiveLogViewActivityProbe(journalPath: path)
+        isFilteringActive = viewActivityProbe.isViewActive()
         do {
             let resetGeneration = try Self.openResetGeneration(
                 forJournalPath: url.path,
@@ -284,6 +341,7 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
             throw error
         }
         updateLastKnownJournalSize()
+        startActivityTimer()
     }
 
     func write(level: String, message: String) {
@@ -291,9 +349,18 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
         defer { lock.unlock() }
         guard !isClosed else { return }
 
-        discardRepetitionStateIfJournalWasReset()
         let timestamp = Date()
         let boundedMessage = boundedMessage(message)
+        guard isFilteringActive else {
+            buffer(
+                timestamp: timestamp,
+                level: level,
+                message: boundedMessage
+            )
+            return
+        }
+
+        discardRepetitionStateIfJournalWasReset()
         let key = LiveLogPolicy.eventKey(
             containerID: nil,
             level: level,
@@ -371,15 +438,152 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
     }
 
     func close() {
+        activityTimer?.cancel()
         lock.lock()
         defer { lock.unlock() }
         guard !isClosed else { return }
-        _ = persist(drainPendingRepetitionSummaries())
+        if isFilteringActive {
+            _ = persist(drainPendingRepetitionSummaries())
+        } else {
+            discardBufferedLinesIfJournalWasReset()
+            flushBufferedLines()
+        }
         repetitionStates.removeAll()
         Darwin.fsync(descriptor)
         Darwin.close(descriptor)
         Darwin.close(resetGenerationDescriptor)
         isClosed = true
+    }
+
+    private func startActivityTimer() {
+        let timer = DispatchSource.makeTimerSource(
+            queue: .global(qos: .utility)
+        )
+        timer.schedule(
+            deadline: .now() + Self.activityPollInterval,
+            repeating: Self.activityPollInterval,
+            leeway: .milliseconds(50)
+        )
+        timer.setEventHandler { [weak self] in
+            self?.refreshActivityMode()
+        }
+        activityTimer = timer
+        timer.resume()
+    }
+
+    private func refreshActivityMode() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isClosed else { return }
+
+        let shouldFilter = viewActivityProbe.isViewActive()
+        guard shouldFilter != isFilteringActive else {
+            if !shouldFilter {
+                discardBufferedLinesIfJournalWasReset()
+                flushBufferedLines()
+            }
+            return
+        }
+
+        if shouldFilter {
+            discardBufferedLinesIfJournalWasReset()
+            flushBufferedLines()
+        } else {
+            _ = persist(drainPendingRepetitionSummaries())
+            repetitionStates.removeAll(keepingCapacity: true)
+        }
+        isFilteringActive = shouldFilter
+    }
+
+    private func buffer(
+        timestamp: Date,
+        level: String,
+        message: String
+    ) {
+        let estimatedByteCount = message.utf8.count + level.utf8.count + 128
+        bufferedLines.append(
+            BufferedLine(
+                timestamp: timestamp,
+                level: level,
+                message: message,
+                estimatedByteCount: estimatedByteCount
+            )
+        )
+        bufferedByteCount += estimatedByteCount
+
+        while bufferedLines.count - bufferedLineStartIndex
+                > Self.maximumBufferedLineCount
+            || bufferedByteCount > Self.maximumBufferedBytes {
+            bufferedByteCount -= bufferedLines[bufferedLineStartIndex]
+                .estimatedByteCount
+            bufferedLineStartIndex += 1
+            omittedBufferedLineCount += 1
+        }
+
+        if bufferedLineStartIndex >= 1_024,
+           bufferedLineStartIndex * 2 >= bufferedLines.count {
+            bufferedLines.removeFirst(bufferedLineStartIndex)
+            bufferedLineStartIndex = 0
+        }
+    }
+
+    private func flushBufferedLines() {
+        let retainedLines = bufferedLines[bufferedLineStartIndex...]
+        guard !retainedLines.isEmpty || omittedBufferedLineCount > 0 else {
+            return
+        }
+
+        var lines: [LogLine] = []
+        lines.reserveCapacity(
+            retainedLines.count + (omittedBufferedLineCount > 0 ? 1 : 0)
+        )
+        if omittedBufferedLineCount > 0 {
+            lines.append(
+                LogLine(
+                    timestamp: retainedLines.first?.timestamp ?? Date(),
+                    level: "warning",
+                    source: source,
+                    message: "\(omittedBufferedLineCount) high-volume log entries were omitted while Logs was closed; the protected debug run log retains complete output when developer logging is enabled."
+                )
+            )
+        }
+        lines.append(
+            contentsOf: retainedLines.map {
+                LogLine(
+                    timestamp: $0.timestamp,
+                    level: $0.level,
+                    source: source,
+                    message: $0.message
+                )
+            }
+        )
+
+        bufferedLines.removeAll(keepingCapacity: true)
+        bufferedLineStartIndex = 0
+        bufferedByteCount = 0
+        omittedBufferedLineCount = 0
+        _ = persist(lines)
+    }
+
+    private func discardBufferedLinesIfJournalWasReset() {
+        guard discardRepetitionStateIfJournalWasReset(
+            checkSizeRollback: true
+        ) else {
+            return
+        }
+
+        if let resetDate = lastDetectedJournalResetDate {
+            bufferedLines = bufferedLines[bufferedLineStartIndex...].filter {
+                $0.timestamp >= resetDate
+            }
+        } else {
+            bufferedLines.removeAll(keepingCapacity: true)
+        }
+        bufferedLineStartIndex = 0
+        bufferedByteCount = bufferedLines.reduce(into: 0) {
+            $0 += $1.estimatedByteCount
+        }
+        omittedBufferedLineCount = 0
     }
 
     private func boundedMessage(_ message: String) -> String {
@@ -474,12 +678,16 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
     private func discardRepetitionStateIfJournalWasReset(
         checkSizeRollback: Bool = false
     ) -> Bool {
+        lastDetectedJournalResetDate = nil
         var journalWasReset = false
         if let generation = Self.readResetGeneration(
             from: resetGenerationDescriptor
         ), generation != observedResetGeneration {
             observedResetGeneration = generation
             journalWasReset = true
+            lastDetectedJournalResetDate = Self.modificationDate(
+                of: resetGenerationDescriptor
+            )
         }
 
         var currentSize: Int64?
@@ -491,6 +699,11 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
                    let currentSize,
                    currentSize < lastKnownJournalSize {
                     journalWasReset = true
+                    if lastDetectedJournalResetDate == nil {
+                        lastDetectedJournalResetDate = Self.modificationDate(
+                            of: descriptor
+                        )
+                    }
                 }
             }
         }
@@ -500,6 +713,18 @@ private final class LiveLogJournalWriter: @unchecked Sendable {
             lastKnownJournalSize = currentSize
         }
         return true
+    }
+
+    private static func modificationDate(of descriptor: Int32) -> Date? {
+        var fileStatus = stat()
+        guard Darwin.fstat(descriptor, &fileStatus) == 0 else {
+            return nil
+        }
+        return Date(
+            timeIntervalSince1970: TimeInterval(
+                fileStatus.st_mtimespec.tv_sec
+            ) + TimeInterval(fileStatus.st_mtimespec.tv_nsec) / 1_000_000_000
+        )
     }
 
     private func updateLastKnownJournalSize() {

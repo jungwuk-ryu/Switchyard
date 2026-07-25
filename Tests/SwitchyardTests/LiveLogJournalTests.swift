@@ -1,4 +1,5 @@
 import AppCore
+import Darwin
 import Foundation
 import Testing
 @testable import Switchyard
@@ -44,6 +45,41 @@ import Testing
     try store.removeJournal(for: containerID)
     #expect(!FileManager.default.fileExists(atPath: journalURL.path))
     #expect(!FileManager.default.fileExists(atPath: generationURL.path))
+}
+
+@Test func liveLogViewActivityLeaseUsesAnAccountOnlyAdvisoryLock() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let lease = LiveLogViewActivityLease(rootURL: root)
+    try lease.setActive(true)
+    _ = try LiveLogJournalStore(rootURL: root).prepareJournal(
+        for: UUID(),
+        reset: true
+    )
+
+    let observerDescriptor = Darwin.open(
+        lease.lockURL.path,
+        O_RDONLY | O_NOFOLLOW
+    )
+    try #require(observerDescriptor >= 0)
+    defer { Darwin.close(observerDescriptor) }
+
+    #expect(flock(observerDescriptor, LOCK_SH | LOCK_NB) != 0)
+
+    try lease.setActive(false)
+    #expect(flock(observerDescriptor, LOCK_SH | LOCK_NB) == 0)
+    flock(observerDescriptor, LOCK_UN)
+
+    let lockPermissions = try FileManager.default.attributesOfItem(
+        atPath: lease.lockURL.path
+    )[.posixPermissions] as? NSNumber
+    let directoryPermissions = try FileManager.default.attributesOfItem(
+        atPath: root.path
+    )[.posixPermissions] as? NSNumber
+    #expect(lockPermissions?.intValue == 0o600)
+    #expect(directoryPermissions?.intValue == 0o700)
 }
 
 @Test func liveLogJournalMonitorReplaysAndFollowsAfterTruncation() async throws {
@@ -154,6 +190,57 @@ import Testing
     monitor.stop(containerID: containerID, deliverPending: false)
     try await Task.sleep(for: .milliseconds(1_100))
     #expect(collector.lines.isEmpty)
+}
+
+@Test func liveLogJournalMonitorDefersWorkUntilActivatedAndCatchesUp() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let store = LiveLogJournalStore(rootURL: root)
+    let containerID = UUID()
+    let journalURL = try store.prepareJournal(for: containerID, reset: true)
+    try appendJournalLine(
+        LogLine(level: "info", source: "Steam", message: "before-monitor"),
+        to: journalURL
+    )
+
+    let collector = LiveLogJournalCollector()
+    let monitor = LiveLogJournalMonitor(
+        deliveryInterval: 0,
+        isActive: false
+    )
+    try monitor.start(
+        containerID: containerID,
+        source: "Steam",
+        journalURL: journalURL,
+        replayLimit: 5_000,
+        onLogs: collector.append
+    )
+    defer { monitor.stopAll() }
+
+    try appendJournalLine(
+        LogLine(level: "warning", source: "Steam", message: "while-inactive"),
+        to: journalURL
+    )
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(collector.lines.isEmpty)
+
+    monitor.setActive(true)
+    try await waitForJournalMessages(count: 2, collector: collector)
+    #expect(collector.lines.map(\.message) == ["before-monitor", "while-inactive"])
+
+    monitor.setActive(false)
+    try appendJournalLine(
+        LogLine(level: "error", source: "Steam", message: "while-paused"),
+        to: journalURL
+    )
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(collector.lines.count == 2)
+
+    monitor.setActive(true)
+    try await waitForJournalMessages(count: 3, collector: collector)
+    #expect(collector.lines.map(\.message).last == "while-paused")
 }
 
 private func appendJournalLine(_ line: LogLine, to url: URL) throws {

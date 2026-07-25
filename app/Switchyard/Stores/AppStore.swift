@@ -359,7 +359,12 @@ private struct LauncherInstallationKey: Hashable, Sendable {
 
 @MainActor
 final class AppStore: ObservableObject {
-    @Published var selectedSection: SidebarSelection = .containers
+    @Published var selectedSection: SidebarSelection = .containers {
+        didSet {
+            guard selectedSection != oldValue else { return }
+            updateLiveLogMonitoring(for: selectedSection)
+        }
+    }
     @Published var selectedSettingsTab: SettingsTab = .general
     @Published var selectedContainerID: UUID?
     @Published var hasCompletedSetup: Bool
@@ -420,7 +425,8 @@ final class AppStore: ObservableObject {
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
     private let debugRunLogStore = DebugRunLogStore()
     private let liveLogJournalStore = LiveLogJournalStore()
-    private let liveLogJournalMonitor = LiveLogJournalMonitor()
+    private let liveLogViewActivityLease = LiveLogViewActivityLease()
+    private let liveLogJournalMonitor = LiveLogJournalMonitor(isActive: false)
     private let defaults = UserDefaults.standard
     private let wineSourcePolicy = SwitchyardWineSourcePolicy.load()
     private let gptkComponentPolicy = GPTKComponentChannelConfiguration
@@ -449,7 +455,6 @@ final class AppStore: ObservableObject {
     private var callbackRecoveryTasks: [UUID: Task<Void, Never>] = [:]
     private var pendingLoginCallbackRecoveries: [UUID: PendingLoginCallbackRecovery] = [:]
     private var protocolBridgeTask: Task<Void, Never>?
-    private var liveLogRecoveryTask: Task<Void, Never>?
     private var liveLogMonitoringFailureContainerIDs: Set<UUID> = []
     private var liveLogMonitorGenerations: [UUID: UUID] = [:]
     private var lastProtocolBridgeError: String?
@@ -504,7 +509,6 @@ final class AppStore: ObservableObject {
         persistRecentProgramLaunches()
         pruneDebugRunLogs()
         startProtocolBridgeMonitoring()
-        startLiveLogRecovery()
 
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--show-setup-assistant") {
@@ -514,7 +518,6 @@ final class AppStore: ObservableObject {
     }
 
     deinit {
-        liveLogRecoveryTask?.cancel()
         liveLogJournalMonitor.stopAll()
     }
 
@@ -3893,31 +3896,17 @@ final class AppStore: ObservableObject {
         )
     }
 
-    private func startLiveLogRecovery() {
-        liveLogRecoveryTask?.cancel()
-        liveLogRecoveryTask = Task { [weak self] in
-            guard let self else { return }
-            let candidates = containers.filter {
-                liveLogJournalStore.existingJournalURL(for: $0.id) != nil
-            }
-            guard !candidates.isEmpty else { return }
-
-            let winePath = currentRuntime.winePath
-            let runnerClient = runnerClient
-            let activeContainerIDs = await Task.detached(priority: .utility) {
-                candidates.compactMap { container in
-                    runnerClient.prefixSessionState(
-                        winePath: winePath,
-                        prefixPath: container.path
-                    ) == .active ? container.id : nil
-                }
-            }.value
-            guard !Task.isCancelled else { return }
-
-            let activeIDSet = Set(activeContainerIDs)
-            for container in candidates where activeIDSet.contains(container.id) {
+    private func updateLiveLogMonitoring(for selection: SidebarSelection) {
+        let shouldMonitor = selection == .logs
+        if shouldMonitor {
+            try? liveLogViewActivityLease.setActive(true)
+            for container in containers {
                 startMonitoringExistingLiveLog(for: container)
             }
+            liveLogJournalMonitor.setActive(true)
+        } else {
+            liveLogJournalMonitor.setActive(false)
+            try? liveLogViewActivityLease.setActive(false)
         }
     }
 

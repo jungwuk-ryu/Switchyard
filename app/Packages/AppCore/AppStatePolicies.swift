@@ -94,6 +94,7 @@ public struct LiveLogEventKey: Hashable, Sendable {
 public enum LiveLogJournalFormat {
     public static let resetGenerationSuffix = ".generation"
     public static let resetGenerationByteCount = 16
+    public static let viewActivityLockFilename = ".view-active.lock"
 
     public static func makeResetGeneration() -> Data {
         var bytes = UUID().uuid
