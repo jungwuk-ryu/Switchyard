@@ -124,6 +124,13 @@ cat > "$BIN_DIR/switchyard-wine" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf 'wine %s prefix=%s\n' "$*" "$WINEPREFIX" >> "$TEST_EVENTS"
+if [ "${1:-}" = "reg" ] && [ "${TEST_REGISTRY_SLEEP:-0}" -eq 1 ]; then
+  trap '' TERM
+  exec sleep 30
+fi
+if [ "${1:-}" = "reg" ] && [ "${TEST_REGISTRY_STATUS:-0}" -ne 0 ]; then
+  exit "$TEST_REGISTRY_STATUS"
+fi
 if [ -n "${TEST_LIVE_DESCENDANT_READY:-}" ]; then
   (
     printf 'ready\n' > "$TEST_LIVE_DESCENDANT_READY"
@@ -496,6 +503,66 @@ perl -0pe 's/,\n  "terminateExistingPrefixSession": true//' "$TEST_ROOT/replace.
 TEST_EVENTS="$EVENTS" "$RUNNER" run --plan "$TEST_ROOT/reuse.json" >/dev/null
 if [ "$(sed -n '1p' "$EVENTS")" != "wine C:\\Program Files\\Steam\\steam.exe prefix=$PREFIX" ]; then
   echo "legacy command plans should launch without terminating the prefix session" >&2
+  exit 1
+fi
+
+assert_display_mode() {
+  mode="$1"
+  retina_value="$2"
+  dpi_value="$3"
+  plan_path="$TEST_ROOT/display-$mode.json"
+  cat > "$plan_path" <<EOF
+{
+  "executable": "$BIN_DIR/switchyard-wine",
+  "arguments": ["C:\\\\Game.exe"],
+  "environment": {"WINEPREFIX": "$PREFIX"},
+  "workingDirectory": "$PREFIX",
+  "logSource": "display-test",
+  "containerDisplayMode": "$mode"
+}
+EOF
+
+  : > "$EVENTS"
+  TEST_EVENTS="$EVENTS" "$RUNNER" run --plan "$plan_path" >/dev/null
+  expected_display="$(printf \
+    'wine reg add HKCU\\Software\\Wine\\Mac Driver /v RetinaMode /t REG_SZ /d %s /f prefix=%s\nwine reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d %s /f prefix=%s\nwine C:\\Game.exe prefix=%s' \
+    "$retina_value" "$PREFIX" "$dpi_value" "$PREFIX" "$PREFIX")"
+  actual_display="$(sed -n '1,3p' "$EVENTS")"
+  if [ "$actual_display" != "$expected_display" ]; then
+    echo "runner applied the wrong registry values for display mode $mode" >&2
+    printf 'expected:\n%s\nactual:\n%s\n' "$expected_display" "$actual_display" >&2
+    exit 1
+  fi
+}
+
+assert_display_mode standard N 96
+assert_display_mode retina Y 96
+assert_display_mode retinaWithLargerInterface Y 192
+
+: > "$EVENTS"
+if TEST_EVENTS="$EVENTS" TEST_REGISTRY_STATUS=9 \
+  "$RUNNER" run --plan "$TEST_ROOT/display-retina.json" >/dev/null 2>&1; then
+  echo "runner should fail when the Wine display registry update fails" >&2
+  exit 1
+fi
+if [ "$(wc -l < "$EVENTS" | tr -d ' ')" -ne 1 ]; then
+  echo "runner launched the target after a Wine display registry update failed" >&2
+  exit 1
+fi
+
+: > "$EVENTS"
+registry_timeout_started_at=$SECONDS
+if TEST_EVENTS="$EVENTS" TEST_REGISTRY_SLEEP=1 SWITCHYARD_TEST_WINE_REGISTRY_TIMEOUT=0.1 \
+  "$RUNNER" run --plan "$TEST_ROOT/display-retina.json" >/dev/null 2>&1; then
+  echo "runner should fail when a Wine display registry update times out" >&2
+  exit 1
+fi
+if [ "$((SECONDS - registry_timeout_started_at))" -gt 3 ]; then
+  echo "runner did not stop a timed-out Wine display registry update promptly" >&2
+  exit 1
+fi
+if [ "$(wc -l < "$EVENTS" | tr -d ' ')" -ne 1 ]; then
+  echo "runner launched the target after a Wine display registry update timed out" >&2
   exit 1
 fi
 

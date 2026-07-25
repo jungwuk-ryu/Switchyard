@@ -153,7 +153,8 @@ private enum TestContainerRenameError: Error, Equatable {
         starterApplicationID: "steam",
         executablePath: "C:\\Tools\\Toolbox.exe",
         executableArguments: ["-safe-mode"],
-        status: .ready
+        status: .ready,
+        displayMode: .retinaWithLargerInterface
     )
     let snapshot = SwitchyardContainerSnapshot(containers: [container])
     let store = LibraryManifestStore(rootURL: root)
@@ -169,10 +170,12 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(loaded.containers.first?.executablePath == "C:\\Tools\\Toolbox.exe")
     #expect(loaded.containers.first?.executableArguments == ["-safe-mode"])
     #expect(loaded.containers.first?.status == .ready)
+    #expect(loaded.containers.first?.displayMode == .retinaWithLargerInterface)
     #expect(loaded.containers.first?.lastRuntime == container.lastRuntime)
     #expect(manifest.contains("\"containers\""))
     #expect(manifest.contains("\"lastRuntime\""))
     #expect(manifest.contains("\"executableArguments\""))
+    #expect(manifest.contains("\"displayMode\""))
     #expect(manifest.contains("\"starterApplicationID\""))
     #expect(!manifest.contains("\"wineBuildID\""))
     #expect(!manifest.contains("\"bottles\""))
@@ -210,7 +213,8 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(FileManager.default.fileExists(atPath: loadedPath))
     #expect(loaded.first?.environmentOverrides == [:])
     #expect(loaded.first?.executableArguments == [])
-    #expect(loaded.first?.schemaVersion == 5)
+    #expect(loaded.first?.displayMode == nil)
+    #expect(loaded.first?.schemaVersion == 6)
     #expect(loaded.first?.lastRuntime?.runtimeID == "wine-a")
     #expect(loaded.first?.lastRuntime?.patchsetID == "patch-a")
     #expect(loaded.first?.lastRuntime?.usedAt == nil)
@@ -287,7 +291,8 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
-    #expect(loaded.containers.first?.schemaVersion == 5)
+    #expect(loaded.containers.first?.displayMode == nil)
+    #expect(loaded.containers.first?.schemaVersion == 6)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 
@@ -319,7 +324,8 @@ private enum TestContainerRenameError: Error, Equatable {
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
-    #expect(loaded.containers.first?.schemaVersion == 5)
+    #expect(loaded.containers.first?.displayMode == nil)
+    #expect(loaded.containers.first?.schemaVersion == 6)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 

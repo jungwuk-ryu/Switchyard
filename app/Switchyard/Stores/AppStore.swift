@@ -3276,6 +3276,13 @@ final class AppStore: ObservableObject {
         }
     }
 
+    func updateDisplayMode(for containerID: UUID, to displayMode: ContainerDisplayMode) {
+        guard !isContainerBusy(containerID) else { return }
+        updateContainer(containerID) { container in
+            container.displayMode = displayMode
+        }
+    }
+
     private func updateDefaultExecutable(for containerID: UUID, to path: String, arguments: [String]) {
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         updateContainer(containerID) { container in
@@ -3675,7 +3682,8 @@ final class AppStore: ObservableObject {
                 gptkPath: activeGPTKPath,
                 environmentOverrides: debugEnvironmentOverrides,
                 debugLogPath: debugLogPath,
-                terminateExistingPrefixSession: terminateExistingPrefixSession
+                terminateExistingPrefixSession: terminateExistingPrefixSession,
+                configureContainerDisplay: !prefixWasActive || terminateExistingPrefixSession
             )
             plan.liveLogPath = liveLogPath
             let runSession = try runnerClient.launch(

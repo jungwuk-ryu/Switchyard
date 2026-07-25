@@ -62,6 +62,7 @@ public struct JobEngine {
             container: container,
             executablePath: installerPath,
             gptkPath: gptkPath,
+            containerDisplayMode: container.displayMode,
             logSource: "\(container.name)-install"
         )
     }
@@ -74,7 +75,8 @@ public struct JobEngine {
         gptkPath: String?,
         environmentOverrides: [String: String] = [:],
         debugLogPath: String? = nil,
-        terminateExistingPrefixSession: Bool = false
+        terminateExistingPrefixSession: Bool = false,
+        configureContainerDisplay: Bool = true
     ) throws -> CommandPlan {
         let selectedExecutablePath = executablePath ?? container.executablePath
         guard let preparedExecutablePath = selectedExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -94,6 +96,7 @@ public struct JobEngine {
             executableArguments: executablePath == nil && executableArguments.isEmpty ? container.executableArguments : executableArguments,
             gptkPath: gptkPath,
             overrides: mergedEnvironmentOverrides,
+            containerDisplayMode: configureContainerDisplay ? container.displayMode : nil,
             logSource: container.name,
             debugLogPath: debugLogPath,
             terminateExistingPrefixSession: terminateExistingPrefixSession
@@ -146,6 +149,7 @@ private func commandPlan(
     executableArguments: [String] = [],
     gptkPath: String?,
     overrides: [String: String] = [:],
+    containerDisplayMode: ContainerDisplayMode? = nil,
     logSource: String,
     debugLogPath: String? = nil,
     terminateExistingPrefixSession: Bool = false,
@@ -198,6 +202,7 @@ private func commandPlan(
         logSource: logSource,
         debugLogPath: debugLogPath,
         terminateExistingPrefixSession: terminateExistingPrefixSession,
+        containerDisplayMode: containerDisplayMode,
         keepLoggingWhilePrefixIsActive: keepLoggingWhilePrefixIsActive
     )
 }

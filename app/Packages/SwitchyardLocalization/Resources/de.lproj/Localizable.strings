@@ -566,6 +566,8 @@
 	<string>Rosetta 2 wird installiert…</string>
 	<key>Installing…</key>
 	<string>Installieren…</string>
+	<key>Keep Existing Wine Settings</key>
+	<string>Vorhandene Wine-Einstellungen beibehalten</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>Lassen Sie das Spiel Windows geöffnet, während der kopierte Anmelderückruf wiederhergestellt wird.</string>
 	<key>Language</key>
@@ -1510,5 +1512,13 @@
 	<string>wineserver konnte nicht gestoppt werden (Exitcode %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo ist fehlgeschlagen</string>
+	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
+	<string>192 DPI behält die gewohnte Größe von Text und Bedienelementen bei. Die Änderung gilt ab dem nächsten Start.</string>
+	<key>Off</key>
+	<string>Aus</string>
+	<key>Retina</key>
+	<string>Retina</string>
+	<key>Retina + 192 DPI</key>
+	<string>Retina + 192 DPI</string>
 </dict>
 </plist>

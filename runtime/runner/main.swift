@@ -12,6 +12,8 @@ private enum SwitchyardRunnerError: LocalizedError {
     case desktopShortcutCommandFailed(Int32)
     case wineServerCommandFailed(arguments: [String], status: Int32, output: String)
     case wineServerCommandTimedOut(arguments: [String])
+    case wineRegistryCommandFailed(arguments: [String], status: Int32, output: String)
+    case wineRegistryCommandTimedOut(arguments: [String])
     case wineProcessesCouldNotBeStopped([pid_t])
     case processInspectionFailed(Int32)
     case processInspectionTimedOut
@@ -37,6 +39,10 @@ private enum SwitchyardRunnerError: LocalizedError {
             "wineserver \(arguments.joined(separator: " ")) failed with status \(status): \(output)"
         case let .wineServerCommandTimedOut(arguments):
             "wineserver \(arguments.joined(separator: " ")) did not finish within 15 seconds."
+        case let .wineRegistryCommandFailed(arguments, status, output):
+            "Wine registry command \(arguments.joined(separator: " ")) failed with status \(status): \(output)"
+        case let .wineRegistryCommandTimedOut(arguments):
+            "Wine registry command \(arguments.joined(separator: " ")) did not finish within 15 seconds."
         case let .wineProcessesCouldNotBeStopped(processIDs):
             "Wine processes for this prefix could not be stopped: \(processIDs.map(String.init).joined(separator: ", "))."
         case let .processInspectionFailed(status):
@@ -89,6 +95,17 @@ private let wineServerCommandTimeout: TimeInterval = {
     guard let value = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_WINESERVER_TIMEOUT"],
           let seconds = TimeInterval(value),
           seconds > 0 else {
+        return 15
+    }
+    return seconds
+}()
+
+private let wineRegistryCommandTimeout: TimeInterval = {
+    guard let value = ProcessInfo.processInfo.environment[
+        "SWITCHYARD_TEST_WINE_REGISTRY_TIMEOUT"
+    ],
+    let seconds = TimeInterval(value),
+    seconds > 0 else {
         return 15
     }
     return seconds
@@ -1066,6 +1083,16 @@ struct SwitchyardRunner {
         if plan.terminateExistingPrefixSession == true {
             try terminateExistingPrefixSession(plan: plan)
         }
+        if let displayMode = plan.containerDisplayMode {
+            try configureContainerDisplay(displayMode, plan: plan)
+            emit(
+                source: plan.logSource,
+                level: "info",
+                message: "container display mode configured: \(displayMode.rawValue)",
+                debugLogWriter: debugLogWriter,
+                liveLogWriter: liveLogWriter
+            )
+        }
         try preparePrivateDesktop(plan: plan)
         var protocolMonitor = try startProtocolAssociationMonitor(plan: plan)
         defer {
@@ -1710,6 +1737,77 @@ private func terminateExistingPrefixSession(plan: CommandPlan) throws {
         prefixPath: plan.environment["WINEPREFIX"] ?? plan.workingDirectory ?? "",
         environment: environment
     )
+}
+
+private func configureContainerDisplay(
+    _ displayMode: ContainerDisplayMode,
+    plan: CommandPlan
+) throws {
+    let retinaValue = displayMode == .standard ? "N" : "Y"
+    let dpiValue = displayMode == .retinaWithLargerInterface ? "192" : "96"
+    let commands = [
+        [
+            "reg", "add", #"HKCU\Software\Wine\Mac Driver"#,
+            "/v", "RetinaMode",
+            "/t", "REG_SZ",
+            "/d", retinaValue,
+            "/f",
+        ],
+        [
+            "reg", "add", #"HKCU\Control Panel\Desktop"#,
+            "/v", "LogPixels",
+            "/t", "REG_DWORD",
+            "/d", dpiValue,
+            "/f",
+        ],
+    ]
+
+    for arguments in commands {
+        try runWineRegistryCommand(plan: plan, arguments: arguments)
+    }
+}
+
+private func runWineRegistryCommand(
+    plan: CommandPlan,
+    arguments: [String]
+) throws {
+    let process = Process()
+    let output = Pipe()
+    let outputCollector = ProcessOutputCollector()
+    process.executableURL = URL(fileURLWithPath: plan.executable)
+    process.arguments = arguments
+    process.environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
+    if let workingDirectory = plan.workingDirectory {
+        process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory, isDirectory: true)
+    }
+    process.standardOutput = output
+    process.standardError = output
+    output.fileHandleForReading.readabilityHandler = { handle in
+        outputCollector.consumeAvailableData(from: handle)
+    }
+    defer { RunnerProcessRegistry.shared.clear(process) }
+
+    do {
+        try RunnerProcessRegistry.shared.launch(process)
+    } catch {
+        outputCollector.cancel(from: output.fileHandleForReading)
+        throw error
+    }
+
+    guard waitForExit(process, timeout: wineRegistryCommandTimeout) else {
+        stopProcessWithinDeadline(process)
+        outputCollector.finish(from: output.fileHandleForReading)
+        throw SwitchyardRunnerError.wineRegistryCommandTimedOut(arguments: arguments)
+    }
+
+    outputCollector.finish(from: output.fileHandleForReading)
+    guard process.terminationStatus == 0 else {
+        throw SwitchyardRunnerError.wineRegistryCommandFailed(
+            arguments: arguments,
+            status: process.terminationStatus,
+            output: outputCollector.text
+        )
+    }
 }
 
 private func stopWinePrefixSession(

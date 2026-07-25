@@ -26,6 +26,7 @@ import Testing
             == WineDesktopShortcutFormat.windowsManifestPath
     )
     #expect(plan.environment[WineDesktopShortcutFormat.privateDesktopEnvironmentKey] == "1")
+    #expect(plan.containerDisplayMode == .standard)
 }
 
 @Test func jobEngineCreatesWindowsInstallerPlan() throws {
@@ -225,6 +226,79 @@ import Testing
     #expect(plan.terminateExistingPrefixSession == true)
 }
 
+@Test func jobEngineConfiguresTheSelectedContainerDisplayMode() throws {
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+
+    for displayMode in ContainerDisplayMode.allCases {
+        let container = Container(
+            name: "Toolbox",
+            path: "/tmp/Toolbox.container",
+            executablePath: "/tmp/Toolbox/Toolbox.exe",
+            displayMode: displayMode
+        )
+
+        let plan = try JobEngine().runPlan(
+            container: container,
+            runtime: runtime,
+            gptkPath: nil
+        )
+
+        #expect(plan.containerDisplayMode == displayMode)
+    }
+}
+
+@Test func jobEngineSkipsDisplayConfigurationWhenReusingAnActivePrefix() throws {
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        executablePath: "/tmp/Toolbox/Toolbox.exe",
+        displayMode: .retinaWithLargerInterface
+    )
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: nil,
+        configureContainerDisplay: false
+    )
+
+    #expect(plan.containerDisplayMode == nil)
+}
+
+@Test func jobEnginePreservesDisplayConfigurationForLegacyContainers() throws {
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        executablePath: "/tmp/Toolbox/Toolbox.exe",
+        displayMode: nil
+    )
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.containerDisplayMode == nil)
+}
+
 @Test func runtimePreparationUpdatesWithoutRunningStartupProgramsOrFollowingThePrefix() {
     let container = Container(
         name: "Steam",
@@ -247,6 +321,7 @@ import Testing
     #expect(plan.arguments == ["wineboot.exe", "-u", "-r"])
     #expect(plan.environment["WINEPREFIX"] == container.path)
     #expect(plan.environment["DXVK_LOG_LEVEL"] == "none")
+    #expect(plan.containerDisplayMode == nil)
     #expect(plan.keepLoggingWhilePrefixIsActive == false)
 }
 

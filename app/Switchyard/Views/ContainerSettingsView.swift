@@ -14,6 +14,7 @@ struct ContainerSettingsView: View {
                         HStack(alignment: .top, spacing: 16) {
                             VStack(spacing: 16) {
                                 launchSection
+                                displaySection
                                 storageSection
                             }
                             .frame(maxWidth: .infinity, alignment: .top)
@@ -26,6 +27,7 @@ struct ContainerSettingsView: View {
                         }
                     } else {
                         launchSection
+                        displaySection
                         storageSection
                         LoginCallbackRecoverySection(container: container)
                         environmentSection
@@ -89,6 +91,33 @@ struct ContainerSettingsView: View {
         }
     }
 
+    private var displaySection: some View {
+        GroupBox("Retina") {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("Retina", selection: displayModeBinding) {
+                    if currentDisplayMode == nil {
+                        Text("Keep Existing Wine Settings")
+                            .tag(nil as ContainerDisplayMode?)
+                    }
+                    Text("Off")
+                        .tag(ContainerDisplayMode?.some(.standard))
+                    Text("Retina")
+                        .tag(ContainerDisplayMode?.some(.retina))
+                    Text("Retina + 192 DPI")
+                        .tag(ContainerDisplayMode?.some(.retinaWithLargerInterface))
+                }
+                .labelsHidden()
+                .frame(maxWidth: 240)
+                .disabled(store.isContainerBusy(container.id))
+
+                Text("192 DPI keeps text and controls at their usual size. Applies on the next launch.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     private var environmentSection: some View {
         GroupBox("Environment Overrides") {
             EnvironmentOverridesEditor(containerID: container.id)
@@ -118,6 +147,19 @@ struct ContainerSettingsView: View {
             store.containers.first(where: { $0.id == container.id })?.executablePath ?? ""
         } set: { path in
             store.updateExecutablePath(for: container.id, to: path)
+        }
+    }
+
+    private var currentDisplayMode: ContainerDisplayMode? {
+        store.containers.first(where: { $0.id == container.id })?.displayMode
+    }
+
+    private var displayModeBinding: Binding<ContainerDisplayMode?> {
+        Binding {
+            currentDisplayMode
+        } set: { displayMode in
+            guard let displayMode else { return }
+            store.updateDisplayMode(for: container.id, to: displayMode)
         }
     }
 }

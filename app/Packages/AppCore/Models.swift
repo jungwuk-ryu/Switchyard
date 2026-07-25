@@ -17,6 +17,12 @@ public enum ContainerStatus: String, Codable, CaseIterable, Sendable {
     case succeeded
 }
 
+public enum ContainerDisplayMode: String, Codable, CaseIterable, Sendable {
+    case standard
+    case retina
+    case retinaWithLargerInterface
+}
+
 public struct ContainerRuntimeRecord: Codable, Equatable, Sendable {
     public var runtimeID: String
     public var patchsetID: String
@@ -50,6 +56,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
     public var lastRun: Date?
     public var status: ContainerStatus
     public var environmentOverrides: [String: String]
+    public var displayMode: ContainerDisplayMode?
     public var schemaVersion: Int
     public var lastModified: Date
 
@@ -64,7 +71,8 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         lastRun: Date? = nil,
         status: ContainerStatus = .needsSetup,
         environmentOverrides: [String: String] = [:],
-        schemaVersion: Int = 5,
+        displayMode: ContainerDisplayMode? = .standard,
+        schemaVersion: Int = 6,
         lastModified: Date = Date()
     ) {
         self.id = id
@@ -77,6 +85,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         self.lastRun = lastRun
         self.status = status
         self.environmentOverrides = environmentOverrides
+        self.displayMode = displayMode
         self.schemaVersion = schemaVersion
         self.lastModified = lastModified
     }
@@ -97,6 +106,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         case lastRun
         case status
         case environmentOverrides
+        case displayMode
         case schemaVersion
         case lastModified
     }
@@ -136,7 +146,11 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         }
         status = try container.decodeIfPresent(ContainerStatus.self, forKey: .status) ?? .needsSetup
         environmentOverrides = try container.decodeIfPresent([String: String].self, forKey: .environmentOverrides) ?? [:]
-        schemaVersion = max(decodedSchemaVersion, 5)
+        displayMode = try container.decodeIfPresent(
+            ContainerDisplayMode.self,
+            forKey: .displayMode
+        )
+        schemaVersion = max(decodedSchemaVersion, 6)
         lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
     }
 
@@ -152,6 +166,7 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         try container.encodeIfPresent(lastRun, forKey: .lastRun)
         try container.encode(status, forKey: .status)
         try container.encode(environmentOverrides, forKey: .environmentOverrides)
+        try container.encodeIfPresent(displayMode, forKey: .displayMode)
         try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(lastModified, forKey: .lastModified)
     }
@@ -649,6 +664,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
     public var liveLogPath: String?
     public var debugLogPath: String?
     public var terminateExistingPrefixSession: Bool?
+    public var containerDisplayMode: ContainerDisplayMode?
     public var keepLoggingWhilePrefixIsActive: Bool?
     public var forwardCapturedOutput: Bool?
 
@@ -661,6 +677,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         liveLogPath: String? = nil,
         debugLogPath: String? = nil,
         terminateExistingPrefixSession: Bool? = nil,
+        containerDisplayMode: ContainerDisplayMode? = nil,
         keepLoggingWhilePrefixIsActive: Bool? = nil,
         forwardCapturedOutput: Bool? = nil
     ) {
@@ -672,6 +689,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         self.liveLogPath = liveLogPath
         self.debugLogPath = debugLogPath
         self.terminateExistingPrefixSession = terminateExistingPrefixSession
+        self.containerDisplayMode = containerDisplayMode
         self.keepLoggingWhilePrefixIsActive = keepLoggingWhilePrefixIsActive
         self.forwardCapturedOutput = forwardCapturedOutput
     }

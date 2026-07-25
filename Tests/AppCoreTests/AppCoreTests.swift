@@ -347,7 +347,8 @@ import Testing
     #expect(record.gptkFingerprint == "gptk-a")
     #expect(record.usedAt == usedAt)
     #expect(container.starterApplicationID == "steam")
-    #expect(container.schemaVersion == 5)
+    #expect(container.displayMode == .standard)
+    #expect(container.schemaVersion == 6)
 }
 
 @Test func containerRequestsPreparationForTheActiveRuntimeWhenNeeded() {

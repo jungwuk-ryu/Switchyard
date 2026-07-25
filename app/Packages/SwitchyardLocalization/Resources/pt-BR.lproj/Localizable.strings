@@ -566,6 +566,8 @@
 	<string>Instalando Rosetta 2...</string>
 	<key>Installing…</key>
 	<string>Instalando...</string>
+	<key>Keep Existing Wine Settings</key>
+	<string>Manter as configurações atuais do Wine</string>
 	<key>Keep the Windows game open while recovering its copied login callback.</key>
 	<string>Mantenha o jogo Windows aberto enquanto recupera o retorno de login copiado.</string>
 	<key>Language</key>
@@ -1510,5 +1512,13 @@
 	<string>Não foi possível parar o wineserver (código de saída %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo falhou</string>
+	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
+	<string>192 DPI mantém textos e controles no tamanho habitual. A alteração será aplicada na próxima inicialização.</string>
+	<key>Off</key>
+	<string>Desativado</string>
+	<key>Retina</key>
+	<string>Retina</string>
+	<key>Retina + 192 DPI</key>
+	<string>Retina + 192 DPI</string>
 </dict>
 </plist>
