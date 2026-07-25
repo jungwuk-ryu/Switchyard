@@ -1731,6 +1731,10 @@ private func terminateExistingPrefixSession(plan: CommandPlan) throws {
         Data("[\(plan.logSource)] Stopping any existing Wine session for this prefix before relaunch.\n".utf8)
     )
 
+    try stopPrefixSession(plan: plan)
+}
+
+private func stopPrefixSession(plan: CommandPlan) throws {
     let environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
     try stopWinePrefixSession(
         wineExecutablePath: plan.executable,
@@ -1762,9 +1766,18 @@ private func configureContainerDisplay(
         ],
     ]
 
-    for arguments in commands {
-        try runWineRegistryCommand(plan: plan, arguments: arguments)
+    do {
+        for arguments in commands {
+            try runWineRegistryCommand(plan: plan, arguments: arguments)
+        }
+    } catch {
+        try? stopPrefixSession(plan: plan)
+        throw error
     }
+
+    // reg.exe starts a Wine session using the previous system DPI. End that
+    // transient session so the target starts after the new values are committed.
+    try stopPrefixSession(plan: plan)
 }
 
 private func runWineRegistryCommand(

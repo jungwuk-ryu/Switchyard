@@ -525,11 +525,11 @@ EOF
   : > "$EVENTS"
   TEST_EVENTS="$EVENTS" "$RUNNER" run --plan "$plan_path" >/dev/null
   expected_display="$(printf \
-    'wine reg add HKCU\\Software\\Wine\\Mac Driver /v RetinaMode /t REG_SZ /d %s /f prefix=%s\nwine reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d %s /f prefix=%s\nwine C:\\Game.exe prefix=%s' \
-    "$retina_value" "$PREFIX" "$dpi_value" "$PREFIX" "$PREFIX")"
-  actual_display="$(sed -n '1,3p' "$EVENTS")"
+    'wine reg add HKCU\\Software\\Wine\\Mac Driver /v RetinaMode /t REG_SZ /d %s /f prefix=%s\nwine reg add HKCU\\Control Panel\\Desktop /v LogPixels /t REG_DWORD /d %s /f prefix=%s\nwineserver -k prefix=%s\nwineserver -w prefix=%s\nwine C:\\Game.exe prefix=%s' \
+    "$retina_value" "$PREFIX" "$dpi_value" "$PREFIX" "$PREFIX" "$PREFIX" "$PREFIX")"
+  actual_display="$(sed -n '1,5p' "$EVENTS")"
   if [ "$actual_display" != "$expected_display" ]; then
-    echo "runner applied the wrong registry values for display mode $mode" >&2
+    echo "runner did not restart Wine after applying display mode $mode" >&2
     printf 'expected:\n%s\nactual:\n%s\n' "$expected_display" "$actual_display" >&2
     exit 1
   fi
@@ -545,7 +545,7 @@ if TEST_EVENTS="$EVENTS" TEST_REGISTRY_STATUS=9 \
   echo "runner should fail when the Wine display registry update fails" >&2
   exit 1
 fi
-if [ "$(wc -l < "$EVENTS" | tr -d ' ')" -ne 1 ]; then
+if [ "$(wc -l < "$EVENTS" | tr -d ' ')" -ne 3 ]; then
   echo "runner launched the target after a Wine display registry update failed" >&2
   exit 1
 fi
@@ -561,7 +561,7 @@ if [ "$((SECONDS - registry_timeout_started_at))" -gt 3 ]; then
   echo "runner did not stop a timed-out Wine display registry update promptly" >&2
   exit 1
 fi
-if [ "$(wc -l < "$EVENTS" | tr -d ' ')" -ne 1 ]; then
+if [ "$(wc -l < "$EVENTS" | tr -d ' ')" -ne 3 ]; then
   echo "runner launched the target after a Wine display registry update timed out" >&2
   exit 1
 fi
