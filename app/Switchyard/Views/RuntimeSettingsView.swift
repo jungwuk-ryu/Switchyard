@@ -579,8 +579,10 @@ private struct OfficialRuntimeReleaseRow: View {
     }
 
     private var isOperating: Bool {
-        store.runtimeManagementState.operationID == release.id
-            || store.runtimeManagementState.operationID == installation?.id
+        store.runtimeManagementState.isOperating(
+            releaseID: release.id,
+            installationID: installation?.id
+        )
     }
 
     private var archiveSizeLabel: String {

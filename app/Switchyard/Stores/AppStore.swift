@@ -240,6 +240,14 @@ enum RuntimeManagementState: Equatable {
         }
     }
 
+    func isOperating(
+        releaseID: String,
+        installationID: String?
+    ) -> Bool {
+        guard let operationID else { return false }
+        return operationID == releaseID || operationID == installationID
+    }
+
     var message: String? {
         switch self {
         case .idle:
