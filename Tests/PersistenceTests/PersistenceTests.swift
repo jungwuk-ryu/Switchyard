@@ -341,8 +341,11 @@ private enum TestContainerRenameError: Error, Equatable {
     let epicGames = containerURL.appendingPathComponent(
         "drive_c/Program Files (x86)/Epic Games/Launcher/Portal/Binaries/Win64/EpicGamesLauncher.exe"
     )
-    let rockstarGames = containerURL.appendingPathComponent(
+    let rockstarLauncher = containerURL.appendingPathComponent(
         "drive_c/Program Files/Rockstar Games/Launcher/Launcher.exe"
+    )
+    let rockstarGames = containerURL.appendingPathComponent(
+        "drive_c/Program Files/Rockstar Games/Launcher/LauncherPatcher.exe"
     )
     for executable in [
         steam,
@@ -350,6 +353,7 @@ private enum TestContainerRenameError: Error, Equatable {
         battleNet,
         battleNetUpdater,
         epicGames,
+        rockstarLauncher,
         rockstarGames,
     ] {
         try FileManager.default.createDirectory(at: executable.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -366,7 +370,7 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(programs.map(\.name) == [
         "Battle.net Launcher",
         "EpicGamesLauncher",
-        "Launcher",
+        "LauncherPatcher",
         "Steam",
     ])
     let expectedPaths = [battleNet, epicGames, rockstarGames, steam].map {

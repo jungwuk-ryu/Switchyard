@@ -386,12 +386,8 @@ public enum StarterApplicationCatalog {
         ],
         installedExecutableRules: [
             StarterApplicationExecutableRule(
-                executableName: "Launcher.exe",
+                executableName: "LauncherPatcher.exe",
                 requiredPathComponents: ["Rockstar Games", "Launcher"]
-            ),
-            StarterApplicationExecutableRule(
-                executableName: "Rockstar Games Launcher.exe",
-                requiredPathComponents: ["Rockstar Games"]
             )
         ],
         maximumDownloadBytes: 256 * 1_024 * 1_024

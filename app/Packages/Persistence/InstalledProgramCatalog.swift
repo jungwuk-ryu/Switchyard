@@ -2,6 +2,8 @@ import AppCore
 import Foundation
 
 public struct InstalledProgramCatalog {
+    private static let knownStarterApplicationScoreBonus = 200
+
     public var fileManager: FileManager
 
     public init(fileManager: FileManager = .default) {
@@ -28,14 +30,7 @@ public struct InstalledProgramCatalog {
                 }
                 return lhs.executableURL.path < rhs.executableURL.path
             })
-            .map { candidate in
-                InstalledProgram(
-                    name: candidate.name,
-                    executablePath: candidate.executableURL.path,
-                    installDirectory: candidate.installDirectoryURL.path,
-                    source: candidate.source
-                )
-            }
+            .map(\.installedProgram)
     }
 
     private func programFilesRoots(in containerURL: URL) -> [URL] {
@@ -72,7 +67,7 @@ public struct InstalledProgramCatalog {
             guard !isIgnoredPath(relativeComponents) else { continue }
 
             let topLevelDirectoryURL = rootURL.appendingPathComponent(relativeComponents[0], isDirectory: true)
-            let candidate = ProgramCandidate(
+            var candidate = ProgramCandidate(
                 name: displayName(for: executableURL, topLevelName: relativeComponents[0]),
                 executableURL: executableURL,
                 installDirectoryURL: topLevelDirectoryURL,
@@ -81,6 +76,11 @@ public struct InstalledProgramCatalog {
                 source: source,
                 score: score(relativeComponents: relativeComponents, source: source)
             )
+            if StarterApplicationCatalog.all.contains(where: {
+                $0.recognizesInstalledProgram(candidate.installedProgram)
+            }) {
+                candidate.score += Self.knownStarterApplicationScoreBonus
+            }
             candidates.append(candidate)
         }
 
@@ -260,6 +260,15 @@ private struct ProgramCandidate {
     var relativeComponents: [String]
     var source: InstalledProgramSource
     var score: Int
+
+    var installedProgram: InstalledProgram {
+        InstalledProgram(
+            name: name,
+            executablePath: executableURL.path,
+            installDirectory: installDirectoryURL.path,
+            source: source
+        )
+    }
 
     func isBetterMatch(than other: ProgramCandidate) -> Bool {
         if score != other.score {

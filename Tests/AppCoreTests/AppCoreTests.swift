@@ -292,6 +292,12 @@ import Testing
             source: .programFiles
         ),
         InstalledProgram(
+            name: "Rockstar Games Launcher Patcher",
+            executablePath: "/Library/Test.container/drive_c/Program Files/Rockstar Games/Launcher/LauncherPatcher.exe",
+            installDirectory: "/Library/Test.container/drive_c/Program Files/Rockstar Games",
+            source: .programFiles
+        ),
+        InstalledProgram(
             name: "Unrelated Launcher",
             executablePath: "/Library/Test.container/drive_c/Program Files/Unrelated/Launcher.exe",
             installDirectory: "/Library/Test.container/drive_c/Program Files/Unrelated",
@@ -310,7 +316,12 @@ import Testing
     )
     #expect(
         StarterApplicationCatalog.rockstarGames.installedProgram(in: programs)?.name
-            == "Rockstar Games Launcher"
+            == "Rockstar Games Launcher Patcher"
+    )
+    #expect(
+        !StarterApplicationCatalog.rockstarGames.recognizesInstalledProgram(
+            programs[3]
+        )
     )
     #expect(
         !StarterApplicationCatalog.rockstarGames.recognizesInstalledProgram(
