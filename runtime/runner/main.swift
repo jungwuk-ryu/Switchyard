@@ -72,7 +72,7 @@ private final class ProcessOutputCollector: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         guard !isFinished else { return }
-        data.append(handle.readDataToEndOfFile())
+        data.append(Self.readAvailableData(from: handle))
         isFinished = true
     }
 
@@ -88,6 +88,38 @@ private final class ProcessOutputCollector: @unchecked Sendable {
         defer { lock.unlock() }
         return String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    private static func readAvailableData(from handle: FileHandle) -> Data {
+        // Wine helpers can leave wineserver holding the pipe's write end after
+        // the direct child exits, so only drain bytes that are already readable.
+        let descriptor = handle.fileDescriptor
+        let originalFlags = Darwin.fcntl(descriptor, F_GETFL)
+        guard originalFlags >= 0,
+              Darwin.fcntl(descriptor, F_SETFL, originalFlags | O_NONBLOCK) >= 0 else {
+            return Data()
+        }
+        defer {
+            _ = Darwin.fcntl(descriptor, F_SETFL, originalFlags)
+        }
+
+        var result = Data()
+        var buffer = [UInt8](repeating: 0, count: 4_096)
+        while true {
+            let byteCount = buffer.withUnsafeMutableBytes { bytes in
+                Darwin.read(descriptor, bytes.baseAddress, bytes.count)
+            }
+            if byteCount > 0 {
+                result.append(contentsOf: buffer.prefix(byteCount))
+            } else if byteCount == 0 {
+                break
+            } else if errno == EINTR {
+                continue
+            } else {
+                break
+            }
+        }
+        return result
     }
 }
 

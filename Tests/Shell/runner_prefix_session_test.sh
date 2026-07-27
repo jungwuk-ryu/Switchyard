@@ -28,6 +28,12 @@ cleanup() {
   if [ -f "$TEST_ROOT/preflight-wineserver.pid" ]; then
     kill "$(cat "$TEST_ROOT/preflight-wineserver.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/registry-pipe-holder.pid" ]; then
+    kill -KILL "$(cat "$TEST_ROOT/registry-pipe-holder.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/registry-pipe-runner.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/registry-pipe-runner.pid")" >/dev/null 2>&1 || true
+  fi
   if [ -f "$TEST_ROOT/protocol-monitor.pid" ]; then
     kill "$(cat "$TEST_ROOT/protocol-monitor.pid")" >/dev/null 2>&1 || true
   fi
@@ -130,6 +136,15 @@ if [ "${1:-}" = "reg" ] && [ "${TEST_REGISTRY_SLEEP:-0}" -eq 1 ]; then
 fi
 if [ "${1:-}" = "reg" ] && [ "${TEST_REGISTRY_STATUS:-0}" -ne 0 ]; then
   exit "$TEST_REGISTRY_STATUS"
+fi
+if [ "${1:-}" = "reg" ] \
+  && [ -n "${TEST_REGISTRY_PIPE_HOLDER_PID_FILE:-}" ] \
+  && [ ! -e "$TEST_REGISTRY_PIPE_HOLDER_PID_FILE" ]; then
+  (
+    trap '' HUP TERM
+    exec sleep 30
+  ) &
+  printf '%s\n' "$!" > "$TEST_REGISTRY_PIPE_HOLDER_PID_FILE"
 fi
 if [ -n "${TEST_LIVE_DESCENDANT_READY:-}" ]; then
   (
@@ -538,6 +553,31 @@ EOF
 assert_display_mode standard N 96
 assert_display_mode retina Y 96
 assert_display_mode retinaWithLargerInterface Y 192
+
+: > "$EVENTS"
+TEST_EVENTS="$EVENTS" \
+  TEST_REGISTRY_PIPE_HOLDER_PID_FILE="$TEST_ROOT/registry-pipe-holder.pid" \
+  "$RUNNER" run --plan "$TEST_ROOT/display-retina.json" >/dev/null 2>&1 &
+registry_pipe_runner_pid=$!
+printf '%s\n' "$registry_pipe_runner_pid" > "$TEST_ROOT/registry-pipe-runner.pid"
+for _ in {1..60}; do
+  if ! kill -0 "$registry_pipe_runner_pid" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.05
+done
+if kill -0 "$registry_pipe_runner_pid" >/dev/null 2>&1; then
+  echo "runner waited for a wineserver descendant to close a registry output pipe" >&2
+  exit 1
+fi
+wait "$registry_pipe_runner_pid"
+rm -f "$TEST_ROOT/registry-pipe-runner.pid"
+if [ "$(tail -n 1 "$EVENTS")" != "wine C:\\Game.exe prefix=$PREFIX" ]; then
+  echo "runner did not launch the target after a cold registry helper exited" >&2
+  exit 1
+fi
+kill -KILL "$(cat "$TEST_ROOT/registry-pipe-holder.pid")" >/dev/null 2>&1 || true
+rm -f "$TEST_ROOT/registry-pipe-holder.pid"
 
 : > "$EVENTS"
 if TEST_EVENTS="$EVENTS" TEST_REGISTRY_STATUS=9 \
