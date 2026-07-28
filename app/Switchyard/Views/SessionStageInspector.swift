@@ -156,6 +156,29 @@ struct SessionStageInspector: View {
 
     private var metrics: some View {
         VStack(spacing: 8) {
+            SessionInspectorMemorySummary(
+                title: String(
+                    localized: "Host memory estimate",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                value: formattedPrimaryMemory,
+                measurementLabel: memoryMeasurementLabel,
+                secondaryTitle: usesPhysicalFootprint
+                    ? String(
+                        localized: "Resident memory",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                    : nil,
+                secondaryValue: usesPhysicalFootprint
+                    ? formattedResidentMemory
+                    : nil,
+                explanation: String(
+                    localized: "GPU memory is not reported separately here. Activity Monitor may show a different total.",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                helpText: memoryHelpText
+            )
+
             LazyVGrid(
                 columns: [
                     GridItem(.flexible(), spacing: 8),
@@ -163,16 +186,6 @@ struct SessionStageInspector: View {
                 ],
                 spacing: 8
             ) {
-                SessionInspectorMetric(
-                    systemImage: "memorychip",
-                    title: String(
-                        localized: "Wine session memory",
-                        bundle: SwitchyardStrings.bundle
-                    ),
-                    value: formattedMemory,
-                    accent: Color(red: 0.28, green: 0.62, blue: 1)
-                )
-
                 SessionInspectorMetric(
                     systemImage: "point.3.connected.trianglepath.dotted",
                     title: String(
@@ -206,18 +219,17 @@ struct SessionStageInspector: View {
                     value: String(windows.count),
                     accent: Color(red: 0.32, green: 0.64, blue: 1)
                 )
-            }
 
-            SessionInspectorMetric(
-                systemImage: "clock",
-                title: String(
-                    localized: "Last refresh",
-                    bundle: SwitchyardStrings.bundle
-                ),
-                value: formattedRefreshTime,
-                accent: Color.white.opacity(0.66),
-                isCompact: true
-            )
+                SessionInspectorMetric(
+                    systemImage: "clock",
+                    title: String(
+                        localized: "Last refresh",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    value: formattedRefreshTime,
+                    accent: Color.white.opacity(0.66)
+                )
+            }
         }
     }
 
@@ -554,9 +566,63 @@ struct SessionStageInspector: View {
         }
     }
 
-    private var formattedMemory: String {
+    private var formattedPrimaryMemory: String {
         guard let resources = nonemptyResources else { return "—" }
-        let boundedBytes = min(resources.residentMemoryBytes, UInt64(Int64.max))
+        return formattedBytes(
+            resources.physicalFootprintBytes ??
+                resources.residentMemoryBytes
+        )
+    }
+
+    private var formattedResidentMemory: String? {
+        guard let resources = nonemptyResources else { return nil }
+        return formattedBytes(resources.residentMemoryBytes)
+    }
+
+    private var usesPhysicalFootprint: Bool {
+        nonemptyResources?.hasCompletePhysicalFootprint == true
+    }
+
+    private var memoryMeasurementLabel: String {
+        guard nonemptyResources != nil else {
+            return String(
+                localized: "Unavailable",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        if usesPhysicalFootprint {
+            return String(
+                localized: "Physical footprint",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return String(
+            localized: "Resident memory",
+            bundle: SwitchyardStrings.bundle
+        )
+    }
+
+    private var memoryHelpText: String {
+        guard nonemptyResources != nil else {
+            return String(
+                localized: "Unavailable",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        if usesPhysicalFootprint {
+            return String(
+                localized: "This estimate sums the macOS physical footprint of the host processes associated with this Wine session.",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return String(
+            localized: "Physical footprint was unavailable for part of this session, so this estimate uses resident memory instead.",
+            bundle: SwitchyardStrings.bundle
+        )
+    }
+
+    private func formattedBytes(_ bytes: UInt64) -> String {
+        let boundedBytes = min(bytes, UInt64(Int64.max))
         return ByteCountFormatter.string(
             fromByteCount: Int64(boundedBytes),
             countStyle: .memory
@@ -570,6 +636,125 @@ struct SessionStageInspector: View {
     private var nonemptyResources: WineSessionResourceSnapshot? {
         guard let resources, !resources.isEmpty else { return nil }
         return resources
+    }
+}
+
+private struct SessionInspectorMemorySummary: View {
+    let title: String
+    let value: String
+    let measurementLabel: String
+    let secondaryTitle: String?
+    let secondaryValue: String?
+    let explanation: String
+    let helpText: String
+
+    private let accent = Color(red: 0.28, green: 0.62, blue: 1)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 9) {
+                Image(systemName: "memorychip.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: 28, height: 28)
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                accent.opacity(0.20),
+                                Color(red: 0.46, green: 0.35, blue: 1)
+                                    .opacity(0.12),
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.74))
+
+                Spacer(minLength: 6)
+
+                Text(measurementLabel)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(accent.opacity(0.96))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .padding(.horizontal, 7)
+                    .frame(height: 21)
+                    .background(accent.opacity(0.10), in: Capsule())
+                    .overlay {
+                        Capsule()
+                            .strokeBorder(accent.opacity(0.19))
+                    }
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(value)
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.96))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+
+                Spacer(minLength: 6)
+
+                if let secondaryTitle, let secondaryValue {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(secondaryTitle)
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.42))
+                        Text(secondaryValue)
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.68))
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            HStack(alignment: .top, spacing: 7) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(accent.opacity(0.80))
+                    .padding(.top, 1)
+
+                Text(explanation)
+                    .font(.system(size: 9, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.46))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(3)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 0.12, green: 0.28, blue: 0.62).opacity(0.17),
+                    Color.white.opacity(0.035),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            accent.opacity(0.24),
+                            Color.white.opacity(0.07),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        }
+        .help(helpText)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue("\(value), \(measurementLabel). \(explanation)")
     }
 }
 

@@ -14,6 +14,9 @@ struct ContainerSettingsView: View {
     @State private var appearanceDraft: ContainerSessionAppearance
     @State private var isEditingAppearance = false
     @State private var isChangingBackground = false
+    @State private var advancedCapabilities = D3DMetalAdvancedSettingCapabilities(
+        majorVersion: nil
+    )
 
     init(container: Container, onDelete: @escaping () -> Void) {
         self.container = container
@@ -52,6 +55,18 @@ struct ContainerSettingsView: View {
         .onChange(of: storedAppearance) { _, appearance in
             guard !isEditingAppearance else { return }
             appearanceDraft = appearance
+        }
+        .task(id: store.gptkPath) {
+            let gptkRootPath = store.gptkPath
+            let capabilities = await Task.detached(priority: .utility) {
+                D3DMetalAdvancedSettingCapabilities.inspect(
+                    gptkRootPath: gptkRootPath
+                )
+            }.value
+            guard !Task.isCancelled, store.gptkPath == gptkRootPath else {
+                return
+            }
+            advancedCapabilities = capabilities
         }
     }
 
@@ -401,9 +416,11 @@ struct ContainerSettingsView: View {
     @ViewBuilder
     private var advancedSection: some View {
         SettingsCard(
-            title: localizedSettings("Launch Diagnostics"),
-            subtitle: localizedSettings("Friendly switches for commonly used runtime options."),
-            systemImage: "gauge.with.dots.needle.67percent"
+            title: localizedSettings("Graphics & Performance"),
+            subtitle: localizedSettings(
+                "Tune D3DMetal and Rosetta for compatible games."
+            ),
+            systemImage: "gamecontroller.fill"
         ) {
             VStack(alignment: .leading, spacing: 0) {
                 AdvancedToggleRow(
@@ -412,18 +429,72 @@ struct ContainerSettingsView: View {
                         "Shows on-screen D3DMetal statistics on the next launch. Compatible GPTK and D3DMetal apps only."
                     ),
                     systemImage: "chart.xyaxis.line",
-                    isOn: performanceStatsBinding
+                    badge: d3dMetalAvailabilityBadge,
+                    isEnabled: advancedCapabilities.supportsD3DMetalSettings,
+                    isOn: d3dMetalStatisticsBinding
                 )
 
                 Divider()
                     .padding(.leading, 48)
 
                 AdvancedToggleRow(
+                    title: localizedSettings("Force DirectX Raytracing"),
+                    description: localizedSettings(
+                        "Exposes D3DMetal's DXR support to DirectX 12 games. GPTK already enables it by default on M3 and newer Macs."
+                    ),
+                    systemImage: "rays",
+                    badge: d3dMetalAvailabilityBadge,
+                    isEnabled: advancedCapabilities.supportsD3DMetalSettings,
+                    isOn: forceDirectXRaytracingBinding
+                )
+
+                Divider()
+                    .padding(.leading, 48)
+
+                AdvancedToggleRow(
+                    title: localizedSettings("Rosetta AVX compatibility"),
+                    description: localizedSettings(
+                        "Lets games detect instruction extensions that Rosetta can already translate. It does not add unsupported instructions. Requires macOS 15 or later."
+                    ),
+                    systemImage: "cpu",
+                    badge: rosettaAVXAvailabilityBadge,
+                    isEnabled: supportsRosettaAVXAdvertising,
+                    isOn: advertiseRosettaAVXBinding
+                )
+
+                Divider()
+                    .padding(.leading, 48)
+
+                AdvancedFrameRateRow(
+                    title: localizedSettings("Frame rate limit"),
+                    description: localizedSettings(
+                        "Caps compatible D3DMetal apps at the selected frame rate. Requires GPTK 4."
+                    ),
+                    badge: frameRateAvailabilityBadge,
+                    isEnabled: advancedCapabilities.supportsFrameRateLimit,
+                    values: frameRateLimitValues,
+                    selection: frameRateLimitBinding,
+                    label: frameRateLimitLabel
+                )
+            }
+        }
+
+        SettingsCard(
+            title: localizedSettings("Compatibility & Diagnostics"),
+            subtitle: localizedSettings(
+                "Use these only when an app needs a compatibility workaround or extra logs."
+            ),
+            systemImage: "stethoscope"
+        ) {
+            VStack(alignment: .leading, spacing: 0) {
+                AdvancedToggleRow(
                     title: localizedSettings("Legacy 2 GB memory limit"),
                     description: localizedSettings(
                         "Limits 32-bit apps to 2 GB on the next launch. Use only when an older app fails with the default 4 GB address space."
                     ),
                     systemImage: "memorychip",
+                    badge: localizedSettings("Next launch"),
+                    isEnabled: true,
                     isOn: legacyAddressSpaceBinding
                 )
 
@@ -436,6 +507,8 @@ struct ContainerSettingsView: View {
                         "Records standard Wine errors and warnings on the next launch. Log files may grow faster."
                     ),
                     systemImage: "doc.text.magnifyingglass",
+                    badge: localizedSettings("Next launch"),
+                    isEnabled: true,
                     isOn: wineLoggingBinding
                 )
             }
@@ -506,36 +579,110 @@ struct ContainerSettingsView: View {
         }
     }
 
-    private var performanceStatsBinding: Binding<Bool> {
-        environmentToggleBinding(key: "D3DM_SHOW_HUD_STATS", enabledValue: "1")
+    private var d3dMetalStatisticsBinding: Binding<Bool> {
+        environmentToggleBinding(.d3dMetalStatistics)
+    }
+
+    private var forceDirectXRaytracingBinding: Binding<Bool> {
+        environmentToggleBinding(.forceDirectXRaytracing)
+    }
+
+    private var advertiseRosettaAVXBinding: Binding<Bool> {
+        environmentToggleBinding(.advertiseRosettaAVX)
     }
 
     private var wineLoggingBinding: Binding<Bool> {
-        environmentToggleBinding(
-            key: "WINEDEBUG",
-            enabledValue: "-all,+timestamp,err+all,warn+all"
-        )
+        environmentToggleBinding(.wineDiagnostics)
     }
 
     private var legacyAddressSpaceBinding: Binding<Bool> {
-        environmentToggleBinding(
-            key: "WINE_LARGE_ADDRESS_AWARE",
-            enabledValue: "0"
+        environmentToggleBinding(.legacyAddressSpace)
+    }
+
+    private var supportsRosettaAVXAdvertising: Bool {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(
+            OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0)
         )
     }
 
-    private func environmentToggleBinding(key: String, enabledValue: String) -> Binding<Bool> {
+    private var d3dMetalAvailabilityBadge: String {
+        advancedCapabilities.supportsD3DMetalSettings
+            ? localizedSettings("Next launch")
+            : "GPTK"
+    }
+
+    private var rosettaAVXAvailabilityBadge: String {
+        supportsRosettaAVXAdvertising
+            ? localizedSettings("Next launch")
+            : "macOS 15+"
+    }
+
+    private var frameRateAvailabilityBadge: String {
+        advancedCapabilities.supportsFrameRateLimit
+            ? localizedSettings("Next launch")
+            : "GPTK 4"
+    }
+
+    private var frameRateLimitValues: [String] {
+        var values = [""] + D3DMetalFrameRateLimitPolicy.presetValues
+        if let current = liveContainer.environmentOverrides[
+            D3DMetalFrameRateLimitPolicy.environmentKey
+        ],
+           !current.isEmpty,
+           !values.contains(current) {
+            values.append(current)
+        }
+        return values
+    }
+
+    private var frameRateLimitBinding: Binding<String> {
         Binding {
-            liveContainer.environmentOverrides[key] == enabledValue
+            liveContainer.environmentOverrides[
+                D3DMetalFrameRateLimitPolicy.environmentKey
+            ] ?? ""
+        } set: { value in
+            if value.isEmpty {
+                store.removeEnvironmentOverride(
+                    for: container.id,
+                    key: D3DMetalFrameRateLimitPolicy.environmentKey
+                )
+            } else if D3DMetalFrameRateLimitPolicy.isValidPreset(value) {
+                store.updateEnvironmentOverride(
+                    for: container.id,
+                    key: D3DMetalFrameRateLimitPolicy.environmentKey,
+                    value: value
+                )
+            }
+        }
+    }
+
+    private func frameRateLimitLabel(_ value: String) -> String {
+        if value.isEmpty {
+            return localizedSettings("Unlimited")
+        }
+        if Int(value) != nil {
+            return "\(value) FPS"
+        }
+        return value
+    }
+
+    private func environmentToggleBinding(
+        _ option: ContainerAdvancedEnvironmentOption
+    ) -> Binding<Bool> {
+        Binding {
+            option.isEnabled(in: liveContainer.environmentOverrides)
         } set: { enabled in
             if enabled {
                 store.updateEnvironmentOverride(
                     for: container.id,
-                    key: key,
-                    value: enabledValue
+                    key: option.environmentKey,
+                    value: option.enabledValue
                 )
-            } else if liveContainer.environmentOverrides[key] == enabledValue {
-                store.removeEnvironmentOverride(for: container.id, key: key)
+            } else if option.isEnabled(in: liveContainer.environmentOverrides) {
+                store.removeEnvironmentOverride(
+                    for: container.id,
+                    key: option.environmentKey
+                )
             }
         }
     }
@@ -604,7 +751,7 @@ private enum ContainerSettingsSection: String, CaseIterable, Identifiable {
         case .general:
             localizedSettings("Manage launch, display, sign-in, and storage.")
         case .advanced:
-            localizedSettings("Enable diagnostics without memorizing environment variables.")
+            localizedSettings("Adjust compatibility and diagnostic options.")
         }
     }
 
@@ -936,6 +1083,8 @@ private struct AdvancedToggleRow: View {
     let title: String
     let description: String
     let systemImage: String
+    let badge: String
+    let isEnabled: Bool
     @Binding var isOn: Bool
 
     var body: some View {
@@ -951,12 +1100,16 @@ private struct AdvancedToggleRow: View {
                     Text(title)
                         .font(.callout.weight(.semibold))
 
-                    Text(localizedSettings("Next launch"))
+                    Text(badge)
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(isEnabled ? Color.blue : Color.secondary)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
-                        .background(Color.blue.opacity(0.12), in: Capsule())
+                        .background(
+                            (isEnabled ? Color.blue : Color.secondary)
+                                .opacity(0.12),
+                            in: Capsule()
+                        )
                 }
 
                 Text(description)
@@ -970,8 +1123,68 @@ private struct AdvancedToggleRow: View {
             Toggle(title, isOn: $isOn)
                 .labelsHidden()
                 .accessibilityLabel(title)
+                .disabled(!isEnabled)
         }
         .padding(.vertical, 13)
+        .opacity(isEnabled ? 1 : 0.62)
+    }
+}
+
+private struct AdvancedFrameRateRow: View {
+    let title: String
+    let description: String
+    let badge: String
+    let isEnabled: Bool
+    let values: [String]
+    @Binding var selection: String
+    let label: (String) -> String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: "speedometer")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 34, height: 34)
+                .background(Color.primary.opacity(0.055), in: RoundedRectangle(cornerRadius: 9))
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+
+                    Text(badge)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(isEnabled ? Color.blue : Color.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(
+                            (isEnabled ? Color.blue : Color.secondary)
+                                .opacity(0.12),
+                            in: Capsule()
+                        )
+                }
+
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            Picker(title, selection: $selection) {
+                ForEach(values, id: \.self) { value in
+                    Text(label(value))
+                        .tag(value)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 118)
+            .disabled(!isEnabled)
+            .accessibilityLabel(title)
+        }
+        .padding(.vertical, 13)
+        .opacity(isEnabled ? 1 : 0.62)
     }
 }
 

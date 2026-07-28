@@ -8,7 +8,7 @@ struct SwitchyardApp: App {
     @StateObject private var updater = SwitchyardUpdater()
 
     var body: some Scene {
-        WindowGroup("Containers", id: "main") {
+        WindowGroup("Switchyard", id: "main") {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(store.logStore)

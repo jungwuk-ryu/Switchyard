@@ -10,6 +10,10 @@ struct SessionStageTaskbarItem: Identifiable {
     let isPinned: Bool
     let isRunning: Bool
     let isActive: Bool
+
+    var applicationIconData: Data? {
+        windows.lazy.compactMap(\.applicationIconData).first
+    }
 }
 
 struct SessionStageDock: View {
@@ -210,41 +214,11 @@ private struct SessionStageTaskbarProgramItem: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 4) {
-                Group {
-                    if let program = item.program {
-                        WindowsProgramIconView(program: program, size: 38)
-                    } else if let processID = item.windows.first?.ownerProcessID,
-                              let icon = NSRunningApplication(
-                                  processIdentifier: processID
-                              )?.icon {
-                        Image(nsImage: icon)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 38, height: 38)
-                            .clipShape(
-                                RoundedRectangle(
-                                    cornerRadius: 8,
-                                    style: .continuous
-                                )
-                            )
-                    } else {
-                        Image(systemName: "app.fill")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.84))
-                            .frame(width: 38, height: 38)
-                            .background(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.31, green: 0.36, blue: 0.48),
-                                        Color(red: 0.16, green: 0.19, blue: 0.27),
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            )
-                    }
-                }
+                SessionStageApplicationIconView(
+                    program: item.program,
+                    applicationIconData: item.applicationIconData,
+                    size: 38
+                )
                 .scaleEffect(isHovering && !reduceMotion ? 1.04 : 1)
                 .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: isHovering)
 

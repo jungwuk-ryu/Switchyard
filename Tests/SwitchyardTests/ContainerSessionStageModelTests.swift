@@ -527,15 +527,17 @@ private enum CaptureTestError: Error {
 }
 
 @MainActor
-@Test func captureWindowsPromptsForSettingsOnlyWhenScreenRecordingIsUnavailable() async {
+@Test func captureWindowsDoesNotPromptWhileCheckingScreenRecordingAccess() async {
     var requestCount = 0
     var shareableContentWasRequested = false
+    let promptGate = ScreenRecordingPermissionPromptGate()
     let service = WineWindowCaptureService(
         screenRecordingPreflight: { false },
         screenRecordingRequest: {
             requestCount += 1
             return false
         },
+        screenRecordingPermissionPromptGate: promptGate,
         shareableContentProvider: {
             shareableContentWasRequested = true
             throw CaptureTestError.expected
@@ -553,8 +555,63 @@ private enum CaptureTestError: Error {
     #expect(firstResult.screenRecordingAccessUnavailable)
     #expect(firstResult.message != nil)
     #expect(secondResult.screenRecordingAccessUnavailable)
-    #expect(requestCount == 1)
+    #expect(requestCount == 0)
     #expect(!shareableContentWasRequested)
+}
+
+@MainActor
+@Test func explicitScreenRecordingActionSharesPromptGateAcrossStageModels() {
+    var requestCount = 0
+    var settingsOpenCount = 0
+    let promptGate = ScreenRecordingPermissionPromptGate()
+
+    func makeService() -> WineWindowCaptureService {
+        WineWindowCaptureService(
+            screenRecordingPreflight: { false },
+            screenRecordingRequest: {
+                requestCount += 1
+                return false
+            },
+            screenRecordingPermissionPromptGate: promptGate,
+            screenRecordingSettingsOpener: {
+                settingsOpenCount += 1
+            },
+            shareableContentProvider: {
+                throw CaptureTestError.expected
+            },
+            dockProcessIsVisible: { _ in true }
+        )
+    }
+
+    makeService().requestScreenRecordingAccess()
+    makeService().requestScreenRecordingAccess()
+
+    #expect(requestCount == 1)
+    #expect(settingsOpenCount == 2)
+}
+
+@MainActor
+@Test func explicitScreenRecordingActionDoesNothingWhenAccessIsAvailable() {
+    var requestCount = 0
+    var settingsOpenCount = 0
+    let service = WineWindowCaptureService(
+        screenRecordingPreflight: { true },
+        screenRecordingRequest: {
+            requestCount += 1
+            return true
+        },
+        screenRecordingPermissionPromptGate:
+            ScreenRecordingPermissionPromptGate(),
+        screenRecordingSettingsOpener: {
+            settingsOpenCount += 1
+        },
+        dockProcessIsVisible: { _ in true }
+    )
+
+    service.requestScreenRecordingAccess()
+
+    #expect(requestCount == 0)
+    #expect(settingsOpenCount == 0)
 }
 
 @MainActor

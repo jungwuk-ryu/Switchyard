@@ -77,6 +77,39 @@ struct SessionStageWindowGridMetrics: Equatable {
     }
 }
 
+enum SessionStageWindowPreviewLayout {
+    static func fittedFrame(
+        sourceSize: CGSize,
+        availableSize: CGSize
+    ) -> CGRect {
+        guard sourceSize.width.isFinite,
+              sourceSize.height.isFinite,
+              availableSize.width.isFinite,
+              availableSize.height.isFinite,
+              sourceSize.width > 0,
+              sourceSize.height > 0,
+              availableSize.width > 0,
+              availableSize.height > 0 else {
+            return .zero
+        }
+
+        let scale = min(
+            availableSize.width / sourceSize.width,
+            availableSize.height / sourceSize.height
+        )
+        let fittedSize = CGSize(
+            width: sourceSize.width * scale,
+            height: sourceSize.height * scale
+        )
+        return CGRect(
+            x: (availableSize.width - fittedSize.width) / 2,
+            y: (availableSize.height - fittedSize.height) / 2,
+            width: fittedSize.width,
+            height: fittedSize.height
+        )
+    }
+}
+
 struct SessionStageWindowPresentation: Equatable {
     let title: String
     let detail: String
@@ -225,10 +258,29 @@ struct SessionStageWindowCard: View {
                 Color.black.opacity(0.86)
 
                 if let image = window?.image {
-                    Image(decorative: image, scale: 1)
-                        .resizable()
-                        .scaledToFit()
-                        .transition(reduceMotion ? .identity : .opacity)
+                    GeometryReader { proxy in
+                        let previewFrame = SessionStageWindowPreviewLayout
+                            .fittedFrame(
+                                sourceSize: CGSize(
+                                    width: CGFloat(image.width),
+                                    height: CGFloat(image.height)
+                                ),
+                                availableSize: proxy.size
+                            )
+
+                        Image(decorative: image, scale: 1)
+                            .resizable()
+                            .interpolation(.medium)
+                            .frame(
+                                width: previewFrame.width,
+                                height: previewFrame.height
+                            )
+                            .position(
+                                x: previewFrame.midX,
+                                y: previewFrame.midY
+                            )
+                            .transition(reduceMotion ? .identity : .opacity)
+                    }
                 } else {
                     previewFallback
                 }
@@ -388,18 +440,11 @@ struct SessionStageWindowCard: View {
 
     @ViewBuilder
     private func programIcon(size: CGFloat) -> some View {
-        if let program {
-            WindowsProgramIconView(program: program, size: size)
-        } else {
-            Image(systemName: "app.fill")
-                .font(.system(size: size * 0.56, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.72))
-                .frame(width: size, height: size)
-                .background(
-                    Color.white.opacity(0.1),
-                    in: RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                )
-        }
+        SessionStageApplicationIconView(
+            program: program,
+            applicationIconData: window?.applicationIconData,
+            size: size
+        )
     }
 
     private var accessibilityValue: Text {

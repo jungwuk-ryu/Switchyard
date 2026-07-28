@@ -1658,8 +1658,8 @@
 	<string>表示</string>
 	<key>Edit Variables</key>
 	<string>変数を編集</string>
-	<key>Enable diagnostics without memorizing environment variables.</key>
-	<string>環境変数を覚えることなく診断を有効にします。</string>
+	<key>Adjust compatibility and diagnostic options.</key>
+	<string>互換性と診断オプションを調整します。</string>
 	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
 	<string>高度なトラブルシューティング向けです。無効または予約済みの変数は拒否されます。</string>
 	<key>Friendly switches for commonly used runtime options.</key>
@@ -1712,5 +1712,39 @@
 	<string>セッション背景を変更できませんでした: %1$@</string>
 	<key>Could not remove the session background: %@</key>
 	<string>セッション背景を削除できませんでした: %1$@</string>
+	<key>Graphics &amp; Performance</key>
+	<string>グラフィックスとパフォーマンス</string>
+	<key>Tune D3DMetal and Rosetta for compatible games.</key>
+	<string>対応ゲーム向けにD3DMetalとRosettaを調整します。</string>
+	<key>Force DirectX Raytracing</key>
+	<string>DirectX レイトレーシングを強制</string>
+	<key>Exposes D3DMetal's DXR support to DirectX 12 games. GPTK already enables it by default on M3 and newer Macs.</key>
+	<string>DirectX 12 ゲームにD3DMetalのDXR対応を公開します。M3以降のMacではGPTKによってデフォルトで有効になります。</string>
+	<key>Rosetta AVX compatibility</key>
+	<string>Rosetta AVX互換性</string>
+	<key>Lets games detect instruction extensions that Rosetta can already translate. It does not add unsupported instructions. Requires macOS 15 or later.</key>
+	<string>Rosettaで既に変換可能な命令セット拡張をゲームが検出できるようにします。未対応の命令が追加されるわけではありません。macOS 15以降が必要です。</string>
+	<key>Frame rate limit</key>
+	<string>フレームレート制限</string>
+	<key>Caps compatible D3DMetal apps at the selected frame rate. Requires GPTK 4.</key>
+	<string>対応するD3DMetalアプリを選択したフレームレートに制限します。GPTK 4が必要です。</string>
+	<key>Compatibility &amp; Diagnostics</key>
+	<string>互換性と診断</string>
+	<key>Use these only when an app needs a compatibility workaround or extra logs.</key>
+	<string>アプリに互換性の回避策や追加ログが必要な場合にのみ使用してください。</string>
+	<key>Unlimited</key>
+	<string>制限なし</string>
+	<key>Host memory estimate</key>
+	<string>ホストメモリの推定値</string>
+	<key>Physical footprint</key>
+	<string>物理メモリ使用量</string>
+	<key>Resident memory</key>
+	<string>常駐メモリ</string>
+	<key>GPU memory is not reported separately here. Activity Monitor may show a different total.</key>
+	<string>ここではGPUメモリを個別に表示していません。アクティビティモニタの合計値とは異なる場合があります。</string>
+	<key>Physical footprint was unavailable for part of this session, so this estimate uses resident memory instead.</key>
+	<string>このセッションの一部では物理メモリ使用量を取得できなかったため、代わりに常駐メモリを使用して推定しています。</string>
+	<key>This estimate sums the macOS physical footprint of the host processes associated with this Wine session.</key>
+	<string>この推定値は、Wineセッションに関連付けられたmacOSホストプロセスの物理メモリ使用量を合計したものです。</string>
 </dict>
 </plist>

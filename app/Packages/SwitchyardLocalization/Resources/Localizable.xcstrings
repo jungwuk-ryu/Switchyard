@@ -48488,60 +48488,60 @@
         }
       }
     },
-    "Enable diagnostics without memorizing environment variables.": {
+    "Adjust compatibility and diagnostic options.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diagnose aktivieren, ohne Umgebungsvariablen zu merken."
+            "value": "Kompatibilitäts- und Diagnoseoptionen anpassen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Habilita diagnósticos sin memorizar las variables de entorno."
+            "value": "Ajusta las opciones de compatibilidad y diagnóstico."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Activez les diagnostics sans mémoriser les variables d’environnement."
+            "value": "Réglez les options de compatibilité et de diagnostic."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "環境変数を覚えることなく診断を有効にします。"
+            "value": "互換性と診断オプションを調整します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "환경 변수를 몰라도 진단 옵션을 설정할 수 있습니다."
+            "value": "호환성과 진단 옵션을 조정합니다."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ative o diagnóstico sem precisar memorizar variáveis de ambiente."
+            "value": "Ajuste as opções de compatibilidade e diagnóstico."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Включите диагностику без запоминания переменных среды."
+            "value": "Настройте параметры совместимости и диагностики."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无需记忆环境变量即可启用诊断。"
+            "value": "调整兼容性和诊断选项。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "無需記住環境變數即可啟用診斷。"
+            "value": "調整相容性與診斷選項。"
           }
         }
       }
@@ -50052,6 +50052,227 @@
             "value": "無法移除工作階段背景：%1$@"
           }
         }
+      }
+    },
+    "Graphics & Performance": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Grafik & Leistung"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Gráficos y rendimiento"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Graphismes et performances"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "グラフィックスとパフォーマンス"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "그래픽 및 성능"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Gráficos e desempenho"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Графика и производительность"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "图形与性能"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "圖形與效能"}}
+      }
+    },
+    "Tune D3DMetal and Rosetta for compatible games.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "D3DMetal und Rosetta für kompatible Spiele anpassen."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Ajusta D3DMetal y Rosetta para juegos compatibles."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Ajustez D3DMetal et Rosetta pour les jeux compatibles."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "対応ゲーム向けにD3DMetalとRosettaを調整します。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "호환되는 게임에 맞게 D3DMetal과 Rosetta를 조정합니다."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Ajuste o D3DMetal e o Rosetta para jogos compatíveis."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Настройте D3DMetal и Rosetta для совместимых игр."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "为兼容游戏调整 D3DMetal 和 Rosetta。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "為相容遊戲調整 D3DMetal 與 Rosetta。"}}
+      }
+    },
+    "Force DirectX Raytracing": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "DirectX-Raytracing erzwingen"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Forzar trazado de rayos de DirectX"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Forcer le ray tracing DirectX"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "DirectX レイトレーシングを強制"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "DirectX 레이 트레이싱 강제 활성화"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Forçar ray tracing do DirectX"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Принудительно включить трассировку лучей DirectX"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "强制启用 DirectX 光线追踪"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "強制啟用 DirectX 光線追蹤"}}
+      }
+    },
+    "Exposes D3DMetal's DXR support to DirectX 12 games. GPTK already enables it by default on M3 and newer Macs.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Stellt DirectX-12-Spielen die DXR-Unterstützung von D3DMetal bereit. Auf Macs mit M3 oder neuer aktiviert GPTK sie bereits standardmäßig."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Expone la compatibilidad con DXR de D3DMetal a los juegos de DirectX 12. GPTK ya la activa de forma predeterminada en los Mac con M3 o posterior."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Expose la prise en charge DXR de D3DMetal aux jeux DirectX 12. GPTK l’active déjà par défaut sur les Mac équipés d’une puce M3 ou ultérieure."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "DirectX 12 ゲームにD3DMetalのDXR対応を公開します。M3以降のMacではGPTKによってデフォルトで有効になります。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "DirectX 12 게임에서 D3DMetal의 DXR 지원을 사용하게 합니다. M3 이상 Mac에서는 GPTK가 기본으로 활성화합니다."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Expõe o suporte a DXR do D3DMetal para jogos DirectX 12. O GPTK já o ativa por padrão em Macs com M3 ou posterior."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Предоставляет играм DirectX 12 поддержку DXR через D3DMetal. GPTK уже включает её по умолчанию на компьютерах Mac с M3 и новее."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "向 DirectX 12 游戏提供 D3DMetal 的 DXR 支持。GPTK 在配备 M3 或更新芯片的 Mac 上已默认启用此功能。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "向 DirectX 12 遊戲提供 D3DMetal 的 DXR 支援。GPTK 在配備 M3 或更新晶片的 Mac 上已預設啟用此功能。"}}
+      }
+    },
+    "Rosetta AVX compatibility": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Rosetta-AVX-Kompatibilität"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Compatibilidad AVX de Rosetta"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Compatibilité AVX de Rosetta"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "Rosetta AVX互換性"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "Rosetta AVX 호환성"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Compatibilidade AVX do Rosetta"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Совместимость Rosetta с AVX"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "Rosetta AVX 兼容性"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "Rosetta AVX 相容性"}}
+      }
+    },
+    "Lets games detect instruction extensions that Rosetta can already translate. It does not add unsupported instructions. Requires macOS 15 or later.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Ermöglicht Spielen, Befehlssatzerweiterungen zu erkennen, die Rosetta bereits übersetzen kann. Nicht unterstützte Befehle werden dadurch nicht hinzugefügt. Erfordert macOS 15 oder neuer."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Permite que los juegos detecten las extensiones de instrucciones que Rosetta ya puede traducir. No añade instrucciones no compatibles. Requiere macOS 15 o posterior."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Permet aux jeux de détecter les extensions d’instructions que Rosetta sait déjà traduire. Cela n’ajoute aucune instruction non prise en charge. Nécessite macOS 15 ou version ultérieure."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "Rosettaで既に変換可能な命令セット拡張をゲームが検出できるようにします。未対応の命令が追加されるわけではありません。macOS 15以降が必要です。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "게임이 Rosetta에서 이미 변환 가능한 명령어 확장을 감지하도록 합니다. 지원하지 않는 명령어가 새로 추가되지는 않습니다. macOS 15 이상이 필요합니다."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Permite que os jogos detectem extensões de instruções que o Rosetta já consegue traduzir. Isso não adiciona instruções incompatíveis. Requer macOS 15 ou posterior."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Позволяет играм обнаруживать расширения инструкций, которые Rosetta уже умеет транслировать. Неподдерживаемые инструкции при этом не добавляются. Требуется macOS 15 или новее."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "让游戏检测 Rosetta 已能转换的指令扩展。这不会增加 Rosetta 不支持的指令。需要 macOS 15 或更高版本。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "讓遊戲偵測 Rosetta 已能轉譯的指令延伸。這不會新增 Rosetta 不支援的指令。需要 macOS 15 或以上版本。"}}
+      }
+    },
+    "Frame rate limit": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Bildratenbegrenzung"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Límite de fotogramas"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Limite d’images par seconde"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "フレームレート制限"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "프레임률 제한"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Limite de taxa de quadros"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Ограничение частоты кадров"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "帧率限制"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "影格率限制"}}
+      }
+    },
+    "Caps compatible D3DMetal apps at the selected frame rate. Requires GPTK 4.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Begrenzt kompatible D3DMetal-Apps auf die ausgewählte Bildrate. Erfordert GPTK 4."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Limita las apps D3DMetal compatibles a la frecuencia seleccionada. Requiere GPTK 4."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Limite les apps D3DMetal compatibles à la fréquence d’images sélectionnée. Nécessite GPTK 4."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "対応するD3DMetalアプリを選択したフレームレートに制限します。GPTK 4が必要です。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "호환되는 D3DMetal 앱의 프레임률을 선택한 값으로 제한합니다. GPTK 4가 필요합니다."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Limita apps D3DMetal compatíveis à taxa de quadros selecionada. Requer GPTK 4."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Ограничивает частоту кадров совместимых приложений D3DMetal выбранным значением. Требуется GPTK 4."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "将兼容的 D3DMetal App 限制为所选帧率。需要 GPTK 4。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "將相容的 D3DMetal App 限制為所選影格率。需要 GPTK 4。"}}
+      }
+    },
+    "Compatibility & Diagnostics": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Kompatibilität & Diagnose"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Compatibilidad y diagnóstico"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Compatibilité et diagnostic"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "互換性と診断"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "호환성 및 진단"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Compatibilidade e diagnóstico"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Совместимость и диагностика"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "兼容性与诊断"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "相容性與診斷"}}
+      }
+    },
+    "Use these only when an app needs a compatibility workaround or extra logs.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Nur verwenden, wenn eine App eine Kompatibilitätsumgehung oder zusätzliche Protokolle benötigt."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Úsalos solo si una app necesita una solución de compatibilidad o registros adicionales."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Utilisez ces options uniquement si une app nécessite une solution de compatibilité ou des journaux supplémentaires."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "アプリに互換性の回避策や追加ログが必要な場合にのみ使用してください。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "앱에 호환성 우회 설정이나 추가 로그가 필요할 때만 사용하세요."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Use somente quando um app precisar de uma solução de compatibilidade ou de registros adicionais."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Используйте только если приложению требуется обходной путь для совместимости или дополнительные журналы."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "仅当 App 需要兼容性解决办法或额外日志时使用。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "僅在 App 需要相容性因應措施或額外記錄時使用。"}}
+      }
+    },
+    "Unlimited": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Unbegrenzt"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Sin límite"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Illimitée"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "制限なし"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "제한 없음"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Sem limite"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Без ограничений"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "不限"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "不限"}}
+      }
+    },
+    "Host memory estimate": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Geschätzter Host-Speicher"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Estimación de memoria del host"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Estimation de la mémoire de l’hôte"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "ホストメモリの推定値"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "호스트 메모리 추정치"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Estimativa de memória do host"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Оценка памяти хоста"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "主机内存估算"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "主機記憶體估算"}}
+      }
+    },
+    "Physical footprint": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Physischer Speicherbedarf"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Huella de memoria física"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Empreinte mémoire physique"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "物理メモリ使用量"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "물리 메모리 사용량"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Pegada de memória física"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Физический объём памяти"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "物理内存占用"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "實體記憶體用量"}}
+      }
+    },
+    "Resident memory": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Residenter Speicher"}},
+        "es": {"stringUnit": {"state": "translated", "value": "Memoria residente"}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Mémoire résidente"}},
+        "ja": {"stringUnit": {"state": "translated", "value": "常駐メモリ"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "상주 메모리"}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Memória residente"}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Резидентная память"}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "常驻内存"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "常駐記憶體"}}
+      }
+    },
+    "GPU memory is not reported separately here. Activity Monitor may show a different total.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "GPU-Speicher wird hier nicht separat ausgewiesen. Die Aktivitätsanzeige kann einen anderen Gesamtwert anzeigen."}},
+        "es": {"stringUnit": {"state": "translated", "value": "La memoria de la GPU no se muestra aquí por separado. Monitor de Actividad puede mostrar un total diferente."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "La mémoire du GPU n’est pas indiquée séparément ici. Moniteur d’activité peut afficher un total différent."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "ここではGPUメモリを個別に表示していません。アクティビティモニタの合計値とは異なる場合があります。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "여기에는 GPU 메모리가 별도 항목으로 표시되지 않습니다. 활성 상태 보기와 값이 다를 수 있습니다."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "A memória da GPU não é informada separadamente aqui. O Monitor de Atividade pode mostrar um total diferente."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Память GPU здесь отдельно не учитывается. «Мониторинг системы» может показывать другое общее значение."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "此处不会单独报告 GPU 内存。活动监视器显示的总量可能不同。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "此處不會單獨顯示 GPU 記憶體。「活動監視器」顯示的總量可能不同。"}}
+      }
+    },
+    "Physical footprint was unavailable for part of this session, so this estimate uses resident memory instead.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Für einen Teil dieser Sitzung war der physische Speicherbedarf nicht verfügbar. Daher verwendet diese Schätzung stattdessen den residenten Speicher."}},
+        "es": {"stringUnit": {"state": "translated", "value": "No se pudo obtener la huella de memoria física de parte de esta sesión, por lo que la estimación usa la memoria residente."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "L’empreinte mémoire physique n’était pas disponible pour une partie de cette session. L’estimation utilise donc la mémoire résidente."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "このセッションの一部では物理メモリ使用量を取得できなかったため、代わりに常駐メモリを使用して推定しています。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 세션의 일부에서 물리 메모리 사용량을 가져올 수 없어, 대신 상주 메모리를 기준으로 추정합니다."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Não foi possível obter a pegada de memória física de parte desta sessão, então a estimativa usa a memória residente."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Для части этого сеанса не удалось получить физический объём памяти, поэтому оценка основана на резидентной памяти."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "无法获取此会话中部分进程的物理内存占用，因此改用常驻内存进行估算。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "無法取得此工作階段中部分程序的實體記憶體用量，因此改用常駐記憶體進行估算。"}}
+      }
+    },
+    "This estimate sums the macOS physical footprint of the host processes associated with this Wine session.": {
+      "localizations": {
+        "de": {"stringUnit": {"state": "translated", "value": "Diese Schätzung summiert den physischen Speicherbedarf der macOS-Hostprozesse, die dieser Wine-Sitzung zugeordnet sind."}},
+        "es": {"stringUnit": {"state": "translated", "value": "Esta estimación suma la huella de memoria física de los procesos host de macOS asociados a esta sesión de Wine."}},
+        "fr": {"stringUnit": {"state": "translated", "value": "Cette estimation additionne l’empreinte mémoire physique des processus hôtes macOS associés à cette session Wine."}},
+        "ja": {"stringUnit": {"state": "translated", "value": "この推定値は、Wineセッションに関連付けられたmacOSホストプロセスの物理メモリ使用量を合計したものです。"}},
+        "ko": {"stringUnit": {"state": "translated", "value": "이 추정치는 Wine 세션에 연결된 호스트 프로세스의 macOS 메모리 사용량을 합산합니다."}},
+        "pt-BR": {"stringUnit": {"state": "translated", "value": "Esta estimativa soma a pegada de memória física dos processos host do macOS associados a esta sessão do Wine."}},
+        "ru": {"stringUnit": {"state": "translated", "value": "Эта оценка суммирует физический объём памяти процессов macOS, связанных с этим сеансом Wine."}},
+        "zh-Hans": {"stringUnit": {"state": "translated", "value": "此估算会汇总与此 Wine 会话关联的 macOS 主机进程的物理内存占用。"}},
+        "zh-Hant": {"stringUnit": {"state": "translated", "value": "此估算會加總與此 Wine 工作階段相關聯的 macOS 主機程序之實體記憶體用量。"}}
       }
     }
   },

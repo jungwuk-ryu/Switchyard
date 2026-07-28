@@ -17,10 +17,14 @@ final class SwitchyardLocalizationTests: XCTestCase {
     func testEverySupportedLocaleTranslatesRepresentativeInterfaceText() {
         let requiredKeys = [
             "Add Container",
+            "Adjust compatibility and diagnostic options.",
             "Close window",
             "Download & Install",
+            "Frame rate limit",
             "Game Launchers",
+            "Host memory estimate",
             "Language",
+            "Physical footprint was unavailable for part of this session, so this estimate uses resident memory instead.",
             "Pin to taskbar",
             "Search Start Menu",
             "Start Menu",
@@ -46,7 +50,8 @@ final class SwitchyardLocalizationTests: XCTestCase {
                 "Running": "실행 중",
                 "Missing": "누락",
                 "Open": "열기",
-                "Copy Redacted": "민감 정보 가리고 복사"
+                "Copy Redacted": "민감 정보 가리고 복사",
+                "Adjust compatibility and diagnostic options.": "호환성과 진단 옵션을 조정합니다."
             ],
             "zh-Hans": [
                 "Running": "运行中",

@@ -12,6 +12,11 @@ case "$BUILD_CONFIGURATION" in
   debug|release) ;;
   *) echo "SWITCHYARD_BUILD_CONFIGURATION must be debug or release" >&2; exit 2 ;;
 esac
+DISABLE_SWIFTPM_SANDBOX="${SWITCHYARD_DISABLE_SWIFTPM_SANDBOX:-0}"
+case "$DISABLE_SWIFTPM_SANDBOX" in
+  0|1) ;;
+  *) echo "SWITCHYARD_DISABLE_SWIFTPM_SANDBOX must be 0 or 1" >&2; exit 2 ;;
+esac
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IDENTITY_SELECTOR="$ROOT_DIR/script/local_codesign_identity.sh"
@@ -72,13 +77,27 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 SPARKLE_FRAMEWORK="$APP_FRAMEWORKS/Sparkle.framework"
 APP_ICON_SOURCE="$ROOT_DIR/assets/branding/Switchyard.icns"
 APP_ICON="$APP_RESOURCES/Switchyard.icns"
-hardware_threads="$(/usr/sbin/sysctl -n hw.ncpu)"
+hardware_threads="$(
+  /usr/sbin/sysctl -n hw.ncpu 2>/dev/null \
+    || /usr/bin/getconf _NPROCESSORS_ONLN 2>/dev/null \
+    || /usr/bin/printf '2\n'
+)"
+case "$hardware_threads" in
+  ''|*[!0-9]*) hardware_threads=2 ;;
+esac
 MAX_SWIFT_BUILD_JOBS=$((hardware_threads > 1 ? hardware_threads - 1 : 1))
 SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-$MAX_SWIFT_BUILD_JOBS}"
 if [ "$SWIFT_BUILD_JOBS" -gt "$MAX_SWIFT_BUILD_JOBS" ]; then
   SWIFT_BUILD_JOBS="$MAX_SWIFT_BUILD_JOBS"
 elif [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
   SWIFT_BUILD_JOBS=1
+fi
+SWIFT_BUILD_OPTIONS=(
+  -c "$BUILD_CONFIGURATION"
+  --jobs "$SWIFT_BUILD_JOBS"
+)
+if [ "$DISABLE_SWIFTPM_SANDBOX" = "1" ]; then
+  SWIFT_BUILD_OPTIONS+=(--disable-sandbox)
 fi
 
 if [ "${SWITCHYARD_SKIP_RUNTIME_ENSURE:-0}" != "1" ]; then
@@ -92,11 +111,11 @@ fi
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
 
-swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product "$APP_NAME"
-swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-runner
-swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-url-handler
-swift build -c "$BUILD_CONFIGURATION" --jobs "$SWIFT_BUILD_JOBS" --product switchyard-shortcut-handler
-BUILD_BIN_PATH="$(swift build -c "$BUILD_CONFIGURATION" --show-bin-path)"
+swift build "${SWIFT_BUILD_OPTIONS[@]}" --product "$APP_NAME"
+swift build "${SWIFT_BUILD_OPTIONS[@]}" --product switchyard-runner
+swift build "${SWIFT_BUILD_OPTIONS[@]}" --product switchyard-url-handler
+swift build "${SWIFT_BUILD_OPTIONS[@]}" --product switchyard-shortcut-handler
+BUILD_BIN_PATH="$(swift build "${SWIFT_BUILD_OPTIONS[@]}" --show-bin-path)"
 BUILD_BINARY="$BUILD_BIN_PATH/$APP_NAME"
 BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
 BUILD_URL_HANDLER="$BUILD_BIN_PATH/switchyard-url-handler"
@@ -280,12 +299,31 @@ open_app() {
   /usr/bin/open -n "$APP_BUNDLE"
 }
 
+wait_for_app_pid() {
+  local app_pid=""
+  for _ in {1..20}; do
+    app_pid="$(pgrep -x "$APP_NAME" | tail -n 1 || true)"
+    if [ -n "$app_pid" ]; then
+      /usr/bin/printf '%s\n' "$app_pid"
+      return 0
+    fi
+    sleep 0.5
+  done
+  return 1
+}
+
 case "$MODE" in
   run)
     open_app
     ;;
   --debug|debug)
-    lldb -- "$APP_BINARY"
+    open_app
+    debug_pid="$(wait_for_app_pid || true)"
+    if [ -z "$debug_pid" ]; then
+      echo "$APP_NAME did not start within 10 seconds" >&2
+      exit 1
+    fi
+    lldb -p "$debug_pid"
     ;;
   --logs|logs)
     open_app
@@ -297,14 +335,7 @@ case "$MODE" in
     ;;
   --verify|verify)
     open_app
-    verified_pid=""
-    for _ in {1..20}; do
-      verified_pid="$(pgrep -x "$APP_NAME" | tail -n 1 || true)"
-      if [ -n "$verified_pid" ]; then
-        break
-      fi
-      sleep 0.5
-    done
+    verified_pid="$(wait_for_app_pid || true)"
     if [ -z "$verified_pid" ]; then
       echo "$APP_NAME did not start within 10 seconds" >&2
       exit 1

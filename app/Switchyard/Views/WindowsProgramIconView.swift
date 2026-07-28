@@ -2,6 +2,44 @@ import AppCore
 import AppKit
 import SwiftUI
 
+struct SessionStageApplicationIconView: View {
+    let program: InstalledProgram?
+    let applicationIconData: Data?
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let applicationIcon {
+                Image(nsImage: applicationIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.025)
+            } else if let program {
+                WindowsProgramIconView(program: program, size: size)
+            } else {
+                Image(systemName: "app.fill")
+                    .font(.system(size: size * 0.56, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.72))
+                    .frame(width: size, height: size)
+                    .background(
+                        Color.white.opacity(0.1),
+                        in: RoundedRectangle(
+                            cornerRadius: size * 0.22,
+                            style: .continuous
+                        )
+                    )
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+
+    private var applicationIcon: NSImage? {
+        guard let applicationIconData else { return nil }
+        return NSImage(data: applicationIconData)
+    }
+}
+
 struct WindowsProgramIconView: View {
     let program: InstalledProgram
     let size: CGFloat

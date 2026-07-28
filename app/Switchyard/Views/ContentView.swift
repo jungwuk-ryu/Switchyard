@@ -19,13 +19,6 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                if store.isPresentingContainerDetail {
-                    Text("Switchyard")
-                        .font(.system(size: 13, weight: .semibold))
-                }
-            }
-
             ToolbarItemGroup {
                 if !store.isPresentingContainerDetail {
                     Button {
@@ -49,6 +42,7 @@ struct ContentView: View {
                 }
             }
         }
+        .hidingDefaultToolbarTitle()
         .toolbar(
             removing: store.isPresentingContainerDetail ? .sidebarToggle : nil
         )
@@ -134,6 +128,17 @@ struct ContentView: View {
         hasEvaluatedInitialReadiness = true
         if store.hasCompletedSetup && requirement != .ready {
             store.requestSetupAssistant()
+        }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func hidingDefaultToolbarTitle() -> some View {
+        if #available(macOS 15.0, *) {
+            toolbar(removing: .title)
+        } else {
+            self
         }
     }
 }

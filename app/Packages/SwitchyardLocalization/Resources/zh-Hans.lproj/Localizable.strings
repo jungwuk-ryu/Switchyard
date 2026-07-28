@@ -1658,8 +1658,8 @@
 	<string>显示</string>
 	<key>Edit Variables</key>
 	<string>编辑变量</string>
-	<key>Enable diagnostics without memorizing environment variables.</key>
-	<string>无需记忆环境变量即可启用诊断。</string>
+	<key>Adjust compatibility and diagnostic options.</key>
+	<string>调整兼容性和诊断选项。</string>
 	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
 	<string>用于高级故障排查。无效或保留的变量会被拒绝。</string>
 	<key>Friendly switches for commonly used runtime options.</key>
@@ -1712,5 +1712,39 @@
 	<string>无法更改会话背景：%1$@</string>
 	<key>Could not remove the session background: %@</key>
 	<string>无法移除会话背景：%1$@</string>
+	<key>Graphics &amp; Performance</key>
+	<string>图形与性能</string>
+	<key>Tune D3DMetal and Rosetta for compatible games.</key>
+	<string>为兼容游戏调整 D3DMetal 和 Rosetta。</string>
+	<key>Force DirectX Raytracing</key>
+	<string>强制启用 DirectX 光线追踪</string>
+	<key>Exposes D3DMetal's DXR support to DirectX 12 games. GPTK already enables it by default on M3 and newer Macs.</key>
+	<string>向 DirectX 12 游戏提供 D3DMetal 的 DXR 支持。GPTK 在配备 M3 或更新芯片的 Mac 上已默认启用此功能。</string>
+	<key>Rosetta AVX compatibility</key>
+	<string>Rosetta AVX 兼容性</string>
+	<key>Lets games detect instruction extensions that Rosetta can already translate. It does not add unsupported instructions. Requires macOS 15 or later.</key>
+	<string>让游戏检测 Rosetta 已能转换的指令扩展。这不会增加 Rosetta 不支持的指令。需要 macOS 15 或更高版本。</string>
+	<key>Frame rate limit</key>
+	<string>帧率限制</string>
+	<key>Caps compatible D3DMetal apps at the selected frame rate. Requires GPTK 4.</key>
+	<string>将兼容的 D3DMetal App 限制为所选帧率。需要 GPTK 4。</string>
+	<key>Compatibility &amp; Diagnostics</key>
+	<string>兼容性与诊断</string>
+	<key>Use these only when an app needs a compatibility workaround or extra logs.</key>
+	<string>仅当 App 需要兼容性解决办法或额外日志时使用。</string>
+	<key>Unlimited</key>
+	<string>不限</string>
+	<key>Host memory estimate</key>
+	<string>主机内存估算</string>
+	<key>Physical footprint</key>
+	<string>物理内存占用</string>
+	<key>Resident memory</key>
+	<string>常驻内存</string>
+	<key>GPU memory is not reported separately here. Activity Monitor may show a different total.</key>
+	<string>此处不会单独报告 GPU 内存。活动监视器显示的总量可能不同。</string>
+	<key>Physical footprint was unavailable for part of this session, so this estimate uses resident memory instead.</key>
+	<string>无法获取此会话中部分进程的物理内存占用，因此改用常驻内存进行估算。</string>
+	<key>This estimate sums the macOS physical footprint of the host processes associated with this Wine session.</key>
+	<string>此估算会汇总与此 Wine 会话关联的 macOS 主机进程的物理内存占用。</string>
 </dict>
 </plist>

@@ -14,6 +14,27 @@ struct WineWindowSnapshot: Identifiable, @unchecked Sendable {
     let frame: CGRect
     let isOnScreen: Bool
     let image: CGImage?
+    let applicationIconData: Data?
+
+    init(
+        id: CGWindowID,
+        ownerProcessID: pid_t,
+        title: String,
+        executablePath: String?,
+        frame: CGRect,
+        isOnScreen: Bool,
+        image: CGImage?,
+        applicationIconData: Data? = nil
+    ) {
+        self.id = id
+        self.ownerProcessID = ownerProcessID
+        self.title = title
+        self.executablePath = executablePath
+        self.frame = frame
+        self.isOnScreen = isOnScreen
+        self.image = image
+        self.applicationIconData = applicationIconData
+    }
 
     var meaningfulTitle: String? {
         Self.meaningfulTitle(from: title)
@@ -111,6 +132,19 @@ enum WineWindowCloseResult: Equatable, Sendable {
     case closeUnsupported
     case unresponsive
     case operationFailed
+}
+
+@MainActor
+final class ScreenRecordingPermissionPromptGate {
+    static let shared = ScreenRecordingPermissionPromptGate()
+
+    private var hasRequestedPermission = false
+
+    func requestIfNeeded(using request: () -> Bool) -> Bool {
+        guard !hasRequestedPermission else { return false }
+        hasRequestedPermission = true
+        return request()
+    }
 }
 
 struct WineAccessibilityWindowCandidate {
@@ -319,13 +353,24 @@ final class WineWindowCaptureService {
         var frameSize: CGSize
     }
 
+    private struct CachedApplicationIcon {
+        var data: Data
+        var capturedAt: Date
+    }
+
     private var cachedImages: [CGWindowID: CachedImage] = [:]
     private var cachedExecutablePaths: [pid_t: String] = [:]
-    private var hasRequestedScreenRecordingPermission = false
+    private var cachedApplicationIcons: [pid_t: CachedApplicationIcon] = [:]
     private let screenRecordingPreflight: () -> Bool
     private let screenRecordingRequest: () -> Bool
+    private let screenRecordingPermissionPromptGate:
+        ScreenRecordingPermissionPromptGate
+    private let screenRecordingSettingsOpener: () -> Void
     private let shareableContentProvider: () async throws -> SCShareableContent
     private let dockProcessIsVisible: (pid_t) -> Bool
+    private let applicationIconDataProvider: (pid_t) -> Data?
+    private let applicationIconCacheLifetime: TimeInterval
+    private let now: () -> Date
     private let accessibilityController: any WineWindowAccessibilityControlling
 
     init(
@@ -334,6 +379,16 @@ final class WineWindowCaptureService {
         },
         screenRecordingRequest: @escaping () -> Bool = {
             CGRequestScreenCaptureAccess()
+        },
+        screenRecordingPermissionPromptGate:
+            ScreenRecordingPermissionPromptGate = .shared,
+        screenRecordingSettingsOpener: @escaping () -> Void = {
+            guard let url = URL(
+                string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+            ) else {
+                return
+            }
+            NSWorkspace.shared.open(url)
         },
         shareableContentProvider: @escaping () async throws -> SCShareableContent = {
             try await SCShareableContent.excludingDesktopWindows(
@@ -345,13 +400,26 @@ final class WineWindowCaptureService {
             NSRunningApplication(processIdentifier: processID)?.activationPolicy
                 == .regular
         },
+        applicationIconDataProvider: @escaping (pid_t) -> Data? = { processID in
+            NSRunningApplication(processIdentifier: processID)?
+                .icon?
+                .tiffRepresentation
+        },
+        applicationIconCacheLifetime: TimeInterval = 4,
+        now: @escaping () -> Date = { Date() },
         accessibilityController: any WineWindowAccessibilityControlling =
             SystemWineWindowAccessibilityController()
     ) {
         self.screenRecordingPreflight = screenRecordingPreflight
         self.screenRecordingRequest = screenRecordingRequest
+        self.screenRecordingPermissionPromptGate =
+            screenRecordingPermissionPromptGate
+        self.screenRecordingSettingsOpener = screenRecordingSettingsOpener
         self.shareableContentProvider = shareableContentProvider
         self.dockProcessIsVisible = dockProcessIsVisible
+        self.applicationIconDataProvider = applicationIconDataProvider
+        self.applicationIconCacheLifetime = applicationIconCacheLifetime
+        self.now = now
         self.accessibilityController = accessibilityController
     }
 
@@ -363,9 +431,13 @@ final class WineWindowCaptureService {
         guard !processIDs.isEmpty else {
             cachedImages.removeAll(keepingCapacity: true)
             cachedExecutablePaths.removeAll(keepingCapacity: true)
+            cachedApplicationIcons.removeAll(keepingCapacity: true)
             return .empty
         }
         cachedExecutablePaths = cachedExecutablePaths.filter {
+            processIDs.contains($0.key)
+        }
+        cachedApplicationIcons = cachedApplicationIcons.filter {
             processIDs.contains($0.key)
         }
 
@@ -378,7 +450,7 @@ final class WineWindowCaptureService {
         }
 
         let metadataFallback = coreGraphicsWindows(ownedBy: dockVisibleProcessIDs)
-        guard screenRecordingAccessIsAvailable() else {
+        guard screenRecordingPreflight() else {
             return .screenRecordingUnavailable(windows: metadataFallback)
         }
 
@@ -420,7 +492,10 @@ final class WineWindowCaptureService {
                         ),
                         frame: window.frame,
                         isOnScreen: window.isOnScreen,
-                        image: image
+                        image: image,
+                        applicationIconData: applicationIconData(
+                            processID: window.owningApplication?.processID ?? 0
+                        )
                     )
                 )
             }
@@ -596,22 +671,16 @@ final class WineWindowCaptureService {
         return originDelta <= 12 && sizeDelta <= 12
     }
 
-    func openScreenRecordingSettings() {
-        guard let url = URL(
-            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
-        ) else {
+    func requestScreenRecordingAccess() {
+        if screenRecordingPreflight() {
             return
         }
-        NSWorkspace.shared.open(url)
-    }
-
-    private func screenRecordingAccessIsAvailable() -> Bool {
-        if screenRecordingPreflight() {
-            return true
+        let didGrantAccess = screenRecordingPermissionPromptGate.requestIfNeeded(
+            using: screenRecordingRequest
+        )
+        if !didGrantAccess {
+            screenRecordingSettingsOpener()
         }
-        guard !hasRequestedScreenRecordingPermission else { return false }
-        hasRequestedScreenRecordingPermission = true
-        return screenRecordingRequest()
     }
 
     private func image(for window: SCWindow) async -> CGImage? {
@@ -706,7 +775,10 @@ final class WineWindowCaptureService {
                 ),
                 frame: bounds,
                 isOnScreen: isOnScreen,
-                image: cachedImages[CGWindowID(windowNumber.uint32Value)]?.image
+                image: cachedImages[CGWindowID(windowNumber.uint32Value)]?.image,
+                applicationIconData: applicationIconData(
+                    processID: ownerNumber.int32Value
+                )
             )
         }
         .sorted { lhs, rhs in
@@ -781,6 +853,27 @@ final class WineWindowCaptureService {
             cachedExecutablePaths[processID] = executablePath
         }
         return executablePath
+    }
+
+    func applicationIconData(processID: pid_t) -> Data? {
+        guard processID > 0 else { return nil }
+        let capturedAt = now()
+        let cachedIcon = cachedApplicationIcons[processID]
+        if let cachedIcon {
+            let age = capturedAt.timeIntervalSince(cachedIcon.capturedAt)
+            if age >= 0, age < applicationIconCacheLifetime {
+                return cachedIcon.data
+            }
+        }
+        guard let iconData = applicationIconDataProvider(processID),
+              !iconData.isEmpty else {
+            return cachedIcon?.data
+        }
+        cachedApplicationIcons[processID] = CachedApplicationIcon(
+            data: iconData,
+            capturedAt: capturedAt
+        )
+        return iconData
     }
 
     private static func looksLikeWindowsExecutablePath(_ argument: String) -> Bool {
@@ -954,8 +1047,8 @@ final class ContainerSessionStageModel: ObservableObject {
         return result
     }
 
-    func openScreenRecordingSettings() {
-        captureService.openScreenRecordingSettings()
+    func requestScreenRecordingAccess() {
+        captureService.requestScreenRecordingAccess()
     }
 
     static func windowsKeepingStableOrder(

@@ -1658,8 +1658,8 @@
 	<string>Anzeige</string>
 	<key>Edit Variables</key>
 	<string>Variablen bearbeiten</string>
-	<key>Enable diagnostics without memorizing environment variables.</key>
-	<string>Diagnose aktivieren, ohne Umgebungsvariablen zu merken.</string>
+	<key>Adjust compatibility and diagnostic options.</key>
+	<string>Kompatibilitäts- und Diagnoseoptionen anpassen.</string>
 	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
 	<string>Für die erweiterte Fehlerbehebung. Ungültige oder reservierte Variablen werden abgelehnt.</string>
 	<key>Friendly switches for commonly used runtime options.</key>
@@ -1712,5 +1712,39 @@
 	<string>Der Sitzungshintergrund konnte nicht geändert werden: %1$@</string>
 	<key>Could not remove the session background: %@</key>
 	<string>Der Sitzungshintergrund konnte nicht entfernt werden: %1$@</string>
+	<key>Graphics &amp; Performance</key>
+	<string>Grafik &amp; Leistung</string>
+	<key>Tune D3DMetal and Rosetta for compatible games.</key>
+	<string>D3DMetal und Rosetta für kompatible Spiele anpassen.</string>
+	<key>Force DirectX Raytracing</key>
+	<string>DirectX-Raytracing erzwingen</string>
+	<key>Exposes D3DMetal's DXR support to DirectX 12 games. GPTK already enables it by default on M3 and newer Macs.</key>
+	<string>Stellt DirectX-12-Spielen die DXR-Unterstützung von D3DMetal bereit. Auf Macs mit M3 oder neuer aktiviert GPTK sie bereits standardmäßig.</string>
+	<key>Rosetta AVX compatibility</key>
+	<string>Rosetta-AVX-Kompatibilität</string>
+	<key>Lets games detect instruction extensions that Rosetta can already translate. It does not add unsupported instructions. Requires macOS 15 or later.</key>
+	<string>Ermöglicht Spielen, Befehlssatzerweiterungen zu erkennen, die Rosetta bereits übersetzen kann. Nicht unterstützte Befehle werden dadurch nicht hinzugefügt. Erfordert macOS 15 oder neuer.</string>
+	<key>Frame rate limit</key>
+	<string>Bildratenbegrenzung</string>
+	<key>Caps compatible D3DMetal apps at the selected frame rate. Requires GPTK 4.</key>
+	<string>Begrenzt kompatible D3DMetal-Apps auf die ausgewählte Bildrate. Erfordert GPTK 4.</string>
+	<key>Compatibility &amp; Diagnostics</key>
+	<string>Kompatibilität &amp; Diagnose</string>
+	<key>Use these only when an app needs a compatibility workaround or extra logs.</key>
+	<string>Nur verwenden, wenn eine App eine Kompatibilitätsumgehung oder zusätzliche Protokolle benötigt.</string>
+	<key>Unlimited</key>
+	<string>Unbegrenzt</string>
+	<key>Host memory estimate</key>
+	<string>Geschätzter Host-Speicher</string>
+	<key>Physical footprint</key>
+	<string>Physischer Speicherbedarf</string>
+	<key>Resident memory</key>
+	<string>Residenter Speicher</string>
+	<key>GPU memory is not reported separately here. Activity Monitor may show a different total.</key>
+	<string>GPU-Speicher wird hier nicht separat ausgewiesen. Die Aktivitätsanzeige kann einen anderen Gesamtwert anzeigen.</string>
+	<key>Physical footprint was unavailable for part of this session, so this estimate uses resident memory instead.</key>
+	<string>Für einen Teil dieser Sitzung war der physische Speicherbedarf nicht verfügbar. Daher verwendet diese Schätzung stattdessen den residenten Speicher.</string>
+	<key>This estimate sums the macOS physical footprint of the host processes associated with this Wine session.</key>
+	<string>Diese Schätzung summiert den physischen Speicherbedarf der macOS-Hostprozesse, die dieser Wine-Sitzung zugeordnet sind.</string>
 </dict>
 </plist>
