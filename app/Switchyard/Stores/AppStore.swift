@@ -2029,7 +2029,7 @@ final class AppStore: ObservableObject {
             return
         }
 
-        let winePath = currentRuntime.winePath
+        let winePath = runtimeForExistingSession(for: container).winePath
         if protocolBridge.hasRegisteredScheme(scheme, in: container) {
             do {
                 try deliverLoginCallback(
@@ -2692,13 +2692,22 @@ final class AppStore: ObservableObject {
         sessionSnapshotsByContainerID[containerID] ?? .checking
     }
 
+    private func runtimeForExistingSession(for container: Container) -> RuntimeBuild {
+        SessionRuntimeResolver.runtime(
+            currentRuntime: currentRuntime,
+            installedRuntimes: installedManagedRuntimes,
+            lastRuntime: container.lastRuntime,
+            isLaunching: isContainerLaunching(container.id)
+        )
+    }
+
     func wineHostProcessIDs(for containerID: UUID) async -> Set<Int32> {
         guard let container = containers.first(where: { $0.id == containerID }),
               sessionSnapshot(for: containerID).wineServerState.hasRunningProcesses else {
             return []
         }
 
-        let winePath = currentRuntime.winePath
+        let winePath = runtimeForExistingSession(for: container).winePath
         let prefixPath = container.path
         let runnerClient = runnerClient
         return await Task.detached(priority: .utility) {
@@ -2734,7 +2743,7 @@ final class AppStore: ObservableObject {
         stoppingWineServerContainerIDs.insert(containerID)
         defer { stoppingWineServerContainerIDs.remove(containerID) }
 
-        let winePath = currentRuntime.winePath
+        let winePath = runtimeForExistingSession(for: container).winePath
         let prefixPath = container.path
         let runnerClient = runnerClient
         let targetedRunSessionIDs = activeRunSessionIDsByContainerID[containerID] ?? []
@@ -2779,6 +2788,57 @@ final class AppStore: ObservableObject {
         }
     }
 
+    @discardableResult
+    func stopWindowsProcess(
+        _ process: WindowsProcessSnapshot,
+        in containerID: UUID
+    ) async -> Bool {
+        guard let processID = process.processID,
+              !isContainerLaunching(containerID),
+              !isStoppingWineServer(in: containerID),
+              let container = containers.first(where: { $0.id == containerID }),
+              sessionSnapshot(for: containerID).wineServerState.isWineServerRunning,
+              sessionSnapshot(for: containerID).processes.contains(where: {
+                  $0.processID == processID && $0.executablePath == process.executablePath
+              }) else {
+            return false
+        }
+
+        let winePath = runtimeForExistingSession(for: container).winePath
+        let prefixPath = container.path
+        let runnerClient = runnerClient
+        do {
+            try await Task.detached(priority: .userInitiated) {
+                try runnerClient.stopWindowsProcess(
+                    winePath: winePath,
+                    prefixPath: prefixPath,
+                    processID: processID
+                )
+            }.value
+            await refreshContainerSession(for: containerID)
+            return true
+        } catch {
+            await refreshContainerSession(for: containerID)
+            let message = String(
+                localized: "Could not stop Wine processes: \(Self.errorDescription(error))",
+                bundle: SwitchyardStrings.bundle
+            )
+            if sessionSnapshotsByContainerID[containerID] != nil {
+                sessionSnapshotsByContainerID[containerID]?.message = message
+            }
+            logLines.insert(
+                LogLine(
+                    containerID: containerID,
+                    level: "error",
+                    source: container.name,
+                    message: message
+                ),
+                at: 0
+            )
+            return false
+        }
+    }
+
     func monitorContainerSession(for containerID: UUID) async {
         while !Task.isCancelled,
               containers.contains(where: { $0.id == containerID }) {
@@ -2799,21 +2859,30 @@ final class AppStore: ObservableObject {
             sessionSnapshotsByContainerID[containerID] = .checking
         }
 
-        let winePath = currentRuntime.winePath
+        let winePath = runtimeForExistingSession(for: container).winePath
         let prefixPath = container.path
         let runnerClient = runnerClient
         let snapshot = await Task.detached(priority: .utility) {
             switch runnerClient.prefixSessionState(winePath: winePath, prefixPath: prefixPath) {
             case .active:
                 do {
-                    let paths = try runnerClient.runningWindowsExecutablePaths(
+                    let runningProcesses = try runnerClient.runningWindowsProcesses(
                         winePath: winePath,
                         prefixPath: prefixPath
                     )
-                    let processes = paths
-                        .map { WindowsProcessSnapshot(executablePath: $0) }
+                    let processes = runningProcesses
+                        .map {
+                            WindowsProcessSnapshot(
+                                executablePath: $0.executablePath,
+                                processID: $0.processID
+                            )
+                        }
                         .sorted { lhs, rhs in
-                            lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+                            let nameOrder = lhs.name.localizedStandardCompare(rhs.name)
+                            if nameOrder != .orderedSame {
+                                return nameOrder == .orderedAscending
+                            }
+                            return (lhs.processID ?? 0) < (rhs.processID ?? 0)
                         }
                     return ContainerSessionSnapshot(
                         wineServerState: .active,
@@ -3289,7 +3358,7 @@ final class AppStore: ObservableObject {
         defer { containerStorageOperationIDs.remove(containerID) }
         await cancelLoginCallbackRecoveryForStorageOperation(in: containerID)
 
-        let winePath = currentRuntime.winePath
+        let winePath = runtimeForExistingSession(for: originalContainer).winePath
         let runnerClient = runnerClient
         let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
             runnerClient.prefixSessionState(
@@ -3775,7 +3844,7 @@ final class AppStore: ObservableObject {
             defer { containerStorageOperationIDs.remove(containerID) }
             await cancelLoginCallbackRecoveryForStorageOperation(in: containerID)
 
-            let winePath = currentRuntime.winePath
+            let winePath = runtimeForExistingSession(for: container).winePath
             let prefixPath = container.path
             let runnerClient = runnerClient
             let targetedRunSessionIDs = activeRunSessionIDsByContainerID[containerID] ?? []

@@ -99,7 +99,7 @@ enum InstalledProgramIconResolver {
         return nil
     }
 
-    private static func isUsableIconData(_ data: Data) -> Bool {
+    fileprivate static func isUsableIconData(_ data: Data) -> Bool {
         guard data.count <= 8_000_000,
               let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             return false
@@ -124,6 +124,19 @@ enum InstalledProgramIconResolver {
             foundImage = true
         }
         return foundImage
+    }
+}
+
+/// Resolves only an executable's embedded icon.
+///
+/// Process lists can contain many entries from one large installation folder.
+/// Avoiding the broader nearby-file search used by installed-program cards keeps
+/// scrolling and refreshes bounded while the actor cache deduplicates extraction.
+enum WindowsProcessIconResolver {
+    private static let cache = WindowsProcessIconCache()
+
+    static func iconData(executablePath: String) async -> Data? {
+        await cache.iconData(executablePath: executablePath)
     }
 }
 
@@ -161,6 +174,58 @@ private actor InstalledProgramIconCache {
         keyOrder.removeAll { $0.path == key.path }
         let task = Task.detached(priority: .utility) {
             InstalledProgramIconResolver.resolveIconData(for: program)
+        }
+        tasksByKey[key] = task
+        keyOrder.append(key)
+        while keyOrder.count > maximumEntryCount {
+            tasksByKey.removeValue(forKey: keyOrder.removeFirst())
+        }
+        return await task.value
+    }
+}
+
+private actor WindowsProcessIconCache {
+    private let maximumEntryCount = 32
+    private static let maximumIconByteCount = 2 * 1_024 * 1_024
+
+    private struct Key: Hashable {
+        let path: String
+        let fileSize: Int?
+        let modificationDate: Date?
+    }
+
+    private var tasksByKey: [Key: Task<Data?, Never>] = [:]
+    private var keyOrder: [Key] = []
+
+    func iconData(executablePath: String) async -> Data? {
+        let executableURL = URL(fileURLWithPath: executablePath).standardizedFileURL
+        let resourceValues = try? executableURL.resourceValues(
+            forKeys: [.contentModificationDateKey, .fileSizeKey, .isRegularFileKey]
+        )
+        guard resourceValues?.isRegularFile == true else { return nil }
+
+        let key = Key(
+            path: executableURL.path,
+            fileSize: resourceValues?.fileSize,
+            modificationDate: resourceValues?.contentModificationDate
+        )
+        if let task = tasksByKey[key] {
+            keyOrder.removeAll { $0 == key }
+            keyOrder.append(key)
+            return await task.value
+        }
+
+        tasksByKey = tasksByKey.filter { cachedKey, _ in
+            cachedKey.path != key.path
+        }
+        keyOrder.removeAll { $0.path == key.path }
+        let task = Task<Data?, Never>.detached(priority: .utility) {
+            guard let iconData = WindowsExecutableIconExtractor.iconData(at: executableURL),
+                  iconData.count <= Self.maximumIconByteCount,
+                  InstalledProgramIconResolver.isUsableIconData(iconData) else {
+                return nil
+            }
+            return iconData
         }
         tasksByKey[key] = task
         keyOrder.append(key)

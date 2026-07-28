@@ -1,5 +1,30 @@
 import SwiftUI
 
+enum SessionInspectorPrimaryAction: Equatable {
+    case endSession
+    case cleanUp
+    case run
+    case retry
+    case checking
+    case starting
+
+    static func resolve(
+        wineServerState: WineServerState,
+        isStartingSession: Bool
+    ) -> Self {
+        if isStartingSession {
+            return .starting
+        }
+        return switch wineServerState {
+        case .active: .endSession
+        case .orphaned: .cleanUp
+        case .inactive: .run
+        case .unavailable: .retry
+        case .checking: .checking
+        }
+    }
+}
+
 /// A compact host-side view of the Wine session that complements the window grid.
 ///
 /// Resource totals are sampled from the macOS processes associated with the
@@ -8,36 +33,50 @@ struct SessionStageInspector: View {
     let wineServerState: WineServerState
     let windows: [WineWindowSnapshot]
     let processes: [WindowsProcessSnapshot]
+    let prefixPath: String
     let resources: WineSessionResourceSnapshot?
     let notice: String?
+    let isStartingSession: Bool
     let isStoppingSession: Bool
     let onRefresh: () -> Void
     let onOpenActivity: () -> Void
+    let onRunSession: () -> Void
     let onEndSession: () -> Void
+    let onStopProcess: (WindowsProcessSnapshot) async -> Void
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var processScope: ProcessScope = .applications
+    @State private var pendingProcessStop: WindowsProcessSnapshot?
+    @State private var stoppingProcessIDs: Set<String> = []
 
     init(
         wineServerState: WineServerState,
         windows: [WineWindowSnapshot],
         processes: [WindowsProcessSnapshot],
+        prefixPath: String,
         resources: WineSessionResourceSnapshot?,
         notice: String? = nil,
+        isStartingSession: Bool,
         isStoppingSession: Bool,
         onRefresh: @escaping () -> Void,
         onOpenActivity: @escaping () -> Void,
-        onEndSession: @escaping () -> Void
+        onRunSession: @escaping () -> Void,
+        onEndSession: @escaping () -> Void,
+        onStopProcess: @escaping (WindowsProcessSnapshot) async -> Void
     ) {
         self.wineServerState = wineServerState
         self.windows = windows
         self.processes = processes
+        self.prefixPath = prefixPath
         self.resources = resources
         self.notice = notice
+        self.isStartingSession = isStartingSession
         self.isStoppingSession = isStoppingSession
         self.onRefresh = onRefresh
         self.onOpenActivity = onOpenActivity
+        self.onRunSession = onRunSession
         self.onEndSession = onEndSession
+        self.onStopProcess = onStopProcess
     }
 
     var body: some View {
@@ -87,6 +126,22 @@ struct SessionStageInspector: View {
             color: Color(red: 0.19, green: 0.42, blue: 1).opacity(0.10),
             radius: 22
         )
+        .confirmationDialog(
+            pendingProcessStop?.name ?? "",
+            isPresented: processStopConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button(
+                String(localized: "Stop", bundle: SwitchyardStrings.bundle),
+                role: .destructive
+            ) {
+                stopPendingProcess()
+            }
+            Button(
+                String(localized: "Cancel", bundle: SwitchyardStrings.bundle),
+                role: .cancel
+            ) {}
+        }
         .accessibilityIdentifier("sessionStage.inspector")
     }
 
@@ -392,7 +447,18 @@ struct SessionStageInspector: View {
                 .padding(.top, 2)
 
             ForEach(items) { process in
-                SessionInspectorProcessChip(process: process)
+                SessionInspectorProcessChip(
+                    process: process,
+                    executablePath: iconExecutablePath(for: process),
+                    canStop: process.processID != nil
+                        && wineServerState.isWineServerRunning
+                        && !isStoppingSession
+                        && !isStartingSession,
+                    isStopping: stoppingProcessIDs.contains(process.id),
+                    onStop: {
+                        pendingProcessStop = process
+                    }
+                )
             }
         }
     }
@@ -430,35 +496,44 @@ struct SessionStageInspector: View {
             .buttonStyle(SessionInspectorActionButtonStyle())
             .accessibilityIdentifier("sessionStage.inspector.activity")
 
-            Button(role: .destructive, action: onEndSession) {
-                HStack(spacing: 7) {
-                    if isStoppingSession {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.white)
-                    } else {
-                        Image(systemName: "power")
-                    }
+            primaryActionButton
+        }
+    }
 
-                    Text(
-                        String(
-                            localized: "End Session",
-                            bundle: SwitchyardStrings.bundle
-                        )
-                    )
-                }
-                .frame(maxWidth: .infinity)
+    @ViewBuilder
+    private var primaryActionButton: some View {
+        if primaryActionIsDestructive {
+            Button(role: .destructive, action: performPrimaryAction) {
+                primaryActionLabel
             }
             .buttonStyle(SessionInspectorActionButtonStyle(isDestructive: true))
-            .disabled(!wineServerState.hasRunningProcesses || isStoppingSession)
-            .help(
-                String(
-                    localized: "End Windows Session",
-                    bundle: SwitchyardStrings.bundle
-                )
-            )
-            .accessibilityIdentifier("sessionStage.inspector.endSession")
+            .disabled(primaryActionIsDisabled)
+            .help(primaryActionHelp)
+            .accessibilityIdentifier("sessionStage.inspector.primaryAction")
+        } else {
+            Button(action: performPrimaryAction) {
+                primaryActionLabel
+            }
+            .buttonStyle(SessionInspectorActionButtonStyle())
+            .disabled(primaryActionIsDisabled)
+            .help(primaryActionHelp)
+            .accessibilityIdentifier("sessionStage.inspector.primaryAction")
         }
+    }
+
+    private var primaryActionLabel: some View {
+        HStack(spacing: 7) {
+            if primaryActionShowsProgress {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+            } else {
+                Image(systemName: primaryActionSystemImage)
+            }
+
+            Text(primaryActionLabelText)
+        }
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -526,6 +601,132 @@ struct SessionStageInspector: View {
         guard let notice else { return nil }
         let value = notice.trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? nil : value
+    }
+
+    private var primaryAction: SessionInspectorPrimaryAction {
+        SessionInspectorPrimaryAction.resolve(
+            wineServerState: wineServerState,
+            isStartingSession: isStartingSession
+        )
+    }
+
+    private var primaryActionIsDestructive: Bool {
+        primaryAction == .endSession || primaryAction == .cleanUp
+    }
+
+    private var primaryActionIsDisabled: Bool {
+        isStoppingSession
+            || primaryAction == .checking
+            || primaryAction == .starting
+    }
+
+    private var primaryActionShowsProgress: Bool {
+        isStoppingSession
+            || primaryAction == .checking
+            || primaryAction == .starting
+    }
+
+    private var primaryActionSystemImage: String {
+        switch primaryAction {
+        case .endSession, .cleanUp: "power"
+        case .run: "play.fill"
+        case .retry: "arrow.clockwise"
+        case .checking, .starting: "hourglass"
+        }
+    }
+
+    private var primaryActionLabelText: String {
+        if isStoppingSession {
+            return String(
+                localized: "Stopping…",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return switch primaryAction {
+        case .endSession:
+            String(localized: "End Session", bundle: SwitchyardStrings.bundle)
+        case .cleanUp:
+            String(localized: "Stop", bundle: SwitchyardStrings.bundle)
+        case .run:
+            String(localized: "Run", bundle: SwitchyardStrings.bundle)
+        case .retry:
+            String(localized: "Try Again", bundle: SwitchyardStrings.bundle)
+        case .checking:
+            String(localized: "Checking", bundle: SwitchyardStrings.bundle)
+        case .starting:
+            String(localized: "Starting…", bundle: SwitchyardStrings.bundle)
+        }
+    }
+
+    private var primaryActionHelp: String {
+        switch primaryAction {
+        case .endSession:
+            String(
+                localized: "End Windows Session",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .cleanUp:
+            String(
+                localized: "Stop all Wine processes in this container",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .run:
+            String(localized: "Run", bundle: SwitchyardStrings.bundle)
+        case .retry:
+            String(localized: "Try Again", bundle: SwitchyardStrings.bundle)
+        case .checking:
+            String(localized: "Checking", bundle: SwitchyardStrings.bundle)
+        case .starting:
+            String(localized: "Starting…", bundle: SwitchyardStrings.bundle)
+        }
+    }
+
+    private func performPrimaryAction() {
+        switch primaryAction {
+        case .endSession, .cleanUp:
+            onEndSession()
+        case .run:
+            onRunSession()
+        case .retry:
+            onRefresh()
+        case .checking, .starting:
+            break
+        }
+    }
+
+    private var processStopConfirmationPresented: Binding<Bool> {
+        Binding(
+            get: { pendingProcessStop != nil },
+            set: { isPresented in
+                if !isPresented {
+                    pendingProcessStop = nil
+                }
+            }
+        )
+    }
+
+    private func stopPendingProcess() {
+        guard let process = pendingProcessStop,
+              process.processID != nil,
+              !stoppingProcessIDs.contains(process.id) else {
+            pendingProcessStop = nil
+            return
+        }
+        pendingProcessStop = nil
+        stoppingProcessIDs.insert(process.id)
+        Task {
+            await onStopProcess(process)
+            stoppingProcessIDs.remove(process.id)
+        }
+    }
+
+    private func iconExecutablePath(
+        for process: WindowsProcessSnapshot
+    ) -> String? {
+        WindowsExecutableProgramResolver.hostExecutableURL(
+            windowsPath: process.executablePath,
+            prefixPath: prefixPath,
+        )?.path
     }
 
     private var applicationProcesses: [WindowsProcessSnapshot] {
@@ -855,21 +1056,20 @@ private struct SessionInspectorMetric: View {
 
 private struct SessionInspectorProcessChip: View {
     let process: WindowsProcessSnapshot
+    let executablePath: String?
+    let canStop: Bool
+    let isStopping: Bool
+    let onStop: () -> Void
+
+    @State private var isHovering = false
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(
-                systemName: process.isSystemProcess
-                    ? "gearshape.2.fill"
-                    : "macwindow"
+            WindowsProcessIconView(
+                executablePath: executablePath,
+                isSystemProcess: process.isSystemProcess,
+                size: 22
             )
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(
-                process.isSystemProcess
-                    ? Color.white.opacity(0.42)
-                    : Color(red: 0.39, green: 0.67, blue: 1)
-            )
-            .frame(width: 19)
 
             Text(process.name)
                 .font(.system(size: 10, weight: .medium))
@@ -878,23 +1078,52 @@ private struct SessionInspectorProcessChip: View {
 
             Spacer(minLength: 4)
 
-            Text(process.kind)
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.38))
-                .lineLimit(1)
+            if canStop {
+                Button(action: onStop) {
+                    Group {
+                        if isStopping {
+                            ProgressView()
+                                .controlSize(.mini)
+                                .tint(.white.opacity(0.8))
+                        } else {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                    }
+                    .frame(width: 22, height: 22)
+                    .background(Color.red.opacity(0.14), in: Circle())
+                    .overlay {
+                        Circle().strokeBorder(Color.red.opacity(0.20))
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color(red: 1, green: 0.65, blue: 0.65))
+                .disabled(isStopping)
+                .opacity(isHovering || isStopping ? 1 : 0.24)
+                .accessibilityLabel(stopAccessibilityLabel)
+                .accessibilityValue(stopAccessibilityValue)
+            }
         }
         .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, minHeight: 32)
+        .frame(maxWidth: .infinity, minHeight: 38)
         .background(Color.white.opacity(0.035), in: Capsule())
         .overlay {
             Capsule()
                 .strokeBorder(Color.white.opacity(0.07))
         }
         .contentShape(Capsule())
+        .onHover { isHovering = $0 }
         .help(process.executablePath)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(process.name), \(process.kind)")
-        .accessibilityValue(process.executablePath)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var stopAccessibilityLabel: String {
+        let stop = String(localized: "Stop", bundle: SwitchyardStrings.bundle)
+        return "\(process.name), \(stop)"
+    }
+
+    private var stopAccessibilityValue: String {
+        process.processID.map { "PID \($0)" } ?? process.executablePath
     }
 }
 

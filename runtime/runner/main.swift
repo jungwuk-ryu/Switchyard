@@ -17,6 +17,8 @@ private enum SwitchyardRunnerError: LocalizedError {
     case wineProcessesCouldNotBeStopped([pid_t])
     case processInspectionFailed(Int32)
     case processInspectionTimedOut
+    case windowsProcessTerminationFailed(processID: UInt32, status: Int32)
+    case windowsProcessTerminationTimedOut(UInt32)
     case terminationRequested
 
     var errorDescription: String? {
@@ -49,10 +51,19 @@ private enum SwitchyardRunnerError: LocalizedError {
             "The Wine process list command failed with status \(status)."
         case .processInspectionTimedOut:
             "The Wine process list command did not finish within 15 seconds."
+        case let .windowsProcessTerminationFailed(processID, status):
+            "Windows process \(processID) could not be stopped (exit code \(status))."
+        case let .windowsProcessTerminationTimedOut(processID):
+            "Windows process \(processID) did not stop within 15 seconds."
         case .terminationRequested:
             "Runner termination was requested before the child process started."
         }
     }
+}
+
+private struct InspectedWindowsProcess: Codable, Equatable {
+    let executablePath: String
+    let processID: UInt32?
 }
 
 private final class ProcessOutputCollector: @unchecked Sendable {
@@ -1047,11 +1058,25 @@ struct SwitchyardRunner {
                 FileHandle.standardError.write(Data("Unable to inspect Wine processes: \(error.localizedDescription)\n".utf8))
                 runnerExit(1)
             }
+        case "list-process-details":
+            do {
+                try listProcessDetails(arguments: Array(arguments.dropFirst()))
+            } catch {
+                FileHandle.standardError.write(Data("Unable to inspect Wine process details: \(error.localizedDescription)\n".utf8))
+                runnerExit(1)
+            }
         case "list-host-processes":
             do {
                 try listHostProcesses(arguments: Array(arguments.dropFirst()))
             } catch {
                 FileHandle.standardError.write(Data("Unable to inspect Wine host processes: \(error.localizedDescription)\n".utf8))
+                runnerExit(1)
+            }
+        case "terminate-process":
+            do {
+                try terminateProcess(arguments: Array(arguments.dropFirst()))
+            } catch {
+                FileHandle.standardError.write(Data("Unable to stop the Windows process: \(error.localizedDescription)\n".utf8))
                 runnerExit(1)
             }
         case "stop-prefix":
@@ -1206,34 +1231,101 @@ struct SwitchyardRunner {
     }
 
     private static func listProcesses(arguments: [String]) throws {
+        let configuration = processInspectionConfiguration(arguments: arguments)
+        let prefixLock = try WinePrefixFileLock(prefixPath: configuration.prefixPath, mode: .shared)
+        defer { prefixLock.unlock() }
+        validateProcessInspectionPaths(configuration)
+        let paths = Set(
+            try processInspectionOutput(
+                winePath: configuration.winePath,
+                prefixPath: configuration.prefixPath,
+                properties: ["ExecutablePath"]
+            )
+                .components(separatedBy: .newlines)
+                .dropFirst()
+                .compactMap(WineProtocolAssociationFormat.normalizedWindowsExecutablePath)
+                .filter { !isProcessInspectionHelper($0) }
+        ).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        FileHandle.standardOutput.write(try JSONEncoder().encode(paths))
+    }
+
+    private static func listProcessDetails(arguments: [String]) throws {
+        let configuration = processInspectionConfiguration(arguments: arguments)
+        let prefixLock = try WinePrefixFileLock(prefixPath: configuration.prefixPath, mode: .shared)
+        defer { prefixLock.unlock() }
+        validateProcessInspectionPaths(configuration)
+
+        let detailedOutput = try processInspectionOutput(
+            winePath: configuration.winePath,
+            prefixPath: configuration.prefixPath,
+            properties: ["ExecutablePath", "ProcessId"]
+        )
+        var details = processDetails(from: detailedOutput)
+        if details.isEmpty {
+            let pathOutput = try processInspectionOutput(
+                winePath: configuration.winePath,
+                prefixPath: configuration.prefixPath,
+                properties: ["ExecutablePath"]
+            )
+            details = Set(
+                pathOutput
+                    .components(separatedBy: .newlines)
+                    .dropFirst()
+                    .compactMap(WineProtocolAssociationFormat.normalizedWindowsExecutablePath)
+                    .filter { !isProcessInspectionHelper($0) }
+            )
+            .map { InspectedWindowsProcess(executablePath: $0, processID: nil) }
+        }
+
+        details.sort {
+            let pathOrder = $0.executablePath.localizedStandardCompare($1.executablePath)
+            if pathOrder != .orderedSame {
+                return pathOrder == .orderedAscending
+            }
+            return ($0.processID ?? 0) < ($1.processID ?? 0)
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        FileHandle.standardOutput.write(try encoder.encode(details))
+    }
+
+    private static func processInspectionConfiguration(
+        arguments: [String]
+    ) -> (winePath: String, prefixPath: String) {
         guard arguments.count == 4,
               arguments[0] == "--wine",
               arguments[2] == "--prefix" else {
             printUsage()
             runnerExit(2)
         }
+        return (arguments[1], arguments[3])
+    }
 
-        let prefixLock = try WinePrefixFileLock(
-            prefixPath: arguments[3],
-            mode: .shared
-        )
-        defer { prefixLock.unlock() }
-        guard FileManager.default.isExecutableFile(atPath: arguments[1]),
-              FileManager.default.fileExists(atPath: arguments[3]) else {
+    private static func validateProcessInspectionPaths(
+        _ configuration: (winePath: String, prefixPath: String)
+    ) {
+        guard FileManager.default.isExecutableFile(atPath: configuration.winePath),
+              FileManager.default.fileExists(atPath: configuration.prefixPath) else {
             printUsage()
             runnerExit(2)
         }
+    }
 
+    private static func processInspectionOutput(
+        winePath: String,
+        prefixPath: String,
+        properties: [String]
+    ) throws -> String {
         let process = Process()
         let output = Pipe()
         let collector = ProcessOutputCollector()
-        process.executableURL = URL(fileURLWithPath: arguments[1])
-        process.arguments = ["wmic", "process", "get", "ExecutablePath"]
+        process.executableURL = URL(fileURLWithPath: winePath)
+        process.arguments = ["wmic", "process", "get", properties.joined(separator: ",")]
         process.environment = ProcessInfo.processInfo.environment.merging([
-            "WINEPREFIX": arguments[3],
+            "WINEPREFIX": prefixPath,
             "WINEDEBUG": "-all"
         ]) { _, new in new }
-        process.currentDirectoryURL = URL(fileURLWithPath: arguments[3], isDirectory: true)
+        process.currentDirectoryURL = URL(fileURLWithPath: prefixPath, isDirectory: true)
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
         output.fileHandleForReading.readabilityHandler = { handle in
@@ -1256,14 +1348,84 @@ struct SwitchyardRunner {
         guard process.terminationStatus == 0 else {
             throw SwitchyardRunnerError.processInspectionFailed(process.terminationStatus)
         }
+        return collector.text
+    }
 
-        let paths = Set(
-            collector.text
-                .components(separatedBy: .newlines)
-                .dropFirst()
-                .compactMap(WineProtocolAssociationFormat.normalizedWindowsExecutablePath)
-        ).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-        FileHandle.standardOutput.write(try JSONEncoder().encode(paths))
+    private static func processDetails(from output: String) -> [InspectedWindowsProcess] {
+        var seenProcessIDs: Set<UInt32> = []
+        return output
+            .components(separatedBy: .newlines)
+            .dropFirst()
+            .compactMap { rawLine -> InspectedWindowsProcess? in
+                let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let separator = line.lastIndex(where: \.isWhitespace) else {
+                    return nil
+                }
+                let processIDValue = line[line.index(after: separator)...]
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let processID = UInt32(processIDValue), processID > 0 else {
+                    return nil
+                }
+                let rawPath = String(line[..<separator])
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard let executablePath = WineProtocolAssociationFormat
+                    .normalizedWindowsExecutablePath(rawPath),
+                      !isProcessInspectionHelper(executablePath),
+                      seenProcessIDs.insert(processID).inserted else {
+                    return nil
+                }
+                return InspectedWindowsProcess(
+                    executablePath: executablePath,
+                    processID: processID
+                )
+            }
+    }
+
+    private static func isProcessInspectionHelper(_ executablePath: String) -> Bool {
+        executablePath
+            .replacingOccurrences(of: "/", with: "\\")
+            .lowercased()
+            .hasSuffix("\\wbem\\wmic.exe")
+    }
+
+    private static func terminateProcess(arguments: [String]) throws {
+        guard arguments.count == 6,
+              arguments[0] == "--wine",
+              arguments[2] == "--prefix",
+              arguments[4] == "--pid",
+              let processID = UInt32(arguments[5]),
+              processID > 0,
+              FileManager.default.isExecutableFile(atPath: arguments[1]),
+              FileManager.default.fileExists(atPath: arguments[3]) else {
+            printUsage()
+            runnerExit(2)
+        }
+
+        let prefixLock = try WinePrefixFileLock(prefixPath: arguments[3], mode: .shared)
+        defer { prefixLock.unlock() }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: arguments[1])
+        process.arguments = ["taskkill", "/PID", String(processID), "/F"]
+        process.environment = ProcessInfo.processInfo.environment.merging([
+            "WINEPREFIX": arguments[3],
+            "WINEDEBUG": "-all"
+        ]) { _, new in new }
+        process.currentDirectoryURL = URL(fileURLWithPath: arguments[3], isDirectory: true)
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        defer { RunnerProcessRegistry.shared.clear(process) }
+        try RunnerProcessRegistry.shared.launch(process)
+        guard waitForExit(process, timeout: wineServerCommandTimeout) else {
+            stopProcessWithinDeadline(process)
+            throw SwitchyardRunnerError.windowsProcessTerminationTimedOut(processID)
+        }
+        guard process.terminationStatus == 0 else {
+            throw SwitchyardRunnerError.windowsProcessTerminationFailed(
+                processID: processID,
+                status: process.terminationStatus
+            )
+        }
     }
 
     private static func listHostProcesses(arguments: [String]) throws {
@@ -1777,7 +1939,7 @@ struct SwitchyardRunner {
 
     private static func printUsage() {
         FileHandle.standardError.write(
-            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | probe-prefix-host --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | list-host-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
+            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | probe-prefix-host --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | list-process-details --wine <path> --prefix <path> | list-host-processes --wine <path> --prefix <path> | terminate-process --wine <path> --prefix <path> --pid <guest-pid> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
         )
     }
 }

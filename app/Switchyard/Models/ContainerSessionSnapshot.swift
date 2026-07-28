@@ -17,8 +17,17 @@ enum WineServerState: Equatable, Sendable {
 }
 
 struct WindowsProcessSnapshot: Identifiable, Equatable, Sendable {
-    var id: String { executablePath }
+    var id: String {
+        processID.map { "pid:\($0)" }
+            ?? "path:\(executablePath.lowercased())"
+    }
     let executablePath: String
+    let processID: UInt32?
+
+    init(executablePath: String, processID: UInt32? = nil) {
+        self.executablePath = executablePath
+        self.processID = processID
+    }
 
     var name: String {
         executablePath
@@ -30,8 +39,10 @@ struct WindowsProcessSnapshot: Identifiable, Equatable, Sendable {
 
     var isSystemProcess: Bool {
         let systemProcesses = [
-            "explorer.exe", "services.exe", "rpcss.exe", "plugplay.exe",
-            "svchost.exe", "winedevice.exe", "wineboot.exe",
+            "conhost.exe", "explorer.exe", "msiexec.exe", "plugplay.exe",
+            "rpcss.exe", "rundll32.exe", "services.exe", "start.exe",
+            "svchost.exe", "taskkill.exe", "wineboot.exe", "wineconsole.exe",
+            "winedevice.exe", "winemenubuilder.exe", "wmic.exe",
         ]
         return systemProcesses.contains(name.lowercased())
     }

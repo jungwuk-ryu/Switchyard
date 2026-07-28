@@ -15,6 +15,7 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     case couldNotListWindowsProcesses(Int32)
     case couldNotListWineHostProcesses(Int32)
     case couldNotStopWineServer(Int32, String)
+    case couldNotStopWindowsProcess(UInt32, Int32)
 
     var description: String {
         switch self {
@@ -48,8 +49,15 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
                     localized: "wineserver could not be stopped (exit code \(status)): \(detail)",
                     bundle: SwitchyardStrings.bundle
                 )
+        case let .couldNotStopWindowsProcess(processID, status):
+            "Windows process \(processID) could not be stopped (exit code \(status))."
         }
     }
+}
+
+struct RunningWindowsProcess: Codable, Equatable, Sendable {
+    let executablePath: String
+    let processID: UInt32?
 }
 
 final class SwitchyardRunnerClient: @unchecked Sendable {
@@ -134,6 +142,55 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         return try JSONDecoder().decode([String].self, from: data)
     }
 
+    func runningWindowsProcesses(
+        winePath: String,
+        prefixPath: String
+    ) throws -> [RunningWindowsProcess] {
+        let runnerURL = try locateRunner()
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = runnerURL
+        process.arguments = [
+            "list-process-details",
+            "--wine", winePath,
+            "--prefix", prefixPath,
+        ]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        if process.terminationStatus == 0 {
+            return try Self.decodeRunningWindowsProcesses(from: data)
+        }
+
+        // Older bundled helpers can still provide executable paths. Keeping this
+        // fallback makes process inspection useful while disabling only the
+        // PID-specific stop control.
+        return try runningWindowsExecutablePaths(
+            winePath: winePath,
+            prefixPath: prefixPath
+        ).map {
+            RunningWindowsProcess(executablePath: $0, processID: nil)
+        }
+    }
+
+    static func decodeRunningWindowsProcesses(
+        from data: Data
+    ) throws -> [RunningWindowsProcess] {
+        let decoder = JSONDecoder()
+        if let detailedProcesses = try? decoder.decode(
+            [RunningWindowsProcess].self,
+            from: data
+        ) {
+            return detailedProcesses
+        }
+        return try decoder.decode([String].self, from: data).map {
+            RunningWindowsProcess(executablePath: $0, processID: nil)
+        }
+    }
+
     func runningWineHostProcessIDs(winePath: String, prefixPath: String) throws -> [Int32] {
         let runnerURL = try locateRunner()
         let process = Process()
@@ -170,6 +227,32 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
             throw SwitchyardRunnerClientError.couldNotStopWineServer(
                 process.terminationStatus,
                 detail
+            )
+        }
+    }
+
+    func stopWindowsProcess(
+        winePath: String,
+        prefixPath: String,
+        processID: UInt32
+    ) throws {
+        let runnerURL = try locateRunner()
+        let process = Process()
+        process.executableURL = runnerURL
+        process.arguments = [
+            "terminate-process",
+            "--wine", winePath,
+            "--prefix", prefixPath,
+            "--pid", String(processID),
+        ]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw SwitchyardRunnerClientError.couldNotStopWindowsProcess(
+                processID,
+                process.terminationStatus
             )
         }
     }

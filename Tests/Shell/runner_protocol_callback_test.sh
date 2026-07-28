@@ -20,11 +20,24 @@ cat >"$FAKE_WINE" <<'SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = "wmic" ]; then
+  if [ "${4:-}" = "ExecutablePath,ProcessId" ] \
+    && [ "${SWITCHYARD_TEST_LEGACY_WMIC:-0}" != "1" ]; then
+    printf '%s\n' \
+      'ExecutablePath  ProcessId' \
+      'C:\windows\system32\services.exe  80' \
+      'C:\Program Files (x86)\Steam\steam.exe  144' \
+      'C:\Games\Heartopia\xdt.exe  232'
+    exit 0
+  fi
   printf '%s\n' \
     'ExecutablePath' \
     'C:\windows\system32\services.exe' \
     'C:\Program Files (x86)\Steam\steam.exe' \
     'C:\Games\Heartopia\xdt.exe'
+  exit 0
+fi
+if [ "${1:-}" = "taskkill" ]; then
+  printf '%s\n' '[invocation]' "$@" >>"$SWITCHYARD_TEST_ARGUMENTS_PATH"
   exit 0
 fi
 printf '%s\n' '[invocation]' "$@" >>"$SWITCHYARD_TEST_ARGUMENTS_PATH"
@@ -37,6 +50,28 @@ chmod +x "$FAKE_WINE"
 
 processes="$($RUNNER_PATH list-processes --wine "$FAKE_WINE" --prefix "$PREFIX_PATH")"
 test "$processes" = '["C:\\Games\\Heartopia\\xdt.exe","C:\\Program Files (x86)\\Steam\\steam.exe","C:\\windows\\system32\\services.exe"]'
+
+process_details="$($RUNNER_PATH list-process-details --wine "$FAKE_WINE" --prefix "$PREFIX_PATH")"
+test "$process_details" = '[{"executablePath":"C:\\Games\\Heartopia\\xdt.exe","processID":232},{"executablePath":"C:\\Program Files (x86)\\Steam\\steam.exe","processID":144},{"executablePath":"C:\\windows\\system32\\services.exe","processID":80}]'
+
+legacy_process_details="$(
+  SWITCHYARD_TEST_LEGACY_WMIC=1 \
+    "$RUNNER_PATH" list-process-details --wine "$FAKE_WINE" --prefix "$PREFIX_PATH"
+)"
+test "$legacy_process_details" = '[{"executablePath":"C:\\Games\\Heartopia\\xdt.exe"},{"executablePath":"C:\\Program Files (x86)\\Steam\\steam.exe"},{"executablePath":"C:\\windows\\system32\\services.exe"}]'
+
+: >"$ARGUMENTS_PATH"
+SWITCHYARD_TEST_ARGUMENTS_PATH="$ARGUMENTS_PATH" \
+SWITCHYARD_TEST_ENVIRONMENT_PATH="$ENVIRONMENT_PATH" \
+  "$RUNNER_PATH" terminate-process \
+    --wine "$FAKE_WINE" \
+    --prefix "$PREFIX_PATH" \
+    --pid 232
+diff -u \
+  <(printf '%s\n' '[invocation]' 'taskkill' '/PID' '232' '/F') \
+  "$ARGUMENTS_PATH"
+: >"$ARGUMENTS_PATH"
+: >"$ENVIRONMENT_PATH"
 
 cat >"$REQUEST_PATH" <<JSON
 {"scheme":"xdt","rawURL":"xdt://callback?code=synthetic-secret","prefixPath":"$PREFIX_PATH","winePath":"$FAKE_WINE"}

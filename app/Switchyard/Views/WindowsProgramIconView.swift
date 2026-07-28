@@ -4,18 +4,31 @@ import SwiftUI
 
 struct SessionStageApplicationIconView: View {
     let program: InstalledProgram?
+    let executablePath: String?
     let applicationIconData: Data?
     let size: CGFloat
 
     var body: some View {
         Group {
-            if let applicationIcon {
+            if let executablePath {
+                WindowsProcessIconView(
+                    executablePath: executablePath,
+                    isSystemProcess: false,
+                    size: size,
+                    fallbackProgram: program,
+                    fallbackIconData: applicationIconData
+                )
+            } else if let program {
+                WindowsProgramIconView(
+                    program: program,
+                    size: size,
+                    fallbackIconData: applicationIconData
+                )
+            } else if let applicationIcon {
                 Image(nsImage: applicationIcon)
                     .resizable()
                     .scaledToFit()
                     .padding(size * 0.025)
-            } else if let program {
-                WindowsProgramIconView(program: program, size: size)
             } else {
                 Image(systemName: "app.fill")
                     .font(.system(size: size * 0.56, weight: .semibold))
@@ -43,12 +56,23 @@ struct SessionStageApplicationIconView: View {
 struct WindowsProgramIconView: View {
     let program: InstalledProgram
     let size: CGFloat
+    let fallbackIconData: Data?
     @State private var icon: NSImage?
+
+    init(
+        program: InstalledProgram,
+        size: CGFloat,
+        fallbackIconData: Data? = nil
+    ) {
+        self.program = program
+        self.size = size
+        self.fallbackIconData = fallbackIconData
+    }
 
     var body: some View {
         Group {
-            if let icon {
-                Image(nsImage: icon)
+            if let displayedIcon {
+                Image(nsImage: displayedIcon)
                     .resizable()
                     .scaledToFit()
             } else {
@@ -75,6 +99,10 @@ struct WindowsProgramIconView: View {
             }
         }
         .accessibilityLabel("\(program.presentationName) icon")
+    }
+
+    private var displayedIcon: NSImage? {
+        icon ?? fallbackIconData.flatMap(NSImage.init(data:))
     }
 
     private var fallbackSystemImage: String {
@@ -112,5 +140,74 @@ struct WindowsProgramIconView: View {
             return Color(red: 0.91, green: 0.61, blue: 0.08)
         }
         return Color(red: 0.35, green: 0.31, blue: 0.54)
+    }
+}
+
+struct WindowsProcessIconView: View {
+    let executablePath: String?
+    let isSystemProcess: Bool
+    let size: CGFloat
+    var fallbackProgram: InstalledProgram? = nil
+    var fallbackIconData: Data? = nil
+
+    @State private var icon: NSImage?
+
+    var body: some View {
+        Group {
+            if let icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .scaledToFit()
+            } else if let fallbackProgram {
+                WindowsProgramIconView(
+                    program: fallbackProgram,
+                    size: size,
+                    fallbackIconData: fallbackIconData
+                )
+            } else if let fallbackIconData,
+                      let fallbackIcon = NSImage(data: fallbackIconData) {
+                Image(nsImage: fallbackIcon)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                Image(
+                    systemName: isSystemProcess
+                        ? "gearshape.2.fill"
+                        : "app.fill"
+                )
+                .resizable()
+                .scaledToFit()
+                .padding(size * 0.24)
+                .foregroundStyle(
+                    isSystemProcess
+                        ? Color.white.opacity(0.58)
+                        : Color(red: 0.56, green: 0.72, blue: 1)
+                )
+            }
+        }
+        .frame(width: size, height: size)
+        .background(
+            isSystemProcess
+                ? Color.white.opacity(0.07)
+                : Color(red: 0.18, green: 0.40, blue: 0.78).opacity(0.32),
+            in: RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+        )
+        .clipShape(
+            RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+        )
+        .task(id: executablePath) {
+            icon = nil
+            guard let executablePath else { return }
+            let data = await WindowsProcessIconResolver.iconData(
+                executablePath: executablePath
+            )
+            guard !Task.isCancelled,
+                  let data,
+                  let resolvedIcon = NSImage(data: data) else {
+                return
+            }
+            icon = resolvedIcon
+        }
+        .accessibilityHidden(true)
     }
 }

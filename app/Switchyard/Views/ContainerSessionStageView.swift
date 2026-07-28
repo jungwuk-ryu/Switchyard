@@ -9,6 +9,47 @@ enum ContainerDetailDestination {
     case settings
 }
 
+enum SessionStageExecutablePathResolver {
+    static func normalizedWindowsPath(
+        executablePath: String,
+        prefixPath: String
+    ) -> String? {
+        let unquotedPath = executablePath.trimmingCharacters(
+            in: CharacterSet(charactersIn: "\"'")
+        )
+        if let guestPath = WineProtocolAssociationFormat
+            .normalizedWindowsExecutablePath(unquotedPath) {
+            return guestPath
+        }
+        guard let convertedPath = WineProtocolAssociationFormat
+            .windowsExecutablePath(
+                hostPath: unquotedPath,
+                prefixPath: prefixPath
+            ) else {
+            return nil
+        }
+        return WineProtocolAssociationFormat.normalizedWindowsExecutablePath(
+            convertedPath
+        )
+    }
+
+    static func hostExecutablePath(
+        executablePath: String,
+        prefixPath: String
+    ) -> String? {
+        guard let windowsPath = normalizedWindowsPath(
+            executablePath: executablePath,
+            prefixPath: prefixPath
+        ) else {
+            return nil
+        }
+        return WindowsExecutableProgramResolver.hostExecutableURL(
+            windowsPath: windowsPath,
+            prefixPath: prefixPath
+        )?.path
+    }
+}
+
 enum SessionStageWindowProgramMatcher {
     static func match(
         window: WineWindowSnapshot,
@@ -16,16 +57,18 @@ enum SessionStageWindowProgramMatcher {
         prefixPath: String
     ) -> InstalledProgram? {
         if let executablePath = window.executablePath {
-            let capturedWindowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
-                hostPath: executablePath,
-                prefixPath: prefixPath
-            ) ?? executablePath
+            let capturedWindowsPath = SessionStageExecutablePathResolver
+                .normalizedWindowsPath(
+                    executablePath: executablePath,
+                    prefixPath: prefixPath
+                ) ?? executablePath
             let normalizedExecutablePath = normalizedWindowsPath(capturedWindowsPath)
             if let exactMatch = programs.first(where: { program in
-                guard let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
-                    hostPath: program.executablePath,
-                    prefixPath: prefixPath
-                ) else {
+                guard let windowsPath = SessionStageExecutablePathResolver
+                    .normalizedWindowsPath(
+                        executablePath: program.executablePath,
+                        prefixPath: prefixPath
+                    ) else {
                     return false
                 }
                 return normalizedWindowsPath(windowsPath) == normalizedExecutablePath
@@ -35,10 +78,11 @@ enum SessionStageWindowProgramMatcher {
 
             let executableName = normalizedWindowsExecutableName(capturedWindowsPath)
             let basenameMatches = programs.filter { program in
-                guard let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
-                    hostPath: program.executablePath,
-                    prefixPath: prefixPath
-                ) else {
+                guard let windowsPath = SessionStageExecutablePathResolver
+                    .normalizedWindowsPath(
+                        executablePath: program.executablePath,
+                        prefixPath: prefixPath
+                    ) else {
                     return false
                 }
                 return normalizedWindowsExecutableName(windowsPath) == executableName
@@ -109,11 +153,18 @@ enum SessionStageTaskbarPolicy {
                 )
             }.first
             let program = catalogProgram ?? group.windowsPath.flatMap {
-                syntheticProgram(
+                WindowsExecutableProgramResolver.program(
                     windowsPath: $0,
-                    prefixPath: prefixPath
+                    prefixPath: prefixPath,
+                    catalogPrograms: programs
                 )
             }
+            let iconExecutablePath = group.windowsPath.flatMap {
+                WindowsExecutableProgramResolver.hostExecutableURL(
+                    windowsPath: $0,
+                    prefixPath: prefixPath
+                )?.path
+            } ?? program?.executablePath
             let programPath = program.flatMap {
                 normalizedWindowsPath(
                     executablePath: $0.executablePath,
@@ -132,6 +183,7 @@ enum SessionStageTaskbarPolicy {
                 identity: group.identity,
                 pinKey: pinKey,
                 program: program,
+                iconExecutablePath: iconExecutablePath,
                 title: title,
                 windows: group.windows,
                 isActive: group.windows.contains {
@@ -163,9 +215,10 @@ enum SessionStageTaskbarPolicy {
                     executablePath: $0.executablePath,
                     prefixPath: prefixPath
                 )?.lowercased() == pin.lowercased()
-            }) ?? syntheticProgram(
+            }) ?? WindowsExecutableProgramResolver.program(
                 windowsPath: pin,
-                prefixPath: prefixPath
+                prefixPath: prefixPath,
+                catalogPrograms: programs
             )
             guard let program else {
                 continue
@@ -175,6 +228,7 @@ enum SessionStageTaskbarPolicy {
                     id: "pin:\(pin.lowercased())",
                     title: program.presentationName,
                     program: program,
+                    iconExecutablePath: program.executablePath,
                     windows: [],
                     isPinned: true,
                     isRunning: false,
@@ -199,6 +253,7 @@ enum SessionStageTaskbarPolicy {
         let identity: String
         let pinKey: String?
         let program: InstalledProgram?
+        let iconExecutablePath: String?
         let title: String
         let windows: [WineWindowSnapshot]
         let isActive: Bool
@@ -208,6 +263,7 @@ enum SessionStageTaskbarPolicy {
                 id: stableID,
                 title: title,
                 program: program,
+                iconExecutablePath: iconExecutablePath,
                 windows: windows,
                 isPinned: isPinned,
                 isRunning: true,
@@ -250,66 +306,12 @@ enum SessionStageTaskbarPolicy {
         executablePath: String,
         prefixPath: String
     ) -> String? {
-        let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
-            hostPath: executablePath,
+        SessionStageExecutablePathResolver.normalizedWindowsPath(
+            executablePath: executablePath,
             prefixPath: prefixPath
-        ) ?? executablePath
-        return WineProtocolAssociationFormat.normalizedWindowsExecutablePath(
-            windowsPath.trimmingCharacters(
-                in: CharacterSet(charactersIn: "\"'")
-            )
         )
     }
 
-    private static func syntheticProgram(
-        windowsPath: String,
-        prefixPath: String
-    ) -> InstalledProgram? {
-        guard let normalizedPath = WineProtocolAssociationFormat
-            .normalizedWindowsExecutablePath(windowsPath),
-            normalizedPath.prefix(3).lowercased() == "c:\\"
-        else {
-            return nil
-        }
-
-        let prefixURL = URL(
-            fileURLWithPath: prefixPath,
-            isDirectory: true
-        ).standardizedFileURL
-        let driveURL = prefixURL
-            .appendingPathComponent("drive_c", isDirectory: true)
-            .standardizedFileURL
-        let components = normalizedPath
-            .dropFirst(3)
-            .split(separator: "\\")
-            .map(String.init)
-        let executableURL = components.reduce(driveURL) { url, component in
-            url.appendingPathComponent(component, isDirectory: false)
-        }.standardizedFileURL
-
-        let resolvedDriveURL = driveURL.resolvingSymlinksInPath()
-        let resolvedExecutableURL = executableURL
-            .deletingLastPathComponent()
-            .resolvingSymlinksInPath()
-            .appendingPathComponent(executableURL.lastPathComponent)
-            .standardizedFileURL
-        guard resolvedExecutableURL.path.hasPrefix(
-            resolvedDriveURL.path + "/"
-        ) else {
-            return nil
-        }
-
-        let executableName = executableURL.deletingPathExtension()
-            .lastPathComponent
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !executableName.isEmpty else { return nil }
-        return InstalledProgram(
-            name: executableName,
-            executablePath: executableURL.path,
-            installDirectory: executableURL.deletingLastPathComponent().path,
-            source: .programFiles
-        )
-    }
 }
 
 struct ContainerSessionStageView: View {
@@ -609,6 +611,10 @@ struct ContainerSessionStageView: View {
                             SessionStageWindowCard(
                                 window: window,
                                 program: program,
+                                iconExecutablePath: iconExecutablePath(
+                                    for: window,
+                                    program: program
+                                ),
                                 presentation: windowPresentation(
                                     for: window,
                                     program: program,
@@ -691,16 +697,25 @@ struct ContainerSessionStageView: View {
             wineServerState: sessionState,
             windows: stageModel.windows,
             processes: visibleProcesses,
+            prefixPath: liveContainer.path,
             resources: stageModel.resourceSnapshot,
             notice: closeNotice ?? sessionSnapshot.message,
+            isStartingSession: containerIsLaunching,
             isStoppingSession: store.isStoppingWineServer(in: container.id),
             onRefresh: refreshSession,
             onOpenActivity: {
                 inspectorPopoverPresented = false
                 onOpenDestination(.activity)
             },
+            onRunSession: {
+                store.runContainer(container.id)
+            },
             onEndSession: {
                 endSessionConfirmationPresented = true
+            },
+            onStopProcess: { process in
+                _ = await store.stopWindowsProcess(process, in: container.id)
+                await stageModel.refresh(containerID: container.id, store: store)
             }
         )
     }
@@ -1022,6 +1037,22 @@ struct ContainerSessionStageView: View {
             programs: programs,
             prefixPath: liveContainer.path
         )
+    }
+
+    private func iconExecutablePath(
+        for window: WineWindowSnapshot,
+        program: InstalledProgram?
+    ) -> String? {
+        if let executablePath = window.executablePath {
+            if let hostPath = SessionStageExecutablePathResolver
+                .hostExecutablePath(
+                    executablePath: executablePath,
+                    prefixPath: liveContainer.path
+                ) {
+                return hostPath
+            }
+        }
+        return program?.executablePath
     }
 
     private func windowPresentation(

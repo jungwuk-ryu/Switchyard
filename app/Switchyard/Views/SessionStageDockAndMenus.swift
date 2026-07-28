@@ -6,6 +6,7 @@ struct SessionStageTaskbarItem: Identifiable {
     let id: String
     let title: String
     let program: InstalledProgram?
+    let iconExecutablePath: String?
     let windows: [WineWindowSnapshot]
     let isPinned: Bool
     let isRunning: Bool
@@ -216,6 +217,7 @@ private struct SessionStageTaskbarProgramItem: View {
             VStack(spacing: 4) {
                 SessionStageApplicationIconView(
                     program: item.program,
+                    executablePath: item.iconExecutablePath,
                     applicationIconData: item.applicationIconData,
                     size: 38
                 )

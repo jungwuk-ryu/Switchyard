@@ -216,6 +216,7 @@ struct SessionStageWindowGrid<Content: View>: View {
 struct SessionStageWindowCard: View {
     let window: WineWindowSnapshot?
     let program: InstalledProgram?
+    let iconExecutablePath: String?
     let presentation: SessionStageWindowPresentation
     let isRunning: Bool
     let isSelected: Bool
@@ -442,6 +443,7 @@ struct SessionStageWindowCard: View {
     private func programIcon(size: CGFloat) -> some View {
         SessionStageApplicationIconView(
             program: program,
+            executablePath: iconExecutablePath,
             applicationIconData: window?.applicationIconData,
             size: size
         )

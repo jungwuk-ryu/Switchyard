@@ -52,7 +52,7 @@ import Testing
     #expect(configuration.ignoreGlobalClipSingleWindow)
 }
 
-@Test func runningTaskbarItemUsesCapturedDockIconForSyntheticPrograms() {
+@Test func runningTaskbarItemPrefersItsWindowsExecutableForIcons() {
     let iconData = Data([0x53, 0x59])
     let snapshot = WineWindowSnapshot(
         id: 41,
@@ -76,7 +76,68 @@ import Testing
 
     #expect(items.count == 1)
     #expect(items[0].program?.presentationName == "Heartopia")
+    #expect(
+        items[0].iconExecutablePath
+            == "/prefix/drive_c/Games/Heartopia/Heartopia.exe"
+    )
     #expect(items[0].applicationIconData == iconData)
+}
+
+@Test func taskbarDoesNotRemapGuestExecutableThroughTheZDrive() throws {
+    let prefixURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent(
+            "SwitchyardTaskbar-\(UUID().uuidString)",
+            isDirectory: true
+        )
+    defer { try? FileManager.default.removeItem(at: prefixURL) }
+    let driveCURL = prefixURL.appendingPathComponent("drive_c", isDirectory: true)
+    let dosDevicesURL = prefixURL.appendingPathComponent(
+        "dosdevices",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: driveCURL,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: dosDevicesURL,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createSymbolicLink(
+        at: dosDevicesURL.appendingPathComponent("z:"),
+        withDestinationURL: URL(fileURLWithPath: "/", isDirectory: true)
+    )
+    let guestPath =
+        #"C:\Program Files\Rockstar Games\Social Club\SocialClubHelper.exe"#
+    let snapshot = WineWindowSnapshot(
+        id: 42,
+        ownerProcessID: 405,
+        title: "Rockstar Games Launcher",
+        executablePath: guestPath,
+        frame: CGRect(x: 10, y: 10, width: 1_280, height: 752),
+        isOnScreen: true,
+        image: nil
+    )
+
+    let item = try #require(
+        SessionStageTaskbarPolicy.makeItems(
+            windows: [snapshot],
+            programs: [],
+            pinnedWindowsPaths: [],
+            prefixPath: prefixURL.path,
+            selectedWindowID: snapshot.id,
+            fallbackName: "Rockstar"
+        ).first
+    )
+
+    #expect(
+        item.iconExecutablePath
+            == driveCURL
+                .appendingPathComponent(
+                    "Program Files/Rockstar Games/Social Club/SocialClubHelper.exe"
+                )
+                .path
+    )
 }
 
 @Test func taskbarIconFallsThroughWindowsUntilCapturedIconIsAvailable() {
@@ -106,6 +167,7 @@ import Testing
         id: "running",
         title: "Game",
         program: nil,
+        iconExecutablePath: nil,
         windows: windows,
         isPinned: false,
         isRunning: true,
