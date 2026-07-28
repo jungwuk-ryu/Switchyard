@@ -194,12 +194,18 @@ private struct SwitchyardWineSourcePolicy {
 enum RuntimeInstallationState: Equatable {
     case idle
     case working
+    case cancelling
+    case cancelled
     case ready(String)
     case failed(String)
 
     var isWorking: Bool {
-        if case .working = self { return true }
-        return false
+        switch self {
+        case .working, .cancelling:
+            true
+        case .idle, .cancelled, .ready, .failed:
+            false
+        }
     }
 
     var message: String? {
@@ -208,6 +214,16 @@ enum RuntimeInstallationState: Equatable {
         case .working:
             String(
                 localized: "Downloading, validating, and installing the signed runtime…",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .cancelling:
+            String(
+                localized: "Cancelling download…",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .cancelled:
+            String(
+                localized: "Download cancelled",
                 bundle: SwitchyardStrings.bundle
             )
         case .ready(let message), .failed(let message): message
@@ -390,6 +406,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var lastOnlineReleaseCheckDate: Date?
     @Published private(set) var onlineReleaseError: String?
     @Published private(set) var runtimeInstallationState: RuntimeInstallationState = .idle
+    @Published private(set) var runtimeInstallationProgress: PublishedRuntimeInstallProgress?
     @Published private(set) var officialRuntimeReleases: [OfficialRuntimeRelease] = []
     @Published private(set) var installedManagedRuntimes: [ManagedRuntimeInstallation] = []
     @Published private(set) var isRefreshingOfficialRuntimeReleases = false
@@ -449,6 +466,8 @@ final class AppStore: ObservableObject {
     private var onlineReleaseRefreshID: UUID?
     private var officialRuntimeCatalogTask: Task<Void, Never>?
     private var officialRuntimeCatalogRefreshID: UUID?
+    private var runtimeInstallationTask: Task<Void, Never>?
+    private var runtimeInstallationTaskID: UUID?
     private var gptkImportTask: Task<Void, Never>?
     private var gptkComponentTask: Task<Void, Never>?
     private var gptkComponentTaskID: UUID?
@@ -812,10 +831,32 @@ final class AppStore: ObservableObject {
             return
         }
 
+        let taskID = UUID()
+        runtimeInstallationTaskID = taskID
+        runtimeInstallationProgress = .preparing
         runtimeInstallationState = .working
-        Task {
+        let progressHandler: @Sendable (PublishedRuntimeInstallProgress) async -> Void = {
+            [weak self] progress in
+            await self?.applyRuntimeInstallationProgress(
+                progress,
+                taskID: taskID
+            )
+        }
+        runtimeInstallationTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if runtimeInstallationTaskID == taskID {
+                    runtimeInstallationTask = nil
+                    runtimeInstallationTaskID = nil
+                }
+            }
             do {
-                let result = try await PublishedRuntimeInstaller().install(policy: policy)
+                let result = try await PublishedRuntimeInstaller().install(
+                    policy: policy,
+                    progress: progressHandler
+                )
+                try Task.checkCancellation()
+                guard runtimeInstallationTaskID == taskID else { return }
                 activateRuntime(
                     at: result.winePath,
                     sourceRevision: result.sourceRevision
@@ -834,6 +875,7 @@ final class AppStore: ObservableObject {
                     localized: "Installed compatible runtime \(runtimeName).",
                     bundle: SwitchyardStrings.bundle
                 )
+                runtimeInstallationProgress = nil
                 runtimeInstallationState = .ready(message)
                 logLines.insert(
                     LogLine(
@@ -847,15 +889,65 @@ final class AppStore: ObservableObject {
                     at: 0
                 )
                 refreshRuntimeStatus()
+            } catch is CancellationError {
+                finishRuntimeInstallationCancellation(taskID: taskID)
+            } catch let error as URLError where error.code == .cancelled {
+                finishRuntimeInstallationCancellation(taskID: taskID)
             } catch {
+                guard runtimeInstallationTaskID == taskID else { return }
                 let message = String(
                     localized: "Could not install the compatible runtime: \(error.localizedDescription)",
                     bundle: SwitchyardStrings.bundle
                 )
+                runtimeInstallationProgress = nil
                 runtimeInstallationState = .failed(message)
                 logLines.insert(LogLine(level: "warning", source: "runtime", message: message), at: 0)
             }
         }
+    }
+
+    func cancelCompatibleWineRuntimeInstallation() {
+        guard runtimeInstallationState == .working,
+              runtimeInstallationProgress?.isDownloading == true else {
+            return
+        }
+        runtimeInstallationState = .cancelling
+        runtimeInstallationProgress = nil
+        runtimeInstallationTask?.cancel()
+    }
+
+    private func applyRuntimeInstallationProgress(
+        _ progress: PublishedRuntimeInstallProgress,
+        taskID: UUID
+    ) {
+        guard runtimeInstallationTaskID == taskID,
+              runtimeInstallationState == .working else {
+            return
+        }
+        if progress.isDownloading,
+           let currentProgress = runtimeInstallationProgress,
+           currentProgress != .preparing,
+           !currentProgress.isDownloading {
+            return
+        }
+        runtimeInstallationProgress = progress
+    }
+
+    private func finishRuntimeInstallationCancellation(taskID: UUID) {
+        guard runtimeInstallationTaskID == taskID else { return }
+        runtimeInstallationProgress = nil
+        runtimeInstallationState = .cancelled
+        logLines.insert(
+            LogLine(
+                level: "info",
+                source: "runtime",
+                message: String(
+                    localized: "Download cancelled",
+                    bundle: SwitchyardStrings.bundle
+                )
+            ),
+            at: 0
+        )
     }
 
     func installOfficialRuntime(_ release: OfficialRuntimeRelease) {

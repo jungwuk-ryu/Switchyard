@@ -83,6 +83,22 @@ public struct PublishedRuntimeInstallResult: Sendable, Equatable {
     }
 }
 
+public enum PublishedRuntimeInstallProgress: Sendable, Equatable {
+    case preparing
+    case downloading(receivedByteCount: UInt64, totalByteCount: UInt64)
+    case verifyingArchive
+    case extractingArchive
+    case validatingRuntime
+    case installing
+
+    public var isDownloading: Bool {
+        if case .downloading = self {
+            return true
+        }
+        return false
+    }
+}
+
 public struct PublishedRuntimeInstaller: @unchecked Sendable {
     private static let maximumManifestSize = 64 * 1024
     private static let maximumArchiveSize: UInt64 = 4 * 1024 * 1024 * 1024
@@ -90,7 +106,8 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
 
     private let fileManager: FileManager
     private let runtimeCacheRoot: URL
-    private let session: URLSession
+    private let manifestLoader: PublishedRuntimeManifestLoader
+    private let archiveLoader: PublishedRuntimeArchiveLoader
 
     public init(
         fileManager: FileManager = .default,
@@ -102,7 +119,41 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
             ?? fileManager.homeDirectoryForCurrentUser
                 .appendingPathComponent(".switchyard", isDirectory: true)
                 .appendingPathComponent("runtimes", isDirectory: true)
-        self.session = session
+        manifestLoader = { url in
+            try await session.data(from: url)
+        }
+        let configuration = session.configuration
+        archiveLoader = { url, expectedByteCount, progress in
+            let relay = PublishedRuntimeDownloadProgressRelay(handler: progress)
+            let downloader = PublishedRuntimeArchiveDownloader(
+                configuration: configuration,
+                expectedByteCount: expectedByteCount
+            ) { receivedByteCount in
+                Task {
+                    await relay.report(receivedByteCount)
+                }
+            }
+            do {
+                let result = try await downloader.download(from: url)
+                await relay.finish()
+                return result
+            } catch {
+                await relay.finish()
+                throw error
+            }
+        }
+    }
+
+    init(
+        fileManager: FileManager,
+        runtimeCacheRoot: URL,
+        manifestLoader: @escaping PublishedRuntimeManifestLoader,
+        archiveLoader: @escaping PublishedRuntimeArchiveLoader
+    ) {
+        self.fileManager = fileManager
+        self.runtimeCacheRoot = runtimeCacheRoot
+        self.manifestLoader = manifestLoader
+        self.archiveLoader = archiveLoader
     }
 
     static func managedInstallationID(
@@ -162,14 +213,22 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
         }
     }
 
-    public func install(policy: PublishedRuntimePolicy) async throws -> PublishedRuntimeInstallResult {
+    public func install(
+        policy: PublishedRuntimePolicy,
+        progress: @escaping @Sendable (PublishedRuntimeInstallProgress) async -> Void = { _ in }
+    ) async throws -> PublishedRuntimeInstallResult {
+        await progress(.preparing)
+        try Task.checkCancellation()
         try fileManager.createDirectory(at: runtimeCacheRoot, withIntermediateDirectories: true)
         let lockURL = runtimeCacheRoot.appendingPathComponent(".published-runtime-install.lock", isDirectory: false)
         let lockDescriptor = try acquireInstallLock(at: lockURL)
         defer { releaseInstallLock(lockDescriptor) }
         try removeAbandonedStagingDirectories()
 
-        let (manifestData, manifestResponse) = try await session.data(from: policy.releaseManifestURL)
+        let (manifestData, manifestResponse) = try await manifestLoader(
+            policy.releaseManifestURL
+        )
+        try Task.checkCancellation()
         try validateHTTPResponse(manifestResponse)
         guard manifestData.count <= Self.maximumManifestSize else {
             throw PublishedRuntimeInstallerError.manifestTooLarge
@@ -186,8 +245,33 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
         let archiveURL = policy.releaseManifestURL
             .deletingLastPathComponent()
             .appendingPathComponent(release.archive, isDirectory: false)
-        let (downloadedArchive, archiveResponse) = try await session.download(from: archiveURL)
-        try validateHTTPResponse(archiveResponse)
+        await progress(
+            .downloading(
+                receivedByteCount: 0,
+                totalByteCount: release.archiveSize
+            )
+        )
+        let archiveDownload = try await archiveLoader(
+            archiveURL,
+            release.archiveSize
+        ) { receivedByteCount in
+            await progress(
+                .downloading(
+                    receivedByteCount: min(
+                        receivedByteCount,
+                        release.archiveSize
+                    ),
+                    totalByteCount: release.archiveSize
+                )
+            )
+        }
+
+        let downloadedArchive = archiveDownload.fileURL
+        defer { try? fileManager.removeItem(at: downloadedArchive) }
+        try Task.checkCancellation()
+        await progress(.verifyingArchive)
+
+        try validateHTTPResponse(archiveDownload.response)
 
         let downloadedSize = try fileSize(at: downloadedArchive)
         guard downloadedSize == release.archiveSize else {
@@ -196,17 +280,23 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
         guard try sha256(of: downloadedArchive) == release.archiveSha256 else {
             throw PublishedRuntimeInstallerError.archiveDigestMismatch
         }
+        try Task.checkCancellation()
 
         let stagingRoot = runtimeCacheRoot.appendingPathComponent(".install-\(UUID().uuidString)", isDirectory: true)
         try fileManager.createDirectory(at: stagingRoot, withIntermediateDirectories: false)
         defer { try? fileManager.removeItem(at: stagingRoot) }
 
+        await progress(.extractingArchive)
         let expectedRootName = String(release.archive.dropLast(".zip".count))
         try validateArchiveEntries(downloadedArchive, expectedRootName: expectedRootName)
         try extractArchive(downloadedArchive, to: stagingRoot)
+        try Task.checkCancellation()
         let extractedRuntime = try locateRuntimeRoot(under: stagingRoot)
+        await progress(.validatingRuntime)
         try validateExtractedRuntime(extractedRuntime, release: release, policy: policy)
+        try Task.checkCancellation()
 
+        await progress(.installing)
         let destinationName = Self.managedInstallationID(
             runtimeID: release.runtimeID,
             archiveSha256: release.archiveSha256

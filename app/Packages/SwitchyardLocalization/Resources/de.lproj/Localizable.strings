@@ -1578,5 +1578,11 @@
 	<string>wineserver konnte nicht gestoppt werden (Exitcode %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo ist fehlgeschlagen</string>
+	<key>Cancelling download…</key>
+	<string>Download wird abgebrochen…</string>
+	<key>Download cancelled</key>
+	<string>Download abgebrochen</string>
+	<key>Verifying and installing Windows support…</key>
+	<string>Windows-Unterstützung wird überprüft und installiert…</string>
 </dict>
 </plist>

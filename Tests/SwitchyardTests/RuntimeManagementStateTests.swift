@@ -39,3 +39,9 @@ import Testing
         )
     )
 }
+
+@Test func runtimeInstallationStaysBusyWhileCancelling() {
+    #expect(RuntimeInstallationState.working.isWorking)
+    #expect(RuntimeInstallationState.cancelling.isWorking)
+    #expect(!RuntimeInstallationState.cancelled.isWorking)
+}

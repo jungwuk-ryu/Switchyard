@@ -1578,5 +1578,11 @@
 	<string>No se pudo detener wineserver (código de salida %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo falló</string>
+	<key>Cancelling download…</key>
+	<string>Cancelando descarga…</string>
+	<key>Download cancelled</key>
+	<string>Descarga cancelada</string>
+	<key>Verifying and installing Windows support…</key>
+	<string>Verificando e instalando la compatibilidad con Windows…</string>
 </dict>
 </plist>

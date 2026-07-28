@@ -1578,5 +1578,11 @@
 	<string>wineserver 無法停止（退出代碼 %1$d）：%2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo 失敗</string>
+	<key>Cancelling download…</key>
+	<string>正在取消下載…</string>
+	<key>Download cancelled</key>
+	<string>下載已取消</string>
+	<key>Verifying and installing Windows support…</key>
+	<string>正在驗證並安裝 Windows 支援…</string>
 </dict>
 </plist>

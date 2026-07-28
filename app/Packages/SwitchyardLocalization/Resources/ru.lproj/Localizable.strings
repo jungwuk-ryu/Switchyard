@@ -1578,5 +1578,11 @@
 	<string>wineserver не удалось остановить (код выхода %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo не удалось</string>
+	<key>Cancelling download…</key>
+	<string>Отмена загрузки…</string>
+	<key>Download cancelled</key>
+	<string>Загрузка отменена</string>
+	<key>Verifying and installing Windows support…</key>
+	<string>Проверка и установка поддержки Windows…</string>
 </dict>
 </plist>

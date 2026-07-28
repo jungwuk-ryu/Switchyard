@@ -1578,5 +1578,11 @@
 	<string>wineserver를 중지할 수 없습니다(종료 코드 %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo 실패</string>
+	<key>Cancelling download…</key>
+	<string>다운로드 취소 중…</string>
+	<key>Download cancelled</key>
+	<string>다운로드 취소됨</string>
+	<key>Verifying and installing Windows support…</key>
+	<string>Windows 지원 확인 및 설치 중…</string>
 </dict>
 </plist>

@@ -1578,5 +1578,11 @@
 	<string>Não foi possível parar o wineserver (código de saída %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo falhou</string>
+	<key>Cancelling download…</key>
+	<string>Cancelando o download…</string>
+	<key>Download cancelled</key>
+	<string>Download cancelado</string>
+	<key>Verifying and installing Windows support…</key>
+	<string>Verificando e instalando o suporte ao Windows…</string>
 </dict>
 </plist>

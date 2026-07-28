@@ -264,7 +264,28 @@ struct SetupAssistantView: View {
                 status: store.runtimeStatus.wine == .ok && store.runtimeStatus.wineSource == .ok
                     ? .ok
                     : (runtimeFailed ? .warning : .unknown),
-                showsProgress: store.runtimeInstallationState.isWorking
+                showsProgress: store.runtimeInstallationState.isWorking,
+                progressValue: runtimeDownloadProgress.map {
+                    Double($0.receivedByteCount)
+                },
+                progressTotal: runtimeDownloadProgress.map {
+                    Double($0.totalByteCount)
+                },
+                progressAccessibilityValue: runtimeDownloadProgress == nil
+                    ? nil
+                    : runtimeStatusDetail,
+                actionTitle: runtimeDownloadProgress == nil
+                    ? nil
+                    : String(
+                        localized: "Cancel Download",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                actionAccessibilityIdentifier: "setup.runtime.cancel",
+                action: runtimeDownloadProgress == nil
+                    ? nil
+                    : {
+                        store.cancelCompatibleWineRuntimeInstallation()
+                    }
             )
             .accessibilityIdentifier("setup.runtime.progress")
 
@@ -286,11 +307,15 @@ struct SetupAssistantView: View {
                     ),
                     message: message
                 )
+            }
+
+            if runtimeCanRetry {
                 Button("Try Again") {
                     store.installCompatibleWineRuntime()
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!store.canChangeCompatibilityConfiguration)
+                .accessibilityIdentifier("setup.runtime.retry")
             }
 
         }
@@ -691,6 +716,15 @@ struct SetupAssistantView: View {
         return false
     }
 
+    private var runtimeCanRetry: Bool {
+        switch store.runtimeInstallationState {
+        case .cancelled, .failed:
+            true
+        case .idle, .working, .cancelling, .ready:
+            false
+        }
+    }
+
     private var steamWorkingTitle: String {
         if store.steamInstallationState == .preparing {
             return String(
@@ -715,8 +749,15 @@ struct SetupAssistantView: View {
         case .idle:
             String(localized: "Starting automatically…", bundle: SwitchyardStrings.bundle)
         case .working:
+            runtimeWorkingStatusDetail
+        case .cancelling:
             String(
-                localized: "Downloading and verifying about 700 MB…",
+                localized: "Cancelling download…",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .cancelled:
+            String(
+                localized: "Download cancelled",
                 bundle: SwitchyardStrings.bundle
             )
         case .ready:
@@ -724,6 +765,50 @@ struct SetupAssistantView: View {
         case .failed:
             String(localized: "Needs another try", bundle: SwitchyardStrings.bundle)
         }
+    }
+
+    private var runtimeWorkingStatusDetail: String {
+        switch store.runtimeInstallationProgress {
+        case .downloading(let receivedByteCount, let totalByteCount):
+            let received = ByteCountFormatter.string(
+                fromByteCount: Int64(receivedByteCount),
+                countStyle: .file
+            )
+            let total = ByteCountFormatter.string(
+                fromByteCount: Int64(totalByteCount),
+                countStyle: .file
+            )
+            let fraction = totalByteCount > 0
+                ? Double(receivedByteCount) / Double(totalByteCount)
+                : 0
+            let percentage = fraction.formatted(
+                .percent.precision(.fractionLength(0))
+            )
+            return "\(received) / \(total) · \(percentage)"
+        case .verifyingArchive, .extractingArchive, .validatingRuntime, .installing:
+            return String(
+                localized: "Verifying and installing Windows support…",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .preparing, nil:
+            return String(
+                localized: "Downloading and verifying about 700 MB…",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+    }
+
+    private var runtimeDownloadProgress: (
+        receivedByteCount: UInt64,
+        totalByteCount: UInt64
+    )? {
+        guard case .downloading(
+            let receivedByteCount,
+            let totalByteCount
+        ) = store.runtimeInstallationProgress else {
+            return nil
+        }
+        return (receivedByteCount, totalByteCount)
     }
 
     private var fontStatus: HealthStatus {
@@ -902,29 +987,58 @@ private struct SetupStatusLine: View {
     let detail: String
     let status: HealthStatus
     var showsProgress = false
+    var progressValue: Double? = nil
+    var progressTotal: Double? = nil
+    var progressAccessibilityValue: String? = nil
+    var actionTitle: String? = nil
+    var actionAccessibilityIdentifier: String? = nil
+    var action: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
-            Group {
-                if showsProgress {
-                    ProgressView()
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Group {
+                    if showsProgress {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: status.symbolName)
+                            .foregroundStyle(status.tint)
+                    }
+                }
+                .frame(width: 22)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .fontWeight(.medium)
+                    Text(detail)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .buttonStyle(.bordered)
                         .controlSize(.small)
-                } else {
-                    Image(systemName: status.symbolName)
-                        .foregroundStyle(status.tint)
+                        .accessibilityIdentifier(
+                            actionAccessibilityIdentifier ?? ""
+                        )
                 }
             }
-            .frame(width: 22)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .fontWeight(.medium)
-                Text(detail)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+            if let progressValue,
+               let progressTotal,
+               progressTotal > 0 {
+                ProgressView(
+                    value: min(progressValue, progressTotal),
+                    total: progressTotal
+                )
+                .padding(.leading, 34)
+                .accessibilityLabel(title)
+                .accessibilityValue(progressAccessibilityValue ?? detail)
             }
-
-            Spacer()
         }
         .padding(12)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))

@@ -1578,5 +1578,11 @@
 	<string>wineserver n'a pas pu être arrêté (code de sortie %1$d) : %2$@</string>
 	<key>zipinfo failed</key>
 	<string>Échec de zipinfo</string>
+	<key>Cancelling download…</key>
+	<string>Annulation du téléchargement…</string>
+	<key>Download cancelled</key>
+	<string>Téléchargement annulé</string>
+	<key>Verifying and installing Windows support…</key>
+	<string>Vérification et installation de la prise en charge de Windows…</string>
 </dict>
 </plist>
