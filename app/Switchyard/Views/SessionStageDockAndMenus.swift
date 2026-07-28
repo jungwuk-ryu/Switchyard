@@ -18,6 +18,7 @@ struct SessionStageDock<TaskViewContent: View>: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var powerIsHovering = false
+    @State private var summaryIsHovering = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -79,31 +80,52 @@ struct SessionStageDock<TaskViewContent: View>: View {
                 )
             }
             .buttonStyle(.plain)
-            .popover(
-                isPresented: $taskViewPresented,
-                attachmentAnchor: .rect(.bounds),
-                arrowEdge: .bottom
-            ) {
-                taskViewContent()
-            }
             .accessibilityIdentifier("sessionStage.taskView")
 
             Spacer(minLength: 8)
 
             HStack(spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(sessionSummary)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white.opacity(sessionIsActive ? 0.82 : 0.48))
-                        .lineLimit(1)
+                Button {
+                    startMenuPresented = false
+                    taskViewPresented.toggle()
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(sessionSummary)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(.white.opacity(sessionIsActive ? 0.88 : 0.48))
+                            .lineLimit(1)
 
-                    if sessionIsActive {
                         Image(systemName: "chevron.up")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.58))
+                            .foregroundStyle(.white.opacity(sessionIsActive ? 0.72 : 0.34))
+                            .rotationEffect(.degrees(taskViewPresented ? 180 : 0))
+                            .animation(
+                                reduceMotion ? nil : .snappy(duration: 0.18),
+                                value: taskViewPresented
+                            )
                     }
+                    .padding(.horizontal, 12)
+                    .frame(height: 40)
+                    .background(
+                        Color.white.opacity(
+                            taskViewPresented ? 0.12 : (summaryIsHovering ? 0.075 : 0)
+                        ),
+                        in: Capsule()
+                    )
+                    .contentShape(Capsule())
                 }
-                .padding(.leading, 16)
+                .buttonStyle(.plain)
+                .disabled(!sessionIsActive)
+                .onHover { summaryIsHovering = $0 }
+                .help("Task View")
+                .popover(
+                    isPresented: $taskViewPresented,
+                    attachmentAnchor: .rect(.bounds),
+                    arrowEdge: .bottom
+                ) {
+                    taskViewContent()
+                }
+                .accessibilityIdentifier("sessionStage.sessionSummary")
 
                 Button(action: onEndSession) {
                     Group {
@@ -209,27 +231,58 @@ private struct SessionStageProgramDockItem: View {
     @State private var isHovering = false
 
     var body: some View {
-        VStack(spacing: 7) {
-            WindowsProgramIconView(
-                program: program,
-                size: isHovering && !reduceMotion ? 54 : 49
-            )
-                .animation(
-                    reduceMotion ? nil : .snappy(duration: 0.18),
-                    value: isHovering
+        VStack(spacing: 5) {
+            ZStack(alignment: .topTrailing) {
+                WindowsProgramIconView(
+                    program: program,
+                    size: isHovering && !reduceMotion ? 52 : 48
                 )
-                .frame(width: 58, height: 58, alignment: .bottom)
+                    .animation(
+                        reduceMotion ? nil : .snappy(duration: 0.18),
+                        value: isHovering
+                    )
+                    .padding(2)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .strokeBorder(
+                                isRunning ? Color.green.opacity(0.92) : Color.clear,
+                                lineWidth: 2
+                            )
+                            .shadow(
+                                color: isRunning ? Color.green.opacity(0.34) : .clear,
+                                radius: 5
+                            )
+                    }
+
+                if isRunning {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 11, height: 11)
+                        .overlay {
+                            Circle().strokeBorder(Color.black.opacity(0.78), lineWidth: 2)
+                        }
+                        .offset(x: 2, y: -2)
+                }
+            }
+            .frame(width: 58, height: 56, alignment: .bottom)
 
             Text(program.presentationName)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.88))
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
-                .frame(width: 82, height: 28, alignment: .top)
+                .frame(width: 82, height: 27, alignment: .top)
 
-            Circle()
-                .fill(isRunning ? Color.green : Color.clear)
-                .frame(width: 6, height: 6)
+            if isRunning {
+                Text("Running")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.green)
+                    .lineLimit(1)
+                    .frame(height: 11)
+            } else {
+                Color.clear
+                    .frame(height: 11)
+            }
         }
         .frame(width: 88, height: 100)
         .background(
@@ -238,6 +291,15 @@ private struct SessionStageProgramDockItem: View {
         )
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onHover { isHovering = $0 }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(program.presentationName))
+        .accessibilityValue(
+            Text(
+                isRunning
+                    ? String(localized: "Running", bundle: SwitchyardStrings.bundle)
+                    : String(localized: "Ready", bundle: SwitchyardStrings.bundle)
+            )
+        )
     }
 }
 
@@ -529,36 +591,71 @@ struct SessionStageTaskView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Task View")
-                .font(.headline)
-                .padding(14)
+            HStack(spacing: 10) {
+                Image(systemName: "square.on.square")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.blue)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Task View")
+                        .font(.headline)
+                    Text(windowSummary)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(14)
 
             Divider()
 
             ScrollView {
-                LazyVStack(spacing: 5) {
-                    ForEach(windows) { window in
+                LazyVStack(alignment: .leading, spacing: 5) {
+                    ForEach(Array(windows.enumerated()), id: \.element.id) { index, window in
                         Button {
                             onSelectWindow(window)
                         } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: "macwindow")
+                                Text("\(index + 1)")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
                                     .foregroundStyle(
-                                        window.id == selectedWindowID ? Color.blue : Color.secondary
+                                        window.id == selectedWindowID ? Color.white : Color.secondary
                                     )
-                                Text(window.title)
-                                    .lineLimit(1)
+                                    .frame(width: 24, height: 24)
+                                    .background(
+                                        window.id == selectedWindowID
+                                            ? Color.blue
+                                            : Color.white.opacity(0.07),
+                                        in: Circle()
+                                    )
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(windowTitle(window))
+                                        .font(.system(size: 12, weight: .medium))
+                                        .lineLimit(1)
+                                    Text(
+                                        "\(Int(window.frame.width)) × \(Int(window.frame.height))"
+                                    )
+                                    .font(.system(size: 9, design: .rounded))
+                                    .foregroundStyle(.tertiary)
+                                }
+
                                 Spacer()
+
                                 if window.id == selectedWindowID {
-                                    Image(systemName: "checkmark")
+                                    Label("Selected", systemImage: "checkmark")
+                                        .font(.system(size: 9, weight: .semibold))
                                         .foregroundStyle(.blue)
                                 }
                             }
                             .padding(.horizontal, 10)
-                            .frame(height: 38)
+                            .frame(height: 46)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(SessionStageMenuRowStyle())
+                        .accessibilityLabel("\(windowTitle(window)), \(index + 1)")
+                        .accessibilityValue(
+                            window.id == selectedWindowID ? Text("Selected") : Text("")
+                        )
                     }
 
                     if windows.isEmpty {
@@ -569,8 +666,13 @@ struct SessionStageTaskView: View {
                     }
 
                     if !processes.isEmpty {
-                        Divider().padding(.vertical, 5)
-                        ForEach(processes.prefix(8)) { process in
+                        Divider()
+                            .padding(.vertical, 5)
+                        taskSectionTitle(
+                            String(localized: "Processes", bundle: SwitchyardStrings.bundle)
+                        )
+
+                        ForEach(processes.prefix(12)) { process in
                             HStack {
                                 Image(systemName: process.isSystemProcess ? "gearshape.2" : "app")
                                     .foregroundStyle(.secondary)
@@ -588,7 +690,7 @@ struct SessionStageTaskView: View {
                 }
                 .padding(8)
             }
-            .frame(maxHeight: 330)
+            .frame(maxHeight: 390)
 
             Divider()
 
@@ -599,8 +701,38 @@ struct SessionStageTaskView: View {
             }
             .buttonStyle(.plain)
         }
-        .frame(width: 330)
+        .frame(width: 370)
         .background(.ultraThinMaterial)
         .preferredColorScheme(.dark)
+    }
+
+    private var windowSummary: String {
+        if windows.count == 1 {
+            return String(
+                localized: "\(windows.count) window running",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return String(
+            localized: "\(windows.count) windows running",
+            bundle: SwitchyardStrings.bundle
+        )
+    }
+
+    private func taskSectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .textCase(.uppercase)
+            .padding(.horizontal, 8)
+            .padding(.top, 5)
+            .padding(.bottom, 2)
+    }
+
+    private func windowTitle(_ window: WineWindowSnapshot) -> String {
+        let title = window.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty
+            ? String(localized: "Windows Session", bundle: SwitchyardStrings.bundle)
+            : title
     }
 }

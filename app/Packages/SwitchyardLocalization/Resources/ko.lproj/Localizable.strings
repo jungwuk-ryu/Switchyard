@@ -108,6 +108,8 @@
 	<string>모든 앱</string>
 	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
 	<string>%1$@의 모든 Windows 앱이 종료됩니다. 저장하지 않은 작업은 손실될 수 있습니다.</string>
+	<key>Allow Screen Recording to show live Windows app previews.</key>
+	<string>Windows 앱의 실시간 미리보기를 보려면 화면 기록을 허용하세요.</string>
 	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
 	<string>약 5~15분 정도의 여유 공간과 약 1GB의 여유 공간을 확보하세요. 다운로드 시간은 연결 상태에 따라 다릅니다.</string>
 	<key>Another runtime installation is already in progress.</key>
@@ -672,6 +674,8 @@
 	<string>누락</string>
 	<key>Modified</key>
 	<string>수정됨</string>
+	<key>More</key>
+	<string>더 보기</string>
 	<key>More Container Actions</key>
 	<string>추가 컨테이너 작업</string>
 	<key>Move Container to Trash</key>

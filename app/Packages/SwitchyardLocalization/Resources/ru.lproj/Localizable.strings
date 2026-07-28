@@ -108,6 +108,8 @@
 	<string>Все приложения</string>
 	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
 	<string>Все приложения Windows в %1$@ закроются. Несохраненная работа может быть потеряна.</string>
+	<key>Allow Screen Recording to show live Windows app previews.</key>
+	<string>Разрешите запись экрана, чтобы видеть окна приложений Windows в реальном времени.</string>
 	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
 	<string>Выделите около 5–15 минут и примерно 1 ГБ свободного места. Время загрузки зависит от вашего соединения.</string>
 	<key>Another runtime installation is already in progress.</key>
@@ -672,6 +674,8 @@
 	<string>Отсутствует</string>
 	<key>Modified</key>
 	<string>Модифицированный</string>
+	<key>More</key>
+	<string>Ещё</string>
 	<key>More Container Actions</key>
 	<string>Дополнительные действия с контейнером</string>
 	<key>Move Container to Trash</key>

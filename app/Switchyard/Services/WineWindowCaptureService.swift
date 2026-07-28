@@ -44,17 +44,15 @@ final class WineWindowCaptureService {
 
     func captureWindows(
         ownedBy processIDs: Set<Int32>,
-        limit: Int = 6
+        preferredWindowID: CGWindowID? = nil,
+        previewLimit: Int = 6
     ) async -> WineWindowCaptureResult {
         guard !processIDs.isEmpty else {
             cachedImages.removeAll(keepingCapacity: true)
             return .empty
         }
 
-        let metadataFallback = coreGraphicsWindows(
-            ownedBy: processIDs,
-            limit: limit
-        )
+        let metadataFallback = coreGraphicsWindows(ownedBy: processIDs)
         guard screenRecordingAccessIsAvailable() else {
             return WineWindowCaptureResult(
                 windows: metadataFallback,
@@ -71,22 +69,27 @@ final class WineWindowCaptureService {
                 true,
                 onScreenWindowsOnly: false
             )
-            let candidates = content.windows
-                .filter { window in
-                    guard let owner = window.owningApplication else { return false }
-                    return processIDs.contains(Int32(owner.processID))
-                        && window.windowLayer == 0
-                        && window.frame.width >= 120
-                        && window.frame.height >= 72
-                }
-                .sorted(by: Self.windowSort)
-                .prefix(max(1, limit))
+            let candidates = Array(
+                content.windows
+                    .filter { window in
+                        guard let owner = window.owningApplication else { return false }
+                        return processIDs.contains(Int32(owner.processID))
+                            && window.windowLayer == 0
+                            && window.frame.width >= 120
+                            && window.frame.height >= 72
+                    }
+                    .sorted(by: Self.windowSort)
+            )
 
             var snapshots: [WineWindowSnapshot] = []
             snapshots.reserveCapacity(candidates.count)
-            for window in candidates {
+            for (index, window) in candidates.enumerated() {
                 guard !Task.isCancelled else { return .empty }
-                let image = await image(for: window)
+                let shouldCapturePreview = index < max(1, previewLimit)
+                    || window.windowID == preferredWindowID
+                let image = shouldCapturePreview
+                    ? await image(for: window)
+                    : cachedImages[window.windowID]?.image
                 snapshots.append(
                     WineWindowSnapshot(
                         id: window.windowID,
@@ -225,8 +228,7 @@ final class WineWindowCaptureService {
     }
 
     private func coreGraphicsWindows(
-        ownedBy processIDs: Set<Int32>,
-        limit: Int
+        ownedBy processIDs: Set<Int32>
     ) -> [WineWindowSnapshot] {
         guard let windowInfo = CGWindowListCopyWindowInfo(
             [.optionAll, .excludeDesktopElements],
@@ -266,8 +268,6 @@ final class WineWindowCaptureService {
             if lhs.isOnScreen != rhs.isOnScreen { return lhs.isOnScreen }
             return lhs.frame.width * lhs.frame.height > rhs.frame.width * rhs.frame.height
         }
-        .prefix(max(1, limit))
-        .map { $0 }
     }
 
     private func windowTitle(for window: SCWindow) -> String {
@@ -318,10 +318,16 @@ final class ContainerSessionStageModel: ObservableObject {
         let generation = refreshGeneration
         let processIDs = await store.wineHostProcessIDs(for: containerID)
         guard !Task.isCancelled, generation == refreshGeneration else { return }
-        let result = await captureService.captureWindows(ownedBy: processIDs)
+        let result = await captureService.captureWindows(
+            ownedBy: processIDs,
+            preferredWindowID: selectedWindowID
+        )
         guard !Task.isCancelled, generation == refreshGeneration else { return }
 
-        windows = result.windows
+        windows = Self.windowsKeepingStableOrder(
+            previous: windows,
+            refreshed: result.windows
+        )
         needsScreenRecordingPermission = result.needsScreenRecordingPermission
         previewMessage = result.message
         if let selectedWindowID,
@@ -336,7 +342,24 @@ final class ContainerSessionStageModel: ObservableObject {
         captureService.activate(window)
     }
 
+    func select(_ window: WineWindowSnapshot) {
+        selectedWindowID = window.id
+    }
+
     func openScreenRecordingSettings() {
         captureService.openScreenRecordingSettings()
+    }
+
+    static func windowsKeepingStableOrder(
+        previous: [WineWindowSnapshot],
+        refreshed: [WineWindowSnapshot]
+    ) -> [WineWindowSnapshot] {
+        let refreshedByID = Dictionary(
+            uniqueKeysWithValues: refreshed.map { ($0.id, $0) }
+        )
+        var ordered = previous.compactMap { refreshedByID[$0.id] }
+        let existingIDs = Set(ordered.map(\.id))
+        ordered.append(contentsOf: refreshed.filter { !existingIDs.contains($0.id) })
+        return ordered
     }
 }

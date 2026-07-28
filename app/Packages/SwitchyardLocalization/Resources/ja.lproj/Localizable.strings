@@ -108,6 +108,8 @@
 	<string>すべてのアプリ</string>
 	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
 	<string>%1$@ 内のすべての Windows アプリが終了します。保存されていない作業内容は失われる可能性があります。</string>
+	<key>Allow Screen Recording to show live Windows app previews.</key>
+	<string>Windows アプリのライブプレビューを表示するには、画面収録を許可してください。</string>
 	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
 	<string>約 5 ～ 15 分かかり、約 1 GB の空き容量が必要になります。ダウンロード時間は接続によって異なります。</string>
 	<key>Another runtime installation is already in progress.</key>
@@ -672,6 +674,8 @@
 	<string>不足</string>
 	<key>Modified</key>
 	<string>修正済み</string>
+	<key>More</key>
+	<string>その他</string>
 	<key>More Container Actions</key>
 	<string>その他のコンテナアクション</string>
 	<key>Move Container to Trash</key>
