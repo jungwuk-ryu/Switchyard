@@ -28,6 +28,7 @@ struct ContainersView: View {
                 }
             }
         }
+        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .navigationTitle(
             !canUseContainers || presentedContainer == nil
                 ? "Containers"
