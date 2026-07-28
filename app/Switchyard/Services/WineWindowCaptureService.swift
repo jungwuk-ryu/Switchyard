@@ -690,16 +690,9 @@ final class WineWindowCaptureService {
             return cached.image
         }
 
-        let outputSize = thumbnailSize(for: window.frame.size)
-        let configuration = SCStreamConfiguration()
-        configuration.width = Int(outputSize.width)
-        configuration.height = Int(outputSize.height)
-        configuration.scalesToFit = true
-        configuration.preservesAspectRatio = true
-        configuration.showsCursor = false
-        configuration.ignoreShadowsSingleWindow = false
-        configuration.ignoreGlobalClipSingleWindow = true
-        configuration.queueDepth = 1
+        let configuration = Self.screenshotConfiguration(
+            sourceSize: window.frame.size
+        )
 
         do {
             let filter = SCContentFilter(desktopIndependentWindow: window)
@@ -718,7 +711,26 @@ final class WineWindowCaptureService {
         }
     }
 
-    private func thumbnailSize(for sourceSize: CGSize) -> CGSize {
+    static func screenshotConfiguration(
+        sourceSize: CGSize
+    ) -> SCStreamConfiguration {
+        let outputSize = thumbnailSize(for: sourceSize)
+        let configuration = SCStreamConfiguration()
+        configuration.width = Int(outputSize.width)
+        configuration.height = Int(outputSize.height)
+        configuration.scalesToFit = true
+        configuration.preservesAspectRatio = true
+        configuration.showsCursor = false
+        // SCWindow.frame excludes the macOS shadow, but a captured shadow adds
+        // asymmetric transparent padding. Excluding it keeps the visible
+        // window content centered inside the aspect-fit preview.
+        configuration.ignoreShadowsSingleWindow = true
+        configuration.ignoreGlobalClipSingleWindow = true
+        configuration.queueDepth = 1
+        return configuration
+    }
+
+    private static func thumbnailSize(for sourceSize: CGSize) -> CGSize {
         guard sourceSize.width > 0, sourceSize.height > 0 else {
             return CGSize(width: 960, height: 600)
         }

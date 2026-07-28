@@ -1,6 +1,7 @@
 import AppCore
 import CoreGraphics
 import Foundation
+import ScreenCaptureKit
 import Testing
 @testable import Switchyard
 
@@ -35,6 +36,20 @@ import Testing
             availableSize: CGSize(width: CGFloat.infinity, height: 240)
         ) == .zero
     )
+}
+
+@MainActor
+@Test func windowPreviewCaptureExcludesAsymmetricWindowShadowPadding() {
+    let configuration = WineWindowCaptureService.screenshotConfiguration(
+        sourceSize: CGSize(width: 1_280, height: 752)
+    )
+
+    #expect(configuration.width == 1_120)
+    #expect(configuration.height == 658)
+    #expect(configuration.scalesToFit)
+    #expect(configuration.preservesAspectRatio)
+    #expect(configuration.ignoreShadowsSingleWindow)
+    #expect(configuration.ignoreGlobalClipSingleWindow)
 }
 
 @Test func runningTaskbarItemUsesCapturedDockIconForSyntheticPrograms() {
