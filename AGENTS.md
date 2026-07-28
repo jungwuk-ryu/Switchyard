@@ -48,6 +48,7 @@ Keep commits focused. Do not mix external Wine source changes, app UI changes, a
 
 Write GitHub release bodies as concise, reader-facing changelogs:
 
+- Write the release title and body in English, even when the development discussion or interface localization uses another language.
 - Describe only the features, fixes, and behavior changes introduced since the previous release.
 - Prefer a single `## What's Changed` section with clear bullets. Add subsections only when a release has enough distinct changes to justify them.
 - Base every claim on the tag-to-tag diff, and end with a `Full Changelog` comparison link when a previous tag exists.
