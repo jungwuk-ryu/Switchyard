@@ -894,8 +894,6 @@
 	<string>拒绝将 %1$@ 移至垃圾箱，因为其路径位于 Switchyard 存储之外或没有 Switchyard 清单。</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>为 Wine URL 方案注册了 macOS 回调桥：%1$@</string>
-	<key>Related Windows processes</key>
-	<string>相关 Windows 进程</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>剩余的 Wine 进程将在启动前清理</string>
 	<key>Remove %@</key>

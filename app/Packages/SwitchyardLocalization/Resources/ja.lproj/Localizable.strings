@@ -894,8 +894,6 @@
 	<string>パスがSwitchyardの保存領域外にあるか、Switchyardマニフェストがないため、%1$@をゴミ箱に入れられません。</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Wine URL スキームの macOS コールバック ブリッジを登録しました: %1$@</string>
-	<key>Related Windows processes</key>
-	<string>関連する Windows プロセス</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>残りの Wine プロセスは起動前にクリーンアップされます</string>
 	<key>Remove %@</key>

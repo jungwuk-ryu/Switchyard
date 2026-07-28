@@ -894,8 +894,6 @@
 	<string>Refus de déplacer %1$@ vers la corbeille car son chemin se trouve en dehors du stockage Switchyard ou n'a pas de manifeste Switchyard.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Enregistrement d'un pont de rappel macOS pour un schéma d'URL Wine : %1$@</string>
-	<key>Related Windows processes</key>
-	<string>Processus Windows associés</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>Les processus Wine restants seront nettoyés avant le lancement</string>
 	<key>Remove %@</key>

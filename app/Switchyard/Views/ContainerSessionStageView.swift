@@ -228,20 +228,6 @@ struct ContainerSessionStageView: View {
         let secondaryWidth = min(300, fullSize.width * 0.23)
 
         ZStack {
-            if sessionIsActive, !visibleProcesses.isEmpty, wideLayout {
-                SessionStageProcessStack(
-                    processes: visibleProcesses,
-                    isSelected: taskViewPresented
-                ) {
-                    taskViewPresented = true
-                }
-                .position(
-                    x: min(fullSize.width - 270, heroX + heroWidth * 0.52 + 78),
-                    y: heroY - 10
-                )
-                .zIndex(1)
-            }
-
             SessionStageWindowCard(
                 window: selectedWindow,
                 program: program(for: selectedWindow)

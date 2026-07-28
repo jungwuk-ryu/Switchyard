@@ -894,8 +894,6 @@
 	<string>Negarse a mover %1$@ a la Papelera porque su ruta está fuera del almacenamiento Switchyard o no tiene ningún manifiesto Switchyard.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Se registró un puente de devolución de llamada macOS para un esquema de URL Wine: %1$@</string>
-	<key>Related Windows processes</key>
-	<string>Procesos de Windows relacionados</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>Los procesos restantes de Wine se limpiarán antes del lanzamiento.</string>
 	<key>Remove %@</key>

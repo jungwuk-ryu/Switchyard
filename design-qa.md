@@ -3,16 +3,19 @@
 ## Comparison Target
 
 - Source visual truth: `/var/folders/pz/7mc4qx917vj4lny57kwm4pnh0000gn/T/codex-clipboard-cc397319-5ac9-4788-ad0d-6a1155891f2f.png`
-- Implementation screenshot: `artifacts/design-qa/session-stage-active-final.jpg`
+- Implementation screenshot: `artifacts/design-qa/session-stage-no-process-stack.png`
 - Full-view comparison: `artifacts/design-qa/session-stage-comparison-full.jpg`
 - Focused comparison: `artifacts/design-qa/session-stage-comparison-focus.jpg`
-- Viewport: native macOS window at 1487 × 1058 points
+- Post-review comparison: `artifacts/design-qa/session-stage-no-process-stack-comparison.jpg`
+- Reference-fidelity viewport: native macOS window at 1487 × 1058 points
 - Source pixels: 1487 × 1058
-- Implementation capture pixels: 1080 × 768, downsampled by the Computer Use capture service from the 1487 × 1058 native window
-- Density normalization: the source was downsampled to 1080 × 768 before comparison; the native window frame and source therefore share the same aspect ratio and logical viewport
+- Initial implementation capture pixels: 1080 × 768, downsampled by the Computer Use capture service from the 1487 × 1058 native window
+- Post-review capture pixels: 1492 × 768 after restoring the app from its zoomed window state
+- Density normalization: the earlier exact-viewport comparison remains the geometry baseline. The post-review pair places the source and current state side by side to isolate the user-directed process-stack removal.
 - CSS size / device scale factor: not applicable to this native SwiftUI app
-- State: dark appearance, active Windows session, Start Menu open, installed apps visible, process stack visible, bottom dock visible
+- State: dark appearance, active Windows session, Start Menu closed, installed apps visible, secondary windows visible, bottom dock visible
 - Data note: the source shows a Rockstar container while the implementation evidence uses installed Steam-container data. Product data and live window imagery are intentionally dynamic; the interaction state and layout are matched.
+- Product-direction note: the source's process stack is intentionally omitted after user review. Task View remains the single process/window overview so the stage does not duplicate navigation or compete with the focused app.
 
 ## Findings
 
@@ -27,14 +30,19 @@
   - Evidence: visible in the focused comparison.
   - Impact: minor visual deviation.
   - Disposition: intentional. Neutral-at-rest and red-on-hover reduces accidental destructive emphasis while retaining the requested power metaphor.
+- [P3] The source includes a layered process stack beside the hero window.
+  - Location: right edge of the main window.
+  - Evidence: the stack is present in the source and absent from `session-stage-no-process-stack.png`.
+  - Impact: intentional visual deviation that creates more breathing room around the focused app.
+  - Disposition: accepted product change. The bottom-dock Task View already exposes the same running-window overview.
 
 ## Required Fidelity Surfaces
 
 - Fonts and typography: both designs use the native macOS system family. Heading, label, and utility text weights preserve the source hierarchy; dock labels use bounded two-line truncation.
-- Spacing and layout rhythm: header, hero card, secondary cards, process stack, Start Menu, and dock retain the source grouping at the same logical viewport. Start Menu and dock remain inside the window bounds.
+- Spacing and layout rhythm: header, hero card, secondary cards, Start Menu, and dock retain the source grouping at the same logical viewport. Removing the redundant process stack gives the hero and secondary cards a clearer visual hierarchy. Start Menu and dock remain inside the window bounds.
 - Colors and visual tokens: dark navy backdrop, translucent charcoal surfaces, blue focus glow, green running state, and destructive red hover map to the source palette with sufficient contrast.
 - Image quality and asset fidelity: extracted executable icons are preferred. When extraction fails, the implementation uses semantic SF Symbols rather than fake logos or copied artwork. Live Wine windows use ScreenCaptureKit images when available.
-- Copy and content: labels are concise and task-focused. Twenty-seven session-stage strings were added across all nine translated locales; Korean uses terms such as “시작 메뉴,” “앱 추가,” “작업 보기,” and “Windows 세션 종료.”
+- Copy and content: labels are concise and task-focused. Twenty-six session-stage strings remain across all nine translated locales; Korean uses terms such as “시작 메뉴,” “앱 추가,” “작업 보기,” and “Windows 세션 종료.”
 - Icons: controls use a consistent SF Symbols family. Start Menu uses the requested 3 × 3 grid and session stop uses the requested power symbol.
 - Accessibility and motion: semantic buttons and labels are present, the destructive action requires confirmation, idle stop is disabled, keyboard search supports Command-K, and transitions respect Reduce Motion.
 
@@ -72,11 +80,19 @@
 - Fix: active fallback cards now show the running/live-preview-unavailable state and open Activity; empty or whitespace-only search submissions do nothing. Start Menu shortcuts use the normal JobEngine/runner path so container environment, GPTK, display, font, logging, and protocol state are preserved.
 - Capture note: these fixes change only fallback status copy/color and interaction behavior. The recorded geometry and visual composition remain unchanged; the final rebuilt app passed package, runner, localization, and launch verification.
 
+### Iteration 6 — redundant process stack
+
+- Earlier finding [P2]: the layered process stack repeated Task View's role, consumed space beside the hero window, and drew attention away from the active app.
+- Fix: removed the stack and retained Task View as the single running-window overview.
+- Post-fix evidence: `artifacts/design-qa/session-stage-no-process-stack.png` and `artifacts/design-qa/session-stage-no-process-stack-comparison.jpg`
+- Result: the hero and secondary windows read as one calmer workspace without removing any process-management capability.
+
 ## Implementation Checklist
 
 - [x] Match the reference viewport and dark stage composition.
 - [x] Keep Start Menu inside the window and populate it from real Windows shortcuts.
 - [x] Provide dock launch actions, Task View, search, app install/run, and Windows Desktop fallback.
+- [x] Keep process/window overview consolidated in Task View without a duplicate stage stack.
 - [x] Use the power symbol for ending the Windows session, with confirmation and disabled idle state.
 - [x] Prefer real executable and live-window imagery, with polished semantic fallbacks.
 - [x] Respect Reduce Motion and keep repeated monitoring/capture work bounded.

@@ -894,8 +894,6 @@
 	<string>Отказ в перемещении %1$@ в корзину, поскольку его путь находится за пределами хранилища Switchyard или не имеет манифеста Switchyard.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Зарегистрирован мост обратного вызова macOS для схемы URL-адресов Wine: %1$@.</string>
-	<key>Related Windows processes</key>
-	<string>Связанные процессы Windows</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>Остальные процессы Wine будут очищены перед запуском.</string>
 	<key>Remove %@</key>

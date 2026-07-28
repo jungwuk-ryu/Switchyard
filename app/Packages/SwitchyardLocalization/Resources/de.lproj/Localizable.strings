@@ -894,8 +894,6 @@
 	<string>Das Verschieben von %1$@ in den Papierkorb wird abgelehnt, da der Pfad außerhalb des Switchyard-Speichers liegt oder kein Switchyard-Manifest vorhanden ist.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Registrierte eine macOS-Callback-Brücke für ein Wine-URL-Schema: %1$@</string>
-	<key>Related Windows processes</key>
-	<string>Zugehörige Windows-Prozesse</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>Verbleibende Wine-Prozesse werden vor dem Start bereinigt</string>
 	<key>Remove %@</key>

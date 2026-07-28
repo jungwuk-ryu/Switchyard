@@ -894,8 +894,6 @@
 	<string>%1$@ não será movido para o Lixo porque o caminho está fora do armazenamento do Switchyard ou não contém um manifesto do Switchyard.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Uma ponte de retorno do macOS foi registrada para o esquema de URL do Wine: %1$@</string>
-	<key>Related Windows processes</key>
-	<string>Processos do Windows relacionados</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>Os processos Wine restantes serão limpos antes do lançamento</string>
 	<key>Remove %@</key>
