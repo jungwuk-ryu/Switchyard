@@ -504,12 +504,24 @@ final class AppStore: ObservableObject {
         }
         hasCompletedSetup = defaults.bool(forKey: "hasCompletedSetup")
 
-        let snapshot = Self.initialLibrarySnapshot(libraryPath: initialLibraryPath)
+        let initialSnapshotResult = Self.initialLibrarySnapshotResult(
+            libraryPath: initialLibraryPath
+        )
+        let snapshot: SwitchyardContainerSnapshot
+        let containersForRecentLaunchRecovery: [Container]?
+        switch initialSnapshotResult {
+        case let .success(loadedSnapshot):
+            snapshot = loadedSnapshot ?? SwitchyardContainerSnapshot(containers: [])
+            containersForRecentLaunchRecovery = snapshot.containers
+        case .failure:
+            snapshot = SwitchyardContainerSnapshot(containers: [])
+            containersForRecentLaunchRecovery = nil
+        }
         containers = snapshot.containers
         selectedContainerID = containers.first?.id
         recentProgramLaunchesByContainerID = Self.initialRecentProgramLaunches(
             defaults: defaults,
-            containers: containers
+            containers: containersForRecentLaunchRecovery
         )
         downloadedSteamInstallerPath = StarterApplicationDownloader()
             .trustedCachedInstaller(for: StarterApplicationCatalog.steam)?.path
@@ -517,8 +529,10 @@ final class AppStore: ObservableObject {
             versionDatesBySourceRevision: runtimeVersionDatesBySourceRevision
         )
 
-        persistLibrary()
-        persistRecentProgramLaunches()
+        if case .success = initialSnapshotResult {
+            persistLibrary()
+            persistRecentProgramLaunches()
+        }
         pruneDebugRunLogs()
         startProtocolBridgeMonitoring()
 
@@ -4738,9 +4752,9 @@ final class AppStore: ObservableObject {
         defaults.set(data, forKey: recentProgramLaunchesDefaultsKey)
     }
 
-    private static func initialRecentProgramLaunches(
+    static func initialRecentProgramLaunches(
         defaults: UserDefaults,
-        containers: [Container]
+        containers: [Container]?
     ) -> [UUID: [RecentProgramLaunch]] {
         let decodedLaunches: [UUID: [RecentProgramLaunch]]
         if let data = defaults.data(forKey: recentProgramLaunchesDefaultsKey),
@@ -4751,6 +4765,10 @@ final class AppStore: ObservableObject {
             decodedLaunches = storedLaunches
         } else {
             decodedLaunches = [:]
+        }
+
+        guard let containers else {
+            return decodedLaunches
         }
 
         let containerIDs = Set(containers.map(\.id))
@@ -4768,12 +4786,12 @@ final class AppStore: ObservableObject {
         return launches
     }
 
-    private static func initialLibrarySnapshot(libraryPath: String) -> SwitchyardContainerSnapshot {
+    static func initialLibrarySnapshotResult(
+        libraryPath: String
+    ) -> Result<SwitchyardContainerSnapshot?, Error> {
         let store = LibraryManifestStore(rootURL: URL(fileURLWithPath: libraryPath, isDirectory: true))
-        if let loaded = try? store.loadSnapshot(), !loaded.containers.isEmpty {
-            return loaded
+        return Result {
+            try store.loadSnapshot()
         }
-
-        return SwitchyardContainerSnapshot(containers: [])
     }
 }

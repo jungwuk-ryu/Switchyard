@@ -151,11 +151,28 @@ public struct LibraryManifestStore {
 
     public func loadSnapshot() throws -> SwitchyardContainerSnapshot? {
         guard fileManager.fileExists(atPath: manifestURL.path) else {
-            let containers = try ContainerManifestStore(rootURL: rootURL, fileManager: fileManager).loadContainers()
-            return containers.isEmpty ? nil : SwitchyardContainerSnapshot(containers: containers)
+            return try loadSnapshotFromContainerManifests()
         }
-        let data = try Data(contentsOf: manifestURL)
-        return try JSONDecoder.switchyard.decode(SwitchyardContainerSnapshot.self, from: data)
+
+        let indexedSnapshot: SwitchyardContainerSnapshot
+        do {
+            let data = try Data(contentsOf: manifestURL)
+            indexedSnapshot = try JSONDecoder.switchyard.decode(
+                SwitchyardContainerSnapshot.self,
+                from: data
+            )
+        } catch let indexError {
+            if let recoveredSnapshot = try? loadSnapshotFromContainerManifests() {
+                return recoveredSnapshot
+            }
+            throw indexError
+        }
+
+        guard indexedSnapshot.containers.isEmpty else {
+            return indexedSnapshot
+        }
+
+        return try loadSnapshotFromContainerManifests() ?? indexedSnapshot
     }
 
     public func save(_ snapshot: SwitchyardContainerSnapshot) throws {
@@ -167,6 +184,22 @@ public struct LibraryManifestStore {
 
         let data = try JSONEncoder.switchyard.encode(snapshot)
         try data.write(to: manifestURL, options: [.atomic])
+    }
+
+    private func loadSnapshotFromContainerManifests() throws -> SwitchyardContainerSnapshot? {
+        let containers = try ContainerManifestStore(
+            rootURL: rootURL,
+            fileManager: fileManager
+        ).loadContainers()
+        guard !containers.isEmpty else {
+            return nil
+        }
+
+        return SwitchyardContainerSnapshot(
+            containers: containers.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        )
     }
 }
 

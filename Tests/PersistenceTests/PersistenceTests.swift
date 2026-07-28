@@ -183,6 +183,58 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("Toolbox.container/switchyard-container.json").path))
 }
 
+@Test func librarySnapshotRecoversEmptyIndexFromContainerManifests() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let container = Container(
+        name: "Recovered Container",
+        path: root.appendingPathComponent("Recovered.container", isDirectory: true).path
+    )
+    let store = LibraryManifestStore(rootURL: root)
+
+    try ContainerManifestStore(rootURL: root).save(container)
+    try JSONEncoder.switchyard.encode(
+        SwitchyardContainerSnapshot(containers: [])
+    ).write(to: store.manifestURL, options: [.atomic])
+
+    let loaded = try #require(try store.loadSnapshot())
+
+    #expect(loaded.containers.map(\.id) == [container.id])
+    #expect(loaded.containers.map(\.name) == ["Recovered Container"])
+}
+
+@Test func librarySnapshotRecoversCorruptIndexFromContainerManifests() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let container = Container(
+        name: "Recovered Container",
+        path: root.appendingPathComponent("Recovered.container", isDirectory: true).path
+    )
+    let store = LibraryManifestStore(rootURL: root)
+
+    try ContainerManifestStore(rootURL: root).save(container)
+    try Data("{ invalid json".utf8).write(to: store.manifestURL, options: [.atomic])
+
+    let loaded = try #require(try store.loadSnapshot())
+
+    #expect(loaded.containers.map(\.id) == [container.id])
+}
+
+@Test func librarySnapshotDoesNotHideCorruptIndexWithoutARecoverySource() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let store = LibraryManifestStore(rootURL: root)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    try Data("{ invalid json".utf8).write(to: store.manifestURL, options: [.atomic])
+
+    #expect(throws: (any Error).self) {
+        _ = try store.loadSnapshot()
+    }
+}
+
 @Test func containerManifestStoreReadsLegacyBottleManifest() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
