@@ -41,4 +41,4 @@ For a full local runtime verification, run:
 ./script/build_and_run.sh --verify
 ```
 
-The verification script must build the app and runner, stage an ad-hoc signed `dist/Switchyard.app`, launch it, confirm the `Switchyard` process exists, and close the verified instance.
+The verification script must build the app and runner, stage `dist/Switchyard.app`, verify its code signature, launch it, confirm the `Switchyard` process exists, and close the verified instance. It should use an available Apple Development identity so privacy grants survive rebuilds, or report its ad-hoc fallback.

@@ -21,14 +21,37 @@ struct WineWindowSnapshot: Identifiable, @unchecked Sendable {
 
 struct WineWindowCaptureResult: @unchecked Sendable {
     var windows: [WineWindowSnapshot]
-    var needsScreenRecordingPermission: Bool
+    var screenRecordingAccessUnavailable: Bool
     var message: String?
 
     static let empty = WineWindowCaptureResult(
         windows: [],
-        needsScreenRecordingPermission: false,
+        screenRecordingAccessUnavailable: false,
         message: nil
     )
+
+    static func screenRecordingUnavailable(
+        windows: [WineWindowSnapshot]
+    ) -> WineWindowCaptureResult {
+        WineWindowCaptureResult(
+            windows: windows,
+            screenRecordingAccessUnavailable: true,
+            message: String(
+                localized: "Screen Recording access is unavailable. Check System Settings, then reopen Switchyard.",
+                bundle: SwitchyardStrings.bundle
+            )
+        )
+    }
+
+    static func captureUnavailable(
+        windows: [WineWindowSnapshot]
+    ) -> WineWindowCaptureResult {
+        WineWindowCaptureResult(
+            windows: windows,
+            screenRecordingAccessUnavailable: false,
+            message: nil
+        )
+    }
 }
 
 @MainActor
@@ -41,6 +64,28 @@ final class WineWindowCaptureService {
 
     private var cachedImages: [CGWindowID: CachedImage] = [:]
     private var hasRequestedScreenRecordingPermission = false
+    private let screenRecordingPreflight: () -> Bool
+    private let screenRecordingRequest: () -> Bool
+    private let shareableContentProvider: () async throws -> SCShareableContent
+
+    init(
+        screenRecordingPreflight: @escaping () -> Bool = {
+            CGPreflightScreenCaptureAccess()
+        },
+        screenRecordingRequest: @escaping () -> Bool = {
+            CGRequestScreenCaptureAccess()
+        },
+        shareableContentProvider: @escaping () async throws -> SCShareableContent = {
+            try await SCShareableContent.excludingDesktopWindows(
+                true,
+                onScreenWindowsOnly: false
+            )
+        }
+    ) {
+        self.screenRecordingPreflight = screenRecordingPreflight
+        self.screenRecordingRequest = screenRecordingRequest
+        self.shareableContentProvider = shareableContentProvider
+    }
 
     func captureWindows(
         ownedBy processIDs: Set<Int32>,
@@ -54,21 +99,11 @@ final class WineWindowCaptureService {
 
         let metadataFallback = coreGraphicsWindows(ownedBy: processIDs)
         guard screenRecordingAccessIsAvailable() else {
-            return WineWindowCaptureResult(
-                windows: metadataFallback,
-                needsScreenRecordingPermission: true,
-                message: String(
-                    localized: "Allow Screen Recording to show live Windows app previews.",
-                    bundle: SwitchyardStrings.bundle
-                )
-            )
+            return .screenRecordingUnavailable(windows: metadataFallback)
         }
 
         do {
-            let content = try await SCShareableContent.excludingDesktopWindows(
-                true,
-                onScreenWindowsOnly: false
-            )
+            let content = try await shareableContentProvider()
             let candidates = Array(
                 content.windows
                     .filter { window in
@@ -106,18 +141,11 @@ final class WineWindowCaptureService {
             cachedImages = cachedImages.filter { activeWindowIDs.contains($0.key) }
             return WineWindowCaptureResult(
                 windows: snapshots.isEmpty ? metadataFallback : snapshots,
-                needsScreenRecordingPermission: false,
+                screenRecordingAccessUnavailable: false,
                 message: nil
             )
         } catch {
-            return WineWindowCaptureResult(
-                windows: metadataFallback,
-                needsScreenRecordingPermission: true,
-                message: String(
-                    localized: "Live previews are unavailable. You can still switch to each Windows app.",
-                    bundle: SwitchyardStrings.bundle
-                )
-            )
+            return .captureUnavailable(windows: metadataFallback)
         }
     }
 
@@ -168,12 +196,12 @@ final class WineWindowCaptureService {
     }
 
     private func screenRecordingAccessIsAvailable() -> Bool {
-        if CGPreflightScreenCaptureAccess() {
+        if screenRecordingPreflight() {
             return true
         }
         guard !hasRequestedScreenRecordingPermission else { return false }
         hasRequestedScreenRecordingPermission = true
-        return CGRequestScreenCaptureAccess()
+        return screenRecordingRequest()
     }
 
     private func image(for window: SCWindow) async -> CGImage? {
@@ -293,7 +321,7 @@ final class WineWindowCaptureService {
 @MainActor
 final class ContainerSessionStageModel: ObservableObject {
     @Published private(set) var windows: [WineWindowSnapshot] = []
-    @Published private(set) var needsScreenRecordingPermission = false
+    @Published private(set) var screenRecordingAccessUnavailable = false
     @Published private(set) var previewMessage: String?
     @Published var selectedWindowID: CGWindowID?
 
@@ -328,7 +356,7 @@ final class ContainerSessionStageModel: ObservableObject {
             previous: windows,
             refreshed: result.windows
         )
-        needsScreenRecordingPermission = result.needsScreenRecordingPermission
+        screenRecordingAccessUnavailable = result.screenRecordingAccessUnavailable
         previewMessage = result.message
         if let selectedWindowID,
            windows.contains(where: { $0.id == selectedWindowID }) {

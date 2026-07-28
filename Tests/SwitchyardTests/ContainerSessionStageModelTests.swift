@@ -34,3 +34,55 @@ private func window(id: CGWindowID, title: String) -> WineWindowSnapshot {
         image: nil
     )
 }
+
+private enum CaptureTestError: Error {
+    case expected
+}
+
+@MainActor
+@Test func captureWindowsPromptsForSettingsOnlyWhenScreenRecordingIsUnavailable() async {
+    var requestCount = 0
+    var shareableContentWasRequested = false
+    let service = WineWindowCaptureService(
+        screenRecordingPreflight: { false },
+        screenRecordingRequest: {
+            requestCount += 1
+            return false
+        },
+        shareableContentProvider: {
+            shareableContentWasRequested = true
+            throw CaptureTestError.expected
+        }
+    )
+
+    let firstResult = await service.captureWindows(
+        ownedBy: [Int32.max]
+    )
+    let secondResult = await service.captureWindows(
+        ownedBy: [Int32.max]
+    )
+
+    #expect(firstResult.screenRecordingAccessUnavailable)
+    #expect(firstResult.message != nil)
+    #expect(secondResult.screenRecordingAccessUnavailable)
+    #expect(requestCount == 1)
+    #expect(!shareableContentWasRequested)
+}
+
+@MainActor
+@Test func captureWindowsDoesNotPromptForSettingsForShareableContentErrors() async {
+    let service = WineWindowCaptureService(
+        screenRecordingPreflight: { true },
+        screenRecordingRequest: { false },
+        shareableContentProvider: {
+            throw CaptureTestError.expected
+        }
+    )
+
+    let result = await service.captureWindows(
+        ownedBy: [Int32.max]
+    )
+
+    #expect(!result.screenRecordingAccessUnavailable)
+    #expect(result.message == nil)
+}

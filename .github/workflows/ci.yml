@@ -47,6 +47,9 @@ jobs:
       - name: Validate release packaging script
         run: bash -n script/release_app.sh
 
+      - name: Test local code-signing identity selection
+        run: Tests/Shell/local_codesign_identity_test.sh
+
       - name: Test runner lifecycle and logging
         run: Tests/Shell/runner_prefix_session_test.sh
 

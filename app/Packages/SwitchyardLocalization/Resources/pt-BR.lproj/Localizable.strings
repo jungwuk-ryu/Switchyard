@@ -108,8 +108,8 @@
 	<string>Todos os aplicativos</string>
 	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
 	<string>Todos os aplicativos do Windows em %1$@ serão fechados. Alterações não salvas poderão ser perdidas.</string>
-	<key>Allow Screen Recording to show live Windows app previews.</key>
-	<string>Permita a gravação da tela para ver prévias ao vivo dos apps do Windows.</string>
+	<key>Screen Recording access is unavailable. Check System Settings, then reopen Switchyard.</key>
+	<string>O acesso à gravação da tela não está disponível. Verifique os Ajustes do Sistema e reabra o Switchyard.</string>
 	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
 	<string>Permita cerca de 5 a 15 minutos e aproximadamente 1 GB de espaço livre. O tempo de download depende da sua conexão.</string>
 	<key>Another runtime installation is already in progress.</key>

@@ -14,6 +14,19 @@ case "$BUILD_CONFIGURATION" in
 esac
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+IDENTITY_SELECTOR="$ROOT_DIR/script/local_codesign_identity.sh"
+if [ -n "${SWITCHYARD_CODESIGN_IDENTITY:-}" ]; then
+  LOCAL_CODESIGN_IDENTITY="$("$IDENTITY_SELECTOR" "$SWITCHYARD_CODESIGN_IDENTITY")"
+else
+  LOCAL_CODESIGN_IDENTITY="$(
+    { /usr/bin/security find-identity -p codesigning -v 2>/dev/null || true; } \
+      | "$IDENTITY_SELECTOR"
+  )"
+fi
+if [ -z "$LOCAL_CODESIGN_IDENTITY" ]; then
+  LOCAL_CODESIGN_IDENTITY="-"
+fi
+
 DIST_DIR="$ROOT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME.app"
 APP_CONTENTS="$APP_BUNDLE/Contents"
@@ -150,7 +163,20 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP_BUNDLE" >/dev/null 2>&1
+for helper_binary in \
+  "$RUNNER_BINARY" \
+  "$URL_HANDLER_BINARY" \
+  "$SHORTCUT_HANDLER_BINARY"; do
+  /usr/bin/codesign --force --sign "$LOCAL_CODESIGN_IDENTITY" "$helper_binary" >/dev/null
+done
+/usr/bin/codesign --force --sign "$LOCAL_CODESIGN_IDENTITY" "$APP_BUNDLE" >/dev/null
+/usr/bin/codesign --verify --deep --strict "$APP_BUNDLE"
+
+if [ "$LOCAL_CODESIGN_IDENTITY" = "-" ]; then
+  echo "warning: no persistent code-signing identity is available; macOS may require Screen Recording permission again after a rebuild" >&2
+else
+  echo "signed local app with persistent identity: $LOCAL_CODESIGN_IDENTITY"
+fi
 
 open_app() {
   /usr/bin/open -n "$APP_BUNDLE"

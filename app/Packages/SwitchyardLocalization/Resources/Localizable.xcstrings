@@ -2665,60 +2665,60 @@
         }
       }
     },
-    "Allow Screen Recording to show live Windows app previews.": {
+    "Screen Recording access is unavailable. Check System Settings, then reopen Switchyard.": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Erlaube die Bildschirmaufnahme, um Live-Vorschauen von Windows-Apps anzuzeigen."
+            "value": "Der Zugriff auf die Bildschirmaufnahme ist nicht verfügbar. Prüfen Sie die Systemeinstellungen und öffnen Sie Switchyard erneut."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permite la grabación de pantalla para ver vistas previas en directo de las apps de Windows."
+            "value": "El acceso a la grabación de pantalla no está disponible. Revísalo en Ajustes del Sistema y vuelve a abrir Switchyard."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Autorisez l’enregistrement de l’écran pour afficher l’aperçu en direct des apps Windows."
+            "value": "L’accès à l’enregistrement de l’écran est indisponible. Vérifiez les Réglages Système, puis rouvrez Switchyard."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows アプリのライブプレビューを表示するには、画面収録を許可してください。"
+            "value": "画面収録を利用できません。システム設定を確認してから、Switchyard を再度開いてください。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Windows 앱의 실시간 미리보기를 보려면 화면 기록을 허용하세요."
+            "value": "화면 기록을 사용할 수 없습니다. 시스템 설정에서 확인한 뒤 Switchyard를 다시 여세요."
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Permita a gravação da tela para ver prévias ao vivo dos apps do Windows."
+            "value": "O acesso à gravação da tela não está disponível. Verifique os Ajustes do Sistema e reabra o Switchyard."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Разрешите запись экрана, чтобы видеть окна приложений Windows в реальном времени."
+            "value": "Доступ к записи экрана недоступен. Проверьте Системные настройки и снова откройте Switchyard."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "允许屏幕录制以显示 Windows 应用的实时预览。"
+            "value": "无法使用屏幕录制。请检查“系统设置”，然后重新打开 Switchyard。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "允許螢幕錄製以顯示 Windows App 的即時預覽。"
+            "value": "無法使用螢幕錄製。請檢查「系統設定」，然後重新開啟 Switchyard。"
           }
         }
       }

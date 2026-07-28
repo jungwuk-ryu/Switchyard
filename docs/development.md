@@ -23,7 +23,7 @@ SWIFT_BUILD_JOBS="$jobs" Tests/Shell/runner_prefix_session_test.sh
 SWITCHYARD_SKIP_RUNTIME_ENSURE=1 SWIFT_BUILD_JOBS="$jobs" ./script/build_and_run.sh --verify
 ```
 
-The last command assembles an ad-hoc signed `dist/Switchyard.app`, launches it, verifies that the process starts, and closes the verified instance. It does not synchronize or build Wine.
+The last command assembles `dist/Switchyard.app`, launches it, verifies that the process starts, and closes the verified instance. It does not synchronize or build Wine. Local assembly uses `SWITCHYARD_CODESIGN_IDENTITY` when set, otherwise the first available Apple Development identity. This stable identity keeps macOS privacy grants, including Screen Recording, valid across rebuilds. Machines without either identity fall back to ad-hoc signing with a warning.
 
 The published-runtime integration test is opt-in because it downloads the complete release archive. It can only run after all `SWITCHYARD_WINE_RELEASE_*` attestation values for the pinned revision have been published in `config/switchyard-wine.env`; otherwise the test intentionally returns without downloading anything:
 
@@ -44,6 +44,8 @@ swift test --filter publishedRuntimeCanBeInstalledWhenProvided
 ```
 
 The entrypoint synchronizes the exact Wine commit in `config/switchyard-wine.env`, verifies the source checkout, ensures its immutable user-local runtime, builds the Swift app and runner, assembles the app bundle, and launches it.
+
+After moving from an older ad-hoc build to a persistent local signature, toggle Switchyard's Screen Recording access off and on once, then reopen the app. Later rebuilds signed with the same identity keep that grant. To select a specific local identity, set `SWITCHYARD_CODESIGN_IDENTITY` to an identity accepted by `codesign`.
 
 To assemble the app against an already-built local Wine commit before updating the published source pin, pass the same revision used by that runtime and skip synchronization:
 

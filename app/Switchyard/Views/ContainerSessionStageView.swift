@@ -296,7 +296,7 @@ struct ContainerSessionStageView: View {
                 }
             }
 
-            if stageModel.needsScreenRecordingPermission,
+            if stageModel.screenRecordingAccessUnavailable,
                let message = stageModel.previewMessage {
                 SessionStagePreviewPermissionBanner(message: message) {
                     stageModel.openScreenRecordingSettings()

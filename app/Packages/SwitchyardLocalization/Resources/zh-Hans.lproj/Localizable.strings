@@ -108,8 +108,8 @@
 	<string>所有应用</string>
 	<key>All Windows apps in %@ will close. Unsaved work may be lost.</key>
 	<string>%1$@ 中的所有 Windows 应用程序都将关闭。未保存的工作可能会丢失。</string>
-	<key>Allow Screen Recording to show live Windows app previews.</key>
-	<string>允许屏幕录制以显示 Windows 应用的实时预览。</string>
+	<key>Screen Recording access is unavailable. Check System Settings, then reopen Switchyard.</key>
+	<string>无法使用屏幕录制。请检查“系统设置”，然后重新打开 Switchyard。</string>
 	<key>Allow about 5–15 minutes and roughly 1 GB of free space. Download time depends on your connection.</key>
 	<string>需要大约 5-15 分钟和大约 1 GB 的可用空间。下载时间取决于您的连接。</string>
 	<key>Another runtime installation is already in progress.</key>
