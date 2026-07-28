@@ -1370,6 +1370,8 @@
 	<string>Mettez à jour macOS pour continuer</string>
 	<key>Updated %@</key>
 	<string>Mise à jour %1$@</string>
+	<key>Use Switchyard to Open .exe Files</key>
+	<string>Utiliser Switchyard pour ouvrir les fichiers .exe</string>
 	<key>Use</key>
 	<string>Utiliser</string>
 	<key>Value</key>

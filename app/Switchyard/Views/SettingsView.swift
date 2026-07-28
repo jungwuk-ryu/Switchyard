@@ -3,6 +3,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
+    @StateObject private var windowsExecutableAssociation =
+        WindowsExecutableAssociationService()
     @State private var appLanguageIdentifier =
         AppLanguagePreference.selectedIdentifier()
     @State private var isRestartingForLanguage = false
@@ -35,6 +37,9 @@ struct SettingsView: View {
                 .tabItem { Label("Advanced", systemImage: "terminal") }
         }
         .frame(width: 820, height: 640)
+        .task {
+            windowsExecutableAssociation.refresh()
+        }
         .sheet(
             item: Binding(
                 get: { store.gptkComponentConsentRequest },
@@ -100,6 +105,8 @@ struct SettingsView: View {
                 Label("System", systemImage: "desktopcomputer")
             }
 
+            windowsExecutableAssociationSettings
+
             GroupBox {
                 VStack(alignment: .leading, spacing: 10) {
                     PathPickerRow(
@@ -120,6 +127,50 @@ struct SettingsView: View {
             } label: {
                 Label("Storage", systemImage: "internaldrive")
             }
+        }
+    }
+
+    private var windowsExecutableAssociationSettings: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Ready to launch Windows executables in Switchyard containers.")
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Spacer()
+
+                    if windowsExecutableAssociation.state.isDefaultApplication {
+                        Label("Default", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                if !windowsExecutableAssociation.state.isDefaultApplication {
+                    Button {
+                        windowsExecutableAssociation.makeDefaultApplication()
+                    } label: {
+                        if windowsExecutableAssociation.state.isWorking {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                        Text("Use Switchyard to Open .exe Files")
+                    }
+                    .disabled(windowsExecutableAssociation.state.isWorking)
+                }
+
+                if let errorMessage =
+                    windowsExecutableAssociation.state.errorMessage {
+                    SettingsNotice(
+                        message: errorMessage,
+                        systemImage: "exclamationmark.triangle.fill",
+                        color: .red
+                    )
+                }
+            }
+            .padding(4)
+        } label: {
+            Label("Windows support", systemImage: "app.badge")
         }
     }
 

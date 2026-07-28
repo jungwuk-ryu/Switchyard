@@ -127,6 +127,21 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$BUILD_CONFIGURATION</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Windows Executable</string>
+      <key>CFBundleTypeRole</key>
+      <string>Shell</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+      <key>LSItemContentTypes</key>
+      <array>
+        <string>com.microsoft.windows-executable</string>
+      </array>
+    </dict>
+  </array>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
   <key>NSPrincipalClass</key>

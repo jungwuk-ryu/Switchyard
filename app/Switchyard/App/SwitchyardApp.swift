@@ -11,6 +11,10 @@ struct SwitchyardApp: App {
             ContentView()
                 .environmentObject(store)
                 .environmentObject(store.logStore)
+                .handlesWindowsApplicationOpenEvents(
+                    coordinator: appDelegate.windowsApplicationOpenCoordinator,
+                    store: store
+                )
                 .frame(minWidth: 1040, minHeight: 680)
                 .onAppear {
                     store.refreshRuntimeStatus()
@@ -59,9 +63,18 @@ struct SwitchyardApp: App {
     }
 }
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    let windowsApplicationOpenCoordinator = WindowsApplicationOpenCoordinator()
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        guard windowsApplicationOpenCoordinator.enqueue(urls) else { return }
+        windowsApplicationOpenCoordinator.showMainWindowIfNeeded()
+        application.activate(ignoringOtherApps: true)
     }
 }
