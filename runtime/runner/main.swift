@@ -1047,6 +1047,13 @@ struct SwitchyardRunner {
                 FileHandle.standardError.write(Data("Unable to inspect Wine processes: \(error.localizedDescription)\n".utf8))
                 runnerExit(1)
             }
+        case "list-host-processes":
+            do {
+                try listHostProcesses(arguments: Array(arguments.dropFirst()))
+            } catch {
+                FileHandle.standardError.write(Data("Unable to inspect Wine host processes: \(error.localizedDescription)\n".utf8))
+                runnerExit(1)
+            }
         case "stop-prefix":
             do {
                 try stopPrefix(arguments: Array(arguments.dropFirst()))
@@ -1257,6 +1264,23 @@ struct SwitchyardRunner {
                 .compactMap(WineProtocolAssociationFormat.normalizedWindowsExecutablePath)
         ).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
         FileHandle.standardOutput.write(try JSONEncoder().encode(paths))
+    }
+
+    private static func listHostProcesses(arguments: [String]) throws {
+        guard arguments.count == 4,
+              arguments[0] == "--wine",
+              arguments[2] == "--prefix",
+              FileManager.default.isExecutableFile(atPath: arguments[1]),
+              FileManager.default.fileExists(atPath: arguments[3]) else {
+            printUsage()
+            runnerExit(2)
+        }
+
+        let processIDs = wineProcessIDs(
+            wineExecutablePath: arguments[1],
+            prefixPath: arguments[3]
+        ).map { Int32($0) }
+        FileHandle.standardOutput.write(try JSONEncoder().encode(processIDs))
     }
 
     private static func stopPrefix(arguments: [String]) throws {
@@ -1753,7 +1777,7 @@ struct SwitchyardRunner {
 
     private static func printUsage() {
         FileHandle.standardError.write(
-            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | probe-prefix-host --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
+            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | probe-prefix-host --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | list-host-processes --wine <path> --prefix <path> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
         )
     }
 }

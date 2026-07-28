@@ -13,7 +13,10 @@ struct ContainersView: View {
             } else if let container = presentedContainer {
                 ContainerDashboardView(
                     container: container,
-                    onBack: { presentedContainerID = nil },
+                    onBack: {
+                        presentedContainerID = nil
+                        store.isPresentingContainerDetail = false
+                    },
                     onDelete: { deletionTarget = container }
                 )
                 .id(container.id)
@@ -21,6 +24,7 @@ struct ContainersView: View {
                 ContainerLibraryView { container in
                     store.selectedContainerID = container.id
                     presentedContainerID = container.id
+                    store.isPresentingContainerDetail = true
                 }
             }
         }
@@ -33,10 +37,15 @@ struct ContainersView: View {
             if presentedContainerID == nil {
                 presentedContainerID = store.selectedContainerID ?? store.containers.first?.id
             }
+            store.isPresentingContainerDetail = presentedContainer != nil
         }
         .onChange(of: store.selectedContainerID) { _, selectedID in
             guard let selectedID else { return }
             presentedContainerID = selectedID
+            store.isPresentingContainerDetail = true
+        }
+        .onDisappear {
+            store.isPresentingContainerDetail = false
         }
         .confirmationDialog(
             "Move Container to Trash?",
@@ -49,6 +58,7 @@ struct ContainersView: View {
                 Task {
                     if await store.deleteContainer(container.id) {
                         presentedContainerID = nil
+                        store.isPresentingContainerDetail = false
                     }
                 }
             }

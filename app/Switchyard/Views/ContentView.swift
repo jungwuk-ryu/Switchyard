@@ -6,9 +6,10 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @SceneStorage("selectedSection") private var selectedSectionRawValue = SidebarSelection.containers.rawValue
     @State private var hasEvaluatedInitialReadiness = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView(selection: selectionBinding)
                 .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
         } detail: {
@@ -17,27 +18,39 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .toolbar {
-            ToolbarItemGroup {
-                Button {
-                    store.addContainer()
-                } label: {
-                    Label("Add Container", systemImage: "plus")
+            ToolbarItem(placement: .navigation) {
+                if store.isPresentingContainerDetail {
+                    Text("Switchyard")
+                        .font(.system(size: 13, weight: .semibold))
                 }
-                .disabled(!store.hasCompletedSetup || !store.runtimeStatus.canLaunch)
-                .help(
-                    store.hasCompletedSetup && store.runtimeStatus.canLaunch
-                        ? "Create a private space for a Windows app"
-                        : "Finish setup before creating a container"
-                )
+            }
 
-                Button {
-                    store.stopAllRuns()
-                } label: {
-                    Label("Stop All Windows Apps", systemImage: "stop.fill")
+            ToolbarItemGroup {
+                if !store.isPresentingContainerDetail {
+                    Button {
+                        store.addContainer()
+                    } label: {
+                        Label("Add Container", systemImage: "plus")
+                    }
+                    .disabled(!store.hasCompletedSetup || !store.runtimeStatus.canLaunch)
+                    .help(
+                        store.hasCompletedSetup && store.runtimeStatus.canLaunch
+                            ? "Create a private space for a Windows app"
+                            : "Finish setup before creating a container"
+                    )
+
+                    Button {
+                        store.stopAllRuns()
+                    } label: {
+                        Label("Stop All Windows Apps", systemImage: "stop.fill")
+                    }
+                    .disabled(!store.hasRunningContainers)
                 }
-                .disabled(!store.hasRunningContainers)
             }
         }
+        .toolbar(
+            removing: store.isPresentingContainerDetail ? .sidebarToggle : nil
+        )
         .sheet(isPresented: $store.isSetupAssistantPresented) {
             SetupAssistantView()
                 .environmentObject(store)
@@ -57,6 +70,11 @@ struct ContentView: View {
         }
         .onChange(of: store.selectedSection) { _, selection in
             selectedSectionRawValue = selection.rawValue
+        }
+        .onChange(of: store.isPresentingContainerDetail) { _, isPresented in
+            withAnimation(.snappy(duration: 0.28)) {
+                columnVisibility = isPresented ? .detailOnly : .all
+            }
         }
         .onChange(of: store.runtimeStatus) { _, status in
             evaluateInitialReadiness(status)

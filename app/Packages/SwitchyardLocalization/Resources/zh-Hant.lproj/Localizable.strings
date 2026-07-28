@@ -46,8 +46,18 @@
 	<string>%1$lld高容量的日誌條目未從即時檢視中顯示;當啟用開發者日誌時，受保護的每次執行除錯日誌會保留完整輸出。</string>
 	<key>%lld more items</key>
 	<string>另有 %1$lld 個項目</string>
+	<key>%lld process running</key>
+	<string>正在執行 %1$lld 個處理程序</string>
+	<key>%lld processes running</key>
+	<string>正在執行 %1$lld 個處理程序</string>
+	<key>%lld window running</key>
+	<string>正在執行 %1$lld 個視窗</string>
+	<key>%lld windows running</key>
+	<string>正在執行 %1$lld 個視窗</string>
 	<key>1. Open Apple's download page</key>
 	<string>1.打開蘋果的下載頁面</string>
+	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
+	<string>192 DPI 可讓文字和控制項維持正常大小。下次啟動時生效。</string>
 	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
 	<string>2.登入並下載最新的Game Porting Toolkit .dmg</string>
 	<key>3. Return here — Switchyard will find it automatically</key>
@@ -82,6 +92,8 @@
 	<string>活動</string>
 	<key>Add</key>
 	<string>加入</string>
+	<key>Add App</key>
+	<string>新增 App</string>
 	<key>Add Container</key>
 	<string>加入容器</string>
 	<key>Add another app to the running Windows session</key>
@@ -120,10 +132,14 @@
 	<string>應用程式</string>
 	<key>Applications</key>
 	<string>應用程式</string>
+	<key>Apps</key>
+	<string>App</string>
 	<key>Back</key>
 	<string>返回</string>
 	<key>Back to Containers</key>
 	<string>返回容器</string>
+	<key>Bring this Windows window forward</key>
+	<string>將此 Windows 視窗移到最前方</string>
 	<key>Browse Game Launchers</key>
 	<string>瀏覽遊戲啟動器</string>
 	<key>Build %@</key>
@@ -418,12 +434,20 @@
 	<string>下載、驗證和安裝簽名的運行時...</string>
 	<key>Empty Folder</key>
 	<string>空資料夾</string>
+	<key>End Session</key>
+	<string>結束工作階段</string>
+	<key>End Windows Session</key>
+	<string>結束 Windows 工作階段</string>
+	<key>End Windows Session?</key>
+	<string>結束 Windows 工作階段？</string>
 	<key>Environment Overrides</key>
 	<string>環境覆蓋</string>
 	<key>Environment variable name is invalid or reserved: %@.</key>
 	<string>環境變數名稱無效或保留：%1$@。</string>
 	<key>Error</key>
 	<string>錯誤</string>
+	<key>Every Windows app in this container will close. Unsaved work may be lost.</key>
+	<string>此容器中的所有 Windows App 都將關閉。未儲存的工作可能會遺失。</string>
 	<key>Executable</key>
 	<string>可執行檔</string>
 	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
@@ -546,6 +570,8 @@
 	<string>已安裝</string>
 	<key>Installed %@.</key>
 	<string>已安裝 %1$@。</string>
+	<key>Installed Apps</key>
+	<string>已安裝的 App</string>
 	<key>Installed Programs</key>
 	<string>已安裝的程式</string>
 	<key>Installed Windows applications will appear here after setup.</key>
@@ -614,6 +640,8 @@
 	<string>已識別的 URL 方案</string>
 	<key>Level</key>
 	<string>等級</string>
+	<key>Live preview unavailable</key>
+	<string>無法使用即時預覽</string>
 	<key>Loading files…</key>
 	<string>正在加載檔案...</string>
 	<key>Local Development Runtime</key>
@@ -664,6 +692,8 @@
 	<string>需要再次嘗試</string>
 	<key>Never run</key>
 	<string>從未執行</string>
+	<key>New App</key>
+	<string>新增 App</string>
 	<key>New App Recommended</key>
 	<string>建議更新 App</string>
 	<key>New Container</key>
@@ -696,8 +726,14 @@
 	<string>找不到符合條件的官方執行環境版本。</string>
 	<key>No environment overrides.</key>
 	<string>沒有環境覆蓋。</string>
+	<key>No matching apps</key>
+	<string>沒有相符的 App</string>
+	<key>No matching apps or tasks</key>
+	<string>沒有相符的 App 或工作</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>無法載入已發佈的執行環境資訊清單。</string>
+	<key>No visible Windows app windows</key>
+	<string>沒有可見的 Windows App 視窗</string>
 	<key>Not Installed</key>
 	<string>未安裝</string>
 	<key>Not Now</key>
@@ -718,6 +754,8 @@
 	<string>尚未使用</string>
 	<key>OK</key>
 	<string>好</string>
+	<key>Off</key>
+	<string>關閉</string>
 	<key>Official Releases</key>
 	<string>官方版本</string>
 	<key>Official download page</key>
@@ -734,6 +772,8 @@
 	<string>只會刪除由 Switchyard 管理的執行環境快取。</string>
 	<key>Open</key>
 	<string>打開</string>
+	<key>Open Activity</key>
+	<string>開啟活動</string>
 	<key>Open All Logs</key>
 	<string>打開所有日誌</string>
 	<key>Open Folder</key>
@@ -756,6 +796,8 @@
 	<string>打開日誌</string>
 	<key>Open Settings</key>
 	<string>開啟設定</string>
+	<key>Open Windows Desktop</key>
+	<string>開啟 Windows 桌面</string>
 	<key>Open Wine Settings</key>
 	<string>開啟 Wine 設定</string>
 	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
@@ -832,6 +874,8 @@
 	<string>最近的文件</string>
 	<key>Recently Launched</key>
 	<string>最近啟動</string>
+	<key>Recently Opened</key>
+	<string>最近開啟</string>
 	<key>Recommended</key>
 	<string>建議</string>
 	<key>Recover Copied Callback</key>
@@ -850,6 +894,8 @@
 	<string>拒絕將 %1$@ 移至垃圾箱，因為其路徑位於 Switchyard 儲存之外或沒有 Switchyard 清單。</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>為 Wine URL 方案註冊了 macOS 回呼橋接器：%1$@</string>
+	<key>Related Windows processes</key>
+	<string>相關 Windows 處理程序</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>剩餘的 Wine 進程將在啟動前清理</string>
 	<key>Remove %@</key>
@@ -894,8 +940,14 @@
 	<string>重新啟動 Switchyard 以套用所選語言。</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>重新啟動會關閉此容器中的所有 Windows 處理程序，包括遊戲和安裝程式。要以全新狀態重新啟動嗎？</string>
+	<key>Results</key>
+	<string>結果</string>
 	<key>Retention (days)</key>
 	<string>保留期限（天）</string>
+	<key>Retina</key>
+	<string>Retina</string>
+	<key>Retina + 192 DPI</key>
+	<string>Retina + 192 DPI</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -952,6 +1004,10 @@
 	<string>運行時來源在 %1$@ 修訂版 %2$@ 上進行了驗證。</string>
 	<key>Safe, matching runtime</key>
 	<string>經過驗證的相容執行環境</string>
+	<key>Search Start Menu</key>
+	<string>搜尋開始功能表</string>
+	<key>Search apps or tasks</key>
+	<string>搜尋 App 或工作</string>
 	<key>Search logs</key>
 	<string>搜尋記錄</string>
 	<key>Select another active runtime before removing this one.</key>
@@ -976,6 +1032,8 @@
 	<string>已選擇本機開發用執行環境路徑。</string>
 	<key>Sensible defaults</key>
 	<string>合適的預設設定</string>
+	<key>Session idle</key>
+	<string>工作階段閒置</string>
 	<key>Session status could not be read</key>
 	<string>無法讀取會話狀態</string>
 	<key>Set Up Later</key>
@@ -1008,6 +1066,8 @@
 	<string>來源版本不可用</string>
 	<key>Start %@ in this container</key>
 	<string>在此容器中啟動%1$@</string>
+	<key>Start Menu</key>
+	<string>開始功能表</string>
 	<key>Start another app in the same Windows session.</key>
 	<string>在同一 Windows 會話中啟動另一個應用程式。</string>
 	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
@@ -1146,6 +1206,8 @@
 	<string>系統</string>
 	<key>System Default</key>
 	<string>跟隨系統</string>
+	<key>Task View</key>
+	<string>工作檢視</string>
 	<key>Technical Details</key>
 	<string>技術細節</string>
 	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
@@ -1514,13 +1576,5 @@
 	<string>wineserver 無法停止（退出代碼 %1$d）：%2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo 失敗</string>
-	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
-	<string>192 DPI 可讓文字和控制項維持正常大小。下次啟動時生效。</string>
-	<key>Off</key>
-	<string>關閉</string>
-	<key>Retina</key>
-	<string>Retina</string>
-	<key>Retina + 192 DPI</key>
-	<string>Retina + 192 DPI</string>
 </dict>
 </plist>

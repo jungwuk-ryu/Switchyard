@@ -46,8 +46,18 @@
 	<string>%1$lld entradas de registro de alto volumen se omitieron de la vista en directo; El registro de depuración protegido por ejecución conserva la salida completa cuando el registro de desarrollador está habilitado.</string>
 	<key>%lld more items</key>
 	<string>%1$lld elementos más</string>
+	<key>%lld process running</key>
+	<string>%1$lld proceso en ejecución</string>
+	<key>%lld processes running</key>
+	<string>%1$lld procesos en ejecución</string>
+	<key>%lld window running</key>
+	<string>%1$lld ventana en ejecución</string>
+	<key>%lld windows running</key>
+	<string>%1$lld ventanas en ejecución</string>
 	<key>1. Open Apple's download page</key>
 	<string>1. Abra la página de descarga de Apple.</string>
+	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
+	<string>192 DPI mantiene el texto y los controles en su tamaño habitual. Se aplica en el próximo inicio.</string>
 	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
 	<string>2. Inicie sesión y descargue la versión más reciente Game Porting Toolkit .dmg</string>
 	<key>3. Return here — Switchyard will find it automatically</key>
@@ -82,6 +92,8 @@
 	<string>Actividad</string>
 	<key>Add</key>
 	<string>Añadir</string>
+	<key>Add App</key>
+	<string>Añadir app</string>
 	<key>Add Container</key>
 	<string>Añadir contenedor</string>
 	<key>Add another app to the running Windows session</key>
@@ -120,10 +132,14 @@
 	<string>Aplicación</string>
 	<key>Applications</key>
 	<string>Apps</string>
+	<key>Apps</key>
+	<string>Apps</string>
 	<key>Back</key>
 	<string>Atrás</string>
 	<key>Back to Containers</key>
 	<string>Volver a los contenedores</string>
+	<key>Bring this Windows window forward</key>
+	<string>Traer esta ventana de Windows al frente</string>
 	<key>Browse Game Launchers</key>
 	<string>Explorar lanzadores de juegos</string>
 	<key>Build %@</key>
@@ -418,12 +434,20 @@
 	<string>Descargando, validando e instalando el tiempo de ejecución firmado...</string>
 	<key>Empty Folder</key>
 	<string>Carpeta vacía</string>
+	<key>End Session</key>
+	<string>Finalizar sesión</string>
+	<key>End Windows Session</key>
+	<string>Finalizar sesión de Windows</string>
+	<key>End Windows Session?</key>
+	<string>¿Finalizar la sesión de Windows?</string>
 	<key>Environment Overrides</key>
 	<string>Anulaciones de entorno</string>
 	<key>Environment variable name is invalid or reserved: %@.</key>
 	<string>El nombre de la variable de entorno no es válido o está reservado: %1$@.</string>
 	<key>Error</key>
 	<string>Error</string>
+	<key>Every Windows app in this container will close. Unsaved work may be lost.</key>
+	<string>Se cerrarán todas las apps de Windows de este contenedor. El trabajo sin guardar puede perderse.</string>
 	<key>Executable</key>
 	<string>Ejecutable</string>
 	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
@@ -546,6 +570,8 @@
 	<string>Instalado</string>
 	<key>Installed %@.</key>
 	<string>Se instaló %1$@.</string>
+	<key>Installed Apps</key>
+	<string>Apps instaladas</string>
 	<key>Installed Programs</key>
 	<string>Programas instalados</string>
 	<key>Installed Windows applications will appear here after setup.</key>
@@ -614,6 +640,8 @@
 	<string>Esquemas aprendidos</string>
 	<key>Level</key>
 	<string>Nivel</string>
+	<key>Live preview unavailable</key>
+	<string>Vista previa en vivo no disponible</string>
 	<key>Loading files…</key>
 	<string>Cargando archivos…</string>
 	<key>Local Development Runtime</key>
@@ -664,6 +692,8 @@
 	<string>Necesita otro intento</string>
 	<key>Never run</key>
 	<string>Nunca se ha ejecutado</string>
+	<key>New App</key>
+	<string>Nueva app</string>
 	<key>New App Recommended</key>
 	<string>Se recomienda actualizar la app</string>
 	<key>New Container</key>
@@ -696,8 +726,14 @@
 	<string>No se encontraron versiones oficiales aptas del entorno de ejecución.</string>
 	<key>No environment overrides.</key>
 	<string>No se anula ningún entorno.</string>
+	<key>No matching apps</key>
+	<string>No hay apps coincidentes</string>
+	<key>No matching apps or tasks</key>
+	<string>No hay apps ni tareas coincidentes</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>No se pudo cargar ningún manifiesto publicado del entorno de ejecución.</string>
+	<key>No visible Windows app windows</key>
+	<string>No hay ventanas visibles de apps de Windows</string>
 	<key>Not Installed</key>
 	<string>No instalado</string>
 	<key>Not Now</key>
@@ -718,6 +754,8 @@
 	<string>Aún no se ha usado</string>
 	<key>OK</key>
 	<string>Aceptar</string>
+	<key>Off</key>
+	<string>Desactivado</string>
 	<key>Official Releases</key>
 	<string>Versiones oficiales</string>
 	<key>Official download page</key>
@@ -734,6 +772,8 @@
 	<string>Solo se eliminará la caché del entorno de ejecución gestionada por Switchyard.</string>
 	<key>Open</key>
 	<string>Abrir</string>
+	<key>Open Activity</key>
+	<string>Abrir actividad</string>
 	<key>Open All Logs</key>
 	<string>Abrir todos los registros</string>
 	<key>Open Folder</key>
@@ -756,6 +796,8 @@
 	<string>Abrir registros</string>
 	<key>Open Settings</key>
 	<string>Abrir configuración</string>
+	<key>Open Windows Desktop</key>
+	<string>Abrir escritorio de Windows</string>
 	<key>Open Wine Settings</key>
 	<string>Abra la configuración de Wine</string>
 	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
@@ -832,6 +874,8 @@
 	<string>Archivos recientes</string>
 	<key>Recently Launched</key>
 	<string>Ejecutados recientemente</string>
+	<key>Recently Opened</key>
+	<string>Abiertas recientemente</string>
 	<key>Recommended</key>
 	<string>Recomendado</string>
 	<key>Recover Copied Callback</key>
@@ -850,6 +894,8 @@
 	<string>Negarse a mover %1$@ a la Papelera porque su ruta está fuera del almacenamiento Switchyard o no tiene ningún manifiesto Switchyard.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Se registró un puente de devolución de llamada macOS para un esquema de URL Wine: %1$@</string>
+	<key>Related Windows processes</key>
+	<string>Procesos de Windows relacionados</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>Los procesos restantes de Wine se limpiarán antes del lanzamiento.</string>
 	<key>Remove %@</key>
@@ -894,8 +940,14 @@
 	<string>Reinicia Switchyard para aplicar el idioma seleccionado.</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>Al reiniciar se cerrarán todos los procesos de Windows de este contenedor, incluidos los juegos y los instaladores. ¿Quieres reiniciar con una sesión nueva?</string>
+	<key>Results</key>
+	<string>Resultados</string>
 	<key>Retention (days)</key>
 	<string>Retención (días)</string>
+	<key>Retina</key>
+	<string>Retina</string>
+	<key>Retina + 192 DPI</key>
+	<string>Retina + 192 DPI</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -952,6 +1004,10 @@
 	<string>Fuente de tiempo de ejecución verificada en %1$@ revisión %2$@.</string>
 	<key>Safe, matching runtime</key>
 	<string>Entorno de ejecución verificado y compatible</string>
+	<key>Search Start Menu</key>
+	<string>Buscar en el menú Inicio</string>
+	<key>Search apps or tasks</key>
+	<string>Buscar apps o tareas</string>
 	<key>Search logs</key>
 	<string>Buscar en los registros</string>
 	<key>Select another active runtime before removing this one.</key>
@@ -976,6 +1032,8 @@
 	<string>Se seleccionó la ruta del entorno de desarrollo local.</string>
 	<key>Sensible defaults</key>
 	<string>Valores predeterminados adecuados</string>
+	<key>Session idle</key>
+	<string>Sesión inactiva</string>
 	<key>Session status could not be read</key>
 	<string>No se pudo leer el estado de la sesión</string>
 	<key>Set Up Later</key>
@@ -1008,6 +1066,8 @@
 	<string>Revisión de fuente no disponible</string>
 	<key>Start %@ in this container</key>
 	<string>Inicie %1$@ en este contenedor</string>
+	<key>Start Menu</key>
+	<string>Menú Inicio</string>
 	<key>Start another app in the same Windows session.</key>
 	<string>Inicie otra aplicación en la misma sesión Windows.</string>
 	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
@@ -1146,6 +1206,8 @@
 	<string>Sistema</string>
 	<key>System Default</key>
 	<string>Configuración del sistema</string>
+	<key>Task View</key>
+	<string>Vista de tareas</string>
 	<key>Technical Details</key>
 	<string>Detalles técnicos</string>
 	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
@@ -1514,13 +1576,5 @@
 	<string>No se pudo detener wineserver (código de salida %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo falló</string>
-	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
-	<string>192 DPI mantiene el texto y los controles en su tamaño habitual. Se aplica en el próximo inicio.</string>
-	<key>Off</key>
-	<string>Desactivado</string>
-	<key>Retina</key>
-	<string>Retina</string>
-	<key>Retina + 192 DPI</key>
-	<string>Retina + 192 DPI</string>
 </dict>
 </plist>

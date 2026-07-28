@@ -345,6 +345,37 @@ import Testing
     #expect(plan.arguments == ["/tmp/Tools/Repair.exe", "/repair"])
 }
 
+@Test func jobEngineRunsWindowsShortcutThroughStartWithContainerEnvironment() throws {
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        environmentOverrides: ["DXVK_LOG_LEVEL": "none"]
+    )
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+    let shortcutPath =
+        #"C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Toolbox.lnk"#
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        executablePath: "start",
+        executableArguments: [shortcutPath],
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.arguments == ["start", shortcutPath])
+    #expect(plan.environment["WINEPREFIX"] == container.path)
+    #expect(plan.environment["DXVK_LOG_LEVEL"] == "none")
+    #expect(
+        plan.environment[WineDesktopShortcutFormat.privateDesktopEnvironmentKey] == "1"
+    )
+}
+
 @Test func jobEngineRejectsReservedEnvironmentOverrides() throws {
     let container = Container(
         name: "Toolbox",

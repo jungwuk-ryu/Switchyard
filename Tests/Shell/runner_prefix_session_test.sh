@@ -379,6 +379,27 @@ if [ -s "$EVENTS" ]; then
   exit 1
 fi
 
+host_processes_json="$(
+  TEST_EVENTS="$EVENTS" \
+    "$RUNNER" list-host-processes --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+)"
+for expected_pid in "$orphan_wine_pid" "$environment_wine_pid"; do
+  if ! printf '%s\n' "$host_processes_json" \
+    | grep -Eq "(^|\\[|,)$expected_pid(,|\\])"; then
+    echo "list-host-processes omitted Wine host process $expected_pid" >&2
+    exit 1
+  fi
+done
+if printf '%s\n' "$host_processes_json" \
+  | grep -Eq "(^|\\[|,)$unrelated_wine_pid(,|\\])"; then
+  echo "list-host-processes included a Wine process from another prefix" >&2
+  exit 1
+fi
+if [ -s "$EVENTS" ]; then
+  echo "list-host-processes launched Wine while inspecting host processes" >&2
+  exit 1
+fi
+
 set +e
 TEST_EVENTS="$EVENTS" "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
 orphan_probe_status=$?

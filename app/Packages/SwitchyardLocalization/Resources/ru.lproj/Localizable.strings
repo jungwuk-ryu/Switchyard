@@ -46,8 +46,18 @@
 	<string>%1$lld записи в журнале с большим объёмом были опущены в прямом эфире; Защищённый журнал отладки за запуск сохраняет полный результат при включении логирования разработчика.</string>
 	<key>%lld more items</key>
 	<string>Ещё %1$lld</string>
+	<key>%lld process running</key>
+	<string>Запущено процессов: %1$lld</string>
+	<key>%lld processes running</key>
+	<string>Запущено процессов: %1$lld</string>
+	<key>%lld window running</key>
+	<string>Запущено окон: %1$lld</string>
+	<key>%lld windows running</key>
+	<string>Запущено окон: %1$lld</string>
 	<key>1. Open Apple's download page</key>
 	<string>1. Откройте страницу загрузки Apple.</string>
+	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
+	<string>Режим 192 DPI сохраняет привычный размер текста и элементов управления. Изменения применятся при следующем запуске.</string>
 	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
 	<string>2. Войдите в систему и загрузите новейшую версию Game Porting Toolkit .dmg.</string>
 	<key>3. Return here — Switchyard will find it automatically</key>
@@ -82,6 +92,8 @@
 	<string>Активность</string>
 	<key>Add</key>
 	<string>Добавить</string>
+	<key>Add App</key>
+	<string>Добавить приложение</string>
 	<key>Add Container</key>
 	<string>Добавить контейнер</string>
 	<key>Add another app to the running Windows session</key>
@@ -120,10 +132,14 @@
 	<string>Приложение</string>
 	<key>Applications</key>
 	<string>Приложения</string>
+	<key>Apps</key>
+	<string>Приложения</string>
 	<key>Back</key>
 	<string>Назад</string>
 	<key>Back to Containers</key>
 	<string>Назад к контейнерам</string>
+	<key>Bring this Windows window forward</key>
+	<string>Вывести это окно Windows на передний план</string>
 	<key>Browse Game Launchers</key>
 	<string>Выбрать игровой лаунчер</string>
 	<key>Build %@</key>
@@ -418,12 +434,20 @@
 	<string>Загрузка, проверка и установка подписанной среды выполнения…</string>
 	<key>Empty Folder</key>
 	<string>Пустая папка</string>
+	<key>End Session</key>
+	<string>Завершить сеанс</string>
+	<key>End Windows Session</key>
+	<string>Завершить сеанс Windows</string>
+	<key>End Windows Session?</key>
+	<string>Завершить сеанс Windows?</string>
 	<key>Environment Overrides</key>
 	<string>Переопределения среды</string>
 	<key>Environment variable name is invalid or reserved: %@.</key>
 	<string>Имя переменной среды недопустимо или зарезервировано: %1$@.</string>
 	<key>Error</key>
 	<string>Ошибка</string>
+	<key>Every Windows app in this container will close. Unsaved work may be lost.</key>
+	<string>Все приложения Windows в этом контейнере будут закрыты. Несохранённые данные могут быть потеряны.</string>
 	<key>Executable</key>
 	<string>Исполняемый файл</string>
 	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
@@ -546,6 +570,8 @@
 	<string>Установлено</string>
 	<key>Installed %@.</key>
 	<string>%1$@ установлено.</string>
+	<key>Installed Apps</key>
+	<string>Установленные приложения</string>
 	<key>Installed Programs</key>
 	<string>Установленные программы</string>
 	<key>Installed Windows applications will appear here after setup.</key>
@@ -614,6 +640,8 @@
 	<string>Изученные схемы</string>
 	<key>Level</key>
 	<string>Уровень</string>
+	<key>Live preview unavailable</key>
+	<string>Предпросмотр в реальном времени недоступен</string>
 	<key>Loading files…</key>
 	<string>Загрузка файлов…</string>
 	<key>Local Development Runtime</key>
@@ -664,6 +692,8 @@
 	<string>Нужна еще одна попытка</string>
 	<key>Never run</key>
 	<string>Ещё не запускалось</string>
+	<key>New App</key>
+	<string>Новое приложение</string>
 	<key>New App Recommended</key>
 	<string>Рекомендуется обновить приложение</string>
 	<key>New Container</key>
@@ -696,8 +726,14 @@
 	<string>Подходящие официальные выпуски среды выполнения не найдены.</string>
 	<key>No environment overrides.</key>
 	<string>Никакая среда не переопределяет.</string>
+	<key>No matching apps</key>
+	<string>Нет подходящих приложений</string>
+	<key>No matching apps or tasks</key>
+	<string>Нет подходящих приложений или задач</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>Не удалось загрузить опубликованный манифест среды выполнения.</string>
+	<key>No visible Windows app windows</key>
+	<string>Нет видимых окон приложений Windows</string>
 	<key>Not Installed</key>
 	<string>Не установлен</string>
 	<key>Not Now</key>
@@ -718,6 +754,8 @@
 	<string>Ещё не использовалась</string>
 	<key>OK</key>
 	<string>ОК</string>
+	<key>Off</key>
+	<string>Выкл.</string>
 	<key>Official Releases</key>
 	<string>Официальные выпуски</string>
 	<key>Official download page</key>
@@ -734,6 +772,8 @@
 	<string>Будет удалён только кэш среды выполнения, управляемый Switchyard.</string>
 	<key>Open</key>
 	<string>Открыть</string>
+	<key>Open Activity</key>
+	<string>Открыть активность</string>
 	<key>Open All Logs</key>
 	<string>Открыть все журналы</string>
 	<key>Open Folder</key>
@@ -756,6 +796,8 @@
 	<string>Открыть журналы</string>
 	<key>Open Settings</key>
 	<string>Открыть настройки</string>
+	<key>Open Windows Desktop</key>
+	<string>Открыть рабочий стол Windows</string>
 	<key>Open Wine Settings</key>
 	<string>Откройте настройки Wine.</string>
 	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
@@ -832,6 +874,8 @@
 	<string>Последние файлы</string>
 	<key>Recently Launched</key>
 	<string>Недавно запущенный</string>
+	<key>Recently Opened</key>
+	<string>Недавно открытые</string>
 	<key>Recommended</key>
 	<string>Рекомендуется</string>
 	<key>Recover Copied Callback</key>
@@ -850,6 +894,8 @@
 	<string>Отказ в перемещении %1$@ в корзину, поскольку его путь находится за пределами хранилища Switchyard или не имеет манифеста Switchyard.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Зарегистрирован мост обратного вызова macOS для схемы URL-адресов Wine: %1$@.</string>
+	<key>Related Windows processes</key>
+	<string>Связанные процессы Windows</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>Остальные процессы Wine будут очищены перед запуском.</string>
 	<key>Remove %@</key>
@@ -894,8 +940,14 @@
 	<string>Перезапустите Switchyard, чтобы применить выбранный язык.</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>При перезапуске завершатся все процессы Windows в этом контейнере, включая игры и установщики. Перезапустить контейнер с чистого состояния?</string>
+	<key>Results</key>
+	<string>Результаты</string>
 	<key>Retention (days)</key>
 	<string>Срок хранения (дни)</string>
+	<key>Retina</key>
+	<string>Retina</string>
+	<key>Retina + 192 DPI</key>
+	<string>Retina + 192 DPI</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -952,6 +1004,10 @@
 	<string>Исходный код среды выполнения проверен на версии %1$@ %2$@.</string>
 	<key>Safe, matching runtime</key>
 	<string>Проверенная совместимая среда выполнения</string>
+	<key>Search Start Menu</key>
+	<string>Поиск в меню «Пуск»</string>
+	<key>Search apps or tasks</key>
+	<string>Поиск приложений или задач</string>
 	<key>Search logs</key>
 	<string>Поиск в журналах</string>
 	<key>Select another active runtime before removing this one.</key>
@@ -976,6 +1032,8 @@
 	<string>Выбран путь к локальной среде выполнения для разработки.</string>
 	<key>Sensible defaults</key>
 	<string>Удобные настройки по умолчанию</string>
+	<key>Session idle</key>
+	<string>Сеанс неактивен</string>
 	<key>Session status could not be read</key>
 	<string>Статус сеанса не может быть прочитан</string>
 	<key>Set Up Later</key>
@@ -1008,6 +1066,8 @@
 	<string>Исходная версия недоступна</string>
 	<key>Start %@ in this container</key>
 	<string>Запустите %1$@ в этом контейнере.</string>
+	<key>Start Menu</key>
+	<string>Меню «Пуск»</string>
 	<key>Start another app in the same Windows session.</key>
 	<string>Запустите другое приложение в том же сеансе Windows.</string>
 	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
@@ -1146,6 +1206,8 @@
 	<string>Система</string>
 	<key>System Default</key>
 	<string>Системные настройки</string>
+	<key>Task View</key>
+	<string>Представление задач</string>
 	<key>Technical Details</key>
 	<string>Технические детали</string>
 	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
@@ -1514,13 +1576,5 @@
 	<string>wineserver не удалось остановить (код выхода %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo не удалось</string>
-	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
-	<string>Режим 192 DPI сохраняет привычный размер текста и элементов управления. Изменения применятся при следующем запуске.</string>
-	<key>Off</key>
-	<string>Выкл.</string>
-	<key>Retina</key>
-	<string>Retina</string>
-	<key>Retina + 192 DPI</key>
-	<string>Retina + 192 DPI</string>
 </dict>
 </plist>

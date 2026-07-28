@@ -375,6 +375,7 @@ final class AppStore: ObservableObject {
     }
     @Published var selectedSettingsTab: SettingsTab = .general
     @Published var selectedContainerID: UUID?
+    @Published var isPresentingContainerDetail = false
     @Published var hasCompletedSetup: Bool
     @Published var isSetupAssistantPresented = false
     @Published var libraryPath: String
@@ -410,6 +411,8 @@ final class AppStore: ObservableObject {
     @Published private(set) var startingPrefixContainerIDs: Set<UUID> = []
     @Published private(set) var launchingExecutablePathByContainerID: [UUID: String] = [:]
     @Published private(set) var installedProgramsByContainerID: [UUID: [InstalledProgram]] = [:]
+    @Published private(set) var startMenuEntriesByContainerID:
+        [UUID: [WindowsStartMenuEntry]] = [:]
     @Published private var launcherInstallationStates:
         [LauncherInstallationKey: LauncherInstallationState] = [:]
     @Published private(set) var recentProgramLaunchesByContainerID: [UUID: [RecentProgramLaunch]] = [:]
@@ -451,6 +454,7 @@ final class AppStore: ObservableObject {
     private var gptkComponentTaskID: UUID?
     private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
+    private var startMenuCatalogTasks: [UUID: Task<Void, Never>] = [:]
     private var starterApplicationDetectionTask: Task<Void, Never>?
     private var launcherInstallationIDs: [LauncherInstallationKey: UUID] = [:]
     private var launcherDownloadTasks: [LauncherInstallationKey: Task<URL, Error>] = [:]
@@ -2215,16 +2219,66 @@ final class AppStore: ObservableObject {
         return true
     }
 
-    func runExecutable(_ executablePath: String, arguments: [String] = [], in containerID: UUID) {
+    func runExecutable(
+        _ executablePath: String,
+        arguments: [String] = [],
+        in containerID: UUID,
+        recordsRecentProgramLaunch: Bool = true
+    ) {
         selectedContainerID = containerID
 
         Task {
-            await runContainer(containerID: containerID, executablePath: executablePath, executableArguments: arguments)
+            await runContainer(
+                containerID: containerID,
+                executablePath: executablePath,
+                executableArguments: arguments,
+                recordsRecentProgramLaunch: recordsRecentProgramLaunch
+            )
         }
     }
 
     func runInstalledProgram(_ program: InstalledProgram, in containerID: UUID) {
         runExecutable(program.executablePath, in: containerID)
+    }
+
+    func runStartMenuEntry(_ entry: WindowsStartMenuEntry, in containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }),
+              !isContainerTransitioning(containerID),
+              entry.hostURL(prefixPath: container.path) != nil else {
+            return
+        }
+
+        selectedContainerID = containerID
+        Task {
+            let didLaunch = await runContainer(
+                containerID: containerID,
+                executablePath: "start",
+                executableArguments: [entry.windowsShortcutPath],
+                recordsRecentProgramLaunch: false
+            )
+            guard didLaunch else { return }
+            logLines.insert(
+                LogLine(
+                    containerID: containerID,
+                    level: "info",
+                    source: container.name,
+                    message: String(
+                        localized: "Opened \(entry.displayName) from the Start Menu.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+        }
+    }
+
+    func openWindowsDesktop(in containerID: UUID) {
+        runExecutable(
+            "explorer.exe",
+            arguments: ["/desktop=shell,1280x800"],
+            in: containerID,
+            recordsRecentProgramLaunch: false
+        )
     }
 
     func launcherInstallationState(
@@ -2488,6 +2542,10 @@ final class AppStore: ObservableObject {
         installedProgramsByContainerID[containerID] ?? []
     }
 
+    func startMenuEntries(for containerID: UUID) -> [WindowsStartMenuEntry] {
+        startMenuEntriesByContainerID[containerID] ?? []
+    }
+
     func recentInstalledPrograms(for containerID: UUID) -> [RecentInstalledProgram] {
         var installedProgramsByPath: [String: InstalledProgram] = [:]
         for program in installedPrograms(for: containerID) {
@@ -2525,6 +2583,25 @@ final class AppStore: ObservableObject {
 
     func sessionSnapshot(for containerID: UUID) -> ContainerSessionSnapshot {
         sessionSnapshotsByContainerID[containerID] ?? .checking
+    }
+
+    func wineHostProcessIDs(for containerID: UUID) async -> Set<Int32> {
+        guard let container = containers.first(where: { $0.id == containerID }),
+              sessionSnapshot(for: containerID).wineServerState.hasRunningProcesses else {
+            return []
+        }
+
+        let winePath = currentRuntime.winePath
+        let prefixPath = container.path
+        let runnerClient = runnerClient
+        return await Task.detached(priority: .utility) {
+            Set(
+                (try? runnerClient.runningWineHostProcessIDs(
+                    winePath: winePath,
+                    prefixPath: prefixPath
+                )) ?? []
+            )
+        }.value
     }
 
     func isStoppingWineServer(in containerID: UUID) -> Bool {
@@ -2788,6 +2865,23 @@ final class AppStore: ObservableObject {
                 containerID: containerID
             )
             self.installedProgramTasks.removeValue(forKey: containerID)
+        }
+    }
+
+    func refreshStartMenuEntries(for containerID: UUID) {
+        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        startMenuCatalogTasks[containerID]?.cancel()
+
+        startMenuCatalogTasks[containerID] = Task {
+            let entries = await Task.detached(priority: .utility) {
+                WindowsStartMenuCatalog().entries(in: container)
+            }.value
+            guard !Task.isCancelled,
+                  self.containers.contains(where: { $0.id == containerID }) else {
+                return
+            }
+            self.startMenuEntriesByContainerID[containerID] = entries
+            self.startMenuCatalogTasks.removeValue(forKey: containerID)
         }
     }
 
@@ -3220,6 +3314,9 @@ final class AppStore: ObservableObject {
             installedProgramTasks[containerID]?.cancel()
             installedProgramTasks.removeValue(forKey: containerID)
             installedProgramsByContainerID.removeValue(forKey: containerID)
+            startMenuCatalogTasks[containerID]?.cancel()
+            startMenuCatalogTasks.removeValue(forKey: containerID)
+            startMenuEntriesByContainerID.removeValue(forKey: containerID)
             containers[currentIndex] = renamedContainer
 
             if var recentLaunches = recentProgramLaunchesByContainerID[containerID] {
@@ -3237,6 +3334,7 @@ final class AppStore: ObservableObject {
             sessionSnapshotsByContainerID[containerID] = .checking
             persistRecentProgramLaunches()
             refreshInstalledPrograms(for: containerID)
+            refreshStartMenuEntries(for: containerID)
             refreshProtocolAssociations()
             logLines.insert(
                 LogLine(
@@ -3507,6 +3605,9 @@ final class AppStore: ObservableObject {
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)
+        startMenuCatalogTasks[containerID]?.cancel()
+        startMenuCatalogTasks.removeValue(forKey: containerID)
+        startMenuEntriesByContainerID.removeValue(forKey: containerID)
         let launcherKeys = launcherInstallationStates.keys.filter {
             $0.containerID == containerID
         }
@@ -3552,7 +3653,8 @@ final class AppStore: ObservableObject {
     private func runContainer(
         containerID: UUID,
         executablePath: String?,
-        executableArguments: [String]
+        executableArguments: [String],
+        recordsRecentProgramLaunch: Bool = true
     ) async -> Bool {
         guard let container = containers.first(where: { $0.id == containerID }) else {
             return false
@@ -3719,7 +3821,8 @@ final class AppStore: ObservableObject {
                     requiresInactiveTransition: terminateExistingPrefixSession
                 )
             }
-            if !launchedExecutable.isEmpty,
+            if recordsRecentProgramLaunch,
+               !launchedExecutable.isEmpty,
                WindowsApplicationFileKind(path: launchedExecutable) != .installerPackage {
                 recordRecentProgramLaunch(
                     executablePath: launchedExecutable,
@@ -4443,6 +4546,7 @@ final class AppStore: ObservableObject {
             )
         }
         refreshInstalledPrograms(for: session.containerID)
+        refreshStartMenuEntries(for: session.containerID)
         Task {
             await refreshContainerSession(for: session.containerID)
         }

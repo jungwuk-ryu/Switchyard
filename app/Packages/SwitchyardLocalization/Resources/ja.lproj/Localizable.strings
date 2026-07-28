@@ -46,8 +46,18 @@
 	<string>%1$lld大量のログエントリはライブビューから除外され、開発者ログが有効化されている場合でも、保護された実行ごとのデバッグログは完全な出力を保持します。</string>
 	<key>%lld more items</key>
 	<string>ほか %1$lld 項目</string>
+	<key>%lld process running</key>
+	<string>%1$lld個のプロセスを実行中</string>
+	<key>%lld processes running</key>
+	<string>%1$lld個のプロセスを実行中</string>
+	<key>%lld window running</key>
+	<string>%1$lld個のウインドウを実行中</string>
+	<key>%lld windows running</key>
+	<string>%1$lld個のウインドウを実行中</string>
 	<key>1. Open Apple's download page</key>
 	<string>1. Appleのダウンロードページを開きます</string>
+	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
+	<string>192 DPI では、テキストやコントロールが通常の大きさに保たれます。次回の起動時に適用されます。</string>
 	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
 	<string>2. サインインして、最新の Game Porting Toolkit .dmg をダウンロードします。</string>
 	<key>3. Return here — Switchyard will find it automatically</key>
@@ -82,6 +92,8 @@
 	<string>アクティビティ</string>
 	<key>Add</key>
 	<string>追加</string>
+	<key>Add App</key>
+	<string>アプリを追加</string>
 	<key>Add Container</key>
 	<string>コンテナを追加</string>
 	<key>Add another app to the running Windows session</key>
@@ -120,10 +132,14 @@
 	<string>アプリ</string>
 	<key>Applications</key>
 	<string>アプリ</string>
+	<key>Apps</key>
+	<string>アプリ</string>
 	<key>Back</key>
 	<string>戻る</string>
 	<key>Back to Containers</key>
 	<string>コンテナに戻る</string>
+	<key>Bring this Windows window forward</key>
+	<string>この Windows ウインドウを手前に表示</string>
 	<key>Browse Game Launchers</key>
 	<string>ゲームランチャーを表示</string>
 	<key>Build %@</key>
@@ -418,12 +434,20 @@
 	<string>署名付きランタイムをダウンロード、検証、インストールしています…</string>
 	<key>Empty Folder</key>
 	<string>空のフォルダー</string>
+	<key>End Session</key>
+	<string>セッションを終了</string>
+	<key>End Windows Session</key>
+	<string>Windows セッションを終了</string>
+	<key>End Windows Session?</key>
+	<string>Windows セッションを終了しますか？</string>
 	<key>Environment Overrides</key>
 	<string>環境オーバーライド</string>
 	<key>Environment variable name is invalid or reserved: %@.</key>
 	<string>環境変数名が無効または予約されています: %1$@。</string>
 	<key>Error</key>
 	<string>エラー</string>
+	<key>Every Windows app in this container will close. Unsaved work may be lost.</key>
+	<string>このコンテナ内のすべての Windows アプリが終了します。保存していない作業は失われる可能性があります。</string>
 	<key>Executable</key>
 	<string>実行ファイル</string>
 	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
@@ -546,6 +570,8 @@
 	<string>インストール済み</string>
 	<key>Installed %@.</key>
 	<string>%1$@ をインストールしました。</string>
+	<key>Installed Apps</key>
+	<string>インストール済みアプリ</string>
 	<key>Installed Programs</key>
 	<string>インストールされているプログラム</string>
 	<key>Installed Windows applications will appear here after setup.</key>
@@ -614,6 +640,8 @@
 	<string>検出済み URL スキーム</string>
 	<key>Level</key>
 	<string>レベル</string>
+	<key>Live preview unavailable</key>
+	<string>ライブプレビューを利用できません</string>
 	<key>Loading files…</key>
 	<string>ファイルをロード中…</string>
 	<key>Local Development Runtime</key>
@@ -664,6 +692,8 @@
 	<string>もう一度試す必要があります</string>
 	<key>Never run</key>
 	<string>実行履歴なし</string>
+	<key>New App</key>
+	<string>新しいアプリ</string>
 	<key>New App Recommended</key>
 	<string>アプリのアップデートを推奨</string>
 	<key>New Container</key>
@@ -696,8 +726,14 @@
 	<string>利用可能な公式ランタイムリリースが見つかりませんでした。</string>
 	<key>No environment overrides.</key>
 	<string>環境の上書きはありません。</string>
+	<key>No matching apps</key>
+	<string>一致するアプリはありません</string>
+	<key>No matching apps or tasks</key>
+	<string>一致するアプリまたはタスクはありません</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>公開済みのランタイムマニフェストを読み込めませんでした。</string>
+	<key>No visible Windows app windows</key>
+	<string>表示中の Windows アプリウインドウはありません</string>
 	<key>Not Installed</key>
 	<string>未インストール</string>
 	<key>Not Now</key>
@@ -718,6 +754,8 @@
 	<string>未使用</string>
 	<key>OK</key>
 	<string>OK</string>
+	<key>Off</key>
+	<string>オフ</string>
 	<key>Official Releases</key>
 	<string>公式リリース</string>
 	<key>Official download page</key>
@@ -734,6 +772,8 @@
 	<string>Switchyard が管理するランタイムキャッシュだけが削除されます。</string>
 	<key>Open</key>
 	<string>開く</string>
+	<key>Open Activity</key>
+	<string>アクティビティを開く</string>
 	<key>Open All Logs</key>
 	<string>すべてのログを開く</string>
 	<key>Open Folder</key>
@@ -756,6 +796,8 @@
 	<string>ログを開く</string>
 	<key>Open Settings</key>
 	<string>設定を開く</string>
+	<key>Open Windows Desktop</key>
+	<string>Windows デスクトップを開く</string>
 	<key>Open Wine Settings</key>
 	<string>Wine 設定を開く</string>
 	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
@@ -832,6 +874,8 @@
 	<string>最近のファイル</string>
 	<key>Recently Launched</key>
 	<string>最近起動した項目</string>
+	<key>Recently Opened</key>
+	<string>最近開いた項目</string>
 	<key>Recommended</key>
 	<string>推奨</string>
 	<key>Recover Copied Callback</key>
@@ -850,6 +894,8 @@
 	<string>パスがSwitchyardの保存領域外にあるか、Switchyardマニフェストがないため、%1$@をゴミ箱に入れられません。</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Wine URL スキームの macOS コールバック ブリッジを登録しました: %1$@</string>
+	<key>Related Windows processes</key>
+	<string>関連する Windows プロセス</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>残りの Wine プロセスは起動前にクリーンアップされます</string>
 	<key>Remove %@</key>
@@ -894,8 +940,14 @@
 	<string>選択した言語を適用するには、Switchyard を再起動してください。</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>再起動すると、ゲームやインストーラを含む、このコンテナ内のすべてのWindowsプロセスが終了します。新しい状態で再起動しますか？</string>
+	<key>Results</key>
+	<string>結果</string>
 	<key>Retention (days)</key>
 	<string>保存期間（日）</string>
+	<key>Retina</key>
+	<string>Retina</string>
+	<key>Retina + 192 DPI</key>
+	<string>Retina + 192 DPI</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -952,6 +1004,10 @@
 	<string>ランタイム ソースは %1$@ リビジョン %2$@ で検証されました。</string>
 	<key>Safe, matching runtime</key>
 	<string>検証済みの互換ランタイム</string>
+	<key>Search Start Menu</key>
+	<string>スタートメニューを検索</string>
+	<key>Search apps or tasks</key>
+	<string>アプリまたはタスクを検索</string>
 	<key>Search logs</key>
 	<string>ログを検索</string>
 	<key>Select another active runtime before removing this one.</key>
@@ -976,6 +1032,8 @@
 	<string>ローカル開発用ランタイムのパスを選択しました。</string>
 	<key>Sensible defaults</key>
 	<string>使いやすい初期設定</string>
+	<key>Session idle</key>
+	<string>セッション待機中</string>
 	<key>Session status could not be read</key>
 	<string>セッションステータスを読み取れませんでした</string>
 	<key>Set Up Later</key>
@@ -1008,6 +1066,8 @@
 	<string>ソース リビジョンが利用できません</string>
 	<key>Start %@ in this container</key>
 	<string>このコンテナで %1$@ を開始します</string>
+	<key>Start Menu</key>
+	<string>スタートメニュー</string>
 	<key>Start another app in the same Windows session.</key>
 	<string>同じ Windows セッションで別のアプリを起動します。</string>
 	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
@@ -1146,6 +1206,8 @@
 	<string>システム</string>
 	<key>System Default</key>
 	<string>システム設定</string>
+	<key>Task View</key>
+	<string>タスクビュー</string>
 	<key>Technical Details</key>
 	<string>技術的な詳細</string>
 	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
@@ -1514,13 +1576,5 @@
 	<string>wineserver を停止できませんでした (終了コード %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo が失敗しました</string>
-	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
-	<string>192 DPI では、テキストやコントロールが通常の大きさに保たれます。次回の起動時に適用されます。</string>
-	<key>Off</key>
-	<string>オフ</string>
-	<key>Retina</key>
-	<string>Retina</string>
-	<key>Retina + 192 DPI</key>
-	<string>Retina + 192 DPI</string>
 </dict>
 </plist>

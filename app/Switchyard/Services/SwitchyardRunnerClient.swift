@@ -13,6 +13,7 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     case missingRunner
     case couldNotEncodePlan
     case couldNotListWindowsProcesses(Int32)
+    case couldNotListWineHostProcesses(Int32)
     case couldNotStopWineServer(Int32, String)
 
     var description: String {
@@ -30,6 +31,11 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
         case let .couldNotListWindowsProcesses(status):
             String(
                 localized: "Running Windows applications could not be inspected (exit code \(status)).",
+                bundle: SwitchyardStrings.bundle
+            )
+        case let .couldNotListWineHostProcesses(status):
+            String(
+                localized: "Windows window previews could not be inspected (exit code \(status)).",
                 bundle: SwitchyardStrings.bundle
             )
         case let .couldNotStopWineServer(status, detail):
@@ -126,6 +132,25 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
             throw SwitchyardRunnerClientError.couldNotListWindowsProcesses(process.terminationStatus)
         }
         return try JSONDecoder().decode([String].self, from: data)
+    }
+
+    func runningWineHostProcessIDs(winePath: String, prefixPath: String) throws -> [Int32] {
+        let runnerURL = try locateRunner()
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = runnerURL
+        process.arguments = ["list-host-processes", "--wine", winePath, "--prefix", prefixPath]
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw SwitchyardRunnerClientError.couldNotListWineHostProcesses(
+                process.terminationStatus
+            )
+        }
+        return try JSONDecoder().decode([Int32].self, from: data)
     }
 
     func stopWineServer(winePath: String, prefixPath: String) throws {

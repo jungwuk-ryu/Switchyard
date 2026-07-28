@@ -46,8 +46,18 @@
 	<string>라이브 화면에서 로그 %1$lld개를 생략했습니다. 개발자 로깅이 켜져 있으면 실행별 디버그 로그에서 전체 내용을 확인할 수 있습니다.</string>
 	<key>%lld more items</key>
 	<string>%1$lld개 더 있음</string>
+	<key>%lld process running</key>
+	<string>프로세스 %1$lld개 실행 중</string>
+	<key>%lld processes running</key>
+	<string>프로세스 %1$lld개 실행 중</string>
+	<key>%lld window running</key>
+	<string>창 %1$lld개 실행 중</string>
+	<key>%lld windows running</key>
+	<string>창 %1$lld개 실행 중</string>
 	<key>1. Open Apple's download page</key>
 	<string>1. Apple의 다운로드 페이지를 엽니다.</string>
+	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
+	<string>192 DPI는 텍스트와 컨트롤을 평소 크기로 유지합니다. 다음 실행부터 적용됩니다.</string>
 	<key>2. Sign in and download the newest Game Porting Toolkit .dmg</key>
 	<string>2. 로그인하고 최신 Game Porting Toolkit .dmg를 다운로드하세요.</string>
 	<key>3. Return here — Switchyard will find it automatically</key>
@@ -82,6 +92,8 @@
 	<string>활동</string>
 	<key>Add</key>
 	<string>추가</string>
+	<key>Add App</key>
+	<string>앱 추가</string>
 	<key>Add Container</key>
 	<string>컨테이너 추가</string>
 	<key>Add another app to the running Windows session</key>
@@ -120,10 +132,14 @@
 	<string>앱</string>
 	<key>Applications</key>
 	<string>앱</string>
+	<key>Apps</key>
+	<string>앱</string>
 	<key>Back</key>
 	<string>뒤로</string>
 	<key>Back to Containers</key>
 	<string>컨테이너로 돌아가기</string>
+	<key>Bring this Windows window forward</key>
+	<string>이 Windows 창을 앞으로 가져오기</string>
 	<key>Browse Game Launchers</key>
 	<string>게임 런처 둘러보기</string>
 	<key>Build %@</key>
@@ -418,12 +434,20 @@
 	<string>서명된 런타임을 다운로드, 검증, 설치하는 중…</string>
 	<key>Empty Folder</key>
 	<string>빈 폴더</string>
+	<key>End Session</key>
+	<string>세션 종료</string>
+	<key>End Windows Session</key>
+	<string>Windows 세션 종료</string>
+	<key>End Windows Session?</key>
+	<string>Windows 세션을 종료할까요?</string>
 	<key>Environment Overrides</key>
 	<string>환경 재정의</string>
 	<key>Environment variable name is invalid or reserved: %@.</key>
 	<string>환경 변수 이름이 잘못되었거나 예약되었습니다: %1$@.</string>
 	<key>Error</key>
 	<string>오류</string>
+	<key>Every Windows app in this container will close. Unsaved work may be lost.</key>
+	<string>이 컨테이너의 모든 Windows 앱이 종료됩니다. 저장하지 않은 작업은 사라질 수 있습니다.</string>
 	<key>Executable</key>
 	<string>실행 파일</string>
 	<key>External Wine runtime selected, but it has no Switchyard manifest and cannot be verified against the pinned source revision.</key>
@@ -546,6 +570,8 @@
 	<string>설치됨</string>
 	<key>Installed %@.</key>
 	<string>%1$@ 설치 완료.</string>
+	<key>Installed Apps</key>
+	<string>설치된 앱</string>
 	<key>Installed Programs</key>
 	<string>설치된 프로그램</string>
 	<key>Installed Windows applications will appear here after setup.</key>
@@ -614,6 +640,8 @@
 	<string>학습된 구성표</string>
 	<key>Level</key>
 	<string>레벨</string>
+	<key>Live preview unavailable</key>
+	<string>실시간 미리보기를 사용할 수 없음</string>
 	<key>Loading files…</key>
 	<string>파일 로드 중…</string>
 	<key>Local Development Runtime</key>
@@ -664,6 +692,8 @@
 	<string>또 다른 시도가 필요합니다</string>
 	<key>Never run</key>
 	<string>실행 기록 없음</string>
+	<key>New App</key>
+	<string>새 앱</string>
 	<key>New App Recommended</key>
 	<string>앱 업데이트 권장</string>
 	<key>New Container</key>
@@ -696,8 +726,14 @@
 	<string>사용 가능한 공식 런타임 릴리스를 찾을 수 없습니다.</string>
 	<key>No environment overrides.</key>
 	<string>별도로 설정한 환경 변수가 없습니다.</string>
+	<key>No matching apps</key>
+	<string>일치하는 앱 없음</string>
+	<key>No matching apps or tasks</key>
+	<string>일치하는 앱 또는 작업 없음</string>
 	<key>No published runtime manifest could be loaded.</key>
 	<string>게시된 런타임 매니페스트를 불러올 수 없습니다.</string>
+	<key>No visible Windows app windows</key>
+	<string>표시 중인 Windows 앱 창이 없습니다</string>
 	<key>Not Installed</key>
 	<string>설치되지 않음</string>
 	<key>Not Now</key>
@@ -718,6 +754,8 @@
 	<string>아직 사용하지 않음</string>
 	<key>OK</key>
 	<string>확인</string>
+	<key>Off</key>
+	<string>끔</string>
 	<key>Official Releases</key>
 	<string>공식 릴리스</string>
 	<key>Official download page</key>
@@ -734,6 +772,8 @@
 	<string>Switchyard에서 관리하는 런타임 캐시만 삭제됩니다.</string>
 	<key>Open</key>
 	<string>열기</string>
+	<key>Open Activity</key>
+	<string>활동 열기</string>
 	<key>Open All Logs</key>
 	<string>모든 로그 열기</string>
 	<key>Open Folder</key>
@@ -756,6 +796,8 @@
 	<string>로그 열기</string>
 	<key>Open Settings</key>
 	<string>설정 열기</string>
+	<key>Open Windows Desktop</key>
+	<string>Windows 바탕 화면 열기</string>
 	<key>Open Wine Settings</key>
 	<string>Wine 설정 열기</string>
 	<key>Open fonts ready: %lld copied, %lld already present, %lld family replacements registered.</key>
@@ -832,6 +874,8 @@
 	<string>최근 파일</string>
 	<key>Recently Launched</key>
 	<string>최근 실행</string>
+	<key>Recently Opened</key>
+	<string>최근 실행</string>
 	<key>Recommended</key>
 	<string>권장</string>
 	<key>Recover Copied Callback</key>
@@ -850,6 +894,8 @@
 	<string>%1$@의 경로가 Switchyard 저장소 밖에 있거나 매니페스트가 없어 휴지통으로 옮기지 않았습니다.</string>
 	<key>Registered a macOS callback bridge for a Wine URL scheme: %@</key>
 	<string>Wine URL 스킴 %1$@의 macOS 콜백 연결을 등록했습니다.</string>
+	<key>Related Windows processes</key>
+	<string>관련 Windows 프로세스</string>
 	<key>Remaining Wine processes will be cleaned up before launch</key>
 	<string>앱을 실행하기 전에 남은 Wine 프로세스를 정리합니다.</string>
 	<key>Remove %@</key>
@@ -894,8 +940,14 @@
 	<string>선택한 언어를 적용하려면 Switchyard를 다시 시작하세요.</string>
 	<key>Restarting will close every Windows process in this container, including games or installers. Restart it to guarantee a fresh launch?</key>
 	<string>다시 시작하면 게임과 설치 프로그램을 포함해 이 컨테이너의 모든 Windows 프로세스가 종료됩니다. 새 상태로 다시 시작할까요?</string>
+	<key>Results</key>
+	<string>결과</string>
 	<key>Retention (days)</key>
 	<string>보관 기간(일)</string>
+	<key>Retina</key>
+	<string>Retina</string>
+	<key>Retina + 192 DPI</key>
+	<string>Retina + 192 DPI</string>
 	<key>Rosetta 2</key>
 	<string>Rosetta 2</string>
 	<key>Rosetta 2 can only be installed on an Apple Silicon Mac.</key>
@@ -952,6 +1004,10 @@
 	<string>%1$@ 개정판 %2$@에서 확인된 런타임 소스입니다.</string>
 	<key>Safe, matching runtime</key>
 	<string>검증된 호환 런타임</string>
+	<key>Search Start Menu</key>
+	<string>시작 메뉴 검색</string>
+	<key>Search apps or tasks</key>
+	<string>앱 또는 작업 검색</string>
 	<key>Search logs</key>
 	<string>로그 검색</string>
 	<key>Select another active runtime before removing this one.</key>
@@ -976,6 +1032,8 @@
 	<string>로컬 개발용 런타임 경로를 선택했습니다.</string>
 	<key>Sensible defaults</key>
 	<string>알맞은 기본 설정</string>
+	<key>Session idle</key>
+	<string>대기 중</string>
 	<key>Session status could not be read</key>
 	<string>세션 상태를 읽을 수 없습니다.</string>
 	<key>Set Up Later</key>
@@ -1008,6 +1066,8 @@
 	<string>소스 버전을 사용할 수 없습니다.</string>
 	<key>Start %@ in this container</key>
 	<string>이 컨테이너에서 %1$@를 시작하세요.</string>
+	<key>Start Menu</key>
+	<string>시작 메뉴</string>
 	<key>Start another app in the same Windows session.</key>
 	<string>동일한 Windows 세션에서 다른 앱을 시작하세요.</string>
 	<key>Start with Steam, or create an empty private space for another Windows installer.</key>
@@ -1146,6 +1206,8 @@
 	<string>시스템</string>
 	<key>System Default</key>
 	<string>시스템 설정</string>
+	<key>Task View</key>
+	<string>작업 보기</string>
 	<key>Technical Details</key>
 	<string>기술 세부 정보</string>
 	<key>The %@ download was unexpectedly large, so Switchyard stopped before using it.</key>
@@ -1514,13 +1576,5 @@
 	<string>wineserver를 중지할 수 없습니다(종료 코드 %1$d): %2$@</string>
 	<key>zipinfo failed</key>
 	<string>zipinfo 실패</string>
-	<key>192 DPI keeps text and controls at their usual size. Applies on the next launch.</key>
-	<string>192 DPI는 텍스트와 컨트롤을 평소 크기로 유지합니다. 다음 실행부터 적용됩니다.</string>
-	<key>Off</key>
-	<string>끔</string>
-	<key>Retina</key>
-	<string>Retina</string>
-	<key>Retina + 192 DPI</key>
-	<string>Retina + 192 DPI</string>
 </dict>
 </plist>
