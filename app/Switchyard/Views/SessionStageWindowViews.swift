@@ -13,31 +13,37 @@ struct SessionStageWindowGridMetrics: Equatable {
         availableSize: CGSize
     ) -> SessionStageWindowGridMetrics {
         let count = max(1, windowCount)
-        let spacing: CGFloat = 18
+        let spacing: CGFloat = 16
         let availableWidth = max(220, availableSize.width)
         let availableHeight = max(156, availableSize.height)
+        let minimumCardWidth = min(260, availableWidth)
+        let minimumCardHeight = min(190, availableHeight)
 
         let preferredColumns: Int
         switch count {
         case 1:
             preferredColumns = 1
         case 2:
-            preferredColumns = availableWidth < 720 ? 1 : 2
-        case 3...4:
-            preferredColumns = availableWidth < 720 ? 1 : 2
+            preferredColumns = 2
+        case 3:
+            preferredColumns = 3
+        case 4:
+            preferredColumns = availableWidth >= 1_088 ? 4 : 2
         case 5...6:
-            preferredColumns = availableWidth < 980 ? 2 : 3
-        case 7...9:
-            preferredColumns = availableWidth < 900 ? 2 : 3
+            preferredColumns = 3
+        case 7...8:
+            preferredColumns = 4
+        case 9:
+            preferredColumns = 3
         case 10...12:
-            preferredColumns = availableWidth < 1_150 ? 3 : 4
+            preferredColumns = 4
         default:
             preferredColumns = min(5, max(3, Int(ceil(sqrt(Double(count))))))
         }
 
         let columnsAllowedByWidth = max(
             1,
-            Int((availableWidth + spacing) / (220 + spacing))
+            Int((availableWidth + spacing) / (minimumCardWidth + spacing))
         )
         let columns = min(count, min(preferredColumns, columnsAllowedByWidth))
         let rows = Int(ceil(Double(count) / Double(columns)))
@@ -47,10 +53,16 @@ struct SessionStageWindowGridMetrics: Equatable {
         let heightBeforeCap = (
             availableHeight - CGFloat(rows - 1) * spacing
         ) / CGFloat(rows)
-        let maximumCardWidth: CGFloat = count == 1 ? 820 : 620
-        let maximumCardHeight: CGFloat = count == 1 ? 560 : 390
-        let cardWidth = min(availableWidth, max(220, min(maximumCardWidth, widthBeforeCap)))
-        let cardHeight = max(156, min(maximumCardHeight, heightBeforeCap))
+        let maximumCardWidth: CGFloat = count == 1 ? 760 : 460
+        let maximumCardHeight: CGFloat = count == 1 ? 500 : 320
+        let cardWidth = min(
+            availableWidth,
+            max(minimumCardWidth, min(maximumCardWidth, widthBeforeCap))
+        )
+        let cardHeight = max(
+            minimumCardHeight,
+            min(maximumCardHeight, heightBeforeCap)
+        )
 
         return SessionStageWindowGridMetrics(
             columns: columns,
@@ -78,20 +90,24 @@ struct SessionStageWindowPresentation: Equatable {
         position: Int,
         total: Int
     ) -> SessionStageWindowPresentation {
-        let applicationName = nonempty(programName)
-            ?? window.executableDisplayName
+        let matchedProgramName = nonempty(programName)
         let windowTitle = window.meaningfulTitle
-        let title = applicationName
+        let executableName = safeExecutableName(window.executableDisplayName)
+        let title = matchedProgramName
             ?? windowTitle
+            ?? executableName
             ?? nonempty(fallbackName)
             ?? "#\(position)"
 
         var detailParts: [String] = []
-        if let windowTitle,
+        if matchedProgramName != nil,
+           let windowTitle,
            normalized(windowTitle) != normalized(title) {
             detailParts.append(windowTitle)
         }
-        detailParts.append("#\(position)/\(total)")
+        if total > 1 {
+            detailParts.append("#\(position)/\(total)")
+        }
         detailParts.append(
             "\(Int(window.frame.width.rounded())) × \(Int(window.frame.height.rounded()))"
         )
@@ -111,6 +127,21 @@ struct SessionStageWindowPresentation: Equatable {
 
     private static func normalized(_ value: String) -> String {
         value.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    private static func safeExecutableName(_ value: String?) -> String? {
+        guard let candidate = nonempty(value) else { return nil }
+        let key = normalized(candidate)
+        let helperNames: Set<String> = [
+            "explorer",
+            "steamwebhelper",
+            "wine",
+            "wine64",
+            "wine64preloader",
+            "wineserver",
+            "xdt",
+        ]
+        return helperNames.contains(key) ? nil : candidate
     }
 }
 
@@ -155,25 +186,35 @@ struct SessionStageWindowCard: View {
     let presentation: SessionStageWindowPresentation
     let isRunning: Bool
     let isSelected: Bool
+    var isClosing = false
+    var onClose: (() -> Void)?
     var action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
+    @State private var isCloseHovering = false
+    @FocusState private var activationIsFocused: Bool
+    @FocusState private var closeIsFocused: Bool
 
     var body: some View {
-        Button(action: action) {
-            windowSurface
-                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        ZStack(alignment: .topTrailing) {
+            Button(action: action) {
+                windowSurface
+                    .contentShape(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .focused($activationIsFocused)
+            .disabled(isClosing)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(presentation.title)
+            .accessibilityValue(accessibilityValue)
+            .accessibilityHint(activationAccessibilityHint)
+
+            closeControl
         }
-        .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(presentation.title)
-        .accessibilityValue(accessibilityValue)
-        .accessibilityHint(
-            window != nil
-                ? "Bring this Windows window forward"
-                : (isRunning ? "Open Activity" : "Launch this Windows app")
-        )
     }
 
     private var windowSurface: some View {
@@ -187,18 +228,22 @@ struct SessionStageWindowCard: View {
                     Image(decorative: image, scale: 1)
                         .resizable()
                         .scaledToFit()
-                        .transition(.opacity)
+                        .transition(reduceMotion ? .identity : .opacity)
                 } else {
                     previewFallback
+                }
+
+                if isClosing {
+                    Color.black.opacity(0.38)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
         }
         .background(Color.black.opacity(0.9))
-        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(
                     isSelected
                         ? Color(red: 0.12, green: 0.55, blue: 1)
@@ -208,7 +253,7 @@ struct SessionStageWindowCard: View {
         }
         .background(
             Color.white.opacity(isHovering ? 0.035 : 0),
-            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .shadow(
             color: isSelected
@@ -217,8 +262,19 @@ struct SessionStageWindowCard: View {
             radius: isSelected ? 15 : 9,
             y: 8
         )
-        .animation(.easeOut(duration: 0.16), value: isHovering)
-        .animation(.snappy(duration: 0.22), value: isSelected)
+        .opacity(isClosing ? 0.62 : 1)
+        .animation(
+            reduceMotion ? nil : .easeOut(duration: 0.16),
+            value: isHovering
+        )
+        .animation(
+            reduceMotion ? nil : .snappy(duration: 0.22),
+            value: isSelected
+        )
+        .animation(
+            reduceMotion ? nil : .easeOut(duration: 0.16),
+            value: isClosing
+        )
     }
 
     private var titleBar: some View {
@@ -237,18 +293,10 @@ struct SessionStageWindowCard: View {
             }
 
             Spacer(minLength: 8)
-
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 21, height: 21)
-                    .background(Color.blue, in: Circle())
-                    .accessibilityHidden(true)
-            }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 48)
+        .padding(.leading, 12)
+        .padding(.trailing, onClose == nil ? 12 : 48)
+        .frame(height: 44)
         .background(
             LinearGradient(
                 colors: [
@@ -261,10 +309,78 @@ struct SessionStageWindowCard: View {
         )
     }
 
+    @ViewBuilder
+    private var closeControl: some View {
+        if let onClose {
+            Button(action: onClose) {
+                Group {
+                    if isClosing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                            .accessibilityHidden(true)
+                    } else {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                }
+                .foregroundStyle(
+                    isCloseHovering ? Color.white : Color.white.opacity(0.68)
+                )
+                .frame(width: 28, height: 28)
+                .background(
+                    isCloseHovering
+                        ? Color.red.opacity(0.86)
+                        : Color.black.opacity(0.22),
+                    in: Circle()
+                )
+            }
+            .buttonStyle(.plain)
+            .frame(width: 32, height: 32)
+            .contentShape(Rectangle())
+            .focused($closeIsFocused)
+            .disabled(isClosing)
+            .opacity(
+                isHovering || activationIsFocused || closeIsFocused || isClosing
+                    ? 1
+                    : 0
+            )
+            .onHover { isCloseHovering = $0 }
+            .help(closeAccessibilityLabel)
+            .accessibilityLabel(closeAccessibilityLabel)
+            .accessibilityHint(
+                String(
+                    localized: "Closes only this Windows window",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+            .padding(.top, 6)
+            .padding(.trailing, 8)
+            .animation(
+                reduceMotion ? nil : .easeOut(duration: 0.14),
+                value: isHovering
+            )
+            .animation(
+                reduceMotion ? nil : .easeOut(duration: 0.14),
+                value: closeIsFocused
+            )
+        }
+    }
+
     private var previewFallback: some View {
         VStack(spacing: 12) {
             programIcon(size: 54)
-            Text(isRunning ? "Live preview unavailable" : "Ready to launch")
+            Text(
+                isRunning
+                    ? String(
+                        localized: "Live preview unavailable",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                    : String(
+                        localized: "Ready to launch",
+                        bundle: SwitchyardStrings.bundle
+                    )
+            )
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.white.opacity(0.46))
         }
@@ -294,7 +410,44 @@ struct SessionStageWindowCard: View {
                 bundle: SwitchyardStrings.bundle
             )
         }
+        if isClosing {
+            value += ", " + String(
+                localized: "Closing",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
         return Text(value)
+    }
+
+    private var activationAccessibilityHint: String {
+        if window != nil {
+            return String(
+                localized: "Bring this Windows window forward",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return isRunning
+            ? String(
+                localized: "Open Activity",
+                bundle: SwitchyardStrings.bundle
+            )
+            : String(
+                localized: "Launch this Windows app",
+                bundle: SwitchyardStrings.bundle
+            )
+    }
+
+    private var closeAccessibilityLabel: String {
+        if isClosing {
+            return String(
+                localized: "Closing window",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return String(
+            localized: "Close window",
+            bundle: SwitchyardStrings.bundle
+        )
     }
 }
 

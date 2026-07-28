@@ -17,10 +17,15 @@ final class SwitchyardLocalizationTests: XCTestCase {
     func testEverySupportedLocaleTranslatesRepresentativeInterfaceText() {
         let requiredKeys = [
             "Add Container",
+            "Close window",
             "Download & Install",
             "Game Launchers",
             "Language",
+            "Pin to taskbar",
+            "Search Start Menu",
+            "Start Menu",
             "System Default",
+            "Unpin from taskbar",
             "Restart Switchyard to apply the selected language."
         ]
 

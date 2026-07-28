@@ -154,7 +154,17 @@ private enum TestContainerRenameError: Error, Equatable {
         executablePath: "C:\\Tools\\Toolbox.exe",
         executableArguments: ["-safe-mode"],
         status: .ready,
-        displayMode: .retinaWithLargerInterface
+        displayMode: .retinaWithLargerInterface,
+        sessionAppearance: ContainerSessionAppearance(
+            backgroundImageRelativePath: ".switchyard/appearance/background.heic",
+            dimOpacity: 0.42,
+            blurRadius: 13
+        ),
+        pinnedWindowsExecutablePaths: [
+            #"C:/Tools/Toolbox.exe"#,
+            #"c:\tools\TOOLBOX.EXE"#,
+            #"D:/Games/Heartopia/xdt.exe"#,
+        ]
     )
     let snapshot = SwitchyardContainerSnapshot(containers: [container])
     let store = LibraryManifestStore(rootURL: root)
@@ -171,12 +181,28 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(loaded.containers.first?.executableArguments == ["-safe-mode"])
     #expect(loaded.containers.first?.status == .ready)
     #expect(loaded.containers.first?.displayMode == .retinaWithLargerInterface)
+    #expect(
+        loaded.containers.first?.sessionAppearance
+            == ContainerSessionAppearance(
+                backgroundImageRelativePath: ".switchyard/appearance/background.heic",
+                dimOpacity: 0.42,
+                blurRadius: 13
+            )
+    )
+    #expect(loaded.containers.first?.pinnedWindowsExecutablePaths == [
+        #"C:\Tools\Toolbox.exe"#,
+        #"D:\Games\Heartopia\xdt.exe"#,
+    ])
+    #expect(loaded.containers.first?.schemaVersion == 7)
     #expect(loaded.containers.first?.lastRuntime == container.lastRuntime)
     #expect(manifest.contains("\"containers\""))
     #expect(manifest.contains("\"lastRuntime\""))
     #expect(manifest.contains("\"executableArguments\""))
     #expect(manifest.contains("\"displayMode\""))
     #expect(manifest.contains("\"starterApplicationID\""))
+    #expect(manifest.contains("\"sessionAppearance\""))
+    #expect(manifest.contains("\"backgroundImageRelativePath\""))
+    #expect(manifest.contains("\"pinnedWindowsExecutablePaths\""))
     #expect(!manifest.contains("\"wineBuildID\""))
     #expect(!manifest.contains("\"bottles\""))
     #expect(!manifest.contains("\"launchers\""))
@@ -266,10 +292,64 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(loaded.first?.environmentOverrides == [:])
     #expect(loaded.first?.executableArguments == [])
     #expect(loaded.first?.displayMode == nil)
-    #expect(loaded.first?.schemaVersion == 6)
+    #expect(loaded.first?.sessionAppearance == ContainerSessionAppearance())
+    #expect(loaded.first?.pinnedWindowsExecutablePaths == [])
+    #expect(loaded.first?.schemaVersion == 7)
     #expect(loaded.first?.lastRuntime?.runtimeID == "wine-a")
     #expect(loaded.first?.lastRuntime?.patchsetID == "patch-a")
     #expect(loaded.first?.lastRuntime?.usedAt == nil)
+}
+
+@Test func containerManifestStoreSanitizesPersistedSessionPresentationState() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let containerID = UUID()
+    let containerURL = root.appendingPathComponent(
+        "Games.container",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: containerURL,
+        withIntermediateDirectories: true
+    )
+
+    let manifest = """
+    {
+      "id" : "\(containerID.uuidString)",
+      "name" : "Games",
+      "path" : "\(containerURL.path)",
+      "status" : "ready",
+      "sessionAppearance" : {
+        "backgroundImageRelativePath" : "../outside.png",
+        "dimOpacity" : -2,
+        "blurRadius" : 99
+      },
+      "pinnedWindowsExecutablePaths" : [
+        "C:/Program Files/Steam/steam.exe",
+        "c:\\\\program files\\\\steam\\\\STEAM.EXE",
+        "D:/Games/Heartopia/xdt.exe",
+        "C:\\\\Games\\\\not-an-app.dll"
+      ],
+      "schemaVersion" : 7,
+      "lastModified" : "2026-07-05T00:00:00Z"
+    }
+    """
+    try Data(manifest.utf8).write(
+        to: containerURL.appendingPathComponent("switchyard-container.json")
+    )
+
+    let loaded = try #require(
+        ContainerManifestStore(rootURL: root).loadContainers().first
+    )
+
+    #expect(loaded.sessionAppearance.backgroundImageRelativePath == nil)
+    #expect(loaded.sessionAppearance.dimOpacity == 0)
+    #expect(loaded.sessionAppearance.blurRadius == 24)
+    #expect(loaded.pinnedWindowsExecutablePaths == [
+        #"C:\Program Files\Steam\steam.exe"#,
+        #"D:\Games\Heartopia\xdt.exe"#,
+    ])
 }
 
 @Test func librarySnapshotReadsLegacyBottleKeysAndMigratesRunTargetFields() throws {
@@ -344,7 +424,12 @@ private enum TestContainerRenameError: Error, Equatable {
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
     #expect(loaded.containers.first?.displayMode == nil)
-    #expect(loaded.containers.first?.schemaVersion == 6)
+    #expect(
+        loaded.containers.first?.sessionAppearance
+            == ContainerSessionAppearance()
+    )
+    #expect(loaded.containers.first?.pinnedWindowsExecutablePaths == [])
+    #expect(loaded.containers.first?.schemaVersion == 7)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 
@@ -377,7 +462,12 @@ private enum TestContainerRenameError: Error, Equatable {
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
 
     #expect(loaded.containers.first?.displayMode == nil)
-    #expect(loaded.containers.first?.schemaVersion == 6)
+    #expect(
+        loaded.containers.first?.sessionAppearance
+            == ContainerSessionAppearance()
+    )
+    #expect(loaded.containers.first?.pinnedWindowsExecutablePaths == [])
+    #expect(loaded.containers.first?.schemaVersion == 7)
     #expect(loaded.containers.first?.executableArguments == [])
 }
 

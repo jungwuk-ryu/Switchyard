@@ -1,296 +1,321 @@
 import AppCore
+import AppKit
 import SwiftUI
 
+struct SessionStageTaskbarItem: Identifiable {
+    let id: String
+    let title: String
+    let program: InstalledProgram?
+    let windows: [WineWindowSnapshot]
+    let isPinned: Bool
+    let isRunning: Bool
+    let isActive: Bool
+}
+
 struct SessionStageDock: View {
-    let container: Container
-    let programs: [InstalledProgram]
-    let runningExecutablePaths: Set<String>
-    let windowCount: Int
-    let processCount: Int
-    let sessionIsActive: Bool
-    let isStoppingSession: Bool
-    let onLaunchProgram: (InstalledProgram) -> Void
+    let items: [SessionStageTaskbarItem]
+    let isStopping: Bool
+    let onActivateOrLaunch: (SessionStageTaskbarItem) -> Void
+    let onSetPinned: (SessionStageTaskbarItem, Bool) -> Void
     let onAddApplication: () -> Void
-    let onEndSession: () -> Void
     @Binding var startMenuPresented: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var powerIsHovering = false
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button {
-                startMenuPresented.toggle()
+                withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
+                    startMenuPresented.toggle()
+                }
             } label: {
-                SessionStageDockItem(
-                    title: "Start Menu",
+                SessionStageTaskbarSystemItem(
                     systemImage: "square.grid.3x3.fill",
-                    isSelected: startMenuPresented,
-                    statusColor: .blue
+                    isActive: startMenuPresented,
+                    showsIndicator: startMenuPresented
                 )
             }
             .buttonStyle(.plain)
+            .help(String(localized: "Start Menu", bundle: SwitchyardStrings.bundle))
+            .accessibilityLabel(
+                Text(String(localized: "Start Menu", bundle: SwitchyardStrings.bundle))
+            )
+            .accessibilityValue(
+                Text(
+                    startMenuPresented
+                        ? String(localized: "Open", bundle: SwitchyardStrings.bundle)
+                        : String(localized: "Closed", bundle: SwitchyardStrings.bundle)
+                )
+            )
             .accessibilityIdentifier("sessionStage.startMenu")
 
+            taskbarDivider
+
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(programs.prefix(6)) { program in
-                        Button {
-                            onLaunchProgram(program)
-                        } label: {
-                            SessionStageProgramDockItem(
-                                program: program,
-                                isRunning: programIsRunning(program)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(isStoppingSession)
+                HStack(spacing: 6) {
+                    ForEach(pinnedItems) { item in
+                        taskbarButton(for: item)
                     }
 
-                    Button(action: onAddApplication) {
-                        SessionStageDockItem(
-                            title: "Add App",
-                            systemImage: "plus",
-                            isSelected: false,
-                            statusColor: nil
-                        )
+                    if !pinnedItems.isEmpty, !runningUnpinnedItems.isEmpty {
+                        taskbarDivider
+                            .padding(.horizontal, 2)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(isStoppingSession)
-                }
-            }
-            .frame(maxWidth: 650, alignment: .leading)
 
-            Spacer(minLength: 8)
-
-            HStack(spacing: 4) {
-                HStack(spacing: 8) {
-                    Image(systemName: "square.on.square")
-                        .foregroundStyle(.white.opacity(sessionIsActive ? 0.72 : 0.34))
-                    Text(sessionSummary)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.white.opacity(sessionIsActive ? 0.88 : 0.48))
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, 12)
-                .frame(height: 40)
-                .background(Color.white.opacity(0.045), in: Capsule())
-                .accessibilityIdentifier("sessionStage.sessionSummary")
-                .accessibilityElement(children: .combine)
-
-                Button(action: onEndSession) {
-                    Group {
-                        if isStoppingSession {
-                            ProgressView()
-                                .controlSize(.small)
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "power")
-                                .font(.system(size: 16, weight: .semibold))
-                        }
+                    ForEach(runningUnpinnedItems) { item in
+                        taskbarButton(for: item)
                     }
-                    .frame(width: 44, height: 44)
-                    .foregroundStyle(.white.opacity(sessionIsActive ? 0.96 : 0.34))
-                    .background(
-                        sessionIsActive && powerIsHovering
-                            ? Color.red.opacity(0.92)
-                            : Color.white.opacity(sessionIsActive ? 0.08 : 0.035),
-                        in: Circle()
-                    )
-                    .animation(
-                        reduceMotion ? nil : .easeOut(duration: 0.16),
-                        value: powerIsHovering
-                    )
                 }
-                .buttonStyle(.plain)
-                .disabled(!sessionIsActive || isStoppingSession)
-                .onHover { powerIsHovering = $0 }
-                .help("End Windows Session")
-                .accessibilityIdentifier("sessionStage.endSession")
             }
-            .padding(5)
-            .background(.black.opacity(0.24), in: Capsule())
-            .overlay {
-                Capsule().strokeBorder(Color.white.opacity(0.13))
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, minHeight: 116, maxHeight: 124)
-        .background(.black.opacity(0.34), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .background(
-            .ultraThinMaterial,
-            in: RoundedRectangle(cornerRadius: 24, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1))
-        }
-        .shadow(color: .black.opacity(0.34), radius: 24, y: 12)
-    }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-    private var sessionSummary: String {
-        guard sessionIsActive else {
-            return String(localized: "Session idle", bundle: SwitchyardStrings.bundle)
-        }
-        if windowCount > 0 {
-            if windowCount == 1 {
-                return String(
-                    localized: "\(windowCount) window running",
-                    bundle: SwitchyardStrings.bundle
+            taskbarDivider
+
+            Button(action: onAddApplication) {
+                SessionStageTaskbarSystemItem(
+                    systemImage: "plus",
+                    isActive: false,
+                    showsIndicator: false
                 )
             }
-            return String(
-                localized: "\(windowCount) windows running",
-                bundle: SwitchyardStrings.bundle
+            .buttonStyle(.plain)
+            .disabled(isStopping)
+            .help(String(localized: "Add App", bundle: SwitchyardStrings.bundle))
+            .accessibilityLabel(
+                Text(String(localized: "Add App", bundle: SwitchyardStrings.bundle))
             )
+            .accessibilityIdentifier("sessionStage.addApplication")
         }
-        if processCount == 1 {
-            return String(
-                localized: "\(processCount) process running",
-                bundle: SwitchyardStrings.bundle
-            )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 76, maxHeight: 76)
+        .background {
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color(red: 0.035, green: 0.05, blue: 0.075).opacity(0.98))
+            } else {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .fill(Color.black.opacity(0.28))
+                    }
+            }
         }
-        return String(
-            localized: "\(processCount) processes running",
-            bundle: SwitchyardStrings.bundle
-        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(reduceTransparency ? 0.18 : 0.11))
+        }
+        .shadow(color: .black.opacity(0.34), radius: 22, y: 10)
     }
 
-    private func programIsRunning(_ program: InstalledProgram) -> Bool {
-        guard let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
-            hostPath: program.executablePath,
-            prefixPath: container.path
-        ) else {
-            return false
+    private var pinnedItems: [SessionStageTaskbarItem] {
+        items.filter(\.isPinned)
+    }
+
+    private var runningUnpinnedItems: [SessionStageTaskbarItem] {
+        items.filter { !$0.isPinned && $0.isRunning }
+    }
+
+    private var taskbarDivider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.13))
+            .frame(width: 1, height: 34)
+            .accessibilityHidden(true)
+    }
+
+    private func taskbarButton(for item: SessionStageTaskbarItem) -> some View {
+        Button {
+            onActivateOrLaunch(item)
+        } label: {
+            SessionStageTaskbarProgramItem(item: item)
         }
-        return runningExecutablePaths.contains(windowsPath.lowercased())
+        .buttonStyle(.plain)
+        .disabled(isStopping)
+        .help(item.title)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(item.title))
+        .accessibilityValue(Text(accessibilityValue(for: item)))
+        .accessibilityHint(
+            Text(
+                item.isRunning
+                    ? String(localized: "Activate", bundle: SwitchyardStrings.bundle)
+                    : String(localized: "Open", bundle: SwitchyardStrings.bundle)
+            )
+        )
+        .contextMenu {
+            Button {
+                onActivateOrLaunch(item)
+            } label: {
+                Label(
+                    item.isRunning
+                        ? String(localized: "Activate", bundle: SwitchyardStrings.bundle)
+                        : String(localized: "Open", bundle: SwitchyardStrings.bundle),
+                    systemImage: item.isRunning ? "rectangle.on.rectangle" : "play.fill"
+                )
+            }
+
+            if item.program != nil || item.isPinned {
+                Divider()
+
+                Button {
+                    onSetPinned(item, !item.isPinned)
+                } label: {
+                    Label(
+                        item.isPinned
+                            ? String(
+                                localized: "Unpin from taskbar",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                            : String(
+                                localized: "Pin to taskbar",
+                                bundle: SwitchyardStrings.bundle
+                            ),
+                        systemImage: item.isPinned ? "pin.slash" : "pin"
+                    )
+                }
+            }
+        }
+    }
+
+    private func accessibilityValue(for item: SessionStageTaskbarItem) -> String {
+        var values: [String] = []
+        if item.isActive {
+            values.append(String(localized: "Active", bundle: SwitchyardStrings.bundle))
+        } else if item.isRunning {
+            values.append(String(localized: "Running", bundle: SwitchyardStrings.bundle))
+        }
+        if item.isPinned {
+            values.append(String(localized: "Pinned", bundle: SwitchyardStrings.bundle))
+        }
+        if item.windows.count > 1 {
+            values.append(
+                String(
+                    localized: "\(item.windows.count) windows",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+        }
+        return values.joined(separator: ", ")
     }
 }
 
-private struct SessionStageProgramDockItem: View {
-    let program: InstalledProgram
-    let isRunning: Bool
+private struct SessionStageTaskbarProgramItem: View {
+    let item: SessionStageTaskbarItem
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
 
     var body: some View {
-        VStack(spacing: 5) {
-            ZStack(alignment: .topTrailing) {
-                WindowsProgramIconView(
-                    program: program,
-                    size: isHovering && !reduceMotion ? 52 : 48
-                )
-                    .animation(
-                        reduceMotion ? nil : .snappy(duration: 0.18),
-                        value: isHovering
-                    )
-                    .padding(2)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .strokeBorder(
-                                isRunning ? Color.green.opacity(0.92) : Color.clear,
-                                lineWidth: 2
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 4) {
+                Group {
+                    if let program = item.program {
+                        WindowsProgramIconView(program: program, size: 38)
+                    } else if let processID = item.windows.first?.ownerProcessID,
+                              let icon = NSRunningApplication(
+                                  processIdentifier: processID
+                              )?.icon {
+                        Image(nsImage: icon)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 38, height: 38)
+                            .clipShape(
+                                RoundedRectangle(
+                                    cornerRadius: 8,
+                                    style: .continuous
+                                )
                             )
-                            .shadow(
-                                color: isRunning ? Color.green.opacity(0.34) : .clear,
-                                radius: 5
+                    } else {
+                        Image(systemName: "app.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.84))
+                            .frame(width: 38, height: 38)
+                            .background(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.31, green: 0.36, blue: 0.48),
+                                        Color(red: 0.16, green: 0.19, blue: 0.27),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                in: RoundedRectangle(cornerRadius: 9, style: .continuous)
                             )
                     }
-
-                if isRunning {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 11, height: 11)
-                        .overlay {
-                            Circle().strokeBorder(Color.black.opacity(0.78), lineWidth: 2)
-                        }
-                        .offset(x: 2, y: -2)
                 }
+                .scaleEffect(isHovering && !reduceMotion ? 1.04 : 1)
+                .animation(reduceMotion ? nil : .snappy(duration: 0.18), value: isHovering)
+
+                Capsule()
+                    .fill(item.isRunning ? Color.blue : Color.clear)
+                    .frame(width: item.isActive ? 22 : 10, height: 3)
+                    .shadow(
+                        color: item.isActive ? Color.blue.opacity(0.75) : .clear,
+                        radius: 4
+                    )
+                    .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: item.isActive)
             }
-            .frame(width: 58, height: 56, alignment: .bottom)
+            .frame(width: 54, height: 56)
 
-            Text(program.presentationName)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.88))
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
-                .frame(width: 82, height: 27, alignment: .top)
-
-            if isRunning {
-                Text("Running")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.green)
-                    .lineLimit(1)
-                    .frame(height: 11)
-            } else {
-                Color.clear
-                    .frame(height: 11)
+            if item.windows.count > 1 {
+                Text(item.windows.count, format: .number)
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 5)
+                    .frame(minWidth: 18, minHeight: 18)
+                    .background(Color.blue, in: Capsule())
+                    .overlay {
+                        Capsule().strokeBorder(Color.black.opacity(0.38), lineWidth: 1)
+                    }
+                    .offset(x: 4, y: -3)
+                    .accessibilityHidden(true)
             }
         }
-        .frame(width: 88, height: 100)
         .background(
-            isHovering ? Color.white.opacity(0.07) : .clear,
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            Color.white.opacity(item.isActive ? 0.13 : (isHovering ? 0.085 : 0)),
+            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
         )
-        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            if item.isActive {
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.16))
+            }
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         .onHover { isHovering = $0 }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(program.presentationName))
-        .accessibilityValue(
-            Text(
-                isRunning
-                    ? String(localized: "Running", bundle: SwitchyardStrings.bundle)
-                    : String(localized: "Ready", bundle: SwitchyardStrings.bundle)
-            )
-        )
     }
 }
 
-private struct SessionStageDockItem: View {
-    let title: String
+private struct SessionStageTaskbarSystemItem: View {
     let systemImage: String
-    let isSelected: Bool
-    let statusColor: Color?
+    let isActive: Bool
+    let showsIndicator: Bool
 
     @State private var isHovering = false
 
     var body: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 4) {
             Image(systemName: systemImage)
-                .font(.system(size: 24, weight: .medium))
+                .font(.system(size: 22, weight: .medium))
                 .foregroundStyle(.white.opacity(0.9))
-                .frame(width: 52, height: 52)
-                .background(
-                    Color.white.opacity(isSelected ? 0.13 : 0.065),
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(Color.white.opacity(isSelected ? 0.22 : 0.1))
-                }
+                .frame(width: 38, height: 38)
 
-            Text(title)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.84))
-                .lineLimit(1)
-
-            Circle()
-                .fill(statusColor ?? .clear)
-                .frame(width: 6, height: 6)
+            Capsule()
+                .fill(showsIndicator ? Color.blue : Color.clear)
+                .frame(width: isActive ? 22 : 10, height: 3)
         }
-        .frame(width: 88, height: 100)
+        .frame(width: 52, height: 56)
         .background(
-            isHovering || isSelected ? Color.white.opacity(0.07) : .clear,
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            Color.white.opacity(isActive ? 0.13 : (isHovering ? 0.08 : 0)),
+            in: RoundedRectangle(cornerRadius: 13, style: .continuous)
         )
         .overlay {
-            if isSelected {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.13))
-            }
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .strokeBorder(Color.white.opacity(isActive ? 0.16 : 0))
         }
-        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         .onHover { isHovering = $0 }
     }
 }
@@ -302,16 +327,22 @@ struct SessionStageStartMenu: View {
     let recentPrograms: [RecentInstalledProgram]
     let onLaunchProgram: (InstalledProgram) -> Void
     let onOpenShortcut: (WindowsStartMenuEntry) -> Void
-    let onOpenWindowsDesktop: () -> Void
 
     @State private var query = ""
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
-                TextField("Search Start Menu", text: $query)
+                TextField(
+                    String(
+                        localized: "Search Start Menu",
+                        bundle: SwitchyardStrings.bundle
+                    ),
+                    text: $query
+                )
                     .textFieldStyle(.plain)
             }
             .padding(.horizontal, 11)
@@ -327,60 +358,97 @@ struct SessionStageStartMenu: View {
                 LazyVStack(alignment: .leading, spacing: 4) {
                     if query.isEmpty, let defaultProgram = defaultProgram {
                         menuSectionTitle(container.name)
-                        programRow(defaultProgram, trailing: "Run")
+                        programRow(
+                            defaultProgram,
+                            trailing: String(
+                                localized: "Run",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                        )
                     }
 
                     if !filteredEntries.isEmpty {
-                        menuSectionTitle(query.isEmpty ? "Start Menu" : "Results")
+                        menuSectionTitle(
+                            query.isEmpty
+                                ? String(
+                                    localized: "Start Menu",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                                : String(
+                                    localized: "Results",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                        )
                         ForEach(filteredEntries.prefix(14)) { entry in
                             shortcutRow(entry)
                         }
                     } else if !query.isEmpty, matchingPrograms.isEmpty {
-                        Text("No matching apps")
+                        Text(
+                            String(
+                                localized: "No matching apps",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                        )
                             .font(.callout)
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity, minHeight: 72)
                     }
 
                     if !matchingPrograms.isEmpty {
-                        menuSectionTitle(query.isEmpty ? "Installed Apps" : "Apps")
+                        menuSectionTitle(
+                            query.isEmpty
+                                ? String(
+                                    localized: "Installed Apps",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                                : String(
+                                    localized: "Apps",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                        )
                         ForEach(matchingPrograms.prefix(8)) { program in
                             programRow(program)
                         }
                     }
 
                     if query.isEmpty, !recentPrograms.isEmpty {
-                        menuSectionTitle("Recently Opened")
+                        menuSectionTitle(
+                            String(
+                                localized: "Recently Opened",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                        )
                         ForEach(recentPrograms.prefix(3)) { recent in
                             programRow(recent.program)
                         }
+                    }
+
+                    if query.isEmpty, !hasVisibleContent {
+                        Text(
+                            String(
+                                localized: "No apps found",
+                                bundle: SwitchyardStrings.bundle
+                            )
+                        )
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, minHeight: 96)
                     }
                 }
                 .padding(.horizontal, 8)
                 .padding(.bottom, 8)
             }
-            .frame(maxHeight: 330)
-
-            Divider()
-                .overlay(Color.white.opacity(0.12))
-
-            Button(action: onOpenWindowsDesktop) {
-                HStack {
-                    Image(systemName: "rectangle.inset.filled")
-                    Text("Open Windows Desktop")
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                        .foregroundStyle(.secondary)
-                }
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 14)
-                .frame(height: 44)
-            }
-            .buttonStyle(.plain)
+            .frame(maxHeight: 366)
+            .padding(.bottom, 8)
         }
         .frame(width: 344)
-        .background(.ultraThinMaterial)
+        .background {
+            if reduceTransparency {
+                Color(red: 0.075, green: 0.09, blue: 0.12)
+            } else {
+                Rectangle().fill(.ultraThinMaterial)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -393,6 +461,13 @@ struct SessionStageStartMenu: View {
     private var defaultProgram: InstalledProgram? {
         programs.first(where: { $0.executablePath == container.executablePath })
             ?? programs.first
+    }
+
+    private var hasVisibleContent: Bool {
+        defaultProgram != nil
+            || !filteredEntries.isEmpty
+            || !matchingPrograms.isEmpty
+            || !recentPrograms.isEmpty
     }
 
     private var filteredEntries: [WindowsStartMenuEntry] {

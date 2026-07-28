@@ -1584,5 +1584,133 @@
 	<string>다운로드 취소됨</string>
 	<key>Verifying and installing Windows support…</key>
 	<string>Windows 지원 확인 및 설치 중…</string>
+	<key>Allow Accessibility access to close individual Windows app windows.</key>
+	<string>개별 Windows 앱 창을 닫으려면 접근성 권한을 허용하세요.</string>
+	<key>Could not close this window.</key>
+	<string>이 창을 닫을 수 없습니다.</string>
+	<key>Session Info</key>
+	<string>세션 정보</string>
+	<key>Switchyard could not safely identify this window.</key>
+	<string>Switchyard가 이 창을 안전하게 식별할 수 없습니다.</string>
+	<key>The app did not respond to the close request.</key>
+	<string>이 앱이 닫기 요청에 응답하지 않았습니다.</string>
+	<key>This app does not expose a close control for this window.</key>
+	<string>이 앱은 이 창에 닫기 기능을 제공하지 않습니다.</string>
+	<key>This window is no longer available.</key>
+	<string>이 창은 더 이상 사용할 수 없습니다.</string>
+	<key>Activate</key>
+	<string>전환</string>
+	<key>Closed</key>
+	<string>닫힘</string>
+	<key>No apps found</key>
+	<string>앱을 찾을 수 없습니다</string>
+	<key>Pin to taskbar</key>
+	<string>작업 표시줄에 고정</string>
+	<key>Pinned</key>
+	<string>고정됨</string>
+	<key>Unpin from taskbar</key>
+	<string>작업 표시줄에서 고정 해제</string>
+	<key>%lld windows</key>
+	<string>%1$lld개 창</string>
+	<key>Close window</key>
+	<string>창 닫기</string>
+	<key>Closes only this Windows window</key>
+	<string>이 Windows 창만 닫습니다.</string>
+	<key>Closing</key>
+	<string>닫는 중</string>
+	<key>Closing window</key>
+	<string>창 닫는 중</string>
+	<key>App windows</key>
+	<string>앱 창</string>
+	<key>Host processes</key>
+	<string>호스트 프로세스</string>
+	<key>Last refresh</key>
+	<string>마지막 새로고침</string>
+	<key>No matching processes</key>
+	<string>일치하는 프로세스 없음</string>
+	<key>Threads</key>
+	<string>스레드</string>
+	<key>Wine Session</key>
+	<string>Wine 세션</string>
+	<key>Wine session memory</key>
+	<string>Wine 세션 메모리</string>
+	<key>Appearance</key>
+	<string>화면 꾸미기</string>
+	<key>Background</key>
+	<string>배경</string>
+	<key>Blur</key>
+	<string>흐림</string>
+	<key>Changes apply to this container’s session workspace.</key>
+	<string>변경 사항이 이 컨테이너의 세션 작업 공간에 적용됩니다.</string>
+	<key>Choose Image…</key>
+	<string>이미지 선택…</string>
+	<key>Choose what this container opens by default.</key>
+	<string>이 컨테이너가 기본으로 열 것을 선택하세요.</string>
+	<key>Custom image</key>
+	<string>사용자 지정 이미지</string>
+	<key>D3DMetal statistics HUD</key>
+	<string>D3DMetal 통계 HUD</string>
+	<key>Deleting a container moves its managed folder to the Trash.</key>
+	<string>컨테이너를 삭제하면 관리 폴더가 휴지통으로 이동합니다.</string>
+	<key>Dim</key>
+	<string>어둡게</string>
+	<key>Display</key>
+	<string>화면</string>
+	<key>Edit Variables</key>
+	<string>변수 편집</string>
+	<key>Enable diagnostics without memorizing environment variables.</key>
+	<string>환경 변수를 몰라도 진단 옵션을 설정할 수 있습니다.</string>
+	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
+	<string>고급 문제 해결용입니다. 유효하지 않거나 예약된 변수는 거부됩니다.</string>
+	<key>Friendly switches for commonly used runtime options.</key>
+	<string>자주 쓰는 런타임 옵션을 간편하게 설정합니다.</string>
+	<key>Launch Diagnostics</key>
+	<string>실행 진단</string>
+	<key>Legacy 2 GB memory limit</key>
+	<string>구형 앱용 2 GB 메모리 제한</string>
+	<key>Limits 32-bit apps to 2 GB on the next launch. Use only when an older app fails with the default 4 GB address space.</key>
+	<string>다음 실행에서 32비트 앱을 2 GB로 제한합니다. 기본 4 GB 주소 공간에서 구버전 앱이 실패할 때만 사용하세요.</string>
+	<key>Manage launch, display, sign-in, and storage.</key>
+	<string>실행, 화면, 로그인, 저장 공간을 관리합니다.</string>
+	<key>Next launch</key>
+	<string>다음 실행</string>
+	<key>Personalize the workspace while keeping every window easy to read.</key>
+	<string>모든 창이 잘 보이도록 하면서 작업 공간을 개인화하세요.</string>
+	<key>Records standard Wine errors and warnings on the next launch. Log files may grow faster.</key>
+	<string>다음 실행에서 표준 Wine 오류와 경고를 기록합니다. 로그 파일이 더 빨리 커질 수 있습니다.</string>
+	<key>Recover browser sign-in links when an app cannot receive them.</key>
+	<string>앱에서 브라우저 로그인 링크를 받지 못할 때 복구합니다.</string>
+	<key>Remove</key>
+	<string>제거</string>
+	<key>Retina Mode</key>
+	<string>레티나 모드</string>
+	<key>Session Background</key>
+	<string>세션 배경</string>
+	<key>Session background preview</key>
+	<string>세션 배경 미리보기</string>
+	<key>Settings Section</key>
+	<string>설정 항목</string>
+	<key>Shape the session workspace around this container.</key>
+	<string>이 컨테이너의 세션 작업 공간을 꾸밉니다.</string>
+	<key>Shows on-screen D3DMetal statistics on the next launch. Compatible GPTK and D3DMetal apps only.</key>
+	<string>다음 실행에서 화면에 D3DMetal 통계를 표시합니다. 호환되는 GPTK 및 D3DMetal 앱만 해당합니다.</string>
+	<key>Switchyard gradient</key>
+	<string>Switchyard 그라디언트</string>
+	<key>The container folder holds its Windows drive and settings.</key>
+	<string>컨테이너 폴더에 Windows 드라이브와 설정이 저장됩니다.</string>
+	<key>Tune Wine scaling for this container.</key>
+	<string>이 컨테이너의 Wine 스케일링을 조정합니다.</string>
+	<key>Updating background</key>
+	<string>배경 업데이트 중</string>
+	<key>Wine error and warning logs</key>
+	<string>Wine 오류 및 경고 로그</string>
+	<key>Choose Session Background</key>
+	<string>세션 배경 선택</string>
+	<key>Choose an image for this container's session workspace.</key>
+	<string>이 컨테이너의 세션 작업 공간에 사용할 이미지를 선택합니다.</string>
+	<key>Could not change the session background: %@</key>
+	<string>세션 배경을 변경할 수 없습니다: %1$@</string>
+	<key>Could not remove the session background: %@</key>
+	<string>세션 배경을 제거할 수 없습니다: %1$@</string>
 </dict>
 </plist>

@@ -1584,5 +1584,133 @@
 	<string>Téléchargement annulé</string>
 	<key>Verifying and installing Windows support…</key>
 	<string>Vérification et installation de la prise en charge de Windows…</string>
+	<key>Allow Accessibility access to close individual Windows app windows.</key>
+	<string>Autorisez l’accès d’accessibilité pour fermer les fenêtres individuelles des applications Windows.</string>
+	<key>Could not close this window.</key>
+	<string>Impossible de fermer cette fenêtre.</string>
+	<key>Session Info</key>
+	<string>Informations de session</string>
+	<key>Switchyard could not safely identify this window.</key>
+	<string>Switchyard n’a pas pu identifier en toute sécurité cette fenêtre.</string>
+	<key>The app did not respond to the close request.</key>
+	<string>L’application n’a pas répondu à la demande de fermeture.</string>
+	<key>This app does not expose a close control for this window.</key>
+	<string>Cette application n’expose pas de contrôle de fermeture pour cette fenêtre.</string>
+	<key>This window is no longer available.</key>
+	<string>Cette fenêtre n’est plus disponible.</string>
+	<key>Activate</key>
+	<string>Activer</string>
+	<key>Closed</key>
+	<string>Fermé</string>
+	<key>No apps found</key>
+	<string>Aucune application trouvée</string>
+	<key>Pin to taskbar</key>
+	<string>Épingler à la barre des tâches</string>
+	<key>Pinned</key>
+	<string>Épinglé</string>
+	<key>Unpin from taskbar</key>
+	<string>Retirer de la barre des tâches</string>
+	<key>%lld windows</key>
+	<string>%1$lld fenêtres</string>
+	<key>Close window</key>
+	<string>Fermer la fenêtre</string>
+	<key>Closes only this Windows window</key>
+	<string>Ne ferme que cette fenêtre Windows</string>
+	<key>Closing</key>
+	<string>Fermeture en cours</string>
+	<key>Closing window</key>
+	<string>Fermeture de la fenêtre</string>
+	<key>App windows</key>
+	<string>Fenêtres d’application</string>
+	<key>Host processes</key>
+	<string>Processus hôtes</string>
+	<key>Last refresh</key>
+	<string>Dernière actualisation</string>
+	<key>No matching processes</key>
+	<string>Aucun processus correspondant</string>
+	<key>Threads</key>
+	<string>Threads</string>
+	<key>Wine Session</key>
+	<string>Session Wine</string>
+	<key>Wine session memory</key>
+	<string>Mémoire de session Wine</string>
+	<key>Appearance</key>
+	<string>Apparence</string>
+	<key>Background</key>
+	<string>Arrière-plan</string>
+	<key>Blur</key>
+	<string>Flou</string>
+	<key>Changes apply to this container’s session workspace.</key>
+	<string>Les changements s’appliquent à l’espace de travail de session de ce conteneur.</string>
+	<key>Choose Image…</key>
+	<string>Choisir une image…</string>
+	<key>Choose what this container opens by default.</key>
+	<string>Choisissez ce que ce conteneur ouvre par défaut.</string>
+	<key>Custom image</key>
+	<string>Image personnalisée</string>
+	<key>D3DMetal statistics HUD</key>
+	<string>HUD des statistiques D3DMetal</string>
+	<key>Deleting a container moves its managed folder to the Trash.</key>
+	<string>La suppression d’un conteneur déplace son dossier géré vers la Corbeille.</string>
+	<key>Dim</key>
+	<string>Assombrir</string>
+	<key>Display</key>
+	<string>Affichage</string>
+	<key>Edit Variables</key>
+	<string>Modifier les variables</string>
+	<key>Enable diagnostics without memorizing environment variables.</key>
+	<string>Activez les diagnostics sans mémoriser les variables d’environnement.</string>
+	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
+	<string>Pour le dépannage avancé. Les variables invalides ou réservées sont rejetées.</string>
+	<key>Friendly switches for commonly used runtime options.</key>
+	<string>Commutateurs simples pour les options d’exécution les plus utilisées.</string>
+	<key>Launch Diagnostics</key>
+	<string>Diagnostic au lancement</string>
+	<key>Legacy 2 GB memory limit</key>
+	<string>Limite mémoire héritée de 2 Go</string>
+	<key>Limits 32-bit apps to 2 GB on the next launch. Use only when an older app fails with the default 4 GB address space.</key>
+	<string>Limite les applications 32 bits à 2 Go au prochain lancement. À utiliser uniquement si une ancienne application échoue avec l’espace d’adressage par défaut de 4 Go.</string>
+	<key>Manage launch, display, sign-in, and storage.</key>
+	<string>Gérer le lancement, l’affichage, la connexion et le stockage.</string>
+	<key>Next launch</key>
+	<string>Prochain lancement</string>
+	<key>Personalize the workspace while keeping every window easy to read.</key>
+	<string>Personnalisez l’espace de travail tout en gardant chaque fenêtre facilement lisible.</string>
+	<key>Records standard Wine errors and warnings on the next launch. Log files may grow faster.</key>
+	<string>Enregistre les erreurs et avertissements standard de Wine lors du prochain lancement. Les fichiers journaux peuvent croître plus vite.</string>
+	<key>Recover browser sign-in links when an app cannot receive them.</key>
+	<string>Récupère les liens de connexion du navigateur lorsqu’une application ne peut pas les recevoir.</string>
+	<key>Remove</key>
+	<string>Supprimer</string>
+	<key>Retina Mode</key>
+	<string>Mode Retina</string>
+	<key>Session Background</key>
+	<string>Fond de session</string>
+	<key>Session background preview</key>
+	<string>Aperçu du fond de session</string>
+	<key>Settings Section</key>
+	<string>Section des paramètres</string>
+	<key>Shape the session workspace around this container.</key>
+	<string>Façonnez l’espace de travail de session autour de ce conteneur.</string>
+	<key>Shows on-screen D3DMetal statistics on the next launch. Compatible GPTK and D3DMetal apps only.</key>
+	<string>Affiche les statistiques D3DMetal à l’écran au prochain lancement. Uniquement pour les applications compatibles GPTK et D3DMetal.</string>
+	<key>Switchyard gradient</key>
+	<string>Dégradé Switchyard</string>
+	<key>The container folder holds its Windows drive and settings.</key>
+	<string>Le dossier du conteneur contient son lecteur Windows et ses paramètres.</string>
+	<key>Tune Wine scaling for this container.</key>
+	<string>Ajuster l’échelle de Wine pour ce conteneur.</string>
+	<key>Updating background</key>
+	<string>Mise à jour de l’arrière-plan</string>
+	<key>Wine error and warning logs</key>
+	<string>Logs d’erreurs et avertissements Wine</string>
+	<key>Choose Session Background</key>
+	<string>Choisir le fond de session</string>
+	<key>Choose an image for this container's session workspace.</key>
+	<string>Choisissez une image pour l’espace de travail de session de ce conteneur.</string>
+	<key>Could not change the session background: %@</key>
+	<string>Impossible de modifier le fond de session : %1$@</string>
+	<key>Could not remove the session background: %@</key>
+	<string>Impossible de supprimer le fond de session : %1$@</string>
 </dict>
 </plist>

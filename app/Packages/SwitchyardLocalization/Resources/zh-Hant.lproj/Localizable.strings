@@ -1584,5 +1584,133 @@
 	<string>下載已取消</string>
 	<key>Verifying and installing Windows support…</key>
 	<string>正在驗證並安裝 Windows 支援…</string>
+	<key>Allow Accessibility access to close individual Windows app windows.</key>
+	<string>允許輔助功能存取以關閉單一 Windows 應用視窗。</string>
+	<key>Could not close this window.</key>
+	<string>無法關閉此視窗。</string>
+	<key>Session Info</key>
+	<string>會話資訊</string>
+	<key>Switchyard could not safely identify this window.</key>
+	<string>Switchyard 無法安全識別此視窗。</string>
+	<key>The app did not respond to the close request.</key>
+	<string>應用程式未回應關閉請求。</string>
+	<key>This app does not expose a close control for this window.</key>
+	<string>此應用程式未為此視窗提供關閉控制項。</string>
+	<key>This window is no longer available.</key>
+	<string>此視窗已不可用。</string>
+	<key>Activate</key>
+	<string>切換至視窗</string>
+	<key>Closed</key>
+	<string>已關閉</string>
+	<key>No apps found</key>
+	<string>未找到應用</string>
+	<key>Pin to taskbar</key>
+	<string>固定到工作列</string>
+	<key>Pinned</key>
+	<string>已固定</string>
+	<key>Unpin from taskbar</key>
+	<string>從工作列取消固定</string>
+	<key>%lld windows</key>
+	<string>%1$lld 個視窗</string>
+	<key>Close window</key>
+	<string>關閉視窗</string>
+	<key>Closes only this Windows window</key>
+	<string>僅關閉此 Windows 視窗。</string>
+	<key>Closing</key>
+	<string>關閉中</string>
+	<key>Closing window</key>
+	<string>正在關閉視窗</string>
+	<key>App windows</key>
+	<string>應用程式視窗</string>
+	<key>Host processes</key>
+	<string>主機行程</string>
+	<key>Last refresh</key>
+	<string>上次刷新</string>
+	<key>No matching processes</key>
+	<string>沒有符合的行程</string>
+	<key>Threads</key>
+	<string>執行緒</string>
+	<key>Wine Session</key>
+	<string>Wine 工作階段</string>
+	<key>Wine session memory</key>
+	<string>Wine 工作階段記憶體</string>
+	<key>Appearance</key>
+	<string>外觀</string>
+	<key>Background</key>
+	<string>背景</string>
+	<key>Blur</key>
+	<string>模糊</string>
+	<key>Changes apply to this container’s session workspace.</key>
+	<string>變更將套用至此容器的工作階段作業空間。</string>
+	<key>Choose Image…</key>
+	<string>選擇影像…</string>
+	<key>Choose what this container opens by default.</key>
+	<string>選擇此容器預設開啟的內容。</string>
+	<key>Custom image</key>
+	<string>自訂影像</string>
+	<key>D3DMetal statistics HUD</key>
+	<string>D3DMetal 統計資訊 HUD</string>
+	<key>Deleting a container moves its managed folder to the Trash.</key>
+	<string>刪除容器將會把其管理資料夾移到垃圾桶。</string>
+	<key>Dim</key>
+	<string>調暗</string>
+	<key>Display</key>
+	<string>顯示</string>
+	<key>Edit Variables</key>
+	<string>編輯變數</string>
+	<key>Enable diagnostics without memorizing environment variables.</key>
+	<string>無需記住環境變數即可啟用診斷。</string>
+	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
+	<string>供進階疑難排解使用。無效或保留的變數將被拒絕。</string>
+	<key>Friendly switches for commonly used runtime options.</key>
+	<string>常用執行時選項的便捷開關。</string>
+	<key>Launch Diagnostics</key>
+	<string>啟動診斷</string>
+	<key>Legacy 2 GB memory limit</key>
+	<string>傳統 2GB 記憶體限制</string>
+	<key>Limits 32-bit apps to 2 GB on the next launch. Use only when an older app fails with the default 4 GB address space.</key>
+	<string>在下一次啟動時將 32 位應用程式限制為 2 GB。僅在預設 4 GB 位址空間下舊應用程式無法運行時使用。</string>
+	<key>Manage launch, display, sign-in, and storage.</key>
+	<string>管理啟動、顯示、登入和儲存。</string>
+	<key>Next launch</key>
+	<string>下次啟動</string>
+	<key>Personalize the workspace while keeping every window easy to read.</key>
+	<string>在保持每個視窗易於閱讀的同時，自訂工作空間。</string>
+	<key>Records standard Wine errors and warnings on the next launch. Log files may grow faster.</key>
+	<string>在下一次啟動時記錄標準 Wine 錯誤與警告。日誌檔可能增長更快。</string>
+	<key>Recover browser sign-in links when an app cannot receive them.</key>
+	<string>當應用程式無法接收時，恢復瀏覽器登入連結。</string>
+	<key>Remove</key>
+	<string>移除</string>
+	<key>Retina Mode</key>
+	<string>Retina 模式</string>
+	<key>Session Background</key>
+	<string>工作階段背景</string>
+	<key>Session background preview</key>
+	<string>工作階段背景預覽</string>
+	<key>Settings Section</key>
+	<string>設定區段</string>
+	<key>Shape the session workspace around this container.</key>
+	<string>圍繞此容器塑造工作階段作業空間。</string>
+	<key>Shows on-screen D3DMetal statistics on the next launch. Compatible GPTK and D3DMetal apps only.</key>
+	<string>在下一次啟動時顯示螢幕上的 D3DMetal 統計資料。僅適用於相容的 GPTK 與 D3DMetal 應用。</string>
+	<key>Switchyard gradient</key>
+	<string>Switchyard 漸變</string>
+	<key>The container folder holds its Windows drive and settings.</key>
+	<string>容器資料夾包含其 Windows 磁碟機與設定。</string>
+	<key>Tune Wine scaling for this container.</key>
+	<string>為此容器調整 Wine 縮放。</string>
+	<key>Updating background</key>
+	<string>背景更新中</string>
+	<key>Wine error and warning logs</key>
+	<string>Wine 錯誤與警告日誌</string>
+	<key>Choose Session Background</key>
+	<string>選擇工作階段背景</string>
+	<key>Choose an image for this container's session workspace.</key>
+	<string>為此容器的工作階段空間選擇影像。</string>
+	<key>Could not change the session background: %@</key>
+	<string>無法變更工作階段背景：%1$@</string>
+	<key>Could not remove the session background: %@</key>
+	<string>無法移除工作階段背景：%1$@</string>
 </dict>
 </plist>

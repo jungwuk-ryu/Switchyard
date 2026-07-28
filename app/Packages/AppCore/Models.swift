@@ -23,6 +23,125 @@ public enum ContainerDisplayMode: String, Codable, CaseIterable, Sendable {
     case retinaWithLargerInterface
 }
 
+public struct ContainerSessionAppearance: Codable, Equatable, Sendable {
+    public static let defaultDimOpacity = 0.34
+    public static let defaultBlurRadius = 8.0
+    public static let dimOpacityRange = 0.0 ... 0.70
+    public static let blurRadiusRange = 0.0 ... 24.0
+
+    public var backgroundImageRelativePath: String? {
+        didSet {
+            backgroundImageRelativePath = Self.normalizedRelativePath(
+                backgroundImageRelativePath
+            )
+        }
+    }
+    public var dimOpacity: Double {
+        didSet {
+            dimOpacity = Self.clampedFiniteValue(
+                dimOpacity,
+                defaultValue: Self.defaultDimOpacity,
+                range: Self.dimOpacityRange
+            )
+        }
+    }
+    public var blurRadius: Double {
+        didSet {
+            blurRadius = Self.clampedFiniteValue(
+                blurRadius,
+                defaultValue: Self.defaultBlurRadius,
+                range: Self.blurRadiusRange
+            )
+        }
+    }
+
+    public init(
+        backgroundImageRelativePath: String? = nil,
+        dimOpacity: Double = Self.defaultDimOpacity,
+        blurRadius: Double = Self.defaultBlurRadius
+    ) {
+        self.backgroundImageRelativePath = Self.normalizedRelativePath(
+            backgroundImageRelativePath
+        )
+        self.dimOpacity = Self.clampedFiniteValue(
+            dimOpacity,
+            defaultValue: Self.defaultDimOpacity,
+            range: Self.dimOpacityRange
+        )
+        self.blurRadius = Self.clampedFiniteValue(
+            blurRadius,
+            defaultValue: Self.defaultBlurRadius,
+            range: Self.blurRadiusRange
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case backgroundImageRelativePath
+        case dimOpacity
+        case blurRadius
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            backgroundImageRelativePath: try container.decodeIfPresent(
+                String.self,
+                forKey: .backgroundImageRelativePath
+            ),
+            dimOpacity: try container.decodeIfPresent(
+                Double.self,
+                forKey: .dimOpacity
+            ) ?? Self.defaultDimOpacity,
+            blurRadius: try container.decodeIfPresent(
+                Double.self,
+                forKey: .blurRadius
+            ) ?? Self.defaultBlurRadius
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(
+            backgroundImageRelativePath,
+            forKey: .backgroundImageRelativePath
+        )
+        try container.encode(dimOpacity, forKey: .dimOpacity)
+        try container.encode(blurRadius, forKey: .blurRadius)
+    }
+
+    private static func normalizedRelativePath(_ rawValue: String?) -> String? {
+        guard let rawValue else { return nil }
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let slashNormalized = trimmed.replacingOccurrences(of: "\\", with: "/")
+        guard !slashNormalized.isEmpty,
+              slashNormalized.utf8.count <= 4_096,
+              !slashNormalized.hasPrefix("/"),
+              !slashNormalized.hasPrefix("~"),
+              !slashNormalized.unicodeScalars.contains(where: { $0.value < 0x20 }) else {
+            return nil
+        }
+
+        let components = slashNormalized.split(
+            separator: "/",
+            omittingEmptySubsequences: false
+        )
+        guard !components.isEmpty,
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            return nil
+        }
+        return components.joined(separator: "/")
+    }
+
+    private static func clampedFiniteValue(
+        _ value: Double,
+        defaultValue: Double,
+        range: ClosedRange<Double>
+    ) -> Double {
+        guard value.isFinite else { return defaultValue }
+        return min(max(value, range.lowerBound), range.upperBound)
+    }
+}
+
 public struct ContainerRuntimeRecord: Codable, Equatable, Sendable {
     public var runtimeID: String
     public var patchsetID: String
@@ -46,6 +165,8 @@ public struct ContainerRuntimeRecord: Codable, Equatable, Sendable {
 }
 
 public struct Container: Identifiable, Codable, Equatable, Sendable {
+    public static let currentSchemaVersion = 7
+
     public var id: UUID
     public var name: String
     public var path: String
@@ -57,6 +178,14 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
     public var status: ContainerStatus
     public var environmentOverrides: [String: String]
     public var displayMode: ContainerDisplayMode?
+    public var sessionAppearance: ContainerSessionAppearance
+    public var pinnedWindowsExecutablePaths: [String] {
+        didSet {
+            pinnedWindowsExecutablePaths = Self.normalizedPinnedWindowsExecutablePaths(
+                pinnedWindowsExecutablePaths
+            )
+        }
+    }
     public var schemaVersion: Int
     public var lastModified: Date
 
@@ -72,7 +201,9 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         status: ContainerStatus = .needsSetup,
         environmentOverrides: [String: String] = [:],
         displayMode: ContainerDisplayMode? = .standard,
-        schemaVersion: Int = 6,
+        sessionAppearance: ContainerSessionAppearance = ContainerSessionAppearance(),
+        pinnedWindowsExecutablePaths: [String] = [],
+        schemaVersion: Int = Self.currentSchemaVersion,
         lastModified: Date = Date()
     ) {
         self.id = id
@@ -86,6 +217,10 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         self.status = status
         self.environmentOverrides = environmentOverrides
         self.displayMode = displayMode
+        self.sessionAppearance = sessionAppearance
+        self.pinnedWindowsExecutablePaths = Self.normalizedPinnedWindowsExecutablePaths(
+            pinnedWindowsExecutablePaths
+        )
         self.schemaVersion = schemaVersion
         self.lastModified = lastModified
     }
@@ -107,6 +242,8 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         case status
         case environmentOverrides
         case displayMode
+        case sessionAppearance
+        case pinnedWindowsExecutablePaths
         case schemaVersion
         case lastModified
     }
@@ -117,6 +254,16 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         name = try container.decode(String.self, forKey: .name)
         path = try container.decode(String.self, forKey: .path)
         let decodedSchemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        guard decodedSchemaVersion <= Self.currentSchemaVersion else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .schemaVersion,
+                in: container,
+                debugDescription: """
+                Container schema \(decodedSchemaVersion) is newer than supported schema \
+                \(Self.currentSchemaVersion).
+                """
+            )
+        }
         starterApplicationID = try container.decodeIfPresent(String.self, forKey: .starterApplicationID)
         executablePath = try container.decodeIfPresent(String.self, forKey: .executablePath)
         executableArguments = try container.decodeIfPresent([String].self, forKey: .executableArguments) ?? []
@@ -150,7 +297,17 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
             ContainerDisplayMode.self,
             forKey: .displayMode
         )
-        schemaVersion = max(decodedSchemaVersion, 6)
+        sessionAppearance = try container.decodeIfPresent(
+            ContainerSessionAppearance.self,
+            forKey: .sessionAppearance
+        ) ?? ContainerSessionAppearance()
+        pinnedWindowsExecutablePaths = Self.normalizedPinnedWindowsExecutablePaths(
+            try container.decodeIfPresent(
+                [String].self,
+                forKey: .pinnedWindowsExecutablePaths
+            ) ?? []
+        )
+        schemaVersion = max(decodedSchemaVersion, Self.currentSchemaVersion)
         lastModified = try container.decodeIfPresent(Date.self, forKey: .lastModified) ?? Date()
     }
 
@@ -167,8 +324,29 @@ public struct Container: Identifiable, Codable, Equatable, Sendable {
         try container.encode(status, forKey: .status)
         try container.encode(environmentOverrides, forKey: .environmentOverrides)
         try container.encodeIfPresent(displayMode, forKey: .displayMode)
+        try container.encode(sessionAppearance, forKey: .sessionAppearance)
+        try container.encode(
+            pinnedWindowsExecutablePaths,
+            forKey: .pinnedWindowsExecutablePaths
+        )
         try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(lastModified, forKey: .lastModified)
+    }
+
+    private static func normalizedPinnedWindowsExecutablePaths(
+        _ rawPaths: [String]
+    ) -> [String] {
+        var seenPaths: Set<String> = []
+        return rawPaths.compactMap { rawPath in
+            guard let normalizedPath = WineProtocolAssociationFormat
+                .normalizedWindowsExecutablePath(rawPath) else {
+                return nil
+            }
+            guard seenPaths.insert(normalizedPath.lowercased()).inserted else {
+                return nil
+            }
+            return normalizedPath
+        }
     }
 }
 

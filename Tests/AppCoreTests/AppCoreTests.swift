@@ -359,7 +359,85 @@ import Testing
     #expect(record.usedAt == usedAt)
     #expect(container.starterApplicationID == "steam")
     #expect(container.displayMode == .standard)
-    #expect(container.schemaVersion == 6)
+    #expect(container.schemaVersion == 7)
+}
+
+@Test func containerSessionAppearanceKeepsPortableValuesInSupportedRanges() {
+    var appearance = ContainerSessionAppearance(
+        backgroundImageRelativePath: #" .switchyard\appearance\wallpaper.png "#,
+        dimOpacity: -1,
+        blurRadius: 99
+    )
+
+    #expect(
+        appearance.backgroundImageRelativePath
+            == ".switchyard/appearance/wallpaper.png"
+    )
+    #expect(appearance.dimOpacity == 0)
+    #expect(appearance.blurRadius == 24)
+
+    appearance.backgroundImageRelativePath = "../outside.png"
+    appearance.dimOpacity = .nan
+    appearance.blurRadius = .infinity
+
+    #expect(appearance.backgroundImageRelativePath == nil)
+    #expect(appearance.dimOpacity == ContainerSessionAppearance.defaultDimOpacity)
+    #expect(appearance.blurRadius == ContainerSessionAppearance.defaultBlurRadius)
+    #expect(
+        ContainerSessionAppearance(backgroundImageRelativePath: "/tmp/wallpaper.png")
+            .backgroundImageRelativePath == nil
+    )
+}
+
+@Test func containerNormalizesAndDeduplicatesPinnedWindowsExecutables() {
+    var container = Container(
+        name: "Games",
+        path: "/tmp/Games.container",
+        pinnedWindowsExecutablePaths: [
+            #" C:/Program Files/Steam/steam.exe "#,
+            #"c:\program files\steam\STEAM.EXE"#,
+            #"D:/Games/Heartopia/xdt.exe"#,
+            #"C:\Games\not-an-app.dll"#,
+            #"C:\Games\..\outside.exe"#,
+        ]
+    )
+
+    #expect(container.pinnedWindowsExecutablePaths == [
+        #"C:\Program Files\Steam\steam.exe"#,
+        #"D:\Games\Heartopia\xdt.exe"#,
+    ])
+
+    container.pinnedWindowsExecutablePaths.append(
+        #"d:/games/heartopia/XDT.EXE"#
+    )
+    container.pinnedWindowsExecutablePaths.append(
+        #"E:/Games/New Game/game.exe"#
+    )
+
+    #expect(container.pinnedWindowsExecutablePaths == [
+        #"C:\Program Files\Steam\steam.exe"#,
+        #"D:\Games\Heartopia\xdt.exe"#,
+        #"E:\Games\New Game\game.exe"#,
+    ])
+}
+
+@Test func containerRejectsManifestsFromANewerSchema() throws {
+    let futureContainer = Container(
+        name: "Future",
+        path: "/tmp/Future.container",
+        schemaVersion: Container.currentSchemaVersion + 1
+    )
+    let encoded = try JSONEncoder().encode(futureContainer)
+
+    do {
+        _ = try JSONDecoder().decode(Container.self, from: encoded)
+        Issue.record("A future container schema should not be decoded.")
+    } catch DecodingError.dataCorrupted(let context) {
+        #expect(context.debugDescription.contains("schema 8"))
+        #expect(context.codingPath.last?.stringValue == "schemaVersion")
+    } catch {
+        Issue.record("Expected a data-corrupted decoding error, got \(error).")
+    }
 }
 
 @Test func containerRequestsPreparationForTheActiveRuntimeWhenNeeded() {

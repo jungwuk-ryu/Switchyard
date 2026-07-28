@@ -79,6 +79,239 @@ enum SessionStageWindowProgramMatcher {
     }
 }
 
+enum SessionStageTaskbarPolicy {
+    private struct RunningGroup {
+        let identity: String
+        let windowsPath: String?
+        var windows: [WineWindowSnapshot]
+    }
+
+    static func makeItems(
+        windows: [WineWindowSnapshot],
+        programs: [InstalledProgram],
+        pinnedWindowsPaths: [String],
+        prefixPath: String,
+        selectedWindowID: CGWindowID?,
+        fallbackName: String
+    ) -> [SessionStageTaskbarItem] {
+        let groups = runningGroups(windows: windows, prefixPath: prefixPath)
+        let normalizedPins = pinnedWindowsPaths.compactMap {
+            WineProtocolAssociationFormat.normalizedWindowsExecutablePath($0)
+        }
+        let pinSet = Set(normalizedPins.map { $0.lowercased() })
+
+        let candidates = groups.map { group -> RunningCandidate in
+            let catalogProgram = group.windows.lazy.compactMap {
+                SessionStageWindowProgramMatcher.match(
+                    window: $0,
+                    programs: programs,
+                    prefixPath: prefixPath
+                )
+            }.first
+            let program = catalogProgram ?? group.windowsPath.flatMap {
+                syntheticProgram(
+                    windowsPath: $0,
+                    prefixPath: prefixPath
+                )
+            }
+            let programPath = program.flatMap {
+                normalizedWindowsPath(
+                    executablePath: $0.executablePath,
+                    prefixPath: prefixPath
+                )
+            }
+            let pinKey = [programPath, group.windowsPath]
+                .compactMap { $0?.lowercased() }
+                .first(where: pinSet.contains)
+            let firstWindow = group.windows[0]
+            let title = program?.presentationName
+                ?? firstWindow.meaningfulTitle
+                ?? firstWindow.executableDisplayName
+                ?? fallbackName
+            return RunningCandidate(
+                identity: group.identity,
+                pinKey: pinKey,
+                program: program,
+                title: title,
+                windows: group.windows,
+                isActive: group.windows.contains {
+                    $0.id == selectedWindowID
+                }
+            )
+        }
+
+        var items: [SessionStageTaskbarItem] = []
+        var consumedRunningIDs: Set<String> = []
+
+        for pin in normalizedPins {
+            if let candidate = candidates.first(where: {
+                !consumedRunningIDs.contains($0.identity)
+                    && $0.pinKey?.lowercased() == pin.lowercased()
+            }) {
+                consumedRunningIDs.insert(candidate.identity)
+                items.append(
+                    candidate.item(
+                        isPinned: true,
+                        stableID: "pin:\(pin.lowercased())"
+                    )
+                )
+                continue
+            }
+
+            let program = programs.first(where: {
+                normalizedWindowsPath(
+                    executablePath: $0.executablePath,
+                    prefixPath: prefixPath
+                )?.lowercased() == pin.lowercased()
+            }) ?? syntheticProgram(
+                windowsPath: pin,
+                prefixPath: prefixPath
+            )
+            guard let program else {
+                continue
+            }
+            items.append(
+                SessionStageTaskbarItem(
+                    id: "pin:\(pin.lowercased())",
+                    title: program.presentationName,
+                    program: program,
+                    windows: [],
+                    isPinned: true,
+                    isRunning: false,
+                    isActive: false
+                )
+            )
+        }
+
+        items.append(contentsOf: candidates.compactMap { candidate in
+            guard !consumedRunningIDs.contains(candidate.identity) else {
+                return nil
+            }
+            return candidate.item(
+                isPinned: false,
+                stableID: "running:\(candidate.identity)"
+            )
+        })
+        return items
+    }
+
+    private struct RunningCandidate {
+        let identity: String
+        let pinKey: String?
+        let program: InstalledProgram?
+        let title: String
+        let windows: [WineWindowSnapshot]
+        let isActive: Bool
+
+        func item(isPinned: Bool, stableID: String) -> SessionStageTaskbarItem {
+            SessionStageTaskbarItem(
+                id: stableID,
+                title: title,
+                program: program,
+                windows: windows,
+                isPinned: isPinned,
+                isRunning: true,
+                isActive: isActive
+            )
+        }
+    }
+
+    private static func runningGroups(
+        windows: [WineWindowSnapshot],
+        prefixPath: String
+    ) -> [RunningGroup] {
+        var orderedIdentities: [String] = []
+        var groups: [String: RunningGroup] = [:]
+
+        for window in windows {
+            let windowsPath = window.executablePath.flatMap {
+                normalizedWindowsPath(
+                    executablePath: $0,
+                    prefixPath: prefixPath
+                )
+            }
+            let identity = windowsPath.map { "exe:\($0.lowercased())" }
+                ?? "pid:\(window.ownerProcessID)"
+            if groups[identity] == nil {
+                orderedIdentities.append(identity)
+                groups[identity] = RunningGroup(
+                    identity: identity,
+                    windowsPath: windowsPath,
+                    windows: []
+                )
+            }
+            groups[identity]?.windows.append(window)
+        }
+
+        return orderedIdentities.compactMap { groups[$0] }
+    }
+
+    private static func normalizedWindowsPath(
+        executablePath: String,
+        prefixPath: String
+    ) -> String? {
+        let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
+            hostPath: executablePath,
+            prefixPath: prefixPath
+        ) ?? executablePath
+        return WineProtocolAssociationFormat.normalizedWindowsExecutablePath(
+            windowsPath.trimmingCharacters(
+                in: CharacterSet(charactersIn: "\"'")
+            )
+        )
+    }
+
+    private static func syntheticProgram(
+        windowsPath: String,
+        prefixPath: String
+    ) -> InstalledProgram? {
+        guard let normalizedPath = WineProtocolAssociationFormat
+            .normalizedWindowsExecutablePath(windowsPath),
+            normalizedPath.prefix(3).lowercased() == "c:\\"
+        else {
+            return nil
+        }
+
+        let prefixURL = URL(
+            fileURLWithPath: prefixPath,
+            isDirectory: true
+        ).standardizedFileURL
+        let driveURL = prefixURL
+            .appendingPathComponent("drive_c", isDirectory: true)
+            .standardizedFileURL
+        let components = normalizedPath
+            .dropFirst(3)
+            .split(separator: "\\")
+            .map(String.init)
+        let executableURL = components.reduce(driveURL) { url, component in
+            url.appendingPathComponent(component, isDirectory: false)
+        }.standardizedFileURL
+
+        let resolvedDriveURL = driveURL.resolvingSymlinksInPath()
+        let resolvedExecutableURL = executableURL
+            .deletingLastPathComponent()
+            .resolvingSymlinksInPath()
+            .appendingPathComponent(executableURL.lastPathComponent)
+            .standardizedFileURL
+        guard resolvedExecutableURL.path.hasPrefix(
+            resolvedDriveURL.path + "/"
+        ) else {
+            return nil
+        }
+
+        let executableName = executableURL.deletingPathExtension()
+            .lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !executableName.isEmpty else { return nil }
+        return InstalledProgram(
+            name: executableName,
+            executablePath: executableURL.path,
+            installDirectory: executableURL.deletingLastPathComponent().path,
+            source: .programFiles
+        )
+    }
+}
+
 struct ContainerSessionStageView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -91,13 +324,15 @@ struct ContainerSessionStageView: View {
     @StateObject private var stageModel = ContainerSessionStageModel()
     @State private var searchText = ""
     @State private var startMenuPresented = false
+    @State private var inspectorPopoverPresented = false
     @State private var endSessionConfirmationPresented = false
+    @State private var closeNotice: String?
     @FocusState private var searchIsFocused: Bool
 
     var body: some View {
         GeometryReader { proxy in
             ZStack {
-                SessionStageBackdrop()
+                SessionStageBackdrop(container: liveContainer)
 
                 VStack(spacing: 0) {
                     header
@@ -109,7 +344,7 @@ struct ContainerSessionStageView: View {
 
                     dock
                         .padding(.horizontal, 28)
-                        .padding(.bottom, 24)
+                        .padding(.bottom, 20)
                 }
 
                 if searchIsFocused, !searchText.isEmpty {
@@ -131,7 +366,7 @@ struct ContainerSessionStageView: View {
                     startMenuPanel
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                         .padding(.leading, 52)
-                        .padding(.bottom, 142)
+                        .padding(.bottom, 108)
                         .transition(
                             .move(edge: .bottom)
                                 .combined(with: .scale(scale: 0.97, anchor: .bottomLeading))
@@ -189,7 +424,7 @@ struct ContainerSessionStageView: View {
             .help("Back to Containers")
 
             HStack(spacing: 9) {
-                Text(container.name)
+                Text(liveContainer.name)
                     .font(.system(size: 19, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.94))
                     .lineLimit(1)
@@ -282,10 +517,63 @@ struct ContainerSessionStageView: View {
 
     private var workspace: some View {
         GeometryReader { proxy in
+            let showsPersistentInspector = proxy.size.width >= 1_180
+
+            HStack(spacing: 20) {
+                windowGridWorkspace
+
+                if showsPersistentInspector {
+                    inspector
+                        .frame(width: 328)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 14)
+            .overlay(alignment: .topTrailing) {
+                if !showsPersistentInspector {
+                    Button {
+                        inspectorPopoverPresented.toggle()
+                    } label: {
+                        Label(
+                            String(
+                                localized: "Session Info",
+                                bundle: SwitchyardStrings.bundle
+                            ),
+                            systemImage: "gauge.with.dots.needle.67percent"
+                        )
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 11)
+                        .frame(height: 34)
+                    }
+                    .buttonStyle(SessionStageHeaderButtonStyle())
+                    .padding(.trailing, 34)
+                    .padding(.top, 20)
+                    .popover(isPresented: $inspectorPopoverPresented, arrowEdge: .trailing) {
+                        inspector
+                            .frame(width: 328, height: min(620, proxy.size.height - 24))
+                            .padding(8)
+                            .preferredColorScheme(.dark)
+                    }
+                }
+            }
+        }
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84),
+            value: stageModel.selectedWindowID
+        )
+        .animation(
+            reduceMotion ? nil : .snappy(duration: 0.28),
+            value: stageModel.windows.map(\.id)
+        )
+    }
+
+    private var windowGridWorkspace: some View {
+        GeometryReader { proxy in
             let bannerHeight: CGFloat = stageModel.screenRecordingAccessUnavailable ? 44 : 0
             let availableSize = CGSize(
-                width: max(220, proxy.size.width - 96),
-                height: max(156, proxy.size.height - 36 - bannerHeight)
+                width: max(260, proxy.size.width - 24),
+                height: max(190, proxy.size.height - 12 - bannerHeight)
             )
             let metrics = SessionStageWindowGridMetrics.make(
                 windowCount: max(1, stageModel.windows.count),
@@ -294,7 +582,7 @@ struct ContainerSessionStageView: View {
 
             VStack(spacing: 12) {
                 if stageModel.windows.isEmpty {
-                    emptyWindowCard
+                    emptyWindowState
                         .frame(
                             width: metrics.cardSize.width,
                             height: metrics.cardSize.height
@@ -320,7 +608,11 @@ struct ContainerSessionStageView: View {
                                     index: index
                                 ),
                                 isRunning: true,
-                                isSelected: window.id == stageModel.selectedWindowID
+                                isSelected: window.id == stageModel.selectedWindowID,
+                                isClosing: stageModel.closingWindowIDs.contains(window.id),
+                                onClose: {
+                                    requestClose(window)
+                                }
                             ) {
                                 stageModel.activate(window)
                             }
@@ -340,37 +632,31 @@ struct ContainerSessionStageView: View {
                     }
                 }
             }
-            .padding(.horizontal, 48)
-            .padding(.vertical, 18)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
         }
-        .animation(
-            reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84),
-            value: stageModel.selectedWindowID
-        )
-        .animation(
-            reduceMotion ? nil : .snappy(duration: 0.28),
-            value: stageModel.windows.map(\.id)
-        )
     }
 
     private var dock: some View {
         SessionStageDock(
-            container: container,
-            programs: dockPrograms,
-            runningExecutablePaths: runningExecutablePaths,
-            windowCount: stageModel.windows.count,
-            processCount: visibleProcesses.count,
-            sessionIsActive: sessionIsActive,
-            isStoppingSession: store.isStoppingWineServer(in: container.id),
-            onLaunchProgram: { program in
+            items: taskbarItems,
+            isStopping: store.isStoppingWineServer(in: container.id),
+            onActivateOrLaunch: { item in
                 startMenuPresented = false
-                store.runInstalledProgram(program, in: container.id)
+                if let selectedWindow = item.windows.first(where: {
+                    $0.id == stageModel.selectedWindowID
+                }) ?? item.windows.first {
+                    stageModel.activate(selectedWindow)
+                } else if let program = item.program {
+                    store.runInstalledProgram(program, in: container.id)
+                }
+            },
+            onSetPinned: { item, pinned in
+                guard let program = item.program else { return }
+                store.setTaskbarProgram(program, pinned: pinned, in: container.id)
             },
             onAddApplication: {
                 store.chooseExecutableAndRun(in: container.id)
-            },
-            onEndSession: {
-                endSessionConfirmationPresented = true
             },
             startMenuPresented: $startMenuPresented
         )
@@ -380,7 +666,7 @@ struct ContainerSessionStageView: View {
         SessionStageStartMenu(
             container: container,
             entries: startMenuEntries,
-            programs: dockPrograms,
+            programs: programs,
             recentPrograms: recentPrograms,
             onLaunchProgram: { program in
                 startMenuPresented = false
@@ -389,10 +675,25 @@ struct ContainerSessionStageView: View {
             onOpenShortcut: { entry in
                 startMenuPresented = false
                 store.runStartMenuEntry(entry, in: container.id)
+            }
+        )
+    }
+
+    private var inspector: some View {
+        SessionStageInspector(
+            wineServerState: sessionState,
+            windows: stageModel.windows,
+            processes: visibleProcesses,
+            resources: stageModel.resourceSnapshot,
+            notice: closeNotice ?? sessionSnapshot.message,
+            isStoppingSession: store.isStoppingWineServer(in: container.id),
+            onRefresh: refreshSession,
+            onOpenActivity: {
+                inspectorPopoverPresented = false
+                onOpenDestination(.activity)
             },
-            onOpenWindowsDesktop: {
-                startMenuPresented = false
-                store.openWindowsDesktop(in: container.id)
+            onEndSession: {
+                endSessionConfirmationPresented = true
             }
         )
     }
@@ -479,8 +780,8 @@ struct ContainerSessionStageView: View {
 
     private var programs: [InstalledProgram] {
         let sortedPrograms = store.installedPrograms(for: container.id).sorted { lhs, rhs in
-            let lhsDefault = lhs.executablePath == container.executablePath
-            let rhsDefault = rhs.executablePath == container.executablePath
+            let lhsDefault = lhs.executablePath == liveContainer.executablePath
+            let rhsDefault = rhs.executablePath == liveContainer.executablePath
             if lhsDefault != rhsDefault { return lhsDefault }
             if lhs.isSystemUtility != rhs.isSystemUtility { return !lhs.isSystemUtility }
             return lhs.presentationName.localizedStandardCompare(rhs.presentationName)
@@ -501,7 +802,15 @@ struct ContainerSessionStageView: View {
     }
 
     private var visibleProcesses: [WindowsProcessSnapshot] {
-        store.sessionSnapshot(for: container.id).processes
+        sessionSnapshot.processes
+    }
+
+    private var liveContainer: Container {
+        store.containers.first(where: { $0.id == container.id }) ?? container
+    }
+
+    private var sessionSnapshot: ContainerSessionSnapshot {
+        store.sessionSnapshot(for: container.id)
     }
 
     private var sessionIsActive: Bool {
@@ -509,7 +818,7 @@ struct ContainerSessionStageView: View {
     }
 
     private var sessionState: WineServerState {
-        store.sessionSnapshot(for: container.id).wineServerState
+        sessionSnapshot.wineServerState
     }
 
     private var sessionStatusColor: Color {
@@ -518,7 +827,9 @@ struct ContainerSessionStageView: View {
             .green
         case .orphaned:
             .orange
-        case .checking, .inactive, .unavailable:
+        case .unavailable:
+            .red.opacity(0.72)
+        case .checking, .inactive:
             .white.opacity(0.32)
         }
     }
@@ -531,58 +842,107 @@ struct ContainerSessionStageView: View {
             String(localized: "Cleanup needed", bundle: SwitchyardStrings.bundle)
         case .checking:
             String(localized: "Checking", bundle: SwitchyardStrings.bundle)
-        case .inactive, .unavailable:
+        case .inactive:
             String(localized: "Ready", bundle: SwitchyardStrings.bundle)
+        case .unavailable:
+            String(localized: "Unavailable", bundle: SwitchyardStrings.bundle)
         }
     }
 
-    private var runningExecutablePaths: Set<String> {
-        Set(visibleProcesses.map { $0.executablePath.lowercased() })
-    }
+    private var emptyWindowState: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.045))
+                Circle()
+                    .strokeBorder(Color.white.opacity(0.09))
 
-    private var emptyWindowCard: some View {
-        let title = sessionIsActive
-            ? String(localized: "Windows Session", bundle: SwitchyardStrings.bundle)
-            : fallbackProgram?.presentationName
-                ?? String(localized: "Windows Session", bundle: SwitchyardStrings.bundle)
-        let detail = sessionIsActive
-            ? String(
-                localized: "No visible Windows app windows",
-                bundle: SwitchyardStrings.bundle
-            )
-            : String(localized: "Ready", bundle: SwitchyardStrings.bundle)
-        return SessionStageWindowCard(
-            window: nil,
-            program: fallbackProgram,
-            presentation: SessionStageWindowPresentation(
-                title: title,
-                detail: detail,
-                position: 1,
-                total: 1
-            ),
-            isRunning: sessionIsActive,
-            isSelected: false
-        ) {
-            if sessionIsActive {
-                onOpenDestination(.activity)
-            } else if let fallbackProgram {
-                store.runInstalledProgram(fallbackProgram, in: container.id)
-            } else {
-                store.chooseExecutableAndRun(in: container.id)
+                if let fallbackProgram {
+                    WindowsProgramIconView(program: fallbackProgram, size: 46)
+                } else {
+                    Image(systemName: "macwindow")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.58))
+                }
             }
+            .frame(width: 70, height: 70)
+
+            VStack(spacing: 6) {
+                Text(
+                    sessionIsActive
+                        ? String(
+                            localized: "No visible Windows app windows",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                        : String(
+                            localized: "Ready",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                )
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.88))
+
+                if let fallbackProgram, !sessionIsActive {
+                    Text(fallbackProgram.presentationName)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .lineLimit(1)
+                }
+            }
+
+            Button {
+                if sessionIsActive {
+                    onOpenDestination(.activity)
+                } else if let fallbackProgram {
+                    store.runInstalledProgram(fallbackProgram, in: container.id)
+                } else {
+                    store.chooseExecutableAndRun(in: container.id)
+                }
+            } label: {
+                Label(
+                    sessionIsActive
+                        ? String(
+                            localized: "Activity",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                        : String(
+                            localized: "Run",
+                            bundle: SwitchyardStrings.bundle
+                        ),
+                    systemImage: sessionIsActive ? "waveform.path.ecg" : "play.fill"
+                )
+                .font(.system(size: 11, weight: .semibold))
+                .padding(.horizontal, 14)
+                .frame(height: 36)
+            }
+            .buttonStyle(SessionStageHeaderButtonStyle())
         }
+        .padding(28)
+        .background(
+            Color.black.opacity(0.12),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.055))
+        }
+        .accessibilityElement(children: .contain)
     }
 
     private var fallbackProgram: InstalledProgram? {
-        programs.first(where: { $0.executablePath == container.executablePath })
+        programs.first(where: { $0.executablePath == liveContainer.executablePath })
             ?? programs.first
     }
 
-    private var dockPrograms: [InstalledProgram] {
-        var seenPaths: Set<String> = []
-        return (recentPrograms.map(\.program) + programs)
-            .filter { !$0.isSystemUtility }
-            .filter { seenPaths.insert($0.executablePath).inserted }
+    private var taskbarItems: [SessionStageTaskbarItem] {
+        SessionStageTaskbarPolicy.makeItems(
+            windows: stageModel.windows,
+            programs: programs,
+            pinnedWindowsPaths: liveContainer.pinnedWindowsExecutablePaths,
+            prefixPath: liveContainer.path,
+            selectedWindowID: stageModel.selectedWindowID,
+            fallbackName: liveContainer.name
+        )
     }
 
     private var searchPrograms: [InstalledProgram] {
@@ -622,7 +982,7 @@ struct ContainerSessionStageView: View {
         return SessionStageWindowProgramMatcher.match(
             window: window,
             programs: programs,
-            prefixPath: container.path
+            prefixPath: liveContainer.path
         )
     }
 
@@ -634,63 +994,69 @@ struct ContainerSessionStageView: View {
         SessionStageWindowPresentation.make(
             window: window,
             programName: program?.presentationName,
-            fallbackName: container.name,
+            fallbackName: liveContainer.name,
             position: index + 1,
             total: stageModel.windows.count
         )
     }
 
-}
+    private func refreshSession() {
+        Task {
+            await store.refreshContainerSession(for: container.id)
+            await stageModel.refresh(containerID: container.id, store: store)
+        }
+    }
 
-private struct SessionStageBackdrop: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.018, green: 0.03, blue: 0.055),
-                    Color(red: 0.025, green: 0.055, blue: 0.105),
-                    Color(red: 0.035, green: 0.075, blue: 0.145),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+    private func requestClose(_ window: WineWindowSnapshot) {
+        Task {
+            let result = await stageModel.close(window)
+            await stageModel.refresh(containerID: container.id, store: store)
+            guard result != .requested else { return }
 
-            RadialGradient(
-                colors: [
-                    Color(red: 0.12, green: 0.3, blue: 0.62).opacity(0.25),
-                    .clear,
-                ],
-                center: UnitPoint(x: 0.45, y: 0.61),
-                startRadius: 30,
-                endRadius: 560
-            )
-
-            RadialGradient(
-                colors: [
-                    Color(red: 0.18, green: 0.35, blue: 0.66).opacity(0.13),
-                    .clear,
-                ],
-                center: UnitPoint(x: 0.84, y: 0.43),
-                startRadius: 20,
-                endRadius: 420
-            )
-
-            VStack {
-                Spacer()
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.clear, Color.blue.opacity(0.08), .clear],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(height: 150)
-                    .blur(radius: 32)
-                    .offset(y: 42)
+            let notice = closeNotice(for: result)
+            closeNotice = notice
+            try? await Task.sleep(for: .seconds(4))
+            if !Task.isCancelled, closeNotice == notice {
+                closeNotice = nil
             }
         }
-        .ignoresSafeArea()
+    }
+
+    private func closeNotice(for result: WineWindowCloseResult) -> String {
+        switch result {
+        case .requested:
+            return ""
+        case .accessibilityPermissionRequired:
+            return String(
+                localized: "Allow Accessibility access to close individual Windows app windows.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .staleWindow:
+            return String(
+                localized: "This window is no longer available.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .ambiguousWindow:
+            return String(
+                localized: "Switchyard could not safely identify this window.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .closeUnsupported:
+            return String(
+                localized: "This app does not expose a close control for this window.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .unresponsive:
+            return String(
+                localized: "The app did not respond to the close request.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .operationFailed:
+            return String(
+                localized: "Could not close this window.",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
     }
 }
 

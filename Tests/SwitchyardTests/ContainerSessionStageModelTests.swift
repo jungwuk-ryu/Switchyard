@@ -1,5 +1,6 @@
 import AppCore
 import CoreGraphics
+import Darwin
 import Testing
 @testable import Switchyard
 
@@ -29,17 +30,166 @@ private func window(
     id: CGWindowID,
     title: String,
     executablePath: String? = nil,
-    frame: CGRect = CGRect(x: 0, y: 0, width: 800, height: 600)
+    frame: CGRect = CGRect(x: 0, y: 0, width: 800, height: 600),
+    ownerProcessID: pid_t = 1
 ) -> WineWindowSnapshot {
     WineWindowSnapshot(
         id: id,
-        ownerProcessID: 1,
+        ownerProcessID: ownerProcessID,
         title: title,
         executablePath: executablePath,
         frame: frame,
         isOnScreen: true,
         image: nil
     )
+}
+
+@Test func sessionTaskbarGroupsOnlyRunningWindowsByExactGuestPath() throws {
+    let prefixPath = "/tmp/SwitchyardTaskbarPrefix"
+    let firstProgram = InstalledProgram(
+        name: "First Game",
+        executablePath: prefixPath + "/drive_c/Games/First/game.exe",
+        installDirectory: prefixPath + "/drive_c/Games/First",
+        source: .programFiles
+    )
+    let secondProgram = InstalledProgram(
+        name: "Second Game",
+        executablePath: prefixPath + "/drive_c/Games/Second/game.exe",
+        installDirectory: prefixPath + "/drive_c/Games/Second",
+        source: .programFiles
+    )
+    let notRunning = InstalledProgram(
+        name: "Not Running",
+        executablePath: prefixPath + "/drive_c/Games/Idle/idle.exe",
+        installDirectory: prefixPath + "/drive_c/Games/Idle",
+        source: .programFiles
+    )
+    let windows = [
+        window(
+            id: 1,
+            title: "First Game",
+            executablePath: firstProgram.executablePath,
+            ownerProcessID: 101
+        ),
+        window(
+            id: 2,
+            title: "First Game Settings",
+            executablePath: #"C:\Games\First\game.exe"#,
+            ownerProcessID: 202
+        ),
+        window(
+            id: 3,
+            title: "Second Game",
+            executablePath: secondProgram.executablePath,
+            ownerProcessID: 303
+        ),
+    ]
+
+    let items = SessionStageTaskbarPolicy.makeItems(
+        windows: windows,
+        programs: [firstProgram, secondProgram, notRunning],
+        pinnedWindowsPaths: [
+            #"C:\Games\Second\game.exe"#,
+            #"C:\Games\First\game.exe"#,
+        ],
+        prefixPath: prefixPath,
+        selectedWindowID: 2,
+        fallbackName: "Games"
+    )
+
+    #expect(items.map(\.title) == ["Second Game", "First Game"])
+    #expect(items.map(\.windows.count) == [1, 2])
+    #expect(items.allSatisfy { $0.isPinned })
+    #expect(items.allSatisfy { $0.isRunning })
+    #expect(items.map(\.isActive) == [false, true])
+    #expect(!items.contains(where: { $0.title == "Not Running" }))
+}
+
+@Test func sessionTaskbarKeepsPinnedAppsWithoutInventingRunningState() {
+    let prefixPath = "/tmp/SwitchyardTaskbarPrefix"
+    let program = InstalledProgram(
+        name: "Pinned Launcher",
+        executablePath: prefixPath + "/drive_c/Apps/Launcher.exe",
+        installDirectory: prefixPath + "/drive_c/Apps",
+        source: .programFiles
+    )
+
+    let items = SessionStageTaskbarPolicy.makeItems(
+        windows: [],
+        programs: [program],
+        pinnedWindowsPaths: [#"C:\Apps\Launcher.exe"#],
+        prefixPath: prefixPath,
+        selectedWindowID: nil,
+        fallbackName: "Games"
+    )
+
+    #expect(items.count == 1)
+    #expect(items[0].program == program)
+    #expect(items[0].isPinned)
+    #expect(!items[0].isRunning)
+    #expect(items[0].windows.isEmpty)
+}
+
+@Test func sessionTaskbarKeepsUnknownCDriveAppsPinnableAcrossSessions() {
+    let prefixPath = "/prefix"
+    let runningWindow = WineWindowSnapshot(
+        id: 41,
+        ownerProcessID: 404,
+        title: "Heartopia",
+        executablePath: #"C:\Games\Heartopia\Heartopia.exe"#,
+        frame: CGRect(x: 10, y: 10, width: 1_280, height: 752),
+        isOnScreen: true,
+        image: nil
+    )
+
+    let runningItems = SessionStageTaskbarPolicy.makeItems(
+        windows: [runningWindow],
+        programs: [],
+        pinnedWindowsPaths: [#"C:\Games\Heartopia\Heartopia.exe"#],
+        prefixPath: prefixPath,
+        selectedWindowID: runningWindow.id,
+        fallbackName: "Steam"
+    )
+    #expect(runningItems.count == 1)
+    #expect(runningItems[0].isPinned)
+    #expect(runningItems[0].isRunning)
+    #expect(runningItems[0].program?.executablePath == "/prefix/drive_c/Games/Heartopia/Heartopia.exe")
+    #expect(runningItems[0].title == "Heartopia")
+
+    let stoppedItems = SessionStageTaskbarPolicy.makeItems(
+        windows: [],
+        programs: [],
+        pinnedWindowsPaths: [#"C:\Games\Heartopia\Heartopia.exe"#],
+        prefixPath: prefixPath,
+        selectedWindowID: nil,
+        fallbackName: "Steam"
+    )
+    #expect(stoppedItems.count == 1)
+    #expect(stoppedItems[0].isPinned)
+    #expect(!stoppedItems[0].isRunning)
+    #expect(stoppedItems[0].program?.presentationName == "Heartopia")
+}
+
+@Test func sessionTaskbarUsesOwnerProcessAsFallbackWithoutMergingAppsByTitle() {
+    let windows = [
+        window(id: 1, title: "Same", ownerProcessID: 101),
+        window(id: 2, title: "Same", ownerProcessID: 101),
+        window(id: 3, title: "Same", ownerProcessID: 202),
+    ]
+
+    let items = SessionStageTaskbarPolicy.makeItems(
+        windows: windows,
+        programs: [],
+        pinnedWindowsPaths: [],
+        prefixPath: "/tmp/SwitchyardTaskbarPrefix",
+        selectedWindowID: nil,
+        fallbackName: "Games"
+    )
+
+    #expect(items.count == 2)
+    #expect(items.map(\.windows.count) == [2, 1])
+    #expect(items.allSatisfy { $0.isRunning })
+    #expect(items.allSatisfy { !$0.isPinned })
 }
 
 @Test func sessionStageUsesWindowsExecutableNameWhenWineTitleIsGeneric() {
@@ -201,8 +351,179 @@ private func window(
     )
 }
 
+@MainActor
+@Test func wineWindowFilterKeepsOnlyUserFacingDockWindows() {
+    #expect(
+        WineWindowCaptureService.isUserFacingWindow(
+            isDockProcess: true,
+            title: "Heartopia",
+            isOnScreen: false
+        )
+    )
+    #expect(
+        WineWindowCaptureService.isUserFacingWindow(
+            isDockProcess: true,
+            title: "wine",
+            isOnScreen: true
+        )
+    )
+    #expect(
+        !WineWindowCaptureService.isUserFacingWindow(
+            isDockProcess: true,
+            title: "wine",
+            isOnScreen: false
+        )
+    )
+    #expect(
+        !WineWindowCaptureService.isUserFacingWindow(
+            isDockProcess: true,
+            title: "xdt",
+            isOnScreen: false
+        )
+    )
+    #expect(
+        !WineWindowCaptureService.isUserFacingWindow(
+            isDockProcess: false,
+            title: "Heartopia",
+            isOnScreen: true
+        )
+    )
+}
+
+@MainActor
+@Test func wineWindowCloseResolvesOneFreshAccessibilityWindow() async {
+    let controller = WineWindowAccessibilityControllerSpy()
+    controller.candidates = [
+        WineAccessibilityWindowCandidate(
+            identifier: 10,
+            title: "Heartopia",
+            frame: CGRect(x: 900, y: 500, width: 400, height: 300)
+        ),
+        WineAccessibilityWindowCandidate(
+            identifier: 20,
+            title: "Heartopia",
+            frame: CGRect(x: 2, y: 3, width: 800, height: 600)
+        ),
+    ]
+    let service = WineWindowCaptureService(
+        dockProcessIsVisible: { $0 == 1 },
+        accessibilityController: controller
+    )
+
+    let result = await service.close(
+        window(
+            id: 1,
+            title: "Heartopia",
+            frame: CGRect(x: 0, y: 0, width: 800, height: 600)
+        )
+    )
+
+    #expect(result == .requested)
+    #expect(controller.queriedProcessIDs == [1])
+    #expect(controller.closedCandidateIDs == [20])
+}
+
+@MainActor
+@Test func wineWindowCloseRejectsAmbiguousAndWeakMatches() async {
+    let snapshot = window(
+        id: 1,
+        title: "wine",
+        frame: CGRect(x: 100, y: 100, width: 500, height: 500)
+    )
+    let controller = WineWindowAccessibilityControllerSpy()
+    let service = WineWindowCaptureService(
+        dockProcessIsVisible: { _ in true },
+        accessibilityController: controller
+    )
+
+    controller.candidates = [
+        WineAccessibilityWindowCandidate(
+            identifier: 1,
+            title: "wine",
+            frame: snapshot.frame
+        ),
+        WineAccessibilityWindowCandidate(
+            identifier: 2,
+            title: "wine",
+            frame: snapshot.frame
+        ),
+    ]
+    #expect(
+        WineWindowCaptureService.resolveWindowMatch(
+            snapshotTitle: snapshot.title,
+            snapshotFrame: snapshot.frame,
+            candidates: controller.candidates,
+            purpose: .activation
+        ) == .matched(identifier: 1)
+    )
+    #expect(await service.close(snapshot) == .ambiguousWindow)
+    #expect(controller.closedCandidateIDs.isEmpty)
+
+    controller.candidates = [
+        WineAccessibilityWindowCandidate(
+            identifier: 3,
+            title: "Other",
+            frame: CGRect(x: 2_000, y: 2_000, width: 200, height: 100)
+        ),
+    ]
+    #expect(await service.close(snapshot) == .staleWindow)
+    #expect(controller.closedCandidateIDs.isEmpty)
+}
+
+@MainActor
+@Test func wineWindowCloseReportsPermissionAndUnsupportedCloseButton() async {
+    let controller = WineWindowAccessibilityControllerSpy()
+    let service = WineWindowCaptureService(
+        dockProcessIsVisible: { _ in true },
+        accessibilityController: controller
+    )
+    let snapshot = window(id: 1, title: "Sign In")
+
+    controller.isProcessTrusted = false
+    #expect(await service.close(snapshot) == .accessibilityPermissionRequired)
+    #expect(controller.queriedProcessIDs.isEmpty)
+    #expect(controller.trustRequestCount == 1)
+
+    controller.isProcessTrusted = true
+    controller.candidates = [
+        WineAccessibilityWindowCandidate(
+            identifier: 1,
+            title: "Sign In",
+            frame: snapshot.frame
+        ),
+    ]
+    controller.closeResult = .closeUnsupported
+    #expect(await service.close(snapshot) == .closeUnsupported)
+    #expect(controller.closedCandidateIDs == [1])
+}
+
 private enum CaptureTestError: Error {
     case expected
+}
+
+@MainActor
+@Test func captureWindowsSkipsNonDockProcessesBeforeRequestingCapture() async {
+    var preflightCount = 0
+    var shareableContentWasRequested = false
+    let service = WineWindowCaptureService(
+        screenRecordingPreflight: {
+            preflightCount += 1
+            return true
+        },
+        screenRecordingRequest: { false },
+        shareableContentProvider: {
+            shareableContentWasRequested = true
+            throw CaptureTestError.expected
+        },
+        dockProcessIsVisible: { _ in false }
+    )
+
+    let result = await service.captureWindows(ownedBy: [Int32.max])
+
+    #expect(result.windows.isEmpty)
+    #expect(!result.screenRecordingAccessUnavailable)
+    #expect(preflightCount == 0)
+    #expect(!shareableContentWasRequested)
 }
 
 @MainActor
@@ -218,7 +539,8 @@ private enum CaptureTestError: Error {
         shareableContentProvider: {
             shareableContentWasRequested = true
             throw CaptureTestError.expected
-        }
+        },
+        dockProcessIsVisible: { _ in true }
     )
 
     let firstResult = await service.captureWindows(
@@ -242,7 +564,8 @@ private enum CaptureTestError: Error {
         screenRecordingRequest: { false },
         shareableContentProvider: {
             throw CaptureTestError.expected
-        }
+        },
+        dockProcessIsVisible: { _ in true }
     )
 
     let result = await service.captureWindows(
@@ -251,4 +574,36 @@ private enum CaptureTestError: Error {
 
     #expect(!result.screenRecordingAccessUnavailable)
     #expect(result.message == nil)
+}
+
+private final class WineWindowAccessibilityControllerSpy:
+    WineWindowAccessibilityControlling, @unchecked Sendable
+{
+    var isProcessTrusted = true
+    var candidates: [WineAccessibilityWindowCandidate] = []
+    var closeResult: WineWindowCloseResult = .requested
+    private(set) var queriedProcessIDs: [pid_t] = []
+    private(set) var raisedCandidateIDs: [Int] = []
+    private(set) var closedCandidateIDs: [Int] = []
+    private(set) var trustRequestCount = 0
+
+    func requestProcessTrust() {
+        trustRequestCount += 1
+    }
+
+    func windows(for processID: pid_t) -> [WineAccessibilityWindowCandidate]? {
+        queriedProcessIDs.append(processID)
+        return candidates
+    }
+
+    func raise(_ candidate: WineAccessibilityWindowCandidate) {
+        raisedCandidateIDs.append(candidate.identifier)
+    }
+
+    func close(
+        _ candidate: WineAccessibilityWindowCandidate
+    ) -> WineWindowCloseResult {
+        closedCandidateIDs.append(candidate.identifier)
+        return closeResult
+    }
 }

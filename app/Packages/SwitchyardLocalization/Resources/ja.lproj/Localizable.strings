@@ -1584,5 +1584,133 @@
 	<string>ダウンロードをキャンセルしました</string>
 	<key>Verifying and installing Windows support…</key>
 	<string>Windows サポートを検証してインストール中…</string>
+	<key>Allow Accessibility access to close individual Windows app windows.</key>
+	<string>個別の Windows アプリウインドウを閉じるには、アクセシビリティを許可してください。</string>
+	<key>Could not close this window.</key>
+	<string>このウィンドウを閉じることができませんでした。</string>
+	<key>Session Info</key>
+	<string>セッション情報</string>
+	<key>Switchyard could not safely identify this window.</key>
+	<string>Switchyardはこのウィンドウを安全に識別できませんでした。</string>
+	<key>The app did not respond to the close request.</key>
+	<string>アプリが閉じる要求に応答しませんでした。</string>
+	<key>This app does not expose a close control for this window.</key>
+	<string>このアプリはこのウィンドウ用の閉じるコントロールを提供していません。</string>
+	<key>This window is no longer available.</key>
+	<string>このウィンドウは利用できなくなりました。</string>
+	<key>Activate</key>
+	<string>切り替える</string>
+	<key>Closed</key>
+	<string>閉じた</string>
+	<key>No apps found</key>
+	<string>アプリが見つかりません</string>
+	<key>Pin to taskbar</key>
+	<string>タスクバーにピン留め</string>
+	<key>Pinned</key>
+	<string>ピン留め済み</string>
+	<key>Unpin from taskbar</key>
+	<string>タスクバーからピン留めを解除</string>
+	<key>%lld windows</key>
+	<string>%1$lld個のウインドウ</string>
+	<key>Close window</key>
+	<string>ウィンドウを閉じる</string>
+	<key>Closes only this Windows window</key>
+	<string>この Windows ウインドウだけを閉じます</string>
+	<key>Closing</key>
+	<string>閉じています</string>
+	<key>Closing window</key>
+	<string>ウィンドウを閉じています</string>
+	<key>App windows</key>
+	<string>アプリウィンドウ</string>
+	<key>Host processes</key>
+	<string>ホストプロセス</string>
+	<key>Last refresh</key>
+	<string>最終更新</string>
+	<key>No matching processes</key>
+	<string>一致するプロセスはありません</string>
+	<key>Threads</key>
+	<string>スレッド</string>
+	<key>Wine Session</key>
+	<string>Wineセッション</string>
+	<key>Wine session memory</key>
+	<string>Wineセッションメモリ</string>
+	<key>Appearance</key>
+	<string>外観</string>
+	<key>Background</key>
+	<string>背景</string>
+	<key>Blur</key>
+	<string>ぼかし</string>
+	<key>Changes apply to this container’s session workspace.</key>
+	<string>変更はこのコンテナのセッションワークスペースに適用されます。</string>
+	<key>Choose Image…</key>
+	<string>画像を選択…</string>
+	<key>Choose what this container opens by default.</key>
+	<string>このコンテナがデフォルトで開く内容を選択します。</string>
+	<key>Custom image</key>
+	<string>カスタム画像</string>
+	<key>D3DMetal statistics HUD</key>
+	<string>D3DMetal 統計HUD</string>
+	<key>Deleting a container moves its managed folder to the Trash.</key>
+	<string>コンテナを削除すると、管理フォルダがゴミ箱に移動されます。</string>
+	<key>Dim</key>
+	<string>暗くする</string>
+	<key>Display</key>
+	<string>表示</string>
+	<key>Edit Variables</key>
+	<string>変数を編集</string>
+	<key>Enable diagnostics without memorizing environment variables.</key>
+	<string>環境変数を覚えることなく診断を有効にします。</string>
+	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
+	<string>高度なトラブルシューティング向けです。無効または予約済みの変数は拒否されます。</string>
+	<key>Friendly switches for commonly used runtime options.</key>
+	<string>よく使うランタイム設定向けの分かりやすいスイッチ。</string>
+	<key>Launch Diagnostics</key>
+	<string>起動診断</string>
+	<key>Legacy 2 GB memory limit</key>
+	<string>従来の2 GBメモリ上限</string>
+	<key>Limits 32-bit apps to 2 GB on the next launch. Use only when an older app fails with the default 4 GB address space.</key>
+	<string>次回起動時に32ビットアプリを2 GBに制限します。既定の4 GBアドレス空間で古いアプリが失敗する場合のみ使用してください。</string>
+	<key>Manage launch, display, sign-in, and storage.</key>
+	<string>起動、表示、サインイン、ストレージを管理します。</string>
+	<key>Next launch</key>
+	<string>次回起動</string>
+	<key>Personalize the workspace while keeping every window easy to read.</key>
+	<string>各ウィンドウの可読性を保ったままワークスペースをカスタマイズできます。</string>
+	<key>Records standard Wine errors and warnings on the next launch. Log files may grow faster.</key>
+	<string>次回起動時に標準のWineエラーと警告を記録します。ログファイルがより早く増える可能性があります。</string>
+	<key>Recover browser sign-in links when an app cannot receive them.</key>
+	<string>アプリが受け取れない場合にブラウザーのサインインリンクを復元します。</string>
+	<key>Remove</key>
+	<string>削除</string>
+	<key>Retina Mode</key>
+	<string>Retinaモード</string>
+	<key>Session Background</key>
+	<string>セッション背景</string>
+	<key>Session background preview</key>
+	<string>セッション背景プレビュー</string>
+	<key>Settings Section</key>
+	<string>設定セクション</string>
+	<key>Shape the session workspace around this container.</key>
+	<string>このコンテナに合わせてセッションワークスペースを整えます。</string>
+	<key>Shows on-screen D3DMetal statistics on the next launch. Compatible GPTK and D3DMetal apps only.</key>
+	<string>次回起動時に画面上へD3DMetal統計を表示します。対応するGPTKおよびD3DMetalアプリのみ。</string>
+	<key>Switchyard gradient</key>
+	<string>Switchyardグラデーション</string>
+	<key>The container folder holds its Windows drive and settings.</key>
+	<string>このコンテナフォルダにはWindowsドライブと設定が保存されています。</string>
+	<key>Tune Wine scaling for this container.</key>
+	<string>このコンテナのWineスケーリングを調整します。</string>
+	<key>Updating background</key>
+	<string>背景を更新中</string>
+	<key>Wine error and warning logs</key>
+	<string>Wineエラーと警告のログ</string>
+	<key>Choose Session Background</key>
+	<string>セッション背景を選択</string>
+	<key>Choose an image for this container's session workspace.</key>
+	<string>このコンテナのセッションワークスペース用画像を選択します。</string>
+	<key>Could not change the session background: %@</key>
+	<string>セッション背景を変更できませんでした: %1$@</string>
+	<key>Could not remove the session background: %@</key>
+	<string>セッション背景を削除できませんでした: %1$@</string>
 </dict>
 </plist>

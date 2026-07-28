@@ -451,6 +451,7 @@ final class AppStore: ObservableObject {
     private let runnerClient = SwitchyardRunnerClient()
     private let protocolBridge = WineProtocolBridge()
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
+    private let containerBackgroundImageStore = ContainerBackgroundImageStore()
     private let debugRunLogStore = DebugRunLogStore()
     private let liveLogJournalStore = LiveLogJournalStore()
     private let liveLogViewActivityLease = LiveLogViewActivityLease()
@@ -3492,6 +3493,142 @@ final class AppStore: ObservableObject {
         guard !isContainerBusy(containerID) else { return }
         updateContainer(containerID) { container in
             container.displayMode = displayMode
+        }
+    }
+
+    func updateSessionAppearance(
+        for containerID: UUID,
+        to appearance: ContainerSessionAppearance
+    ) {
+        updateContainer(containerID) { container in
+            container.sessionAppearance = appearance
+        }
+    }
+
+    func chooseSessionBackgroundImage(for containerID: UUID) async {
+        guard let container = containers.first(where: { $0.id == containerID }),
+              !isChangingContainerStorage(containerID) else {
+            return
+        }
+
+        let panel = NSOpenPanel()
+        panel.title = String(
+            localized: "Choose Session Background",
+            bundle: SwitchyardStrings.bundle
+        )
+        panel.message = String(
+            localized: "Choose an image for this container's session workspace.",
+            bundle: SwitchyardStrings.bundle
+        )
+        panel.prompt = String(localized: "Choose", bundle: SwitchyardStrings.bundle)
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+
+        guard panel.runModal() == .OK, let sourceURL = panel.url else { return }
+
+        containerStorageOperationIDs.insert(containerID)
+        do {
+            let relativePath = try await containerBackgroundImageStore.importImage(
+                from: sourceURL,
+                intoContainerAt: URL(
+                    fileURLWithPath: container.path,
+                    isDirectory: true
+                )
+            )
+            containerStorageOperationIDs.remove(containerID)
+            guard containers.contains(where: {
+                $0.id == containerID && $0.path == container.path
+            }) else {
+                return
+            }
+            updateContainer(containerID) { current in
+                current.sessionAppearance.backgroundImageRelativePath = relativePath
+            }
+        } catch {
+            containerStorageOperationIDs.remove(containerID)
+            logLines.insert(
+                LogLine(
+                    containerID: containerID,
+                    level: "error",
+                    source: container.name,
+                    message: String(
+                        localized: "Could not change the session background: \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+        }
+    }
+
+    func removeSessionBackgroundImage(for containerID: UUID) async {
+        guard let container = containers.first(where: { $0.id == containerID }),
+              !isChangingContainerStorage(containerID) else {
+            return
+        }
+        let relativePath = container.sessionAppearance.backgroundImageRelativePath
+        guard relativePath != nil else { return }
+
+        containerStorageOperationIDs.insert(containerID)
+        do {
+            _ = try await containerBackgroundImageStore.removeManagedImage(
+                relativePath: relativePath,
+                fromContainerAt: URL(
+                    fileURLWithPath: container.path,
+                    isDirectory: true
+                )
+            )
+            containerStorageOperationIDs.remove(containerID)
+            guard containers.contains(where: {
+                $0.id == containerID && $0.path == container.path
+            }) else {
+                return
+            }
+            updateContainer(containerID) { current in
+                current.sessionAppearance.backgroundImageRelativePath = nil
+            }
+        } catch {
+            containerStorageOperationIDs.remove(containerID)
+            logLines.insert(
+                LogLine(
+                    containerID: containerID,
+                    level: "error",
+                    source: container.name,
+                    message: String(
+                        localized: "Could not remove the session background: \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+        }
+    }
+
+    func setTaskbarProgram(
+        _ program: InstalledProgram,
+        pinned: Bool,
+        in containerID: UUID
+    ) {
+        guard let container = containers.first(where: { $0.id == containerID }),
+              let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
+                hostPath: program.executablePath,
+                prefixPath: container.path
+              ),
+              let normalizedPath = WineProtocolAssociationFormat
+                .normalizedWindowsExecutablePath(windowsPath) else {
+            return
+        }
+
+        updateContainer(containerID) { current in
+            let key = normalizedPath.lowercased()
+            current.pinnedWindowsExecutablePaths.removeAll {
+                $0.lowercased() == key
+            }
+            if pinned {
+                current.pinnedWindowsExecutablePaths.append(normalizedPath)
+            }
         }
     }
 

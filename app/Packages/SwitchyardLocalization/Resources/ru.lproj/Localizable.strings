@@ -1584,5 +1584,133 @@
 	<string>Загрузка отменена</string>
 	<key>Verifying and installing Windows support…</key>
 	<string>Проверка и установка поддержки Windows…</string>
+	<key>Allow Accessibility access to close individual Windows app windows.</key>
+	<string>Разрешить доступ к вспомогательным возможностям для закрытия отдельных окон приложений Windows.</string>
+	<key>Could not close this window.</key>
+	<string>Не удалось закрыть это окно.</string>
+	<key>Session Info</key>
+	<string>Сведения о сеансе</string>
+	<key>Switchyard could not safely identify this window.</key>
+	<string>Switchyard не смог безопасно определить это окно.</string>
+	<key>The app did not respond to the close request.</key>
+	<string>Приложение не откликнулось на запрос закрытия.</string>
+	<key>This app does not expose a close control for this window.</key>
+	<string>Это приложение не предоставляет элемент управления закрытием для этого окна.</string>
+	<key>This window is no longer available.</key>
+	<string>Это окно больше недоступно.</string>
+	<key>Activate</key>
+	<string>Активировать</string>
+	<key>Closed</key>
+	<string>Закрыто</string>
+	<key>No apps found</key>
+	<string>Приложений не найдено</string>
+	<key>Pin to taskbar</key>
+	<string>Прикрепить к панели задач</string>
+	<key>Pinned</key>
+	<string>Закреплено</string>
+	<key>Unpin from taskbar</key>
+	<string>Открепить от панели задач</string>
+	<key>%lld windows</key>
+	<string>%1$lld окон</string>
+	<key>Close window</key>
+	<string>Закрыть окно</string>
+	<key>Closes only this Windows window</key>
+	<string>Закрывает только это окно Windows.</string>
+	<key>Closing</key>
+	<string>Закрытие</string>
+	<key>Closing window</key>
+	<string>Закрытие окна</string>
+	<key>App windows</key>
+	<string>Окна приложений</string>
+	<key>Host processes</key>
+	<string>Процессы хоста</string>
+	<key>Last refresh</key>
+	<string>Последнее обновление</string>
+	<key>No matching processes</key>
+	<string>Подходящих процессов не найдено</string>
+	<key>Threads</key>
+	<string>Потоки</string>
+	<key>Wine Session</key>
+	<string>Сеанс Wine</string>
+	<key>Wine session memory</key>
+	<string>Память сеанса Wine</string>
+	<key>Appearance</key>
+	<string>Внешний вид</string>
+	<key>Background</key>
+	<string>Фон</string>
+	<key>Blur</key>
+	<string>Размытие</string>
+	<key>Changes apply to this container’s session workspace.</key>
+	<string>Изменения применяются к рабочему пространству сеанса этого контейнера.</string>
+	<key>Choose Image…</key>
+	<string>Выберите изображение…</string>
+	<key>Choose what this container opens by default.</key>
+	<string>Выберите, что этот контейнер открывает по умолчанию.</string>
+	<key>Custom image</key>
+	<string>Пользовательское изображение</string>
+	<key>D3DMetal statistics HUD</key>
+	<string>HUD статистики D3DMetal</string>
+	<key>Deleting a container moves its managed folder to the Trash.</key>
+	<string>Удаление контейнера переместит его управляемую папку в корзину.</string>
+	<key>Dim</key>
+	<string>Затемнение</string>
+	<key>Display</key>
+	<string>Отображение</string>
+	<key>Edit Variables</key>
+	<string>Редактировать переменные</string>
+	<key>Enable diagnostics without memorizing environment variables.</key>
+	<string>Включите диагностику без запоминания переменных среды.</string>
+	<key>For advanced troubleshooting. Invalid or reserved variables are rejected.</key>
+	<string>Для расширенной диагностики. Недопустимые или зарезервированные переменные отклоняются.</string>
+	<key>Friendly switches for commonly used runtime options.</key>
+	<string>Удобные переключатели для часто используемых параметров среды выполнения.</string>
+	<key>Launch Diagnostics</key>
+	<string>Диагностика запуска</string>
+	<key>Legacy 2 GB memory limit</key>
+	<string>Устаревшее ограничение памяти 2 ГБ</string>
+	<key>Limits 32-bit apps to 2 GB on the next launch. Use only when an older app fails with the default 4 GB address space.</key>
+	<string>Ограничивает 32-разрядные приложения до 2 ГБ при следующем запуске. Используйте только если старое приложение не запускается с адресным пространством 4 ГБ по умолчанию.</string>
+	<key>Manage launch, display, sign-in, and storage.</key>
+	<string>Управляйте запуском, отображением, входом и хранилищем.</string>
+	<key>Next launch</key>
+	<string>Следующий запуск</string>
+	<key>Personalize the workspace while keeping every window easy to read.</key>
+	<string>Настройте рабочее пространство, сохраняя удобочитаемость каждого окна.</string>
+	<key>Records standard Wine errors and warnings on the next launch. Log files may grow faster.</key>
+	<string>Записывает стандартные ошибки и предупреждения Wine при следующем запуске. Журналы могут расти быстрее.</string>
+	<key>Recover browser sign-in links when an app cannot receive them.</key>
+	<string>Восстанавливает ссылки входа в браузер, когда приложение не может их получить.</string>
+	<key>Remove</key>
+	<string>Удалить</string>
+	<key>Retina Mode</key>
+	<string>Режим Retina</string>
+	<key>Session Background</key>
+	<string>Фон сеанса</string>
+	<key>Session background preview</key>
+	<string>Предпросмотр фона сеанса</string>
+	<key>Settings Section</key>
+	<string>Раздел настроек</string>
+	<key>Shape the session workspace around this container.</key>
+	<string>Формирует рабочее пространство сеанса вокруг этого контейнера.</string>
+	<key>Shows on-screen D3DMetal statistics on the next launch. Compatible GPTK and D3DMetal apps only.</key>
+	<string>Показывает статистику D3DMetal на экране при следующем запуске. Только для совместимых приложений GPTK и D3DMetal.</string>
+	<key>Switchyard gradient</key>
+	<string>Градиент Switchyard</string>
+	<key>The container folder holds its Windows drive and settings.</key>
+	<string>Папка контейнера содержит его диск Windows и настройки.</string>
+	<key>Tune Wine scaling for this container.</key>
+	<string>Настройка масштабирования Wine для этого контейнера.</string>
+	<key>Updating background</key>
+	<string>Обновление фона</string>
+	<key>Wine error and warning logs</key>
+	<string>Журналы ошибок и предупреждений Wine</string>
+	<key>Choose Session Background</key>
+	<string>Выберите фон сеанса</string>
+	<key>Choose an image for this container's session workspace.</key>
+	<string>Выберите изображение для рабочего пространства сеанса этого контейнера.</string>
+	<key>Could not change the session background: %@</key>
+	<string>Не удалось изменить фон сеанса: %1$@</string>
+	<key>Could not remove the session background: %@</key>
+	<string>Не удалось удалить фон сеанса: %1$@</string>
 </dict>
 </plist>

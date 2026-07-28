@@ -1,6 +1,6 @@
 import AppCore
 import AppKit
-import ApplicationServices
+@preconcurrency import ApplicationServices
 import CoreGraphics
 import Darwin
 import Foundation
@@ -41,11 +41,17 @@ struct WineWindowSnapshot: Identifiable, @unchecked Sendable {
         "explorer",
         "explorerexe",
         "programmanager",
+        "steamwebhelper",
+        "steamwebhelperexe",
         "wine",
         "wine64",
         "wine64preloader",
+        "wineserver",
+        "wineserverexe",
         "windowsapp",
         "windowssession",
+        "xdt",
+        "xdtexe",
     ]
 
     private static func genericTitleKey(_ value: String) -> String {
@@ -97,6 +103,214 @@ struct WineWindowCaptureResult: @unchecked Sendable {
     }
 }
 
+enum WineWindowCloseResult: Equatable, Sendable {
+    case requested
+    case accessibilityPermissionRequired
+    case staleWindow
+    case ambiguousWindow
+    case closeUnsupported
+    case unresponsive
+    case operationFailed
+}
+
+struct WineAccessibilityWindowCandidate {
+    let identifier: Int
+    let title: String?
+    let frame: CGRect?
+    fileprivate let element: AXUIElement?
+
+    init(
+        identifier: Int,
+        title: String?,
+        frame: CGRect?,
+        element: AXUIElement? = nil
+    ) {
+        self.identifier = identifier
+        self.title = title
+        self.frame = frame
+        self.element = element
+    }
+}
+
+enum WineAccessibilityWindowMatch: Equatable, Sendable {
+    case matched(identifier: Int)
+    case stale
+    case ambiguous
+}
+
+enum WineAccessibilityWindowMatchPurpose: Equatable, Sendable {
+    case activation
+    case close
+}
+
+protocol WineWindowAccessibilityControlling: AnyObject, Sendable {
+    var isProcessTrusted: Bool { get }
+
+    func requestProcessTrust()
+    func windows(for processID: pid_t) -> [WineAccessibilityWindowCandidate]?
+    func raise(_ candidate: WineAccessibilityWindowCandidate)
+    func close(_ candidate: WineAccessibilityWindowCandidate) -> WineWindowCloseResult
+}
+
+final class SystemWineWindowAccessibilityController:
+    WineWindowAccessibilityControlling, @unchecked Sendable
+{
+    var isProcessTrusted: Bool {
+        AXIsProcessTrusted()
+    }
+
+    func requestProcessTrust() {
+        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        _ = AXIsProcessTrustedWithOptions(
+            [promptKey: true] as CFDictionary
+        )
+    }
+
+    func windows(for processID: pid_t) -> [WineAccessibilityWindowCandidate]? {
+        let applicationElement = AXUIElementCreateApplication(processID)
+        AXUIElementSetMessagingTimeout(applicationElement, 1)
+        var windowsValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            applicationElement,
+            kAXWindowsAttribute as CFString,
+            &windowsValue
+        ) == .success,
+        let accessibilityWindows = windowsValue as? [AXUIElement] else {
+            return nil
+        }
+
+        return accessibilityWindows.enumerated().map { index, window in
+            WineAccessibilityWindowCandidate(
+                identifier: index,
+                title: Self.title(for: window),
+                frame: Self.frame(for: window),
+                element: window
+            )
+        }
+    }
+
+    func raise(_ candidate: WineAccessibilityWindowCandidate) {
+        guard let window = candidate.element else { return }
+        AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(
+            window,
+            kAXMainAttribute as CFString,
+            kCFBooleanTrue
+        )
+    }
+
+    func close(
+        _ candidate: WineAccessibilityWindowCandidate
+    ) -> WineWindowCloseResult {
+        guard let window = candidate.element else {
+            return .staleWindow
+        }
+
+        var closeButtonValue: CFTypeRef?
+        let copyResult = AXUIElementCopyAttributeValue(
+            window,
+            kAXCloseButtonAttribute as CFString,
+            &closeButtonValue
+        )
+        guard copyResult == .success else {
+            return Self.closeResult(for: copyResult)
+        }
+        guard let closeButtonValue,
+              CFGetTypeID(closeButtonValue) == AXUIElementGetTypeID() else {
+            return .closeUnsupported
+        }
+        let closeButton = unsafeDowncast(closeButtonValue, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(closeButton, 1)
+
+        var enabledValue: CFTypeRef?
+        if AXUIElementCopyAttributeValue(
+            closeButton,
+            kAXEnabledAttribute as CFString,
+            &enabledValue
+        ) == .success,
+        let isEnabled = enabledValue as? Bool,
+        !isEnabled {
+            return .closeUnsupported
+        }
+
+        var actionNames: CFArray?
+        let actionResult = AXUIElementCopyActionNames(closeButton, &actionNames)
+        guard actionResult == .success else {
+            return Self.closeResult(for: actionResult)
+        }
+        guard let actions = actionNames as? [String],
+              actions.contains(kAXPressAction) else {
+            return .closeUnsupported
+        }
+
+        return Self.closeResult(
+            for: AXUIElementPerformAction(
+                closeButton,
+                kAXPressAction as CFString
+            )
+        )
+    }
+
+    private static func title(for window: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            window,
+            kAXTitleAttribute as CFString,
+            &value
+        ) == .success else {
+            return nil
+        }
+        return value as? String
+    }
+
+    private static func frame(for window: AXUIElement) -> CGRect? {
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            window,
+            kAXPositionAttribute as CFString,
+            &positionValue
+        ) == .success,
+        AXUIElementCopyAttributeValue(
+            window,
+            kAXSizeAttribute as CFString,
+            &sizeValue
+        ) == .success,
+        let positionValue,
+        let sizeValue,
+        CFGetTypeID(positionValue) == AXValueGetTypeID(),
+        CFGetTypeID(sizeValue) == AXValueGetTypeID() else {
+            return nil
+        }
+
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else {
+            return nil
+        }
+        return CGRect(origin: position, size: size)
+    }
+
+    private static func closeResult(for error: AXError) -> WineWindowCloseResult {
+        switch error {
+        case .success:
+            return .requested
+        case .apiDisabled:
+            return .accessibilityPermissionRequired
+        case .attributeUnsupported, .actionUnsupported, .notImplemented,
+             .parameterizedAttributeUnsupported, .noValue:
+            return .closeUnsupported
+        case .invalidUIElement, .invalidUIElementObserver:
+            return .staleWindow
+        case .cannotComplete:
+            return .unresponsive
+        default:
+            return .operationFailed
+        }
+    }
+}
+
 @MainActor
 final class WineWindowCaptureService {
     private struct CachedImage {
@@ -111,6 +325,8 @@ final class WineWindowCaptureService {
     private let screenRecordingPreflight: () -> Bool
     private let screenRecordingRequest: () -> Bool
     private let shareableContentProvider: () async throws -> SCShareableContent
+    private let dockProcessIsVisible: (pid_t) -> Bool
+    private let accessibilityController: any WineWindowAccessibilityControlling
 
     init(
         screenRecordingPreflight: @escaping () -> Bool = {
@@ -124,11 +340,19 @@ final class WineWindowCaptureService {
                 true,
                 onScreenWindowsOnly: false
             )
-        }
+        },
+        dockProcessIsVisible: @escaping (pid_t) -> Bool = { processID in
+            NSRunningApplication(processIdentifier: processID)?.activationPolicy
+                == .regular
+        },
+        accessibilityController: any WineWindowAccessibilityControlling =
+            SystemWineWindowAccessibilityController()
     ) {
         self.screenRecordingPreflight = screenRecordingPreflight
         self.screenRecordingRequest = screenRecordingRequest
         self.shareableContentProvider = shareableContentProvider
+        self.dockProcessIsVisible = dockProcessIsVisible
+        self.accessibilityController = accessibilityController
     }
 
     func captureWindows(
@@ -145,7 +369,15 @@ final class WineWindowCaptureService {
             processIDs.contains($0.key)
         }
 
-        let metadataFallback = coreGraphicsWindows(ownedBy: processIDs)
+        let dockVisibleProcessIDs = Set(
+            processIDs.filter { dockProcessIsVisible($0) }
+        )
+        guard !dockVisibleProcessIDs.isEmpty else {
+            cachedImages.removeAll(keepingCapacity: true)
+            return .empty
+        }
+
+        let metadataFallback = coreGraphicsWindows(ownedBy: dockVisibleProcessIDs)
         guard screenRecordingAccessIsAvailable() else {
             return .screenRecordingUnavailable(windows: metadataFallback)
         }
@@ -156,10 +388,15 @@ final class WineWindowCaptureService {
                 content.windows
                     .filter { window in
                         guard let owner = window.owningApplication else { return false }
-                        return processIDs.contains(Int32(owner.processID))
+                        return dockVisibleProcessIDs.contains(Int32(owner.processID))
                             && window.windowLayer == 0
                             && window.frame.width >= 120
                             && window.frame.height >= 72
+                            && Self.isUserFacingWindow(
+                                isDockProcess: true,
+                                title: window.title ?? "",
+                                isOnScreen: window.isOnScreen
+                            )
                     }
                     .sorted(by: Self.windowSort)
             )
@@ -204,52 +441,159 @@ final class WineWindowCaptureService {
         let application = NSRunningApplication(processIdentifier: window.ownerProcessID)
         application?.activate(options: [.activateAllWindows])
 
-        guard AXIsProcessTrusted() else { return }
-        let applicationElement = AXUIElementCreateApplication(window.ownerProcessID)
-        var windowsValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            applicationElement,
-            kAXWindowsAttribute as CFString,
-            &windowsValue
-        ) == .success,
-        let accessibilityWindows = windowsValue as? [AXUIElement] else {
-            return
+        let accessibilityController = accessibilityController
+        guard accessibilityController.isProcessTrusted else { return }
+        Task.detached(priority: .userInitiated) {
+            guard let candidates = accessibilityController.windows(
+                for: window.ownerProcessID
+            ),
+            case let .matched(identifier) = Self.resolveWindowMatch(
+                snapshotTitle: window.title,
+                snapshotFrame: window.frame,
+                candidates: candidates,
+                purpose: .activation
+            ),
+            let match = candidates.first(where: {
+                $0.identifier == identifier
+            }) else {
+                return
+            }
+            accessibilityController.raise(match)
+        }
+    }
+
+    func close(_ window: WineWindowSnapshot) async -> WineWindowCloseResult {
+        guard dockProcessIsVisible(window.ownerProcessID) else {
+            return .staleWindow
+        }
+        let accessibilityController = accessibilityController
+        guard accessibilityController.isProcessTrusted else {
+            accessibilityController.requestProcessTrust()
+            return .accessibilityPermissionRequired
+        }
+        return await Task.detached(priority: .userInitiated) {
+            guard let candidates = accessibilityController.windows(
+                for: window.ownerProcessID
+            ) else {
+                return .staleWindow
+            }
+
+            switch Self.resolveWindowMatch(
+                snapshotTitle: window.title,
+                snapshotFrame: window.frame,
+                candidates: candidates,
+                purpose: .close
+            ) {
+            case let .matched(identifier):
+                guard let match = candidates.first(where: {
+                    $0.identifier == identifier
+                }) else {
+                    return .staleWindow
+                }
+                return accessibilityController.close(match)
+            case .stale:
+                return .staleWindow
+            case .ambiguous:
+                return .ambiguousWindow
+            }
+        }.value
+    }
+
+    static func isUserFacingWindow(
+        isDockProcess: Bool,
+        title: String,
+        isOnScreen: Bool
+    ) -> Bool {
+        guard isDockProcess else { return false }
+        return isOnScreen
+            || WineWindowSnapshot.meaningfulTitle(from: title) != nil
+    }
+
+    nonisolated static func resolveWindowMatch(
+        snapshotTitle: String,
+        snapshotFrame: CGRect,
+        candidates: [WineAccessibilityWindowCandidate],
+        purpose: WineAccessibilityWindowMatchPurpose
+    ) -> WineAccessibilityWindowMatch {
+        let credibleCandidates: [(identifier: Int, score: CGFloat)] = candidates
+            .compactMap { candidate -> (identifier: Int, score: CGFloat)? in
+                guard windowMatchIsCredible(
+                    snapshotTitle: snapshotTitle,
+                    snapshotFrame: snapshotFrame,
+                    candidateTitle: candidate.title,
+                    candidateFrame: candidate.frame,
+                    purpose: purpose
+                ) else {
+                    return nil
+                }
+                return (
+                    identifier: candidate.identifier,
+                    score: windowMatchScore(
+                        snapshotTitle: snapshotTitle,
+                        snapshotFrame: snapshotFrame,
+                        candidateTitle: candidate.title,
+                        candidateFrame: candidate.frame
+                    )
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.score != rhs.score { return lhs.score < rhs.score }
+                return lhs.identifier < rhs.identifier
+            }
+
+        guard let best = credibleCandidates.first else {
+            return .stale
+        }
+        if purpose == .close,
+           credibleCandidates.count > 1 {
+            return .ambiguous
+        }
+        return .matched(identifier: best.identifier)
+    }
+
+    nonisolated private static func windowMatchIsCredible(
+        snapshotTitle: String,
+        snapshotFrame: CGRect,
+        candidateTitle: String?,
+        candidateFrame: CGRect?,
+        purpose: WineAccessibilityWindowMatchPurpose
+    ) -> Bool {
+        guard purpose == .close else {
+            return windowMatchIsCredible(
+                snapshotTitle: snapshotTitle,
+                snapshotFrame: snapshotFrame,
+                candidateTitle: candidateTitle,
+                candidateFrame: candidateFrame
+            )
         }
 
-        let candidates = accessibilityWindows.map { candidate in
-            (
-                element: candidate,
-                title: accessibilityTitle(for: candidate),
-                frame: accessibilityFrame(for: candidate)
+        if let title = WineWindowSnapshot.meaningfulTitle(from: snapshotTitle) {
+            guard title.localizedCaseInsensitiveCompare(
+                candidateTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            ) == .orderedSame else {
+                return false
+            }
+            guard let candidateFrame else { return false }
+            let originDelta = hypot(
+                snapshotFrame.minX - candidateFrame.minX,
+                snapshotFrame.minY - candidateFrame.minY
             )
-        }
-        guard let match = candidates.min(by: { lhs, rhs in
-            Self.windowMatchScore(
-                snapshotTitle: window.title,
-                snapshotFrame: window.frame,
-                candidateTitle: lhs.title,
-                candidateFrame: lhs.frame
-            ) < Self.windowMatchScore(
-                snapshotTitle: window.title,
-                snapshotFrame: window.frame,
-                candidateTitle: rhs.title,
-                candidateFrame: rhs.frame
+            let sizeDelta = hypot(
+                snapshotFrame.width - candidateFrame.width,
+                snapshotFrame.height - candidateFrame.height
             )
-        }),
-        Self.windowMatchIsCredible(
-            snapshotTitle: window.title,
-            snapshotFrame: window.frame,
-            candidateTitle: match.title,
-            candidateFrame: match.frame
-        ) else {
-            return
+            return originDelta <= 24 && sizeDelta <= 24
         }
-        AXUIElementPerformAction(match.element, kAXRaiseAction as CFString)
-        AXUIElementSetAttributeValue(
-            match.element,
-            kAXMainAttribute as CFString,
-            kCFBooleanTrue
+        guard let candidateFrame else { return false }
+        let originDelta = hypot(
+            snapshotFrame.minX - candidateFrame.minX,
+            snapshotFrame.minY - candidateFrame.minY
         )
+        let sizeDelta = hypot(
+            snapshotFrame.width - candidateFrame.width,
+            snapshotFrame.height - candidateFrame.height
+        )
+        return originDelta <= 12 && sizeDelta <= 12
     }
 
     func openScreenRecordingSettings() {
@@ -346,6 +690,13 @@ final class WineWindowCaptureService {
             let title = (info[kCGWindowName as String] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let isOnScreen = (info[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
+            guard Self.isUserFacingWindow(
+                isDockProcess: true,
+                title: title ?? "",
+                isOnScreen: isOnScreen
+            ) else {
+                return nil
+            }
             return WineWindowSnapshot(
                 id: CGWindowID(windowNumber.uint32Value),
                 ownerProcessID: ownerNumber.int32Value,
@@ -372,48 +723,7 @@ final class WineWindowCaptureService {
         return ""
     }
 
-    private func accessibilityTitle(for window: AXUIElement) -> String? {
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            window,
-            kAXTitleAttribute as CFString,
-            &value
-        ) == .success else {
-            return nil
-        }
-        return value as? String
-    }
-
-    private func accessibilityFrame(for window: AXUIElement) -> CGRect? {
-        var positionValue: CFTypeRef?
-        var sizeValue: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(
-            window,
-            kAXPositionAttribute as CFString,
-            &positionValue
-        ) == .success,
-        AXUIElementCopyAttributeValue(
-            window,
-            kAXSizeAttribute as CFString,
-            &sizeValue
-        ) == .success,
-        let positionValue,
-        let sizeValue,
-        CFGetTypeID(positionValue) == AXValueGetTypeID(),
-        CFGetTypeID(sizeValue) == AXValueGetTypeID() else {
-            return nil
-        }
-
-        var position = CGPoint.zero
-        var size = CGSize.zero
-        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
-              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else {
-            return nil
-        }
-        return CGRect(origin: position, size: size)
-    }
-
-    static func windowMatchScore(
+    nonisolated static func windowMatchScore(
         snapshotTitle: String,
         snapshotFrame: CGRect,
         candidateTitle: String?,
@@ -436,7 +746,7 @@ final class WineWindowCaptureService {
             + abs(snapshotFrame.height - candidateFrame.height)
     }
 
-    static func windowMatchIsCredible(
+    nonisolated static func windowMatchIsCredible(
         snapshotTitle: String,
         snapshotFrame: CGRect,
         candidateTitle: String?,
@@ -574,9 +884,12 @@ final class ContainerSessionStageModel: ObservableObject {
     @Published private(set) var windows: [WineWindowSnapshot] = []
     @Published private(set) var screenRecordingAccessUnavailable = false
     @Published private(set) var previewMessage: String?
+    @Published private(set) var closingWindowIDs: Set<CGWindowID> = []
+    @Published private(set) var resourceSnapshot: WineSessionResourceSnapshot?
     @Published var selectedWindowID: CGWindowID?
 
     private let captureService = WineWindowCaptureService()
+    private let resourceMetricsService = WineSessionResourceMetricsService()
     private var refreshGeneration = 0
 
     func monitor(containerID: UUID, store: AppStore) async {
@@ -597,16 +910,22 @@ final class ContainerSessionStageModel: ObservableObject {
         let generation = refreshGeneration
         let processIDs = await store.wineHostProcessIDs(for: containerID)
         guard !Task.isCancelled, generation == refreshGeneration else { return }
+        let resourceMetricsService = resourceMetricsService
+        async let sampledResources = Task.detached(priority: .utility) {
+            resourceMetricsService.sample(processIDs: processIDs)
+        }.value
         let result = await captureService.captureWindows(
             ownedBy: processIDs,
             preferredWindowID: selectedWindowID
         )
+        let resources = await sampledResources
         guard !Task.isCancelled, generation == refreshGeneration else { return }
 
         windows = Self.windowsKeepingStableOrder(
             previous: windows,
             refreshed: result.windows
         )
+        resourceSnapshot = resources
         screenRecordingAccessUnavailable = result.screenRecordingAccessUnavailable
         previewMessage = result.message
         if let selectedWindowID,
@@ -619,6 +938,20 @@ final class ContainerSessionStageModel: ObservableObject {
     func activate(_ window: WineWindowSnapshot) {
         selectedWindowID = window.id
         captureService.activate(window)
+    }
+
+    @discardableResult
+    func close(_ window: WineWindowSnapshot) async -> WineWindowCloseResult {
+        guard !closingWindowIDs.contains(window.id) else {
+            return .operationFailed
+        }
+        closingWindowIDs.insert(window.id)
+        defer {
+            closingWindowIDs.remove(window.id)
+        }
+
+        let result = await captureService.close(window)
+        return result
     }
 
     func openScreenRecordingSettings() {
