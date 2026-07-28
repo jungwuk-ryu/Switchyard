@@ -154,6 +154,18 @@ cat >"$INFO_PLIST" <<PLIST
         <string>com.microsoft.windows-executable</string>
       </array>
     </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Windows Installer Package</string>
+      <key>CFBundleTypeRole</key>
+      <string>Shell</string>
+      <key>LSHandlerRank</key>
+      <string>Alternate</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>msi</string>
+      </array>
+    </dict>
   </array>
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>

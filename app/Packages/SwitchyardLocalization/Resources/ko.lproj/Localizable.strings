@@ -1434,8 +1434,8 @@
 	<string>계속하려면 macOS를 업데이트하세요.</string>
 	<key>Updated %@</key>
 	<string>%1$@ 업데이트됨</string>
-	<key>Use Switchyard to Open .exe Files</key>
-	<string>Switchyard로 .exe 파일 열기</string>
+	<key>Use Switchyard to Open .exe and .msi Files</key>
+	<string>Switchyard로 .exe 및 .msi 파일 열기</string>
 	<key>Use</key>
 	<string>사용</string>
 	<key>Value</key>

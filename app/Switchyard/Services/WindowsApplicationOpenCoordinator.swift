@@ -27,13 +27,13 @@ final class WindowsApplicationOpenCoordinator: ObservableObject {
 
     @discardableResult
     func enqueue(_ urls: [URL]) -> Bool {
-        var didAcceptExecutable = false
+        var didAcceptWindowsApplication = false
         for url in urls {
             guard url.isFileURL,
-                  WindowsApplicationFileKind(path: url.path) == .executable else {
+                  WindowsApplicationFileKind.supports(url) else {
                 continue
             }
-            didAcceptExecutable = true
+            didAcceptWindowsApplication = true
 
             let standardizedURL = url.standardizedFileURL
             guard claimedItem?.applicationURL != standardizedURL,
@@ -46,7 +46,7 @@ final class WindowsApplicationOpenCoordinator: ObservableObject {
                 WindowsApplicationOpenItem(applicationURL: standardizedURL)
             )
         }
-        return didAcceptExecutable
+        return didAcceptWindowsApplication
     }
 
     func claimNextItem() -> WindowsApplicationOpenItem? {

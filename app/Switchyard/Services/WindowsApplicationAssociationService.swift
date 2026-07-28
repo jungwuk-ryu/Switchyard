@@ -4,7 +4,7 @@ import Foundation
 import UniformTypeIdentifiers
 
 @MainActor
-final class WindowsExecutableAssociationService: ObservableObject {
+final class WindowsApplicationAssociationService: ObservableObject {
     enum State: Equatable {
         case checking
         case available
@@ -27,6 +27,8 @@ final class WindowsExecutableAssociationService: ObservableObject {
 
     @Published private(set) var state: State = .checking
 
+    nonisolated static let supportedFilenameExtensions = ["exe", "msi"]
+
     private let applicationURL: URL
     private let workspace: NSWorkspace
 
@@ -39,36 +41,66 @@ final class WindowsExecutableAssociationService: ObservableObject {
     }
 
     func refresh() {
-        guard let executableType = UTType(filenameExtension: "exe") else {
+        let contentTypes = Self.supportedContentTypes
+        guard contentTypes.count == Self.supportedFilenameExtensions.count else {
             state = .available
             return
         }
-        state = Self.refersToSameApplication(
-            workspace.urlForApplication(toOpen: executableType),
+
+        let registeredApplications = contentTypes.map {
+            workspace.urlForApplication(toOpen: $0)
+        }
+        state = Self.allReferToSameApplication(
+            registeredApplications,
             applicationURL
         ) ? .defaultApplication : .available
     }
 
     func makeDefaultApplication() {
+        let contentTypes = Self.supportedContentTypes
         guard !state.isWorking,
-              let executableType = UTType(filenameExtension: "exe") else {
+              contentTypes.count == Self.supportedFilenameExtensions.count else {
             return
         }
 
         state = .checking
+        setDefaultApplication(for: contentTypes[...])
+    }
+
+    private func setDefaultApplication(for contentTypes: ArraySlice<UTType>) {
+        guard let contentType = contentTypes.first else {
+            refresh()
+            return
+        }
+
         workspace.setDefaultApplication(
             at: applicationURL,
-            toOpen: executableType
-        ) { [weak self] error in
+            toOpen: contentType
+        ) { [self] error in
             Task { @MainActor in
-                guard let self else { return }
                 if let error {
                     self.state = .failed(error.localizedDescription)
                 } else {
-                    self.refresh()
+                    self.setDefaultApplication(for: contentTypes.dropFirst())
                 }
             }
         }
+    }
+
+    nonisolated static var supportedContentTypes: [UTType] {
+        supportedFilenameExtensions.compactMap {
+            UTType(filenameExtension: $0, conformingTo: .data)
+        }
+    }
+
+    nonisolated static func allReferToSameApplication(
+        _ registeredApplications: [URL?],
+        _ applicationURL: URL
+    ) -> Bool {
+        !registeredApplications.isEmpty
+            && registeredApplications.allSatisfy {
+                refersToSameApplication($0, applicationURL)
+            }
     }
 
     nonisolated static func refersToSameApplication(

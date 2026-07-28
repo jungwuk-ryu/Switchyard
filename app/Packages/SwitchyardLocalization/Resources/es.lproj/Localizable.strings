@@ -1434,8 +1434,8 @@
 	<string>Actualice macOS para continuar</string>
 	<key>Updated %@</key>
 	<string>Actualizado %1$@</string>
-	<key>Use Switchyard to Open .exe Files</key>
-	<string>Usar Switchyard para abrir archivos .exe</string>
+	<key>Use Switchyard to Open .exe and .msi Files</key>
+	<string>Usar Switchyard para abrir archivos .exe y .msi</string>
 	<key>Use</key>
 	<string>Usar</string>
 	<key>Value</key>

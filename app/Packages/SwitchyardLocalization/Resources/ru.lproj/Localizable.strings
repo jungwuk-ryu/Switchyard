@@ -1434,8 +1434,8 @@
 	<string>Обновите macOS, чтобы продолжить.</string>
 	<key>Updated %@</key>
 	<string>Обновлен %1$@</string>
-	<key>Use Switchyard to Open .exe Files</key>
-	<string>Открывать файлы .exe в Switchyard</string>
+	<key>Use Switchyard to Open .exe and .msi Files</key>
+	<string>Открывать файлы .exe и .msi в Switchyard</string>
 	<key>Use</key>
 	<string>Использовать</string>
 	<key>Value</key>

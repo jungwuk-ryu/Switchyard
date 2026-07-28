@@ -3,8 +3,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var store: AppStore
-    @StateObject private var windowsExecutableAssociation =
-        WindowsExecutableAssociationService()
+    @StateObject private var windowsApplicationAssociation =
+        WindowsApplicationAssociationService()
     @State private var appLanguageIdentifier =
         AppLanguagePreference.selectedIdentifier()
     @State private var isRestartingForLanguage = false
@@ -38,7 +38,7 @@ struct SettingsView: View {
         }
         .frame(width: 820, height: 640)
         .task {
-            windowsExecutableAssociation.refresh()
+            windowsApplicationAssociation.refresh()
         }
         .sheet(
             item: Binding(
@@ -140,27 +140,27 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    if windowsExecutableAssociation.state.isDefaultApplication {
+                    if windowsApplicationAssociation.state.isDefaultApplication {
                         Label("Default", systemImage: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                     }
                 }
 
-                if !windowsExecutableAssociation.state.isDefaultApplication {
+                if !windowsApplicationAssociation.state.isDefaultApplication {
                     Button {
-                        windowsExecutableAssociation.makeDefaultApplication()
+                        windowsApplicationAssociation.makeDefaultApplication()
                     } label: {
-                        if windowsExecutableAssociation.state.isWorking {
+                        if windowsApplicationAssociation.state.isWorking {
                             ProgressView()
                                 .controlSize(.small)
                         }
-                        Text("Use Switchyard to Open .exe Files")
+                        Text("Use Switchyard to Open .exe and .msi Files")
                     }
-                    .disabled(windowsExecutableAssociation.state.isWorking)
+                    .disabled(windowsApplicationAssociation.state.isWorking)
                 }
 
                 if let errorMessage =
-                    windowsExecutableAssociation.state.errorMessage {
+                    windowsApplicationAssociation.state.errorMessage {
                     SettingsNotice(
                         message: errorMessage,
                         systemImage: "exclamationmark.triangle.fill",

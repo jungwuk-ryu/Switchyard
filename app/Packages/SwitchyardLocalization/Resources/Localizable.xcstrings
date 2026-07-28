@@ -37570,60 +37570,60 @@
         }
       }
     },
-    "Use Switchyard to Open .exe Files": {
+    "Use Switchyard to Open .exe and .msi Files": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Switchyard zum Öffnen von .exe-Dateien verwenden"
+            "value": "Switchyard zum Öffnen von .exe- und .msi-Dateien verwenden"
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usar Switchyard para abrir archivos .exe"
+            "value": "Usar Switchyard para abrir archivos .exe y .msi"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Utiliser Switchyard pour ouvrir les fichiers .exe"
+            "value": "Utiliser Switchyard pour ouvrir les fichiers .exe et .msi"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Switchyard で .exe ファイルを開く"
+            "value": "Switchyard で .exe および .msi ファイルを開く"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Switchyard로 .exe 파일 열기"
+            "value": "Switchyard로 .exe 및 .msi 파일 열기"
           }
         },
         "pt-BR": {
           "stringUnit": {
             "state": "translated",
-            "value": "Usar o Switchyard para abrir arquivos .exe"
+            "value": "Usar o Switchyard para abrir arquivos .exe e .msi"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Открывать файлы .exe в Switchyard"
+            "value": "Открывать файлы .exe и .msi в Switchyard"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用 Switchyard 打开 .exe 文件"
+            "value": "使用 Switchyard 打开 .exe 和 .msi 文件"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "使用 Switchyard 開啟 .exe 檔案"
+            "value": "使用 Switchyard 開啟 .exe 和 .msi 檔案"
           }
         }
       }

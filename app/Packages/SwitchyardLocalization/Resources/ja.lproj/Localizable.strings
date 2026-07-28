@@ -1434,8 +1434,8 @@
 	<string>続行するには、macOS を更新してください</string>
 	<key>Updated %@</key>
 	<string>%1$@ を更新しました</string>
-	<key>Use Switchyard to Open .exe Files</key>
-	<string>Switchyard で .exe ファイルを開く</string>
+	<key>Use Switchyard to Open .exe and .msi Files</key>
+	<string>Switchyard で .exe および .msi ファイルを開く</string>
 	<key>Use</key>
 	<string>使用</string>
 	<key>Value</key>
