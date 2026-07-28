@@ -429,9 +429,16 @@ struct ContainerSessionStageView: View {
                     .foregroundStyle(.white.opacity(0.94))
                     .lineLimit(1)
 
-                Circle()
-                    .fill(sessionStatusColor)
-                    .frame(width: 8, height: 8)
+                if containerIsLaunching {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(.white.opacity(0.72))
+                        .frame(width: 8, height: 8)
+                } else {
+                    Circle()
+                        .fill(sessionStatusColor)
+                        .frame(width: 8, height: 8)
+                }
 
                 Text(sessionStatusText)
                     .font(.system(size: 12, weight: .medium))
@@ -817,6 +824,10 @@ struct ContainerSessionStageView: View {
         sessionState.hasRunningProcesses
     }
 
+    private var containerIsLaunching: Bool {
+        store.isContainerLaunching(container.id)
+    }
+
     private var sessionState: WineServerState {
         sessionSnapshot.wineServerState
     }
@@ -835,7 +846,11 @@ struct ContainerSessionStageView: View {
     }
 
     private var sessionStatusText: String {
-        switch sessionState {
+        if containerIsLaunching {
+            return String(localized: "Starting…", bundle: SwitchyardStrings.bundle)
+        }
+
+        return switch sessionState {
         case .active:
             String(localized: "Running", bundle: SwitchyardStrings.bundle)
         case .orphaned:
@@ -869,7 +884,12 @@ struct ContainerSessionStageView: View {
 
             VStack(spacing: 6) {
                 Text(
-                    sessionIsActive
+                    containerIsLaunching
+                        ? String(
+                            localized: "Starting…",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                        : sessionIsActive
                         ? String(
                             localized: "No visible Windows app windows",
                             bundle: SwitchyardStrings.bundle
@@ -899,23 +919,41 @@ struct ContainerSessionStageView: View {
                     store.chooseExecutableAndRun(in: container.id)
                 }
             } label: {
-                Label(
-                    sessionIsActive
-                        ? String(
-                            localized: "Activity",
-                            bundle: SwitchyardStrings.bundle
+                Group {
+                    if containerIsLaunching {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white.opacity(0.88))
+                            .frame(width: 44)
+                    } else {
+                        Label(
+                            sessionIsActive
+                                ? String(
+                                    localized: "Activity",
+                                    bundle: SwitchyardStrings.bundle
+                                )
+                                : String(
+                                    localized: "Run",
+                                    bundle: SwitchyardStrings.bundle
+                                ),
+                            systemImage: sessionIsActive ? "waveform.path.ecg" : "play.fill"
                         )
-                        : String(
-                            localized: "Run",
-                            bundle: SwitchyardStrings.bundle
-                        ),
-                    systemImage: sessionIsActive ? "waveform.path.ecg" : "play.fill"
-                )
+                    }
+                }
                 .font(.system(size: 11, weight: .semibold))
                 .padding(.horizontal, 14)
                 .frame(height: 36)
             }
             .buttonStyle(SessionStageHeaderButtonStyle())
+            .disabled(containerIsLaunching)
+            .accessibilityLabel(
+                containerIsLaunching
+                    ? String(localized: "Starting…", bundle: SwitchyardStrings.bundle)
+                    : sessionIsActive
+                    ? String(localized: "Activity", bundle: SwitchyardStrings.bundle)
+                    : String(localized: "Run", bundle: SwitchyardStrings.bundle)
+            )
+            .accessibilityIdentifier("sessionStage.primaryAction")
         }
         .padding(28)
         .background(
