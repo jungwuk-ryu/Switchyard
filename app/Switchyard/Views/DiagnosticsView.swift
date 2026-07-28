@@ -206,6 +206,7 @@ struct DiagnosticsView: View {
 
 private struct DiagnosticsVersionOverview: View {
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var updater: SwitchyardUpdater
     @Environment(\.openURL) private var openURL
 
     let appVersion: String
@@ -256,10 +257,15 @@ private struct DiagnosticsVersionOverview: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
 
-            if !store.isCheckingOnlineReleases,
-               store.onlineReleaseError == nil,
-               appUpdateAvailable,
-               let releaseURL = store.onlineReleaseSnapshot?.appRelease.webURL {
+            if updater.isUpdateAvailable {
+                AppUpdateButton(
+                    accessibilityIdentifier: "diagnostics.app-update.install"
+                )
+                .fixedSize()
+            } else if !store.isCheckingOnlineReleases,
+                      store.onlineReleaseError == nil,
+                      appUpdateAvailable,
+                      let releaseURL = store.onlineReleaseSnapshot?.appRelease.webURL {
                 Button("View Update") {
                     openURL(releaseURL)
                 }
@@ -457,12 +463,14 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var appUpdateAvailable: Bool {
+        if updater.isUpdateAvailable { return true }
         guard let currentReleaseVersion, let latestReleaseVersion else { return false }
         return currentReleaseVersion < latestReleaseVersion
     }
 
     private var appUpdateStatus: HealthStatus {
-        if store.isCheckingOnlineReleases { return .unknown }
+        if updater.isUpdateAvailable { return .warning }
+        if updater.isChecking || store.isCheckingOnlineReleases { return .unknown }
         if store.onlineReleaseError != nil { return .unknown }
         guard store.onlineReleaseSnapshot != nil else { return .unknown }
         guard let currentReleaseVersion, let latestReleaseVersion else { return .unknown }
@@ -470,7 +478,10 @@ private struct DiagnosticsVersionOverview: View {
     }
 
     private var appUpdateLabel: String {
-        if store.isCheckingOnlineReleases {
+        if updater.isUpdateAvailable {
+            return String(localized: "Update Available", bundle: SwitchyardStrings.bundle)
+        }
+        if updater.isChecking || store.isCheckingOnlineReleases {
             return String(localized: "Checking Online", bundle: SwitchyardStrings.bundle)
         }
         if store.onlineReleaseError != nil {

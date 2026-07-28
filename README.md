@@ -32,6 +32,7 @@ This is a compatibility snapshot, not a blanket support guarantee. Results can v
 - Records the active Wine build, source revision, and GPTK fingerprint most recently used by each container for diagnostics.
 - Installs verified Noto fonts as open replacements for common Windows UI fonts.
 - Bridges application-registered custom URL schemes back into the originating Wine container after a macOS browser login.
+- Detects signed app releases and performs an in-place download, verification, installation, and relaunch.
 - Keeps diagnostic and debug logs local unless the user explicitly copies them.
 
 The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher, and Rockstar Games Launcher are development targets, not guaranteed compatibility claims. Switchyard does not bypass DRM or anti-cheat systems.
@@ -41,6 +42,7 @@ The container model is launcher-agnostic. Steam, Battle.net, Epic Games Launcher
 | Component | Source and license | Distribution boundary |
 | --- | --- | --- |
 | Switchyard app and runner | This repository, [MIT](LICENSE) | Developer ID signed and notarized releases, or built locally from Swift source |
+| Sparkle updater | [Sparkle](https://github.com/sparkle-project/Sparkle), MIT | Exact SwiftPM version bundled only inside the Switchyard app |
 | Patched Wine runtime | [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine), LGPL-2.1-or-later | Recommended signed release pinned by [`config/switchyard-wine.env`](config/switchyard-wine.env), other trusted stable releases from the official runtime channel, or built locally |
 | Apple Game Porting Toolkit components | Separately licensed Apple software | User-provided in the current release; reviewed separate GPTK 3 channel implemented but disabled; never committed or bundled with Switchyard or Wine |
 | Open Font Pack | Official Noto projects, SIL OFL 1.1 | Downloaded to a user-local cache and verified before installation |
@@ -58,12 +60,15 @@ The GPTK 3 review conditionally permits a separate, non-commercial component cha
 
 ## Install the Preview
 
-1. Download the current app archive from [GitHub Releases](https://github.com/jungwuk-ryu/Switchyard/releases/latest) and open Switchyard. Guided setup downloads and activates the recommended official Wine runtime.
-2. Choose **Download from Apple** for Game Porting Toolkit. Apple handles account sign-in and license acceptance.
-3. Return to Switchyard after the DMG finishes downloading and choose **Import Downloaded GPTK**. The app locates it in Downloads, verifies that its executable code is Apple-signed, and imports it into the local cache.
-4. Re-run diagnostics and create a container.
+1. Download the current Switchyard DMG from [GitHub Releases](https://github.com/jungwuk-ryu/Switchyard/releases/latest), open it, and drag **Switchyard** to the **Applications** shortcut.
+2. Open Switchyard from Applications. Guided setup downloads and activates the recommended official Wine runtime.
+3. Choose **Download from Apple** for Game Porting Toolkit. Apple handles account sign-in and license acceptance.
+4. Return to Switchyard after the GPTK DMG finishes downloading and choose **Import Downloaded GPTK**. The app locates it in Downloads, verifies that its executable code is Apple-signed, and imports it into the local cache.
+5. Re-run diagnostics and create a container.
 
 The signed app pins the recommended runtime's exact archive size and SHA-256 for automatic setup. Under **Settings → Wine Runtime**, users can also download, activate, and remove stable releases from the official `switchyard-wine` GitHub channel. The manager restricts manifests and archives to that channel and the app's trusted Developer ID team; installation verifies each release's exact size and digest, Git source revision, safe archive paths, full extracted file-tree digest, supported architectures, and Developer ID signatures. The selected Wine runtime and GPTK path are app-wide, never per-container. GPTK is never included in either release.
+
+Switchyard checks its signed update feed when the app opens and periodically while it is active. When a newer version is available, **Download & Install** appears above Settings and in Diagnostics. The action downloads the notarized DMG, verifies both the signed feed and update archive, replaces the installed app, and relaunches it. Stop running Windows apps before starting the update.
 
 ## Build and Verify
 
@@ -76,6 +81,8 @@ swift test
 Tests/Shell/ensure_switchyard_wine_test.sh
 Tests/Shell/runner_prefix_session_test.sh
 Tests/Shell/runner_protocol_callback_test.sh
+Tests/Shell/create_dmg_test.sh
+Tests/Shell/generate_appcast_test.sh
 SWITCHYARD_SKIP_RUNTIME_ENSURE=1 ./script/build_and_run.sh --verify
 ```
 

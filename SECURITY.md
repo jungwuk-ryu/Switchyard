@@ -8,10 +8,14 @@ Include the affected commit, macOS version, Apple Silicon model, impact, reprodu
 
 ## Supported Versions
 
-Switchyard is currently a pre-release project. Security fixes are made on `main`; there are no supported release branches or signed binary releases yet.
+Switchyard is currently a pre-release project. Security fixes are made on `main`; only the latest Developer ID signed and notarized GitHub release is supported.
 
 ## Scope
 
 Reports about the Swift app, runner boundary, manifest handling, source synchronization, logging, or build and release integrity belong here. Vulnerabilities in the patched Wine source should be reported privately to [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine/security/advisories/new) when possible.
 
 Apple Game Porting Toolkit components are separately licensed Apple software; the current release imports a user-provided copy. Third-party Windows applications are user-provided software. Their upstream vulnerabilities are outside Switchyard's maintenance scope, while unauthorized GPTK redistribution, component-channel integrity failures, or other boundary failures that expose third-party software are in scope.
+
+## App Update Integrity
+
+Release builds fetch an HTTPS appcast, require its Ed25519 signature, and require the DMG enclosure signature before extraction. The downloaded app and DMG are Developer ID signed and notarized, and the release workflow staples and validates both artifacts. The Sparkle private key and Apple signing credentials are release-environment secrets; only the public update key is committed. A key rotation must ship the replacement trust configuration in an already trusted app update before a feed begins using the new key.

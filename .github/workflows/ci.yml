@@ -45,7 +45,18 @@ jobs:
         run: Tests/Shell/bundle_gptk_component_policy_test.sh
 
       - name: Validate release packaging script
-        run: bash -n script/release_app.sh
+        run: |
+          bash -n script/build_and_run.sh
+          bash -n script/sign_sparkle_framework.sh
+          bash -n script/create_dmg.sh
+          bash -n script/generate_appcast.sh
+          bash -n script/release_app.sh
+
+      - name: Test DMG assembly
+        run: Tests/Shell/create_dmg_test.sh
+
+      - name: Test signed appcast generation
+        run: Tests/Shell/generate_appcast_test.sh
 
       - name: Test local code-signing identity selection
         run: Tests/Shell/local_codesign_identity_test.sh

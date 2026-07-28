@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var store: AppStore
+    @EnvironmentObject private var updater: SwitchyardUpdater
     @Environment(\.scenePhase) private var scenePhase
     @SceneStorage("selectedSection") private var selectedSectionRawValue = SidebarSelection.containers.rawValue
     @State private var hasEvaluatedInitialReadiness = false
@@ -56,6 +57,7 @@ struct ContentView: View {
                 .environmentObject(store)
         }
         .onAppear {
+            updater.start()
             restoreSelectedSection()
             if !store.hasCompletedSetup {
                 store.requestSetupAssistant()
@@ -82,6 +84,19 @@ struct ContentView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             store.refreshRuntimeStatus()
+            updater.checkForUpdatesIfNeeded()
+        }
+        .alert(
+            String(localized: "Error", bundle: SwitchyardStrings.bundle),
+            isPresented: updateErrorBinding
+        ) {
+            Button("OK") {
+                updater.dismissError()
+            }
+        } message: {
+            if let errorMessage = updater.errorMessage {
+                Text(errorMessage)
+            }
         }
     }
 
@@ -90,6 +105,16 @@ struct ContentView: View {
             store.selectedSection
         } set: { newValue in
             selectSection(newValue)
+        }
+    }
+
+    private var updateErrorBinding: Binding<Bool> {
+        Binding {
+            updater.errorMessage != nil
+        } set: { isPresented in
+            if !isPresented {
+                updater.dismissError()
+            }
         }
     }
 

@@ -19,6 +19,8 @@ if [ "$jobs" -lt 1 ]; then jobs=1; fi
 swift test --jobs "$jobs"
 Tests/Shell/ensure_switchyard_wine_test.sh
 Tests/Shell/bundle_gptk_component_policy_test.sh
+Tests/Shell/create_dmg_test.sh
+Tests/Shell/generate_appcast_test.sh
 SWIFT_BUILD_JOBS="$jobs" Tests/Shell/runner_prefix_session_test.sh
 SWITCHYARD_SKIP_RUNTIME_ENSURE=1 SWIFT_BUILD_JOBS="$jobs" ./script/build_and_run.sh --verify
 ```
@@ -68,16 +70,18 @@ Additional modes are available for debugging and local observation:
 
 ## Signed Release Packaging
 
-First assemble an optimized release build, then create a Developer ID signed and notarized archive with a Keychain profile configured for `notarytool`:
+First assemble an optimized release build, then create a Developer ID signed and notarized DMG with a Keychain profile configured for `notarytool`:
 
 ```sh
 SWITCHYARD_SKIP_RUNTIME_ENSURE=1 \
 SWITCHYARD_BUILD_CONFIGURATION=release \
+SWITCHYARD_APP_VERSION=0.4.0 \
+SWITCHYARD_APP_BUILD="$(git rev-list --count HEAD)" \
 ./script/build_and_run.sh --verify
 
 ./script/release_app.sh \
   --app dist/Switchyard.app \
-  --output "$HOME/Library/Caches/Switchyard/ReleaseStaging/app-$(git rev-parse --short=12 HEAD)" \
+  --output /tmp/switchyard-release \
   --identity "Developer ID Application: Your Name (TEAMID)" \
   --notary-profile switchyard-notary
 ```
@@ -86,7 +90,20 @@ Release assembly fails unless the pinned Wine revision has a complete published-
 
 `config/gptk-component.env` is bundled separately. Its disabled form is valid for release builds. If the channel is enabled, assembly fails unless the signed channel-status URL, immutable release-manifest URL, Ed25519 public key, distributor authority, independent legal approval, non-commercial status, export-control operation, and takedown readiness records are all identified. See [GPTK component channel](gptk-component-channel.md) for the status, manifest, and archive contract. Enabling the file without the private evidence required by the legal review is not an authorized release.
 
-The script signs every nested Mach-O with Hardened Runtime, signs the bundle, submits the ZIP to Apple, staples and validates the accepted ticket, runs Gatekeeper assessment, then recreates the final ZIP and checksum. Credentials remain in the user's Keychain and are never written to the repository.
+The script signs the app helpers and Sparkle framework in their required nested order, submits and staples the app, creates a read-only compressed DMG containing `Switchyard.app` and an `/Applications` shortcut, then signs, notarizes, staples, mounts, and validates the final DMG. It emits the DMG and a SHA-256 sidecar. Credentials remain in the user's Keychain and are never written to the repository.
+
+Release builds embed the HTTPS appcast URL and Ed25519 public key from `config/app-update.env`. The matching private key must remain outside the repository. Generate or inspect the organization-specific key with Sparkle's `generate_keys --account dev.switchyard.Switchyard` tool, and rotate the checked-in public key only in a coordinated app release.
+
+The `Release` GitHub Actions workflow runs only for stable `vMAJOR.MINOR.PATCH` tags or an explicitly selected existing tag. The protected `release` environment must provide:
+
+- `APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64`
+- `APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD`
+- `APPLE_NOTARY_KEY_P8_BASE64`
+- `APPLE_NOTARY_KEY_ID`
+- `APPLE_NOTARY_ISSUER_ID`
+- `SPARKLE_ED_PRIVATE_KEY`
+
+The workflow imports credentials into an ephemeral Keychain, validates the release, creates and notarizes the DMG, generates a signed `appcast.xml`, and publishes all three release assets: the DMG, its checksum, and the appcast. The stable update URL is the `appcast.xml` asset from the latest GitHub release. Require approval on the `release` environment so tag creation alone cannot expose signing credentials.
 
 ## Local Data
 

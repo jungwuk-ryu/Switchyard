@@ -8,6 +8,8 @@ The Swift app, portable packages, runner, scripts, and original documentation in
 
 This license does not relicense Wine, Apple Game Porting Toolkit components, fonts, or any Windows application used with Switchyard.
 
+Release app bundles include the exact SwiftPM-pinned Sparkle updater framework under Sparkle's MIT license. Its license text is copied to `Contents/Resources/ThirdPartyNotices/Sparkle-LICENSE.txt`. Sparkle updates only the Switchyard app bundle and does not combine Wine or GPTK with the app release.
+
 ## Wine
 
 Switchyard uses the public [`switchyard-wine`](https://github.com/jungwuk-ryu/switchyard-wine) downstream repository. Wine and Switchyard's Wine modifications are licensed under the GNU Lesser General Public License, version 2.1 or later.

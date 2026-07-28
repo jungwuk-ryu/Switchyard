@@ -19,6 +19,12 @@ let package = Package(
         .library(name: "Persistence", targets: ["Persistence"]),
         .library(name: "SwitchyardLocalization", targets: ["SwitchyardLocalization"])
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/sparkle-project/Sparkle",
+            exact: "2.9.4"
+        )
+    ],
     targets: [
         .target(
             name: "SwitchyardLocalization",
@@ -57,7 +63,8 @@ let package = Package(
                 "JobEngine",
                 "RuntimeCatalog",
                 "Persistence",
-                "SwitchyardLocalization"
+                "SwitchyardLocalization",
+                .product(name: "Sparkle", package: "Sparkle")
             ],
             path: "app/Switchyard"
         ),

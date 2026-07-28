@@ -15,6 +15,34 @@ esac
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IDENTITY_SELECTOR="$ROOT_DIR/script/local_codesign_identity.sh"
+SPARKLE_SIGNER="$ROOT_DIR/script/sign_sparkle_framework.sh"
+APP_UPDATE_CONFIG="$ROOT_DIR/config/app-update.env"
+configured_appcast_url="$(sed -n 's/^SWITCHYARD_APPCAST_URL=//p' "$APP_UPDATE_CONFIG" | tail -n 1)"
+configured_sparkle_public_key="$(sed -n 's/^SWITCHYARD_SPARKLE_PUBLIC_KEY=//p' "$APP_UPDATE_CONFIG" | tail -n 1)"
+APPCAST_URL="${SWITCHYARD_APPCAST_URL:-$configured_appcast_url}"
+SPARKLE_PUBLIC_KEY="${SWITCHYARD_SPARKLE_PUBLIC_KEY:-$configured_sparkle_public_key}"
+ENABLE_APP_UPDATES="${SWITCHYARD_ENABLE_APP_UPDATES:-}"
+if [ -z "$ENABLE_APP_UPDATES" ]; then
+  if [ "$BUILD_CONFIGURATION" = "release" ]; then
+    ENABLE_APP_UPDATES=1
+  else
+    ENABLE_APP_UPDATES=0
+  fi
+fi
+case "$ENABLE_APP_UPDATES" in
+  0|1) ;;
+  *) echo "SWITCHYARD_ENABLE_APP_UPDATES must be 0 or 1" >&2; exit 2 ;;
+esac
+if [ "$ENABLE_APP_UPDATES" = "1" ]; then
+  [[ "$APPCAST_URL" == https://* ]] || {
+    echo "app updates require an HTTPS SWITCHYARD_APPCAST_URL" >&2
+    exit 1
+  }
+  [ -n "$SPARKLE_PUBLIC_KEY" ] || {
+    echo "app updates require SWITCHYARD_SPARKLE_PUBLIC_KEY" >&2
+    exit 1
+  }
+fi
 if [ -n "${SWITCHYARD_CODESIGN_IDENTITY:-}" ]; then
   LOCAL_CODESIGN_IDENTITY="$("$IDENTITY_SELECTOR" "$SWITCHYARD_CODESIGN_IDENTITY")"
 else
@@ -33,15 +61,19 @@ APP_CONTENTS="$APP_BUNDLE/Contents"
 APP_MACOS="$APP_CONTENTS/MacOS"
 APP_RESOURCES="$APP_CONTENTS/Resources"
 APP_HELPERS="$APP_CONTENTS/Helpers"
+APP_FRAMEWORKS="$APP_CONTENTS/Frameworks"
+APP_THIRD_PARTY_NOTICES="$APP_RESOURCES/ThirdPartyNotices"
 APP_BINARY="$APP_MACOS/$APP_NAME"
 RUNNER_BINARY="$APP_HELPERS/switchyard-runner"
 URL_HANDLER_BINARY="$APP_HELPERS/switchyard-url-handler"
 SHORTCUT_HANDLER_BINARY="$APP_HELPERS/switchyard-shortcut-handler"
 LOCALIZATION_BUNDLE_NAME="Switchyard_SwitchyardLocalization.bundle"
 INFO_PLIST="$APP_CONTENTS/Info.plist"
+SPARKLE_FRAMEWORK="$APP_FRAMEWORKS/Sparkle.framework"
 APP_ICON_SOURCE="$ROOT_DIR/assets/branding/Switchyard.icns"
 APP_ICON="$APP_RESOURCES/Switchyard.icns"
-MAX_SWIFT_BUILD_JOBS=13
+hardware_threads="$(/usr/sbin/sysctl -n hw.ncpu)"
+MAX_SWIFT_BUILD_JOBS=$((hardware_threads > 1 ? hardware_threads - 1 : 1))
 SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-$MAX_SWIFT_BUILD_JOBS}"
 if [ "$SWIFT_BUILD_JOBS" -gt "$MAX_SWIFT_BUILD_JOBS" ]; then
   SWIFT_BUILD_JOBS="$MAX_SWIFT_BUILD_JOBS"
@@ -70,19 +102,48 @@ BUILD_RUNNER="$BUILD_BIN_PATH/switchyard-runner"
 BUILD_URL_HANDLER="$BUILD_BIN_PATH/switchyard-url-handler"
 BUILD_SHORTCUT_HANDLER="$BUILD_BIN_PATH/switchyard-shortcut-handler"
 LOCALIZATION_BUNDLE="$BUILD_BIN_PATH/$LOCALIZATION_BUNDLE_NAME"
+SPARKLE_FRAMEWORK_SOURCE="$(
+  /usr/bin/find "$ROOT_DIR/.build/artifacts" \
+    -type d \
+    -path '*/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework' \
+    -print \
+    -quit
+)"
+SPARKLE_LICENSE_SOURCE="$(
+  /usr/bin/find "$ROOT_DIR/.build/artifacts" \
+    -type f \
+    -path '*/Sparkle/LICENSE' \
+    -print \
+    -quit
+)"
 
 [ -d "$LOCALIZATION_BUNDLE" ] || {
   echo "missing localization resource bundle: $LOCALIZATION_BUNDLE" >&2
   exit 1
 }
+[ -d "$SPARKLE_FRAMEWORK_SOURCE" ] || {
+  echo "missing Sparkle framework in SwiftPM artifacts" >&2
+  exit 1
+}
+[ -f "$SPARKLE_LICENSE_SOURCE" ] || {
+  echo "missing Sparkle license in SwiftPM artifacts" >&2
+  exit 1
+}
 
 rm -rf "$APP_BUNDLE"
-mkdir -p "$APP_MACOS" "$APP_HELPERS" "$APP_RESOURCES"
+mkdir -p \
+  "$APP_MACOS" \
+  "$APP_HELPERS" \
+  "$APP_RESOURCES" \
+  "$APP_FRAMEWORKS" \
+  "$APP_THIRD_PARTY_NOTICES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 cp "$BUILD_RUNNER" "$RUNNER_BINARY"
 cp "$BUILD_URL_HANDLER" "$URL_HANDLER_BINARY"
 cp "$BUILD_SHORTCUT_HANDLER" "$SHORTCUT_HANDLER_BINARY"
 cp "$APP_ICON_SOURCE" "$APP_ICON"
+/usr/bin/ditto "$SPARKLE_FRAMEWORK_SOURCE" "$SPARKLE_FRAMEWORK"
+cp "$SPARKLE_LICENSE_SOURCE" "$APP_THIRD_PARTY_NOTICES/Sparkle-LICENSE.txt"
 cp -R "$LOCALIZATION_BUNDLE" "$APP_RESOURCES/$LOCALIZATION_BUNDLE_NAME"
 for localization_directory in "$LOCALIZATION_BUNDLE"/*.lproj; do
   [ -d "$localization_directory" ] || continue
@@ -175,6 +236,31 @@ cat >"$INFO_PLIST" <<PLIST
 </plist>
 PLIST
 
+if [ "$ENABLE_APP_UPDATES" = "1" ]; then
+  /usr/bin/plutil -insert SwitchyardUpdatesEnabled -bool true "$INFO_PLIST"
+  /usr/bin/plutil -insert SUFeedURL -string "$APPCAST_URL" "$INFO_PLIST"
+  /usr/bin/plutil -insert SUPublicEDKey -string "$SPARKLE_PUBLIC_KEY" "$INFO_PLIST"
+  /usr/bin/plutil -insert SURequireSignedFeed -bool true "$INFO_PLIST"
+  /usr/bin/plutil -insert SUVerifyUpdateBeforeExtraction -bool true "$INFO_PLIST"
+  /usr/bin/plutil -insert SUSignedFeedFailureExpirationInterval -integer 0 "$INFO_PLIST"
+  /usr/bin/plutil -insert SUEnableAutomaticChecks -bool false "$INFO_PLIST"
+  /usr/bin/plutil -insert SUAllowsAutomaticUpdates -bool true "$INFO_PLIST"
+  /usr/bin/plutil -insert SUAutomaticallyUpdate -bool true "$INFO_PLIST"
+  /usr/bin/plutil -insert SUEnableSystemProfiling -bool false "$INFO_PLIST"
+else
+  /usr/bin/plutil -insert SwitchyardUpdatesEnabled -bool false "$INFO_PLIST"
+fi
+
+if ! /usr/bin/otool -l "$APP_BINARY" \
+  | /usr/bin/grep -Fq '@executable_path/../Frameworks'; then
+  /usr/bin/install_name_tool \
+    -add_rpath '@executable_path/../Frameworks' \
+    "$APP_BINARY"
+fi
+
+"$SPARKLE_SIGNER" \
+  --framework "$SPARKLE_FRAMEWORK" \
+  --identity "$LOCAL_CODESIGN_IDENTITY"
 for helper_binary in \
   "$RUNNER_BINARY" \
   "$URL_HANDLER_BINARY" \

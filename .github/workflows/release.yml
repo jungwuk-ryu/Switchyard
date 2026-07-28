@@ -1,0 +1,246 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable release tag, for example v0.4.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Sign, notarize, and publish
+    runs-on: macos-15
+    timeout-minutes: 60
+    environment: release
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      NOTARY_PROFILE: switchyard-ci-notary
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Validate immutable release input
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must be a stable semantic version such as v0.4.0" >&2
+            exit 1
+          fi
+          tag_commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          if [ "$tag_commit" != "$head_commit" ]; then
+            echo "checked-out commit does not match $RELEASE_TAG" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "release tag must point to a commit on origin/main" >&2
+            exit 1
+          fi
+          latest_stable_tag=""
+          while IFS= read -r candidate_tag; do
+            if [[ "$candidate_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              latest_stable_tag="$candidate_tag"
+              break
+            fi
+          done < <(git tag --list 'v*' --sort=-version:refname)
+          if [ "$latest_stable_tag" != "$RELEASE_TAG" ]; then
+            echo "release tag must be the newest stable tag: $latest_stable_tag" >&2
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub release already exists for $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+      - name: Calculate build metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          jobs=$(( $(sysctl -n hw.ncpu) - 1 ))
+          if [ "$jobs" -lt 1 ]; then jobs=1; fi
+          app_version="${RELEASE_TAG#v}"
+          app_build="$(git rev-list --count HEAD)"
+          {
+            echo "SWIFT_BUILD_JOBS=$jobs"
+            echo "SWITCHYARD_APP_VERSION=$app_version"
+            echo "SWITCHYARD_APP_BUILD=$app_build"
+            echo "RELEASE_OUTPUT=$RUNNER_TEMP/switchyard-release"
+            echo "RELEASE_NOTES=$RUNNER_TEMP/switchyard-release-notes.md"
+            echo "KEYCHAIN_PATH=$RUNNER_TEMP/switchyard-release.keychain-db"
+          } >> "$GITHUB_ENV"
+
+      - name: Import Developer ID and notarization credentials
+        shell: bash
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_CERTIFICATE_PASSWORD }}
+          NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY_P8_BASE64 }}
+          NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          for required in \
+            CERTIFICATE_BASE64 \
+            CERTIFICATE_PASSWORD \
+            NOTARY_KEY_BASE64 \
+            NOTARY_KEY_ID \
+            NOTARY_ISSUER_ID; do
+            if [ -z "${!required:-}" ]; then
+              echo "missing required release secret: $required" >&2
+              exit 1
+            fi
+          done
+
+          certificate_path="$RUNNER_TEMP/developer-id-application.p12"
+          notary_key_path="$RUNNER_TEMP/AuthKey.p8"
+          keychain_password="$(uuidgen)-$(uuidgen)"
+          printf '%s' "$CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          printf '%s' "$NOTARY_KEY_BASE64" | base64 --decode > "$notary_key_path"
+          chmod 600 "$certificate_path" "$notary_key_path"
+
+          security create-keychain -p "$keychain_password" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$keychain_password" "$KEYCHAIN_PATH"
+          security import "$certificate_path" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s \
+            -k "$keychain_password" \
+            "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+
+          identity="$(
+            security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
+              | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' \
+              | head -n 1
+          )"
+          if [ -z "$identity" ]; then
+            echo "Developer ID Application identity was not imported" >&2
+            exit 1
+          fi
+          {
+            echo "RELEASE_CODESIGN_IDENTITY=$identity"
+            echo "SWITCHYARD_CODESIGN_IDENTITY=$identity"
+          } >> "$GITHUB_ENV"
+
+          xcrun notarytool store-credentials "$NOTARY_PROFILE" \
+            --key "$notary_key_path" \
+            --key-id "$NOTARY_KEY_ID" \
+            --issuer "$NOTARY_ISSUER_ID" \
+            --keychain "$KEYCHAIN_PATH" \
+            --validate
+
+      - name: Run release validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift test --jobs "$SWIFT_BUILD_JOBS"
+          Tests/Shell/create_dmg_test.sh
+          Tests/Shell/generate_appcast_test.sh
+          for script in \
+            script/build_and_run.sh \
+            script/sign_sparkle_framework.sh \
+            script/create_dmg.sh \
+            script/generate_appcast.sh \
+            script/release_app.sh; do
+            bash -n "$script"
+          done
+
+      - name: Build release app
+        shell: bash
+        env:
+          SWITCHYARD_BUILD_CONFIGURATION: release
+          SWITCHYARD_ENABLE_APP_UPDATES: "1"
+          SWITCHYARD_SKIP_RUNTIME_ENSURE: "1"
+        run: ./script/build_and_run.sh --verify
+
+      - name: Sign and notarize release DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./script/release_app.sh \
+            --app dist/Switchyard.app \
+            --output "$RELEASE_OUTPUT" \
+            --identity "$RELEASE_CODESIGN_IDENTITY" \
+            --notary-profile "$NOTARY_PROFILE" \
+            --notary-keychain "$KEYCHAIN_PATH"
+
+      - name: Generate release notes and signed appcast
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
+            echo "missing required release secret: SPARKLE_ED_PRIVATE_KEY" >&2
+            exit 1
+          fi
+          gh api \
+            --method POST \
+            "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+            -f "tag_name=$RELEASE_TAG" \
+            -f "target_commitish=$(git rev-parse HEAD)" \
+            --jq .body > "$RELEASE_NOTES"
+
+          dmg="$RELEASE_OUTPUT/Switchyard-${SWITCHYARD_APP_VERSION}-macos-arm64.dmg"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" \
+            | ./script/generate_appcast.sh \
+                --dmg "$dmg" \
+                --output "$RELEASE_OUTPUT/appcast.xml" \
+                --download-url-prefix "https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/" \
+                --link "https://github.com/$GITHUB_REPOSITORY" \
+                --release-notes "$RELEASE_NOTES"
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          dmg="$RELEASE_OUTPUT/Switchyard-${SWITCHYARD_APP_VERSION}-macos-arm64.dmg"
+          gh release create "$RELEASE_TAG" \
+            "$dmg" \
+            "$dmg.sha256" \
+            "$RELEASE_OUTPUT/appcast.xml" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --latest \
+            --title "Switchyard $SWITCHYARD_APP_VERSION" \
+            --notes-file "$RELEASE_NOTES"
+
+      - name: Remove temporary credentials
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${KEYCHAIN_PATH:-}" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" >/dev/null 2>&1 || true
+          fi
+          rm -f \
+            "$RUNNER_TEMP/developer-id-application.p12" \
+            "$RUNNER_TEMP/AuthKey.p8"

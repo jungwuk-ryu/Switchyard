@@ -11,6 +11,8 @@ flowchart LR
     Pin["Immutable Wine source pin"] --> Catalog["RuntimeCatalog"]
     Catalog --> UI
     GPTK["User-provided or reviewed external GPTK"] --> Catalog
+    UI --> Updater["Sparkle updater"]
+    Feed["Signed appcast + notarized DMG"] --> Updater
     Runner --> Wine["Replaceable Wine runtime"]
     Wine --> Container["User-managed container"]
     Container --> Manifest["Registered URL scheme manifest"]
@@ -23,6 +25,8 @@ flowchart LR
 ### App Shell
 
 `app/Switchyard` owns scenes, views, platform dialogs, preferences, and orchestration state. Views call `AppStore`; they do not execute shell commands directly.
+
+The app shell also owns `SwitchyardUpdater`, a narrow Sparkle adapter. It probes the HTTPS appcast without presenting UI, exposes only update availability and installation progress to SwiftUI, and starts a user-requested download and install only while all Windows workloads are stopped. Release builds require both a signed feed and a signed archive before extraction. This updater changes only the Switchyard app bundle; Wine and GPTK continue through their separate runtime and licensing channels.
 
 ### Core Packages
 
