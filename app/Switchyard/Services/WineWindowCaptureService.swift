@@ -2,6 +2,7 @@ import AppCore
 import AppKit
 import ApplicationServices
 import CoreGraphics
+import Darwin
 import Foundation
 @preconcurrency import ScreenCaptureKit
 
@@ -9,13 +10,55 @@ struct WineWindowSnapshot: Identifiable, @unchecked Sendable {
     let id: CGWindowID
     let ownerProcessID: pid_t
     let title: String
+    let executablePath: String?
     let frame: CGRect
     let isOnScreen: Bool
     let image: CGImage?
 
-    var aspectRatio: CGFloat {
-        guard frame.height > 0 else { return 16 / 10 }
-        return max(0.7, min(2.2, frame.width / frame.height))
+    var meaningfulTitle: String? {
+        Self.meaningfulTitle(from: title)
+    }
+
+    var executableDisplayName: String? {
+        guard let executablePath else { return nil }
+        let normalizedPath = executablePath.replacingOccurrences(of: "\\", with: "/")
+        guard var name = normalizedPath.split(separator: "/").last.map(String.init) else {
+            return nil
+        }
+        if name.lowercased().hasSuffix(".exe") {
+            name.removeLast(4)
+        }
+        let candidate = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !candidate.isEmpty,
+              !Self.genericTitleKeys.contains(Self.genericTitleKey(candidate)) else {
+            return nil
+        }
+        return candidate
+    }
+
+    private static let genericTitleKeys: Set<String> = [
+        "desktop",
+        "explorer",
+        "explorerexe",
+        "programmanager",
+        "wine",
+        "wine64",
+        "wine64preloader",
+        "windowsapp",
+        "windowssession",
+    ]
+
+    private static func genericTitleKey(_ value: String) -> String {
+        value.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    static func meaningfulTitle(from value: String) -> String? {
+        let candidate = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !candidate.isEmpty,
+              !genericTitleKeys.contains(genericTitleKey(candidate)) else {
+            return nil
+        }
+        return candidate
     }
 }
 
@@ -63,6 +106,7 @@ final class WineWindowCaptureService {
     }
 
     private var cachedImages: [CGWindowID: CachedImage] = [:]
+    private var cachedExecutablePaths: [pid_t: String] = [:]
     private var hasRequestedScreenRecordingPermission = false
     private let screenRecordingPreflight: () -> Bool
     private let screenRecordingRequest: () -> Bool
@@ -94,7 +138,11 @@ final class WineWindowCaptureService {
     ) async -> WineWindowCaptureResult {
         guard !processIDs.isEmpty else {
             cachedImages.removeAll(keepingCapacity: true)
+            cachedExecutablePaths.removeAll(keepingCapacity: true)
             return .empty
+        }
+        cachedExecutablePaths = cachedExecutablePaths.filter {
+            processIDs.contains($0.key)
         }
 
         let metadataFallback = coreGraphicsWindows(ownedBy: processIDs)
@@ -130,6 +178,9 @@ final class WineWindowCaptureService {
                         id: window.windowID,
                         ownerProcessID: window.owningApplication?.processID ?? 0,
                         title: windowTitle(for: window),
+                        executablePath: windowsExecutablePath(
+                            processID: window.owningApplication?.processID ?? 0
+                        ),
                         frame: window.frame,
                         isOnScreen: window.isOnScreen,
                         image: image
@@ -165,25 +216,40 @@ final class WineWindowCaptureService {
             return
         }
 
-        for accessibilityWindow in accessibilityWindows {
-            var titleValue: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(
-                accessibilityWindow,
-                kAXTitleAttribute as CFString,
-                &titleValue
-            ) == .success,
-            let title = titleValue as? String,
-            title == window.title else {
-                continue
-            }
-            AXUIElementPerformAction(accessibilityWindow, kAXRaiseAction as CFString)
-            AXUIElementSetAttributeValue(
-                accessibilityWindow,
-                kAXMainAttribute as CFString,
-                kCFBooleanTrue
+        let candidates = accessibilityWindows.map { candidate in
+            (
+                element: candidate,
+                title: accessibilityTitle(for: candidate),
+                frame: accessibilityFrame(for: candidate)
             )
-            break
         }
+        guard let match = candidates.min(by: { lhs, rhs in
+            Self.windowMatchScore(
+                snapshotTitle: window.title,
+                snapshotFrame: window.frame,
+                candidateTitle: lhs.title,
+                candidateFrame: lhs.frame
+            ) < Self.windowMatchScore(
+                snapshotTitle: window.title,
+                snapshotFrame: window.frame,
+                candidateTitle: rhs.title,
+                candidateFrame: rhs.frame
+            )
+        }),
+        Self.windowMatchIsCredible(
+            snapshotTitle: window.title,
+            snapshotFrame: window.frame,
+            candidateTitle: match.title,
+            candidateFrame: match.frame
+        ) else {
+            return
+        }
+        AXUIElementPerformAction(match.element, kAXRaiseAction as CFString)
+        AXUIElementSetAttributeValue(
+            match.element,
+            kAXMainAttribute as CFString,
+            kCFBooleanTrue
+        )
     }
 
     func openScreenRecordingSettings() {
@@ -279,14 +345,14 @@ final class WineWindowCaptureService {
             }
             let title = (info[kCGWindowName as String] as? String)?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-            let ownerName = info[kCGWindowOwnerName as String] as? String
             let isOnScreen = (info[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
             return WineWindowSnapshot(
                 id: CGWindowID(windowNumber.uint32Value),
                 ownerProcessID: ownerNumber.int32Value,
-                title: title?.isEmpty == false
-                    ? title!
-                    : (ownerName?.isEmpty == false ? ownerName! : "Windows App"),
+                title: title?.isEmpty == false ? title! : "",
+                executablePath: windowsExecutablePath(
+                    processID: ownerNumber.int32Value
+                ),
                 frame: bounds,
                 isOnScreen: isOnScreen,
                 image: cachedImages[CGWindowID(windowNumber.uint32Value)]?.image
@@ -303,9 +369,194 @@ final class WineWindowCaptureService {
         if let title, !title.isEmpty {
             return title
         }
-        let applicationName = window.owningApplication?.applicationName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return applicationName?.isEmpty == false ? applicationName! : "Windows App"
+        return ""
+    }
+
+    private func accessibilityTitle(for window: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            window,
+            kAXTitleAttribute as CFString,
+            &value
+        ) == .success else {
+            return nil
+        }
+        return value as? String
+    }
+
+    private func accessibilityFrame(for window: AXUIElement) -> CGRect? {
+        var positionValue: CFTypeRef?
+        var sizeValue: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(
+            window,
+            kAXPositionAttribute as CFString,
+            &positionValue
+        ) == .success,
+        AXUIElementCopyAttributeValue(
+            window,
+            kAXSizeAttribute as CFString,
+            &sizeValue
+        ) == .success,
+        let positionValue,
+        let sizeValue,
+        CFGetTypeID(positionValue) == AXValueGetTypeID(),
+        CFGetTypeID(sizeValue) == AXValueGetTypeID() else {
+            return nil
+        }
+
+        var position = CGPoint.zero
+        var size = CGSize.zero
+        guard AXValueGetValue(positionValue as! AXValue, .cgPoint, &position),
+              AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) else {
+            return nil
+        }
+        return CGRect(origin: position, size: size)
+    }
+
+    static func windowMatchScore(
+        snapshotTitle: String,
+        snapshotFrame: CGRect,
+        candidateTitle: String?,
+        candidateFrame: CGRect?
+    ) -> CGFloat {
+        let title = WineWindowSnapshot.meaningfulTitle(from: snapshotTitle)
+        let candidateTitle = candidateTitle?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let titlePenalty: CGFloat = title == nil
+            || title?.localizedCaseInsensitiveCompare(candidateTitle) == .orderedSame
+            ? 0
+            : 1_000_000
+        guard let candidateFrame else {
+            return titlePenalty + 500_000
+        }
+        return titlePenalty
+            + abs(snapshotFrame.minX - candidateFrame.minX)
+            + abs(snapshotFrame.minY - candidateFrame.minY)
+            + abs(snapshotFrame.width - candidateFrame.width)
+            + abs(snapshotFrame.height - candidateFrame.height)
+    }
+
+    static func windowMatchIsCredible(
+        snapshotTitle: String,
+        snapshotFrame: CGRect,
+        candidateTitle: String?,
+        candidateFrame: CGRect?
+    ) -> Bool {
+        if let title = WineWindowSnapshot.meaningfulTitle(from: snapshotTitle),
+           title.localizedCaseInsensitiveCompare(
+               candidateTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+           ) == .orderedSame {
+            return true
+        }
+        guard let candidateFrame else { return false }
+        let originDelta = hypot(
+            snapshotFrame.minX - candidateFrame.minX,
+            snapshotFrame.minY - candidateFrame.minY
+        )
+        let sizeDelta = hypot(
+            snapshotFrame.width - candidateFrame.width,
+            snapshotFrame.height - candidateFrame.height
+        )
+        return originDelta <= 96 && sizeDelta <= 96
+    }
+
+    private func windowsExecutablePath(processID: pid_t) -> String? {
+        if let cachedPath = cachedExecutablePaths[processID] {
+            return cachedPath
+        }
+        let executablePath = Self.processArguments(processID: processID)
+            .prefix(8)
+            .first(where: Self.looksLikeWindowsExecutablePath)
+        if let executablePath {
+            cachedExecutablePaths[processID] = executablePath
+        }
+        return executablePath
+    }
+
+    private static func looksLikeWindowsExecutablePath(_ argument: String) -> Bool {
+        let candidate = argument
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            .lowercased()
+        return candidate.hasSuffix(".exe") && (
+            candidate.contains("\\")
+                || candidate.contains("/")
+                || candidate.hasPrefix("c:")
+        )
+    }
+
+    private static func processArguments(processID: pid_t) -> [String] {
+        guard processID > 0 else { return [] }
+        var managementInformationBase: [Int32] = [CTL_KERN, KERN_PROCARGS2, processID]
+        var byteCount = 0
+        guard sysctl(
+            &managementInformationBase,
+            UInt32(managementInformationBase.count),
+            nil,
+            &byteCount,
+            nil,
+            0
+        ) == 0,
+        byteCount > MemoryLayout<Int32>.size else {
+            return []
+        }
+
+        var bytes = [UInt8](repeating: 0, count: byteCount)
+        guard bytes.withUnsafeMutableBytes({ buffer in
+            sysctl(
+                &managementInformationBase,
+                UInt32(managementInformationBase.count),
+                buffer.baseAddress,
+                &byteCount,
+                nil,
+                0
+            )
+        }) == 0 else {
+            return []
+        }
+        return decodeProcessArguments(
+            fromKernelBytes: Array(bytes.prefix(byteCount))
+        )
+    }
+
+    static func decodeProcessArguments(
+        fromKernelBytes bytes: [UInt8]
+    ) -> [String] {
+        guard bytes.count > MemoryLayout<Int32>.size else { return [] }
+        let argumentCount = bytes.withUnsafeBytes {
+            Int($0.loadUnaligned(as: Int32.self))
+        }
+        guard argumentCount > 0, argumentCount <= 4_096 else { return [] }
+
+        var offset = MemoryLayout<Int32>.size
+
+        func skipCString() {
+            while offset < bytes.count, bytes[offset] != 0 {
+                offset += 1
+            }
+            if offset < bytes.count {
+                offset += 1
+            }
+        }
+
+        skipCString()
+        while offset < bytes.count, bytes[offset] == 0 {
+            offset += 1
+        }
+
+        var arguments: [String] = []
+        arguments.reserveCapacity(argumentCount)
+        for _ in 0..<argumentCount {
+            guard offset < bytes.count else { break }
+            let start = offset
+            while offset < bytes.count, bytes[offset] != 0 {
+                offset += 1
+            }
+            arguments.append(String(decoding: bytes[start..<offset], as: UTF8.self))
+            if offset < bytes.count {
+                offset += 1
+            }
+        }
+        return arguments
     }
 
     private static func windowSort(_ lhs: SCWindow, _ rhs: SCWindow) -> Bool {
@@ -368,10 +619,6 @@ final class ContainerSessionStageModel: ObservableObject {
     func activate(_ window: WineWindowSnapshot) {
         selectedWindowID = window.id
         captureService.activate(window)
-    }
-
-    func select(_ window: WineWindowSnapshot) {
-        selectedWindowID = window.id
     }
 
     func openScreenRecordingSettings() {

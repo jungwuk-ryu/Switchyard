@@ -1,7 +1,7 @@
 import AppCore
 import SwiftUI
 
-struct SessionStageDock<TaskViewContent: View>: View {
+struct SessionStageDock: View {
     let container: Container
     let programs: [InstalledProgram]
     let runningExecutablePaths: Set<String>
@@ -12,18 +12,14 @@ struct SessionStageDock<TaskViewContent: View>: View {
     let onLaunchProgram: (InstalledProgram) -> Void
     let onAddApplication: () -> Void
     let onEndSession: () -> Void
-    let taskViewContent: () -> TaskViewContent
     @Binding var startMenuPresented: Bool
-    @Binding var taskViewPresented: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var powerIsHovering = false
-    @State private var summaryIsHovering = false
 
     var body: some View {
         HStack(spacing: 10) {
             Button {
-                taskViewPresented = false
                 startMenuPresented.toggle()
             } label: {
                 SessionStageDockItem(
@@ -65,67 +61,22 @@ struct SessionStageDock<TaskViewContent: View>: View {
             }
             .frame(maxWidth: 650, alignment: .leading)
 
-            dockDivider
-
-            Button {
-                startMenuPresented = false
-                taskViewPresented.toggle()
-            } label: {
-                SessionStageDockItem(
-                    title: "Task View",
-                    systemImage: "square.on.square",
-                    isSelected: taskViewPresented,
-                    statusColor: nil,
-                    badge: windowCount > 0 ? windowCount : nil
-                )
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("sessionStage.taskView")
-
             Spacer(minLength: 8)
 
             HStack(spacing: 4) {
-                Button {
-                    startMenuPresented = false
-                    taskViewPresented.toggle()
-                } label: {
-                    HStack(spacing: 8) {
-                        Text(sessionSummary)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white.opacity(sessionIsActive ? 0.88 : 0.48))
-                            .lineLimit(1)
-
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.white.opacity(sessionIsActive ? 0.72 : 0.34))
-                            .rotationEffect(.degrees(taskViewPresented ? 180 : 0))
-                            .animation(
-                                reduceMotion ? nil : .snappy(duration: 0.18),
-                                value: taskViewPresented
-                            )
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 40)
-                    .background(
-                        Color.white.opacity(
-                            taskViewPresented ? 0.12 : (summaryIsHovering ? 0.075 : 0)
-                        ),
-                        in: Capsule()
-                    )
-                    .contentShape(Capsule())
+                HStack(spacing: 8) {
+                    Image(systemName: "square.on.square")
+                        .foregroundStyle(.white.opacity(sessionIsActive ? 0.72 : 0.34))
+                    Text(sessionSummary)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white.opacity(sessionIsActive ? 0.88 : 0.48))
+                        .lineLimit(1)
                 }
-                .buttonStyle(.plain)
-                .disabled(!sessionIsActive)
-                .onHover { summaryIsHovering = $0 }
-                .help("Task View")
-                .popover(
-                    isPresented: $taskViewPresented,
-                    attachmentAnchor: .rect(.bounds),
-                    arrowEdge: .bottom
-                ) {
-                    taskViewContent()
-                }
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(Color.white.opacity(0.045), in: Capsule())
                 .accessibilityIdentifier("sessionStage.sessionSummary")
+                .accessibilityElement(children: .combine)
 
                 Button(action: onEndSession) {
                     Group {
@@ -176,13 +127,6 @@ struct SessionStageDock<TaskViewContent: View>: View {
                 .strokeBorder(Color.white.opacity(0.1))
         }
         .shadow(color: .black.opacity(0.34), radius: 24, y: 12)
-    }
-
-    private var dockDivider: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.14))
-            .frame(width: 1, height: 88)
-            .padding(.horizontal, 4)
     }
 
     private var sessionSummary: String {
@@ -308,36 +252,23 @@ private struct SessionStageDockItem: View {
     let systemImage: String
     let isSelected: Bool
     let statusColor: Color?
-    var badge: Int?
 
     @State private var isHovering = false
 
     var body: some View {
         VStack(spacing: 7) {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .frame(width: 52, height: 52)
-                    .background(
-                        Color.white.opacity(isSelected ? 0.13 : 0.065),
-                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color.white.opacity(isSelected ? 0.22 : 0.1))
-                    }
-
-                if let badge {
-                    Text("\(badge)")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .frame(minWidth: 21, minHeight: 21)
-                        .background(Color.blue, in: Capsule())
-                        .offset(x: 7, y: -7)
+            Image(systemName: systemImage)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(width: 52, height: 52)
+                .background(
+                    Color.white.opacity(isSelected ? 0.13 : 0.065),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.white.opacity(isSelected ? 0.22 : 0.1))
                 }
-            }
 
             Text(title)
                 .font(.system(size: 11, weight: .medium))
@@ -579,160 +510,5 @@ private struct SessionStageMenuRowStyle: ButtonStyle {
                 Color.white.opacity(configuration.isPressed ? 0.1 : 0),
                 in: RoundedRectangle(cornerRadius: 7)
             )
-    }
-}
-
-struct SessionStageTaskView: View {
-    let windows: [WineWindowSnapshot]
-    let processes: [WindowsProcessSnapshot]
-    let selectedWindowID: CGWindowID?
-    let onSelectWindow: (WineWindowSnapshot) -> Void
-    let onOpenActivity: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: "square.on.square")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.blue)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Task View")
-                        .font(.headline)
-                    Text(windowSummary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(14)
-
-            Divider()
-
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 5) {
-                    ForEach(Array(windows.enumerated()), id: \.element.id) { index, window in
-                        Button {
-                            onSelectWindow(window)
-                        } label: {
-                            HStack(spacing: 10) {
-                                Text("\(index + 1)")
-                                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                                    .foregroundStyle(
-                                        window.id == selectedWindowID ? Color.white : Color.secondary
-                                    )
-                                    .frame(width: 24, height: 24)
-                                    .background(
-                                        window.id == selectedWindowID
-                                            ? Color.blue
-                                            : Color.white.opacity(0.07),
-                                        in: Circle()
-                                    )
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(windowTitle(window))
-                                        .font(.system(size: 12, weight: .medium))
-                                        .lineLimit(1)
-                                    Text(
-                                        "\(Int(window.frame.width)) × \(Int(window.frame.height))"
-                                    )
-                                    .font(.system(size: 9, design: .rounded))
-                                    .foregroundStyle(.tertiary)
-                                }
-
-                                Spacer()
-
-                                if window.id == selectedWindowID {
-                                    Label("Selected", systemImage: "checkmark")
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(.blue)
-                                }
-                            }
-                            .padding(.horizontal, 10)
-                            .frame(height: 46)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(SessionStageMenuRowStyle())
-                        .accessibilityLabel("\(windowTitle(window)), \(index + 1)")
-                        .accessibilityValue(
-                            window.id == selectedWindowID ? Text("Selected") : Text("")
-                        )
-                    }
-
-                    if windows.isEmpty {
-                        Text("No visible Windows app windows")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, minHeight: 70)
-                    }
-
-                    if !processes.isEmpty {
-                        Divider()
-                            .padding(.vertical, 5)
-                        taskSectionTitle(
-                            String(localized: "Processes", bundle: SwitchyardStrings.bundle)
-                        )
-
-                        ForEach(processes.prefix(12)) { process in
-                            HStack {
-                                Image(systemName: process.isSystemProcess ? "gearshape.2" : "app")
-                                    .foregroundStyle(.secondary)
-                                Text(process.name)
-                                    .lineLimit(1)
-                                Spacer()
-                                Text(process.kind)
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .padding(.horizontal, 10)
-                            .frame(height: 32)
-                        }
-                    }
-                }
-                .padding(8)
-            }
-            .frame(maxHeight: 390)
-
-            Divider()
-
-            Button(action: onOpenActivity) {
-                Label("Open Activity", systemImage: "waveform.path.ecg")
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 42)
-            }
-            .buttonStyle(.plain)
-        }
-        .frame(width: 370)
-        .background(.ultraThinMaterial)
-        .preferredColorScheme(.dark)
-    }
-
-    private var windowSummary: String {
-        if windows.count == 1 {
-            return String(
-                localized: "\(windows.count) window running",
-                bundle: SwitchyardStrings.bundle
-            )
-        }
-        return String(
-            localized: "\(windows.count) windows running",
-            bundle: SwitchyardStrings.bundle
-        )
-    }
-
-    private func taskSectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.secondary)
-            .textCase(.uppercase)
-            .padding(.horizontal, 8)
-            .padding(.top, 5)
-            .padding(.bottom, 2)
-    }
-
-    private func windowTitle(_ window: WineWindowSnapshot) -> String {
-        let title = window.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return title.isEmpty
-            ? String(localized: "Windows Session", bundle: SwitchyardStrings.bundle)
-            : title
     }
 }

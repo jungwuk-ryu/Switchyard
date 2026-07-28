@@ -9,6 +9,76 @@ enum ContainerDetailDestination {
     case settings
 }
 
+enum SessionStageWindowProgramMatcher {
+    static func match(
+        window: WineWindowSnapshot,
+        programs: [InstalledProgram],
+        prefixPath: String
+    ) -> InstalledProgram? {
+        if let executablePath = window.executablePath {
+            let capturedWindowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
+                hostPath: executablePath,
+                prefixPath: prefixPath
+            ) ?? executablePath
+            let normalizedExecutablePath = normalizedWindowsPath(capturedWindowsPath)
+            if let exactMatch = programs.first(where: { program in
+                guard let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
+                    hostPath: program.executablePath,
+                    prefixPath: prefixPath
+                ) else {
+                    return false
+                }
+                return normalizedWindowsPath(windowsPath) == normalizedExecutablePath
+            }) {
+                return exactMatch
+            }
+
+            let executableName = normalizedWindowsExecutableName(capturedWindowsPath)
+            let basenameMatches = programs.filter { program in
+                guard let windowsPath = WineProtocolAssociationFormat.windowsExecutablePath(
+                    hostPath: program.executablePath,
+                    prefixPath: prefixPath
+                ) else {
+                    return false
+                }
+                return normalizedWindowsExecutableName(windowsPath) == executableName
+            }
+            if basenameMatches.count == 1 {
+                return basenameMatches[0]
+            }
+        }
+
+        guard let meaningfulTitle = window.meaningfulTitle else { return nil }
+        let normalizedTitle = normalizedName(meaningfulTitle)
+        guard !normalizedTitle.isEmpty else { return nil }
+        return programs.first { program in
+            let normalizedProgram = normalizedName(program.presentationName)
+            guard !normalizedProgram.isEmpty else { return false }
+            return normalizedTitle.contains(normalizedProgram)
+                || normalizedProgram.contains(normalizedTitle)
+        }
+    }
+
+    private static func normalizedName(_ value: String) -> String {
+        value.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+
+    private static func normalizedWindowsPath(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            .replacingOccurrences(of: "/", with: "\\")
+            .lowercased()
+    }
+
+    private static func normalizedWindowsExecutableName(_ value: String) -> String {
+        normalizedWindowsPath(value)
+            .split(separator: "\\")
+            .last
+            .map(String.init)
+            ?? ""
+    }
+}
+
 struct ContainerSessionStageView: View {
     @EnvironmentObject private var store: AppStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -21,7 +91,6 @@ struct ContainerSessionStageView: View {
     @StateObject private var stageModel = ContainerSessionStageModel()
     @State private var searchText = ""
     @State private var startMenuPresented = false
-    @State private var taskViewPresented = false
     @State private var endSessionConfirmationPresented = false
     @FocusState private var searchIsFocused: Bool
 
@@ -35,7 +104,7 @@ struct ContainerSessionStageView: View {
                         .frame(height: 76)
                         .padding(.horizontal, 28)
 
-                    workspace(in: proxy.size)
+                    workspace
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     dock
@@ -211,104 +280,76 @@ struct ContainerSessionStageView: View {
         }
     }
 
-    @ViewBuilder
-    private func workspace(in fullSize: CGSize) -> some View {
-        let workspaceHeight = max(360, fullSize.height - 220)
-        let wideLayout = fullSize.width >= 1_150
-        let heroWidth = min(
-            wideLayout ? fullSize.width * 0.46 : fullSize.width * 0.7,
-            680
-        )
-        let heroHeight = min(
-            workspaceHeight * 0.73,
-            max(330, heroWidth / max(1.15, selectedWindow?.aspectRatio ?? 1.46))
-        )
-        let heroX = wideLayout ? fullSize.width * 0.43 : fullSize.width * 0.5
-        let heroY = workspaceHeight * 0.47
-        let secondaryWidth = min(300, fullSize.width * 0.23)
+    private var workspace: some View {
+        GeometryReader { proxy in
+            let bannerHeight: CGFloat = stageModel.screenRecordingAccessUnavailable ? 44 : 0
+            let availableSize = CGSize(
+                width: max(220, proxy.size.width - 96),
+                height: max(156, proxy.size.height - 36 - bannerHeight)
+            )
+            let metrics = SessionStageWindowGridMetrics.make(
+                windowCount: max(1, stageModel.windows.count),
+                availableSize: availableSize
+            )
 
-        ZStack {
-            if let selectedWindowIndex {
-                SessionStageWindowNavigator(
-                    selectedPosition: selectedWindowIndex + 1,
-                    windowCount: stageModel.windows.count,
-                    taskViewPresented: taskViewPresented,
-                    onPrevious: {
-                        selectAdjacentWindow(offset: -1)
-                    },
-                    onNext: {
-                        selectAdjacentWindow(offset: 1)
-                    },
-                    onShowAll: {
-                        startMenuPresented = false
-                        taskViewPresented = true
-                    }
-                )
-                .position(
-                    x: heroX,
-                    y: max(24, heroY - heroHeight * 0.5 - 27)
-                )
-                .zIndex(8)
-            }
-
-            SessionStageWindowCard(
-                window: selectedWindow,
-                program: program(for: selectedWindow)
-                    ?? (sessionIsActive ? nil : fallbackProgram),
-                fallbackTitle: sessionIsActive && selectedWindow == nil
-                    ? "Windows Session"
-                    : fallbackProgram?.presentationName ?? "Windows Session",
-                isRunning: sessionIsActive,
-                isSelected: selectedWindow != nil
-            ) {
-                if let selectedWindow {
-                    stageModel.activate(selectedWindow)
-                } else if sessionIsActive {
-                    onOpenDestination(.activity)
-                } else if let fallbackProgram {
-                    store.runInstalledProgram(fallbackProgram, in: container.id)
+            VStack(spacing: 12) {
+                if stageModel.windows.isEmpty {
+                    emptyWindowCard
+                        .frame(
+                            width: metrics.cardSize.width,
+                            height: metrics.cardSize.height
+                        )
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    store.chooseExecutableAndRun(in: container.id)
-                }
-            }
-            .frame(width: heroWidth, height: heroHeight)
-            .position(x: heroX, y: heroY)
-            .zIndex(4)
-
-            if wideLayout {
-                ForEach(Array(secondaryWindows.enumerated()), id: \.element.id) { index, window in
-                    SessionStageWindowCard(
-                        window: window,
-                        program: program(for: window),
-                        fallbackTitle: window.title,
-                        isRunning: true,
-                        isSelected: false,
-                        compact: true
+                    ScrollView(
+                        .vertical,
+                        showsIndicators: metrics.contentHeight > availableSize.height
                     ) {
-                        stageModel.select(window)
+                        SessionStageWindowGrid(
+                            itemCount: stageModel.windows.count,
+                            metrics: metrics
+                        ) { index in
+                            let window = stageModel.windows[index]
+                            let program = program(for: window)
+                            SessionStageWindowCard(
+                                window: window,
+                                program: program,
+                                presentation: windowPresentation(
+                                    for: window,
+                                    program: program,
+                                    index: index
+                                ),
+                                isRunning: true,
+                                isSelected: window.id == stageModel.selectedWindowID
+                            ) {
+                                stageModel.activate(window)
+                            }
+                        }
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: min(metrics.contentHeight, availableSize.height)
+                        )
+                        .padding(.vertical, 8)
                     }
-                    .frame(width: secondaryWidth, height: min(218, workspaceHeight * 0.31))
-                    .position(
-                        x: fullSize.width - secondaryWidth * 0.62 - 30,
-                        y: workspaceHeight * (index == 0 ? 0.28 : 0.68)
-                    )
-                    .zIndex(3)
                 }
-            }
 
-            if stageModel.screenRecordingAccessUnavailable,
-               let message = stageModel.previewMessage {
-                SessionStagePreviewPermissionBanner(message: message) {
-                    stageModel.openScreenRecordingSettings()
+                if stageModel.screenRecordingAccessUnavailable,
+                   let message = stageModel.previewMessage {
+                    SessionStagePreviewPermissionBanner(message: message) {
+                        stageModel.openScreenRecordingSettings()
+                    }
                 }
-                .position(x: fullSize.width / 2, y: workspaceHeight - 26)
-                .zIndex(10)
             }
+            .padding(.horizontal, 48)
+            .padding(.vertical, 18)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(
             reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84),
             value: stageModel.selectedWindowID
+        )
+        .animation(
+            reduceMotion ? nil : .snappy(duration: 0.28),
+            value: stageModel.windows.map(\.id)
         )
     }
 
@@ -331,23 +372,7 @@ struct ContainerSessionStageView: View {
             onEndSession: {
                 endSessionConfirmationPresented = true
             },
-            taskViewContent: {
-                SessionStageTaskView(
-                    windows: stageModel.windows,
-                    processes: visibleProcesses,
-                    selectedWindowID: stageModel.selectedWindowID,
-                    onSelectWindow: { window in
-                        taskViewPresented = false
-                        stageModel.select(window)
-                    },
-                    onOpenActivity: {
-                        taskViewPresented = false
-                        onOpenDestination(.activity)
-                    }
-                )
-            },
-            startMenuPresented: $startMenuPresented,
-            taskViewPresented: $taskViewPresented
+            startMenuPresented: $startMenuPresented
         )
     }
 
@@ -515,17 +540,37 @@ struct ContainerSessionStageView: View {
         Set(visibleProcesses.map { $0.executablePath.lowercased() })
     }
 
-    private var selectedWindow: WineWindowSnapshot? {
-        if let selectedWindowID = stageModel.selectedWindowID,
-           let selected = stageModel.windows.first(where: { $0.id == selectedWindowID }) {
-            return selected
+    private var emptyWindowCard: some View {
+        let title = sessionIsActive
+            ? String(localized: "Windows Session", bundle: SwitchyardStrings.bundle)
+            : fallbackProgram?.presentationName
+                ?? String(localized: "Windows Session", bundle: SwitchyardStrings.bundle)
+        let detail = sessionIsActive
+            ? String(
+                localized: "No visible Windows app windows",
+                bundle: SwitchyardStrings.bundle
+            )
+            : String(localized: "Ready", bundle: SwitchyardStrings.bundle)
+        return SessionStageWindowCard(
+            window: nil,
+            program: fallbackProgram,
+            presentation: SessionStageWindowPresentation(
+                title: title,
+                detail: detail,
+                position: 1,
+                total: 1
+            ),
+            isRunning: sessionIsActive,
+            isSelected: false
+        ) {
+            if sessionIsActive {
+                onOpenDestination(.activity)
+            } else if let fallbackProgram {
+                store.runInstalledProgram(fallbackProgram, in: container.id)
+            } else {
+                store.chooseExecutableAndRun(in: container.id)
+            }
         }
-        return stageModel.windows.first
-    }
-
-    private var selectedWindowIndex: Int? {
-        guard let selectedWindow else { return nil }
-        return stageModel.windows.firstIndex(where: { $0.id == selectedWindow.id })
     }
 
     private var fallbackProgram: InstalledProgram? {
@@ -538,26 +583,6 @@ struct ContainerSessionStageView: View {
         return (recentPrograms.map(\.program) + programs)
             .filter { !$0.isSystemUtility }
             .filter { seenPaths.insert($0.executablePath).inserted }
-    }
-
-    private var secondaryWindows: [WineWindowSnapshot] {
-        guard stageModel.windows.count > 1,
-              let selectedWindowIndex else {
-            return []
-        }
-        return (1 ..< stageModel.windows.count)
-            .prefix(2)
-            .map { offset in
-                stageModel.windows[(selectedWindowIndex + offset) % stageModel.windows.count]
-            }
-    }
-
-    private func selectAdjacentWindow(offset: Int) {
-        guard !stageModel.windows.isEmpty else { return }
-        let currentIndex = selectedWindowIndex ?? 0
-        let count = stageModel.windows.count
-        let nextIndex = (currentIndex + offset + count) % count
-        stageModel.select(stageModel.windows[nextIndex])
     }
 
     private var searchPrograms: [InstalledProgram] {
@@ -594,17 +619,27 @@ struct ContainerSessionStageView: View {
 
     private func program(for window: WineWindowSnapshot?) -> InstalledProgram? {
         guard let window else { return nil }
-        let normalizedTitle = normalizedName(window.title)
-        return programs.first { program in
-            let normalizedProgram = normalizedName(program.presentationName)
-            return normalizedTitle.contains(normalizedProgram)
-                || normalizedProgram.contains(normalizedTitle)
-        }
+        return SessionStageWindowProgramMatcher.match(
+            window: window,
+            programs: programs,
+            prefixPath: container.path
+        )
     }
 
-    private func normalizedName(_ value: String) -> String {
-        value.lowercased().filter { $0.isLetter || $0.isNumber }
+    private func windowPresentation(
+        for window: WineWindowSnapshot,
+        program: InstalledProgram?,
+        index: Int
+    ) -> SessionStageWindowPresentation {
+        SessionStageWindowPresentation.make(
+            window: window,
+            programName: program?.presentationName,
+            fallbackName: container.name,
+            position: index + 1,
+            total: stageModel.windows.count
+        )
     }
+
 }
 
 private struct SessionStageBackdrop: View {
@@ -656,100 +691,6 @@ private struct SessionStageBackdrop: View {
             }
         }
         .ignoresSafeArea()
-    }
-}
-
-private struct SessionStageWindowNavigator: View {
-    let selectedPosition: Int
-    let windowCount: Int
-    let taskViewPresented: Bool
-    let onPrevious: () -> Void
-    let onNext: () -> Void
-    let onShowAll: () -> Void
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Image(systemName: "macwindow")
-                .foregroundStyle(.blue)
-
-            Text(windowSummary)
-                .fontWeight(.medium)
-
-            Divider()
-                .frame(height: 15)
-                .overlay(Color.white.opacity(0.12))
-
-            Text("Selected")
-                .foregroundStyle(.secondary)
-
-            Text("\(selectedPosition) / \(windowCount)")
-                .monospacedDigit()
-                .foregroundStyle(.primary)
-
-            Button(action: onPrevious) {
-                Image(systemName: "chevron.left")
-            }
-            .buttonStyle(SessionStageNavigatorButtonStyle())
-            .disabled(windowCount < 2)
-            .help("Previous")
-
-            Button(action: onNext) {
-                Image(systemName: "chevron.right")
-            }
-            .buttonStyle(SessionStageNavigatorButtonStyle())
-            .disabled(windowCount < 2)
-            .help("Next")
-
-            Button(action: onShowAll) {
-                Text("All")
-                    .fontWeight(.semibold)
-            }
-            .buttonStyle(SessionStageNavigatorButtonStyle(isSelected: taskViewPresented))
-            .help("Task View")
-        }
-        .font(.system(size: 11))
-        .foregroundStyle(.white.opacity(0.84))
-        .padding(.leading, 11)
-        .padding(.trailing, 5)
-        .frame(height: 34)
-        .background(.black.opacity(0.46), in: Capsule())
-        .overlay {
-            Capsule().strokeBorder(Color.white.opacity(0.13))
-        }
-        .shadow(color: .black.opacity(0.28), radius: 12, y: 6)
-        .accessibilityElement(children: .contain)
-    }
-
-    private var windowSummary: String {
-        if windowCount == 1 {
-            return String(
-                localized: "\(windowCount) window running",
-                bundle: SwitchyardStrings.bundle
-            )
-        }
-        return String(
-            localized: "\(windowCount) windows running",
-            bundle: SwitchyardStrings.bundle
-        )
-    }
-}
-
-private struct SessionStageNavigatorButtonStyle: ButtonStyle {
-    var isSelected = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(.white.opacity(configuration.isPressed ? 0.72 : 0.9))
-            .frame(minWidth: 26, minHeight: 24)
-            .padding(.horizontal, 2)
-            .background(
-                Color.white.opacity(isSelected ? 0.15 : (configuration.isPressed ? 0.12 : 0.06)),
-                in: Capsule()
-            )
-            .overlay {
-                Capsule().strokeBorder(Color.white.opacity(isSelected ? 0.2 : 0.08))
-            }
     }
 }
 
