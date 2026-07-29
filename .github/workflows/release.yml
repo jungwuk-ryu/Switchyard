@@ -10,6 +10,11 @@ on:
         description: Existing stable release tag, for example v0.4.0
         required: true
         type: string
+      validate_only:
+        description: Validate release credentials without publishing
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -40,6 +45,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          VALIDATE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.validate_only }}
         run: |
           set -euo pipefail
           if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -67,7 +73,8 @@ jobs:
             echo "release tag must be the newest stable tag: $latest_stable_tag" >&2
             exit 1
           fi
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          if [ "$VALIDATE_ONLY" != "true" ] \
+            && gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "GitHub release already exists for $RELEASE_TAG" >&2
             exit 1
           fi
@@ -155,7 +162,39 @@ jobs:
             --keychain "$KEYCHAIN_PATH" \
             --validate
 
+      - name: Validate Sparkle signing credential
+        shell: bash
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ]; then
+            echo "missing required release secret: SPARKLE_ED_PRIVATE_KEY" >&2
+            exit 1
+          fi
+
+          swift package resolve
+          sparkle_tool=".build/artifacts/sparkle/Sparkle/bin/generate_keys"
+          sparkle_private_key="$RUNNER_TEMP/sparkle-private-key"
+          sparkle_account="dev.switchyard.Switchyard-ci-validation"
+          expected_public_key="$(
+            sed -n 's/^SWITCHYARD_SPARKLE_PUBLIC_KEY=//p' config/app-update.env
+          )"
+          printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$sparkle_private_key"
+          chmod 600 "$sparkle_private_key"
+          "$sparkle_tool" \
+            --account "$sparkle_account" \
+            -f "$sparkle_private_key" >/dev/null
+          actual_public_key="$(
+            "$sparkle_tool" --account "$sparkle_account" -p
+          )"
+          if [ "$actual_public_key" != "$expected_public_key" ]; then
+            echo "Sparkle private key does not match the configured public key" >&2
+            exit 1
+          fi
+
       - name: Run release validation
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
         shell: bash
         run: |
           set -euo pipefail
@@ -172,6 +211,7 @@ jobs:
           done
 
       - name: Build release app
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
         shell: bash
         env:
           SWITCHYARD_BUILD_CONFIGURATION: release
@@ -180,6 +220,7 @@ jobs:
         run: ./script/build_and_run.sh --verify
 
       - name: Sign and notarize release DMG
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
         shell: bash
         run: |
           set -euo pipefail
@@ -191,6 +232,7 @@ jobs:
             --notary-keychain "$KEYCHAIN_PATH"
 
       - name: Generate release notes and signed appcast
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -218,6 +260,7 @@ jobs:
                 --release-notes "$RELEASE_NOTES"
 
       - name: Publish GitHub release
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -243,4 +286,5 @@ jobs:
           fi
           rm -f \
             "$RUNNER_TEMP/developer-id-application.p12" \
-            "$RUNNER_TEMP/AuthKey.p8"
+            "$RUNNER_TEMP/AuthKey.p8" \
+            "$RUNNER_TEMP/sparkle-private-key"
