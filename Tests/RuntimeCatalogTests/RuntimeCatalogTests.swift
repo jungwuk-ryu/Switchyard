@@ -213,6 +213,101 @@ import Testing
     }
 }
 
+@Test func publishedRuntimeReleaseAcceptsBuildRuntimeIdentifiers() throws {
+    let revision = String(repeating: "a", count: 40)
+    let archiveSha256 = String(repeating: "b", count: 64)
+    let notarizationID = UUID().uuidString
+    let manifestURL = try #require(URL(string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/download/runtime-88ca753ede98/switchyard-runtime-release.json"))
+    let policy = PublishedRuntimePolicy(
+        sourceRevision: revision,
+        releaseManifestURL: manifestURL,
+        developerTeamID: "M3CULMDKU3",
+        archiveSha256: archiveSha256,
+        archiveSize: 1024,
+        notarizationID: notarizationID
+    )
+    let runtimeID = "switchyard-local-wow64-x86_64-88ca753ede98-no-gptk-b4525679e7da-9245db166022-37a4f0cfb0fb-4fbf9011be92-1b749a3204a2-b40553c5dc41-62f8fecd4b11"
+    let release = publishedRuntimeRelease(
+        runtimeID: runtimeID,
+        sourceRevision: revision,
+        archiveSha256: archiveSha256,
+        notarizationID: notarizationID
+    )
+
+    #expect(runtimeID.utf8.count == 141)
+    try PublishedRuntimeInstaller.validate(release: release, against: policy)
+}
+
+@Test func publishedRuntimeReleaseIdentifierUsesManagedPathComponentBudget() throws {
+    let revision = String(repeating: "a", count: 40)
+    let archiveSha256 = String(repeating: "b", count: 64)
+    let notarizationID = UUID().uuidString
+    let manifestURL = try #require(URL(string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/download/runtime-budget/switchyard-runtime-release.json"))
+    let policy = PublishedRuntimePolicy(
+        sourceRevision: revision,
+        releaseManifestURL: manifestURL,
+        developerTeamID: "M3CULMDKU3",
+        archiveSha256: archiveSha256,
+        archiveSize: 1024,
+        notarizationID: notarizationID
+    )
+
+    let exactBudgetRuntimeID = String(repeating: "r", count: 230)
+    let exactBudgetRelease = publishedRuntimeRelease(
+        runtimeID: exactBudgetRuntimeID,
+        sourceRevision: revision,
+        archiveSha256: archiveSha256,
+        notarizationID: notarizationID
+    )
+    let officialRelease = OfficialRuntimeRelease(
+        release: PublishedGitHubRelease(
+            tagName: "runtime-budget",
+            webURL: try #require(URL(string: "https://github.com/jungwuk-ryu/switchyard-wine/releases/tag/runtime-budget")),
+            publishedAt: Date()
+        ),
+        manifestURL: manifestURL,
+        manifest: exactBudgetRelease
+    )
+
+    try PublishedRuntimeInstaller.validate(release: exactBudgetRelease, against: policy)
+    #expect(exactBudgetRuntimeID.utf8.count == 230)
+    #expect(officialRelease.managedInstallationID.utf8.count == 255)
+
+    var oversizedRelease = exactBudgetRelease
+    oversizedRelease.runtimeID = String(repeating: "r", count: 231)
+    #expect(throws: (any Error).self) {
+        try PublishedRuntimeInstaller.validate(release: oversizedRelease, against: policy)
+    }
+
+    var unsafePathRelease = exactBudgetRelease
+    unsafePathRelease.runtimeID = "switchyard/runtime"
+    #expect(throws: (any Error).self) {
+        try PublishedRuntimeInstaller.validate(release: unsafePathRelease, against: policy)
+    }
+}
+
+private func publishedRuntimeRelease(
+    runtimeID: String,
+    sourceRevision: String,
+    archiveSha256: String,
+    notarizationID: String
+) -> PublishedRuntimeRelease {
+    PublishedRuntimeRelease(
+        schemaVersion: 1,
+        runtimeID: runtimeID,
+        sourceRevision: sourceRevision,
+        archive: "Switchyard-Wine-Runtime-test.zip",
+        archiveSha256: archiveSha256,
+        archiveSize: 1024,
+        platform: "macos",
+        hostArchitecture: "x86_64",
+        peArchitectures: ["i386", "x86_64"],
+        developerTeamID: "M3CULMDKU3",
+        notarizationStatus: "Accepted",
+        notarizationID: notarizationID
+    )
+}
+
 @Test func publishedRuntimeCanBeInstalledWhenProvided() async throws {
     let environment = ProcessInfo.processInfo.environment
     guard let manifestValue = environment["SWITCHYARD_TEST_RUNTIME_RELEASE_MANIFEST_URL"],

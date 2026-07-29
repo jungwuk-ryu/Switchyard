@@ -102,6 +102,9 @@ public enum PublishedRuntimeInstallProgress: Sendable, Equatable {
 public struct PublishedRuntimeInstaller: @unchecked Sendable {
     private static let maximumManifestSize = 64 * 1024
     private static let maximumArchiveSize: UInt64 = 4 * 1024 * 1024 * 1024
+    private static let maximumPathComponentLength = 255
+    private static let managedArchiveDigestPrefixLength = 16
+    private static let managedInstallationIDSuffix = "-release-"
     private static let hardenedRuntimeFlag: UInt32 = 0x0001_0000
 
     private let fileManager: FileManager
@@ -160,7 +163,7 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
         runtimeID: String,
         archiveSha256: String
     ) -> String {
-        "\(runtimeID)-release-\(archiveSha256.prefix(16))"
+        "\(runtimeID)\(managedInstallationIDSuffix)\(archiveSha256.prefix(managedArchiveDigestPrefixLength))"
     }
 
     public static func validate(release: PublishedRuntimeRelease, against policy: PublishedRuntimePolicy) throws {
@@ -668,7 +671,14 @@ public struct PublishedRuntimeInstaller: @unchecked Sendable {
     }
 
     private static func isSafeIdentifier(_ value: String) -> Bool {
-        value.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#, options: .regularExpression) != nil
+        let maximumRuntimeIDLength = maximumPathComponentLength
+            - managedInstallationIDSuffix.utf8.count
+            - managedArchiveDigestPrefixLength
+        guard !value.isEmpty,
+              value.utf8.count <= maximumRuntimeIDLength else {
+            return false
+        }
+        return value.range(of: #"^[A-Za-z0-9][A-Za-z0-9._-]*$"#, options: .regularExpression) != nil
     }
 }
 
