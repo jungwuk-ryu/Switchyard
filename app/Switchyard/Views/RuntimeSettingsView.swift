@@ -504,7 +504,7 @@ private struct OfficialRuntimeReleaseRow: View {
         RuntimeInlineMetadata(
             systemImage: "point.3.connected.trianglepath.dotted",
             text: String(
-                localized: "Source \(release.manifest.sourceRevision.prefix(12))",
+                localized: "Source \(String(release.manifest.sourceRevision.prefix(12)))",
                 bundle: SwitchyardStrings.bundle
             )
         )
@@ -706,7 +706,7 @@ private struct ManagedRuntimeInstallationRow: View {
         RuntimeInlineMetadata(
             systemImage: "point.3.connected.trianglepath.dotted",
             text: String(
-                localized: "Source \(installation.runtime.sourceRevision.prefix(12))",
+                localized: "Source \(String(installation.runtime.sourceRevision.prefix(12)))",
                 bundle: SwitchyardStrings.bundle
             )
         )

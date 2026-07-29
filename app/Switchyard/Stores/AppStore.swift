@@ -930,7 +930,7 @@ final class AppStore: ObservableObject {
                         level: "info",
                         source: "runtime",
                         message: String(
-                            localized: "\(message) Source \(result.sourceRevision.prefix(12)).",
+                            localized: "\(message) Source \(String(result.sourceRevision.prefix(12))).",
                             bundle: SwitchyardStrings.bundle
                         )
                     ),
@@ -1036,7 +1036,7 @@ final class AppStore: ObservableObject {
                         level: "info",
                         source: "runtime",
                         message: String(
-                            localized: "\(message) Runtime \(result.runtimeID), source \(result.sourceRevision.prefix(12)).",
+                            localized: "\(message) Runtime \(result.runtimeID), source \(String(result.sourceRevision.prefix(12))).",
                             bundle: SwitchyardStrings.bundle
                         )
                     ),

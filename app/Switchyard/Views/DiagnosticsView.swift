@@ -374,7 +374,7 @@ private struct DiagnosticsVersionOverview: View {
                 bundle: SwitchyardStrings.bundle
             )
             : String(
-                localized: "Source \(runtime.sourceRevision.prefix(12))",
+                localized: "Source \(String(runtime.sourceRevision.prefix(12)))",
                 bundle: SwitchyardStrings.bundle
             )
     }
@@ -442,13 +442,13 @@ private struct DiagnosticsVersionOverview: View {
         )
         if store.onlineReleaseError == nil {
             let detail = String(
-                localized: "Latest online: \(runtimeRelease.tagName) · source \(runtimeManifest.sourceRevision.prefix(12))",
+                localized: "Latest online: \(runtimeRelease.tagName) · source \(String(runtimeManifest.sourceRevision.prefix(12)))",
                 bundle: SwitchyardStrings.bundle
             )
             return "\(detail) · \(publishedDate)"
         }
         let detail = String(
-            localized: "Last known online: \(runtimeRelease.tagName) · source \(runtimeManifest.sourceRevision.prefix(12))",
+            localized: "Last known online: \(runtimeRelease.tagName) · source \(String(runtimeManifest.sourceRevision.prefix(12)))",
             bundle: SwitchyardStrings.bundle
         )
         return "\(detail) · \(publishedDate)"
