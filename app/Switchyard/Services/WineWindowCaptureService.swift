@@ -994,8 +994,11 @@ final class ContainerSessionStageModel: ObservableObject {
     @Published var selectedWindowID: CGWindowID?
 
     private let captureService = WineWindowCaptureService()
+    private let previewStore = ContainerPreviewImageStore.shared
     private let resourceMetricsService = WineSessionResourceMetricsService()
     private var refreshGeneration = 0
+    private var lastPersistedWindowID: CGWindowID?
+    private var lastPersistedAt: Date?
 
     func monitor(containerID: UUID, store: AppStore) async {
         while !Task.isCancelled {
@@ -1033,11 +1036,11 @@ final class ContainerSessionStageModel: ObservableObject {
         resourceSnapshot = resources
         screenRecordingAccessUnavailable = result.screenRecordingAccessUnavailable
         previewMessage = result.message
-        if let selectedWindowID,
-           windows.contains(where: { $0.id == selectedWindowID }) {
-            return
+        if selectedWindowID == nil
+            || !windows.contains(where: { $0.id == selectedWindowID }) {
+            selectedWindowID = windows.first?.id
         }
-        selectedWindowID = windows.first?.id
+        await persistCurrentPreview(containerID: containerID, store: store)
     }
 
     func activate(_ window: WineWindowSnapshot) {
@@ -1061,6 +1064,39 @@ final class ContainerSessionStageModel: ObservableObject {
 
     func requestScreenRecordingAccess() {
         captureService.requestScreenRecordingAccess()
+    }
+
+    private func persistCurrentPreview(containerID: UUID, store: AppStore) async {
+        guard let window = ContainerPreviewWindowPolicy.preferredWindow(
+                  in: windows,
+                  selectedWindowID: selectedWindowID
+              ),
+              let image = window.image,
+              let container = store.containers.first(where: {
+                  $0.id == containerID
+              }) else {
+            return
+        }
+
+        let now = Date()
+        let shouldPersist = lastPersistedWindowID != window.id
+            || lastPersistedAt.map {
+                now.timeIntervalSince($0) >= 5
+            } ?? true
+        guard shouldPersist else { return }
+
+        let containerURL = URL(
+            fileURLWithPath: container.path,
+            isDirectory: true
+        )
+        guard let persistedAt = try? await previewStore.save(
+            ContainerPreviewImage(image: image),
+            intoContainerAt: containerURL
+        ) else {
+            return
+        }
+        lastPersistedWindowID = window.id
+        lastPersistedAt = persistedAt
     }
 
     static func windowsKeepingStableOrder(

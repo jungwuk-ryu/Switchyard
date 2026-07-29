@@ -55,11 +55,17 @@ cleanup() {
   if [ -f "$TEST_ROOT/live-prefix-descendant.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/live-prefix-descendant.pid")" >/dev/null 2>&1 || true
   fi
+  if [ -f "$TEST_ROOT/live-prefix-probe-wine.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/live-prefix-probe-wine.pid")" >/dev/null 2>&1 || true
+  fi
   if [ -f "$TEST_ROOT/signal-drain-runner.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/signal-drain-runner.pid")" >/dev/null 2>&1 || true
   fi
   if [ -f "$TEST_ROOT/signal-drain-descendant.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/signal-drain-descendant.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/signal-drain-probe-wine.pid" ]; then
+    kill -TERM "$(cat "$TEST_ROOT/signal-drain-probe-wine.pid")" >/dev/null 2>&1 || true
   fi
   if [ -f "$TEST_ROOT/clear-runner.pid" ]; then
     kill -TERM "$(cat "$TEST_ROOT/clear-runner.pid")" >/dev/null 2>&1 || true
@@ -75,6 +81,9 @@ cleanup() {
   fi
   if [ -f "$TEST_ROOT/orphan-wine.pid" ]; then
     kill -KILL "$(cat "$TEST_ROOT/orphan-wine.pid")" >/dev/null 2>&1 || true
+  fi
+  if [ -f "$TEST_ROOT/active-probe-wine.pid" ]; then
+    kill "$(cat "$TEST_ROOT/active-probe-wine.pid")" >/dev/null 2>&1 || true
   fi
   if [ -f "$TEST_ROOT/unrelated-wine.pid" ]; then
     kill -KILL "$(cat "$TEST_ROOT/unrelated-wine.pid")" >/dev/null 2>&1 || true
@@ -176,7 +185,6 @@ chmod +x "$BIN_DIR/wineserver" "$BIN_DIR/switchyard-wine"
 cc -Os "$ROOT_DIR/Tests/Shell/Fixtures/prefix_wine_process.c" -o "$TEST_ROOT/wine"
 cc -Os "$ROOT_DIR/Tests/Shell/Fixtures/prefix_lock_holder.c" -o "$TEST_ROOT/prefix-lock-holder"
 
-TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
 if TEST_EVENTS="$EVENTS" "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"; then
   echo "probe should report an inactive prefix with status 1" >&2
   exit 1
@@ -184,6 +192,32 @@ elif [ "$?" -ne 1 ]; then
   echo "inactive prefix probe returned an unexpected status" >&2
   exit 1
 fi
+if [ -s "$EVENTS" ]; then
+  echo "inactive prefix probe launched wineserver" >&2
+  exit 1
+fi
+
+(
+  "$TEST_ROOT/wine" "$PREFIX" "$TEST_ROOT/active-probe-wine.ready" default &
+  wait "$!" >/dev/null 2>&1 || true
+) &
+active_probe_wine_reaper_pid=$!
+for _ in {1..50}; do
+  [ -s "$TEST_ROOT/active-probe-wine.ready" ] && break
+  sleep 0.02
+done
+if [ ! -s "$TEST_ROOT/active-probe-wine.ready" ]; then
+  echo "active prefix probe fixture did not start" >&2
+  exit 1
+fi
+active_probe_wine_pid="$(cat "$TEST_ROOT/active-probe-wine.ready")"
+printf '%s\n' "$active_probe_wine_pid" > "$TEST_ROOT/active-probe-wine.pid"
+
+TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 \
+  "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+kill "$active_probe_wine_pid"
+wait "$active_probe_wine_reaper_pid"
+rm -f "$TEST_ROOT/active-probe-wine.pid"
 
 : > "$EVENTS"
 (
@@ -1246,6 +1280,22 @@ cat > "$TEST_ROOT/active-prefix-output.json" <<EOF
 }
 EOF
 
+(
+  "$TEST_ROOT/wine" "$PREFIX" "$TEST_ROOT/live-prefix-probe-wine.ready" default &
+  wait "$!" >/dev/null 2>&1 || true
+) &
+live_prefix_probe_wine_reaper_pid=$!
+for _ in {1..50}; do
+  [ -s "$TEST_ROOT/live-prefix-probe-wine.ready" ] && break
+  sleep 0.02
+done
+if [ ! -s "$TEST_ROOT/live-prefix-probe-wine.ready" ]; then
+  echo "active-prefix probe Wine fixture did not start" >&2
+  exit 1
+fi
+live_prefix_probe_wine_pid="$(cat "$TEST_ROOT/live-prefix-probe-wine.ready")"
+printf '%s\n' "$live_prefix_probe_wine_pid" > "$TEST_ROOT/live-prefix-probe-wine.pid"
+
 TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT=0.1 \
   "$RUNNER" run --plan "$TEST_ROOT/active-prefix-output.json" >/dev/null 2>/dev/null &
 live_prefix_runner_pid=$!
@@ -1265,7 +1315,12 @@ if ! kill -0 "$live_prefix_runner_pid" >/dev/null 2>&1; then
 fi
 touch "$TEST_ROOT/live-prefix-descendant.release"
 wait "$live_prefix_runner_pid"
-rm -f "$TEST_ROOT/live-prefix-runner.pid" "$TEST_ROOT/live-prefix-descendant.pid"
+kill -TERM "$live_prefix_probe_wine_pid"
+wait "$live_prefix_probe_wine_reaper_pid"
+rm -f \
+  "$TEST_ROOT/live-prefix-runner.pid" \
+  "$TEST_ROOT/live-prefix-descendant.pid" \
+  "$TEST_ROOT/live-prefix-probe-wine.pid"
 if ! grep -q 'after-direct-child-exit' "$ACTIVE_PREFIX_LIVE_LOG"; then
   echo "runner did not retain descendant output while wineserver remained active" >&2
   exit 1
@@ -1288,6 +1343,25 @@ cat > "$TEST_ROOT/signal-drain-output.json" <<EOF
   "forwardCapturedOutput": false
 }
 EOF
+
+(
+  "$TEST_ROOT/wine" "$PREFIX" "$TEST_ROOT/signal-drain-probe-wine.ready" default &
+  wait "$!" >/dev/null 2>&1 || true
+) &
+signal_drain_probe_wine_reaper_pid=$!
+for _ in {1..50}; do
+  [ -s "$TEST_ROOT/signal-drain-probe-wine.ready" ] && break
+  sleep 0.02
+done
+if [ ! -s "$TEST_ROOT/signal-drain-probe-wine.ready" ]; then
+  echo "signal-drain probe Wine fixture did not start" >&2
+  exit 1
+fi
+signal_drain_probe_wine_pid="$(
+  cat "$TEST_ROOT/signal-drain-probe-wine.ready"
+)"
+printf '%s\n' "$signal_drain_probe_wine_pid" \
+  > "$TEST_ROOT/signal-drain-probe-wine.pid"
 
 TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT=0.1 \
   "$RUNNER" run --plan "$TEST_ROOT/signal-drain-output.json" \
@@ -1327,7 +1401,12 @@ if [ "$signal_drain_status" -ne 143 ]; then
   exit 1
 fi
 kill -TERM "$(cat "$TEST_ROOT/signal-drain-descendant.pid")" >/dev/null 2>&1 || true
-rm -f "$TEST_ROOT/signal-drain-runner.pid" "$TEST_ROOT/signal-drain-descendant.pid"
+kill -TERM "$signal_drain_probe_wine_pid"
+wait "$signal_drain_probe_wine_reaper_pid"
+rm -f \
+  "$TEST_ROOT/signal-drain-runner.pid" \
+  "$TEST_ROOT/signal-drain-descendant.pid" \
+  "$TEST_ROOT/signal-drain-probe-wine.pid"
 
 BOUNDED_PREFIX_LIVE_LOG="$TEST_ROOT/live/bounded-prefix.jsonl"
 cat > "$TEST_ROOT/bounded-prefix-output.json" <<EOF

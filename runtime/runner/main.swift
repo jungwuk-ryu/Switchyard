@@ -2092,6 +2092,16 @@ private func probeWinePrefixSession(
     wineServerURL: URL,
     prefixPath: String
 ) throws -> WinePrefixProbeResult {
+    // `wineserver -w` can start a fresh server for an inactive prefix.
+    // Check the host process table first so every read-only probe, including
+    // extended output draining, leaves an inactive session untouched.
+    guard !wineProcessIDs(
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath
+    ).isEmpty else {
+        return .inactive
+    }
+
     let process = Process()
     process.executableURL = wineServerURL
     process.arguments = ["-w"]

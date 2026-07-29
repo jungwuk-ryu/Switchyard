@@ -95,6 +95,15 @@ struct ContainersView: View {
 private struct ContainerLibraryView: View {
     @EnvironmentObject private var store: AppStore
     let onOpen: (Container) -> Void
+    @State private var sessionStopTarget: Container?
+
+    private let columns = [
+        GridItem(
+            .adaptive(minimum: 250, maximum: 360),
+            spacing: 18,
+            alignment: .top
+        ),
+    ]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -164,18 +173,17 @@ private struct ContainerLibraryView: View {
                 .padding()
             } else {
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 18) {
                         ForEach(store.containers) { container in
-                            Button {
-                                onOpen(container)
-                            } label: {
-                                ContainerLibraryRow(
-                                    container: container,
-                                    isWineServerRunning: store.sessionSnapshot(for: container.id)
-                                        .wineServerState.isWineServerRunning
-                                )
-                            }
-                            .buttonStyle(.plain)
+                            ContainerLibraryCard(
+                                container: container,
+                                onOpen: {
+                                    onOpen(container)
+                                },
+                                onStop: {
+                                    sessionStopTarget = container
+                                }
+                            )
                             .task(id: container.id) {
                                 await store.monitorContainerSession(for: container.id)
                             }
@@ -190,8 +198,17 @@ private struct ContainerLibraryView: View {
                                     store.runContainer(container.id)
                                 }
                                 .disabled(
-                                    (container.executablePath?.isEmpty ?? true) || store.isContainerBusy(container.id)
+                                    (container.executablePath?.isEmpty ?? true)
+                                        || store.isContainerBusy(container.id)
                                 )
+
+                                if store.sessionSnapshot(for: container.id)
+                                    .wineServerState.hasRunningProcesses {
+                                    Button("Stop", role: .destructive) {
+                                        sessionStopTarget = container
+                                    }
+                                    Divider()
+                                }
 
                                 Button("Show in Finder") {
                                     store.openContainerInFinder(container.id)
@@ -201,82 +218,325 @@ private struct ContainerLibraryView: View {
                                     store.chooseExecutableAndRun(in: container.id)
                                 }
                             }
-
-                            if container.id != store.containers.last?.id {
-                                Divider()
-                                    .padding(.leading, 58)
-                            }
                         }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 8)
+                    .padding(20)
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .confirmationDialog(
+            "Stop all Windows apps?",
+            isPresented: stopConfirmationBinding,
+            titleVisibility: .visible,
+            presenting: sessionStopTarget
+        ) { container in
+            Button("Stop All Windows Apps", role: .destructive) {
+                sessionStopTarget = nil
+                Task {
+                    await store.stopWineServer(in: container.id)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                sessionStopTarget = nil
+            }
+        } message: { container in
+            Text("All Windows apps in \(container.name) will close. Unsaved work may be lost.")
+        }
+    }
+
+    private var stopConfirmationBinding: Binding<Bool> {
+        Binding {
+            sessionStopTarget != nil
+        } set: { isPresented in
+            if !isPresented {
+                sessionStopTarget = nil
+            }
+        }
     }
 }
 
-private struct ContainerLibraryRow: View {
+private struct ContainerLibraryCard: View {
+    @EnvironmentObject private var store: AppStore
     let container: Container
-    let isWineServerRunning: Bool
+    let onOpen: () -> Void
+    let onStop: () -> Void
+
+    @StateObject private var model = ContainerLibraryCardModel()
+    @State private var isHovering = false
+    @FocusState private var isStopButtonFocused: Bool
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "shippingbox.fill")
-                .font(.title2)
-                .foregroundStyle(.blue)
-                .frame(width: 32, height: 32)
-                .background(.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(container.name)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
-
-                Text(
-                    container.executablePath.map {
-                        ContainerPathPresentation.relativePath(for: $0, in: container)
-                    } ?? String(
-                        localized: "Choose a Windows application",
-                        bundle: SwitchyardStrings.bundle
+        ZStack(alignment: .topTrailing) {
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: 0) {
+                    preview
+                    information
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    .regularMaterial,
+                    in: RoundedRectangle(
+                        cornerRadius: 14,
+                        style: .continuous
                     )
                 )
-                .font(.callout)
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: 14,
+                        style: .continuous
+                    )
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(
+                            isHovering
+                                ? Color.accentColor.opacity(0.48)
+                                : Color.primary.opacity(0.10),
+                            lineWidth: isHovering ? 1.25 : 1
+                        )
+                }
+            }
+            .buttonStyle(.plain)
+
+            if canStop {
+                Button(role: .destructive, action: onStop) {
+                    Group {
+                        if isStopping {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "stop.fill")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                    }
+                    .frame(width: 32, height: 32)
+                    .foregroundStyle(.white)
+                    .background(Color.red.opacity(0.92), in: Circle())
+                    .overlay {
+                        Circle()
+                            .strokeBorder(Color.white.opacity(0.28))
+                    }
+                    .shadow(color: .black.opacity(0.26), radius: 8, y: 3)
+                }
+                .buttonStyle(.plain)
+                .disabled(isStopping)
+                .help("Stop")
+                .padding(12)
+                .opacity(isStopButtonVisible ? 1 : 0)
+                .scaleEffect(isStopButtonVisible ? 1 : 0.86)
+                .allowsHitTesting(isStopButtonVisible)
+                .accessibilityLabel("Stop")
+                .accessibilityHidden(false)
+                .focused($isStopButtonFocused)
+            }
+        }
+        .contentShape(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .scaleEffect(isHovering ? 1.006 : 1)
+        .shadow(
+            color: .black.opacity(isHovering ? 0.18 : 0.08),
+            radius: isHovering ? 12 : 5,
+            y: isHovering ? 5 : 2
+        )
+        .onHover { isHovering = $0 }
+        .animation(.easeOut(duration: 0.16), value: isHovering)
+        .task(id: previewTaskIdentity) {
+            await model.monitor(containerID: container.id, store: store)
+        }
+        .task(id: sizeTaskIdentity) {
+            await model.refreshStorageSize(for: container)
+        }
+        .accessibilityIdentifier("containers.card.\(container.id.uuidString)")
+    }
+
+    private var preview: some View {
+        ZStack {
+            Color.primary.opacity(0.045)
+
+            if let previewImage = model.previewImage {
+                Image(decorative: previewImage, scale: 1)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                VStack(spacing: 9) {
+                    Image(systemName: "shippingbox.fill")
+                        .font(.system(size: 34, weight: .medium))
+                        .foregroundStyle(.blue)
+                        .frame(width: 64, height: 64)
+                        .background(
+                            .blue.opacity(0.12),
+                            in: RoundedRectangle(
+                                cornerRadius: 16,
+                                style: .continuous
+                            )
+                        )
+                }
+            }
+        }
+        .aspectRatio(16.0 / 9.0, contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .saturation(isRunning ? 1 : 0)
+        .brightness(isRunning ? 0 : -0.06)
+        .opacity(isRunning ? 1 : 0.72)
+        .overlay(alignment: .bottomLeading) {
+            statusLabel
+                .padding(11)
+        }
+    }
+
+    private var information: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(container.name)
+                .font(.headline)
+                .lineLimit(1)
+
+            Text(executableDescription)
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            }
+                .help(executableDescription)
 
-            Spacer(minLength: 20)
+            HStack(spacing: 12) {
+                Label(lastRunDescription, systemImage: "clock")
+                    .lineLimit(1)
 
-            VStack(alignment: .trailing, spacing: 4) {
-                if isWineServerRunning {
-                    Label(
-                        String(
-                            localized: "Running",
-                            bundle: SwitchyardStrings.bundle
-                        ),
-                        systemImage: "play.circle.fill"
-                    )
-                    .font(.callout)
-                    .foregroundStyle(.green)
+                Spacer(minLength: 6)
+
+                if model.isMeasuringSize && model.storageByteCount == nil {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .help("Size")
+                } else {
+                    Label(sizeDescription, systemImage: "internaldrive")
+                        .lineLimit(1)
                 }
-
-                Text(
-                    container.lastRun.map { switchyardDateFormatter.string(from: $0) }
-                        ?? String(localized: "Never run", bundle: SwitchyardStrings.bundle)
-                )
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
-                .padding(.leading, 8)
+            .font(.caption)
+            .foregroundStyle(.secondary)
         }
-        .contentShape(Rectangle())
-        .padding(.vertical, 13)
+        .padding(14)
+    }
+
+    private var statusLabel: some View {
+        Label(statusDescription, systemImage: statusSymbol)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(statusColor)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(.thickMaterial, in: Capsule())
+    }
+
+    private var snapshot: ContainerSessionSnapshot {
+        store.sessionSnapshot(for: container.id)
+    }
+
+    private var isRunning: Bool {
+        snapshot.wineServerState.isWineServerRunning
+    }
+
+    private var isStopping: Bool {
+        store.isStoppingWineServer(in: container.id)
+    }
+
+    private var canStop: Bool {
+        snapshot.wineServerState.hasRunningProcesses || isStopping
+    }
+
+    private var isStopButtonVisible: Bool {
+        isHovering || isStopButtonFocused
+    }
+
+    private var statusDescription: String {
+        if isStopping {
+            return String(
+                localized: "Stopping",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return switch snapshot.wineServerState {
+        case .checking:
+            String(localized: "Checking", bundle: SwitchyardStrings.bundle)
+        case .active:
+            String(localized: "Running", bundle: SwitchyardStrings.bundle)
+        case .orphaned:
+            String(
+                localized: "Cleanup needed",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .inactive:
+            String(localized: "Idle", bundle: SwitchyardStrings.bundle)
+        case .unavailable:
+            String(localized: "Unavailable", bundle: SwitchyardStrings.bundle)
+        }
+    }
+
+    private var statusSymbol: String {
+        if isStopping { return "stop.circle.fill" }
+        return switch snapshot.wineServerState {
+        case .checking: "clock"
+        case .active: "play.circle.fill"
+        case .orphaned: "exclamationmark.triangle.fill"
+        case .inactive: "pause.circle.fill"
+        case .unavailable: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var statusColor: Color {
+        if isStopping { return .orange }
+        return switch snapshot.wineServerState {
+        case .active: .green
+        case .orphaned: .orange
+        case .unavailable: .yellow
+        case .checking, .inactive: .secondary
+        }
+    }
+
+    private var executableDescription: String {
+        container.executablePath.map {
+            ContainerPathPresentation.relativePath(for: $0, in: container)
+        } ?? String(
+            localized: "Choose a Windows application",
+            bundle: SwitchyardStrings.bundle
+        )
+    }
+
+    private var lastRunDescription: String {
+        guard let lastRun = container.lastRun else {
+            return String(
+                localized: "Never run",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        if Calendar.current.isDateInToday(lastRun) {
+            return switchyardDateFormatter.string(from: lastRun)
+        }
+        return lastRun.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    private var sizeDescription: String {
+        guard let storageByteCount = model.storageByteCount else {
+            return String(localized: "Unknown", bundle: SwitchyardStrings.bundle)
+        }
+        return ByteCountFormatter.string(
+            fromByteCount: storageByteCount,
+            countStyle: .file
+        )
+    }
+
+    private var previewTaskIdentity: String {
+        [
+            container.id.uuidString,
+            container.path,
+        ].joined(separator: "\u{0}")
+    }
+
+    private var sizeTaskIdentity: String {
+        container.path
     }
 }
