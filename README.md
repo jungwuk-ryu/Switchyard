@@ -23,6 +23,20 @@ This July 2026 snapshot shows four different Windows workloads running side by s
 
 This is a compatibility snapshot, not a blanket support guarantee. Results can vary by macOS version, hardware, application update, DRM, and anti-cheat requirements. Switchyard is an independent project and is not affiliated with or endorsed by Apple, Blizzard Entertainment, Google, Valve, or the owners of the applications and trademarks shown above.
 
+## App Preview
+
+### Container Library
+
+![Switchyard container library with live Windows app previews](docs/assets/switchyard-container-library.png)
+
+Container cards surface the current Windows window, session state, executable, last activity, and storage footprint at a glance.
+
+### Session Workspace
+
+![Switchyard session workspace showing windows, processes, and the Start menu](docs/assets/switchyard-session-workspace.png)
+
+The session workspace brings Windows window switching, process inspection, the Start menu, and session controls into one native macOS view.
+
 ## What Switchyard Does
 
 - Creates Wine containers with portable manifests and last-used runtime provenance.
