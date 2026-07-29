@@ -124,6 +124,32 @@ enum ActiveRuntimeSourcePreference: Equatable {
     }
 }
 
+struct WindowsAppStopTargetTracker {
+    private var targetedContainerIDs: Set<UUID>
+    private(set) var pendingPrefixStopContainerIDs: Set<UUID>
+
+    init(initiallyRunningContainerIDs: Set<UUID>) {
+        targetedContainerIDs = initiallyRunningContainerIDs
+        pendingPrefixStopContainerIDs = initiallyRunningContainerIDs
+    }
+
+    mutating func observeRunningContainerIDs(_ containerIDs: Set<UUID>) {
+        let newContainerIDs = containerIDs.subtracting(targetedContainerIDs)
+        targetedContainerIDs.formUnion(newContainerIDs)
+        pendingPrefixStopContainerIDs.formUnion(newContainerIDs)
+    }
+
+    mutating func observeActivePrefixContainerIDs(_ containerIDs: Set<UUID>) {
+        pendingPrefixStopContainerIDs.formUnion(
+            containerIDs.intersection(targetedContainerIDs)
+        )
+    }
+
+    mutating func markPrefixStopSucceeded(for containerID: UUID) {
+        pendingPrefixStopContainerIDs.remove(containerID)
+    }
+}
+
 private struct SwitchyardWineSourcePolicy {
     var revision: String
     var revisionTimestamp: UInt64?
@@ -435,6 +461,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var recentProgramLaunchesByContainerID: [UUID: [RecentProgramLaunch]] = [:]
     @Published private(set) var sessionSnapshotsByContainerID: [UUID: ContainerSessionSnapshot] = [:]
     @Published private(set) var stoppingWineServerContainerIDs: Set<UUID> = []
+    @Published private(set) var isStoppingAllWindowsApps = false
     @Published private(set) var containerStorageOperationIDs: Set<UUID> = []
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published private(set) var debugRunLogStorage = DebugRunLogStorageSnapshot.empty
@@ -617,6 +644,10 @@ final class AppStore: ObservableObject {
 
     var canInstallCompatibleWineRuntime: Bool {
         wineSourcePolicy.publishedRuntimePolicy != nil
+    }
+
+    var canRetryCompatibleWineRuntime: Bool {
+        canInstallCompatibleWineRuntime || compatibleCachedRuntime != nil
     }
 
     var canDownloadGPTKAutomatically: Bool {
@@ -823,6 +854,22 @@ final class AppStore: ObservableObject {
             return
         }
         guard let policy = wineSourcePolicy.publishedRuntimePolicy else {
+            refreshInstalledManagedRuntimes()
+            if let compatibleCachedRuntime {
+                runtimeInstallationProgress = nil
+                activateRuntime(
+                    at: compatibleCachedRuntime.runtime.winePath,
+                    sourcePreference: .appPinned
+                )
+                runtimeInstallationState = .ready(
+                    String(
+                        localized: "The active runtime is ready.",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                )
+                refreshRuntimeStatus()
+                return
+            }
             runtimeInstallationState = .failed(
                 String(
                     localized: "This app build does not contain a published runtime channel.",
@@ -2735,10 +2782,13 @@ final class AppStore: ObservableObject {
             || containerStorageOperationIDs.contains(containerID)
     }
 
-    func stopWineServer(in containerID: UUID) async {
+    @discardableResult
+    func stopWineServer(in containerID: UUID) async -> Bool {
         guard !stoppingWineServerContainerIDs.contains(containerID),
               !isContainerLaunching(containerID),
-              let container = containers.first(where: { $0.id == containerID }) else { return }
+              let container = containers.first(where: { $0.id == containerID }) else {
+            return false
+        }
 
         stoppingWineServerContainerIDs.insert(containerID)
         defer { stoppingWineServerContainerIDs.remove(containerID) }
@@ -2768,6 +2818,7 @@ final class AppStore: ObservableObject {
                 ),
                 at: 0
             )
+            return true
         } catch {
             await refreshContainerSession(for: containerID)
             if sessionSnapshot(for: containerID).wineServerState.hasRunningProcesses {
@@ -2785,6 +2836,7 @@ final class AppStore: ObservableObject {
                 ),
                 at: 0
             )
+            return false
         }
     }
 
@@ -3783,6 +3835,7 @@ final class AppStore: ObservableObject {
         runtimeInstallationState.isWorking
             || isImportingGPTK
             || gptkComponentDownloadState.isWorking
+            || isStoppingAllWindowsApps
     }
 
     var canChangeCompatibilityConfiguration: Bool {
@@ -4774,8 +4827,21 @@ final class AppStore: ObservableObject {
         )
     }
 
-    func stopAllRuns() {
+    private var compatibleCachedRuntime: ManagedRuntimeInstallation? {
+        RuntimeLocator.compatibleInstalledRuntime(
+            in: installedManagedRuntimes,
+            sourceRevision: wineSourcePolicy.revision
+        )
+    }
+
+    private func requestTrackedRunsToStop() {
         let runningContainers = containers.filter { isContainerRunning($0.id) }
+        let targetedRunSessionIDs = Set(
+            runningContainers.flatMap {
+                activeRunSessionIDsByContainerID[$0.id] ?? []
+            }
+        )
+        userStoppedRunSessionIDs.formUnion(targetedRunSessionIDs)
         runnerClient.stopAll()
 
         for container in runningContainers {
@@ -4795,19 +4861,44 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func stopAllWindowsAppsForSetup() async -> Bool {
-        let targetIDs = containers.filter { isContainerRunning($0.id) }.map(\.id)
-        stopAllRuns()
+    @discardableResult
+    func stopAllWindowsApps() async -> Bool {
+        guard !isStoppingAllWindowsApps else {
+            return !hasRunningContainers
+        }
+        isStoppingAllWindowsApps = true
+        defer { isStoppingAllWindowsApps = false }
+
+        var stopTargets = WindowsAppStopTargetTracker(
+            initiallyRunningContainerIDs: Set(
+                containers.filter { isContainerRunning($0.id) }.map(\.id)
+            )
+        )
+        requestTrackedRunsToStop()
 
         for _ in 0..<40 {
-            for containerID in targetIDs where !isContainerTransitioning(containerID) {
-                let snapshotIsActive = sessionSnapshotsByContainerID[containerID]?.wineServerState.hasRunningProcesses == true
-                let statusIsRunning = containers.first(where: { $0.id == containerID })?.status == .running
-                if snapshotIsActive || statusIsRunning {
-                    await stopWineServer(in: containerID)
+            stopTargets.observeRunningContainerIDs(
+                Set(containers.filter { isContainerRunning($0.id) }.map(\.id))
+            )
+            stopTargets.observeActivePrefixContainerIDs(
+                Set(containers.compactMap { container in
+                    sessionSnapshotsByContainerID[container.id]?
+                        .wineServerState
+                        .hasRunningProcesses == true ? container.id : nil
+                })
+            )
+            for containerID in stopTargets.pendingPrefixStopContainerIDs {
+                guard !isContainerLaunching(containerID),
+                      !isStoppingWineServer(in: containerID),
+                      !isChangingContainerStorage(containerID) else {
+                    continue
+                }
+                if await stopWineServer(in: containerID) {
+                    stopTargets.markPrefixStopSucceeded(for: containerID)
                 }
             }
-            if !hasRunningContainers {
+            if stopTargets.pendingPrefixStopContainerIDs.isEmpty,
+               !hasRunningContainers {
                 return true
             }
             do {
@@ -4817,7 +4908,12 @@ final class AppStore: ObservableObject {
             }
         }
 
-        return !hasRunningContainers
+        return stopTargets.pendingPrefixStopContainerIDs.isEmpty
+            && !hasRunningContainers
+    }
+
+    func stopAllWindowsAppsForSetup() async -> Bool {
+        await stopAllWindowsApps()
     }
 
     func diagnosticBundle() -> DiagnosticBundle {

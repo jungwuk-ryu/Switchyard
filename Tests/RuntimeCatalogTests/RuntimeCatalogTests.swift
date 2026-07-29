@@ -1,6 +1,7 @@
+import AppCore
+import Foundation
 import RuntimeCatalog
 import Testing
-import Foundation
 
 @Test func missingGPTKPathReportsMissing() {
     let locator = RuntimeLocator()
@@ -360,6 +361,84 @@ private func makeLaunchReadyGPTKLayout(
             for: oldWine.path,
             expectedSourceRevision: newSourceRevision
         ) == newWine.path
+    )
+}
+
+@Test func compatibleInstalledRuntimeRequiresExactCleanCompleteRevision() throws {
+    let expectedRevision = String(repeating: "a", count: 40)
+    let otherRevision = String(repeating: "b", count: 40)
+    let installations = [
+        ManagedRuntimeInstallation(
+            id: "other",
+            rootURL: URL(fileURLWithPath: "/runtimes/other"),
+            runtime: RuntimeBuild(
+                id: "other",
+                winePath: "/runtimes/other/bin/wine",
+                patchsetID: "switchyard-wine-other",
+                sourceRevision: otherRevision
+            ),
+            installedAt: Date(timeIntervalSince1970: 400),
+            isCompleteWoW64: true,
+            isCleanSource: true
+        ),
+        ManagedRuntimeInstallation(
+            id: "dirty",
+            rootURL: URL(fileURLWithPath: "/runtimes/dirty"),
+            runtime: RuntimeBuild(
+                id: "dirty",
+                winePath: "/runtimes/dirty/bin/wine",
+                patchsetID: "switchyard-wine-dirty",
+                sourceRevision: expectedRevision
+            ),
+            installedAt: Date(timeIntervalSince1970: 300),
+            isCompleteWoW64: true,
+            isCleanSource: false
+        ),
+        ManagedRuntimeInstallation(
+            id: "incomplete",
+            rootURL: URL(fileURLWithPath: "/runtimes/incomplete"),
+            runtime: RuntimeBuild(
+                id: "incomplete",
+                winePath: "/runtimes/incomplete/bin/wine",
+                patchsetID: "switchyard-wine-incomplete",
+                sourceRevision: expectedRevision
+            ),
+            installedAt: Date(timeIntervalSince1970: 200),
+            isCompleteWoW64: false,
+            isCleanSource: true
+        ),
+        ManagedRuntimeInstallation(
+            id: "compatible",
+            rootURL: URL(fileURLWithPath: "/runtimes/compatible"),
+            runtime: RuntimeBuild(
+                id: "compatible",
+                winePath: "/runtimes/compatible/bin/wine",
+                patchsetID: "switchyard-wine-compatible",
+                sourceRevision: expectedRevision
+            ),
+            installedAt: Date(timeIntervalSince1970: 100),
+            isCompleteWoW64: true,
+            isCleanSource: true
+        ),
+    ]
+
+    let selected = RuntimeLocator.compatibleInstalledRuntime(
+        in: installations,
+        sourceRevision: expectedRevision
+    )
+
+    #expect(selected?.id == "compatible")
+    #expect(
+        RuntimeLocator.compatibleInstalledRuntime(
+            in: installations,
+            sourceRevision: String(repeating: "c", count: 40)
+        ) == nil
+    )
+    #expect(
+        RuntimeLocator.compatibleInstalledRuntime(
+            in: installations,
+            sourceRevision: ""
+        ) == nil
     )
 }
 

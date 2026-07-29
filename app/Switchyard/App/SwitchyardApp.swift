@@ -42,10 +42,15 @@ struct SwitchyardApp: App {
                 )
 
                 Button("Stop All Windows Apps") {
-                    store.stopAllRuns()
+                    Task {
+                        await store.stopAllWindowsApps()
+                    }
                 }
                 .keyboardShortcut(".")
-                .disabled(!store.hasRunningContainers)
+                .disabled(
+                    !store.hasRunningContainers
+                        || store.isStoppingAllWindowsApps
+                )
 
                 Button("Open Logs") {
                     store.selectedSection = .logs

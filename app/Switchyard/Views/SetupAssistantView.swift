@@ -718,8 +718,10 @@ struct SetupAssistantView: View {
 
     private var runtimeCanRetry: Bool {
         switch store.runtimeInstallationState {
-        case .cancelled, .failed:
+        case .cancelled:
             true
+        case .failed:
+            store.canRetryCompatibleWineRuntime
         case .idle, .working, .cancelling, .ready:
             false
         }

@@ -459,6 +459,18 @@ public struct RuntimeLocator {
             }
     }
 
+    public static func compatibleInstalledRuntime(
+        in installations: [ManagedRuntimeInstallation],
+        sourceRevision: String
+    ) -> ManagedRuntimeInstallation? {
+        guard !sourceRevision.isEmpty else { return nil }
+        return installations.first {
+            $0.runtime.sourceRevision == sourceRevision
+                && $0.isCompleteWoW64
+                && $0.isCleanSource
+        }
+    }
+
     public func removeManagedRuntime(
         _ installation: ManagedRuntimeInstallation
     ) throws {

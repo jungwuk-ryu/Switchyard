@@ -34,11 +34,16 @@ struct ContentView: View {
                     )
 
                     Button {
-                        store.stopAllRuns()
+                        Task {
+                            await store.stopAllWindowsApps()
+                        }
                     } label: {
                         Label("Stop All Windows Apps", systemImage: "stop.fill")
                     }
-                    .disabled(!store.hasRunningContainers)
+                    .disabled(
+                        !store.hasRunningContainers
+                            || store.isStoppingAllWindowsApps
+                    )
                 }
             }
         }

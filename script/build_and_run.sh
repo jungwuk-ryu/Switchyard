@@ -100,16 +100,26 @@ if [ "$DISABLE_SWIFTPM_SANDBOX" = "1" ]; then
   SWIFT_BUILD_OPTIONS+=(--disable-sandbox)
 fi
 
-if [ "${SWITCHYARD_SKIP_RUNTIME_ENSURE:-0}" != "1" ]; then
-  "$ROOT_DIR/script/ensure_wine_runtime.sh"
-fi
-
 [ -f "$APP_ICON_SOURCE" ] || {
   echo "missing app icon: $APP_ICON_SOURCE" >&2
   exit 1
 }
 
 pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+for _ in {1..50}; do
+  if ! pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.1
+done
+if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+  echo "$APP_NAME did not stop before the runtime build started" >&2
+  exit 1
+fi
+
+if [ "${SWITCHYARD_SKIP_RUNTIME_ENSURE:-0}" != "1" ]; then
+  "$ROOT_DIR/script/ensure_wine_runtime.sh"
+fi
 
 swift build "${SWIFT_BUILD_OPTIONS[@]}" --product "$APP_NAME"
 swift build "${SWIFT_BUILD_OPTIONS[@]}" --product switchyard-runner
