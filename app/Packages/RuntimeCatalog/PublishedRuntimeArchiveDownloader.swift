@@ -12,6 +12,26 @@ typealias PublishedRuntimeArchiveLoader = @Sendable (
     @escaping @Sendable (UInt64) async -> Void
 ) async throws -> PublishedRuntimeArchiveDownloadResult
 
+enum PublishedRuntimeArchiveDownloadError: LocalizedError, Equatable, Sendable {
+    case exceedsSizeLimit(
+        expectedByteCount: UInt64,
+        maximumByteCount: UInt64,
+        observedByteCount: UInt64
+    )
+
+    var errorDescription: String? {
+        String(
+            localized: "The downloaded runtime size does not match its release manifest.",
+            bundle: SwitchyardStrings.bundle
+        )
+    }
+}
+
+typealias PublishedRuntimeURLSessionFactory = @Sendable (
+    URLSessionConfiguration,
+    URLSessionDelegate
+) -> URLSession
+
 actor PublishedRuntimeDownloadProgressRelay {
     private let handler: @Sendable (UInt64) async -> Void
     private var largestReportedByteCount: UInt64 = 0
@@ -34,37 +54,58 @@ actor PublishedRuntimeDownloadProgressRelay {
     }
 }
 
-final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDelegate,
+final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDataDelegate,
+    URLSessionDownloadDelegate,
     @unchecked Sendable
 {
     private static let defaultProgressIncrement: UInt64 = 512 * 1_024
+    private static let defaultMaximumByteCount: UInt64 = 4 * 1_024 * 1_024 * 1_024
 
     private let configuration: URLSessionConfiguration
     private let expectedByteCount: UInt64
+    private let maximumByteCount: UInt64
     private let minimumProgressIncrement: UInt64
     private let progress: @Sendable (UInt64) -> Void
     private let fileManager: FileManager
+    private let temporaryDirectory: URL
+    private let sessionFactory: PublishedRuntimeURLSessionFactory
     private let lock = NSLock()
 
     private var continuation: CheckedContinuation<PublishedRuntimeArchiveDownloadResult, any Error>?
     private var session: URLSession?
-    private var task: URLSessionDownloadTask?
+    private var task: URLSessionTask?
     private var downloadedFileURL: URL?
     private var response: URLResponse?
     private var cancellationRequested = false
+    private var pendingTerminalError: (any Error)?
     private var lastReportedByteCount: UInt64 = 0
 
     init(
         configuration: URLSessionConfiguration,
         expectedByteCount: UInt64,
+        maximumByteCount: UInt64 = defaultMaximumByteCount,
         minimumProgressIncrement: UInt64 = defaultProgressIncrement,
         fileManager: FileManager = .default,
+        temporaryDirectory: URL? = nil,
+        sessionFactory: @escaping PublishedRuntimeURLSessionFactory = {
+            configuration,
+            delegate in
+            URLSession(
+                configuration: configuration,
+                delegate: delegate,
+                delegateQueue: nil
+            )
+        },
         progress: @escaping @Sendable (UInt64) -> Void
     ) {
         self.configuration = configuration
         self.expectedByteCount = expectedByteCount
+        self.maximumByteCount = maximumByteCount
         self.minimumProgressIncrement = minimumProgressIncrement
         self.fileManager = fileManager
+        self.temporaryDirectory = temporaryDirectory
+            ?? fileManager.temporaryDirectory
+        self.sessionFactory = sessionFactory
         self.progress = progress
     }
 
@@ -80,16 +121,76 @@ final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDeleg
 
     func urlSession(
         _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void
+    ) {
+        if let error = sizeError(for: response.expectedContentLength) {
+            let shouldFinish = recordTerminalError(error)
+            completionHandler(.cancel)
+            dataTask.cancel()
+            if shouldFinish {
+                finish(throwing: error)
+            }
+            return
+        }
+
+        lock.lock()
+        let shouldBecomeDownload = continuation != nil
+            && !cancellationRequested
+            && pendingTerminalError == nil
+        if shouldBecomeDownload {
+            self.response = response
+        }
+        lock.unlock()
+
+        completionHandler(shouldBecomeDownload ? .becomeDownload : .cancel)
+        if !shouldBecomeDownload {
+            dataTask.cancel()
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        didBecome downloadTask: URLSessionDownloadTask
+    ) {
+        lock.lock()
+        let shouldContinue = continuation != nil
+            && !cancellationRequested
+            && pendingTerminalError == nil
+        if shouldContinue {
+            task = downloadTask
+        }
+        lock.unlock()
+
+        if !shouldContinue {
+            downloadTask.cancel()
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession,
         downloadTask: URLSessionDownloadTask,
         didWriteData bytesWritten: Int64,
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
         guard totalBytesWritten >= 0 else { return }
-        let receivedByteCount = min(UInt64(totalBytesWritten), expectedByteCount)
+        let receivedByteCount = UInt64(totalBytesWritten)
+        if receivedByteCount > sizeLimit {
+            let error = sizeError(observedByteCount: receivedByteCount)
+            let shouldFinish = recordTerminalError(error)
+            downloadTask.cancel()
+            if shouldFinish {
+                finish(throwing: error)
+            }
+            return
+        }
 
         lock.lock()
         let shouldReport = !cancellationRequested
+            && pendingTerminalError == nil
             && continuation != nil
             && (
                 receivedByteCount == expectedByteCount
@@ -111,7 +212,38 @@ final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDeleg
         downloadTask: URLSessionDownloadTask,
         didFinishDownloadingTo location: URL
     ) {
-        let ownedURL = fileManager.temporaryDirectory
+        if let error = sizeError(for: downloadTask.response?.expectedContentLength) {
+            let shouldFinish = recordTerminalError(error)
+            downloadTask.cancel()
+            if shouldFinish {
+                finish(throwing: error)
+            }
+            return
+        }
+
+        let observedByteCount: UInt64
+        do {
+            let values = try location.resourceValues(forKeys: [.fileSizeKey])
+            guard let fileSize = values.fileSize, fileSize >= 0 else {
+                finish(throwing: URLError(.cannotCreateFile))
+                return
+            }
+            observedByteCount = UInt64(fileSize)
+        } catch {
+            finish(throwing: error)
+            return
+        }
+        if observedByteCount > sizeLimit {
+            let error = sizeError(observedByteCount: observedByteCount)
+            let shouldFinish = recordTerminalError(error)
+            downloadTask.cancel()
+            if shouldFinish {
+                finish(throwing: error)
+            }
+            return
+        }
+
+        let ownedURL = temporaryDirectory
             .appendingPathComponent(
                 "switchyard-runtime-\(UUID().uuidString).download",
                 isDirectory: false
@@ -125,13 +257,15 @@ final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDeleg
         }
 
         lock.lock()
-        guard continuation != nil, !cancellationRequested else {
+        guard continuation != nil,
+              !cancellationRequested,
+              pendingTerminalError == nil else {
             lock.unlock()
             try? fileManager.removeItem(at: ownedURL)
             return
         }
         downloadedFileURL = ownedURL
-        response = downloadTask.response
+        response = response ?? downloadTask.response
         lock.unlock()
     }
 
@@ -140,6 +274,10 @@ final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDeleg
         task: URLSessionTask,
         didCompleteWithError error: (any Error)?
     ) {
+        if let terminalError = recordedTerminalError {
+            finish(throwing: terminalError)
+            return
+        }
         if cancellationWasRequested {
             finish(throwing: CancellationError())
             return
@@ -177,6 +315,52 @@ final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDeleg
         return cancellationRequested
     }
 
+    private var recordedTerminalError: (any Error)? {
+        lock.lock()
+        defer { lock.unlock() }
+        return pendingTerminalError
+    }
+
+    private var sizeLimit: UInt64 {
+        min(expectedByteCount, maximumByteCount)
+    }
+
+    private func sizeError(
+        for expectedContentLength: Int64?
+    ) -> PublishedRuntimeArchiveDownloadError? {
+        guard let expectedContentLength, expectedContentLength >= 0 else {
+            return nil
+        }
+        let observedByteCount = UInt64(expectedContentLength)
+        guard observedByteCount > sizeLimit else {
+            return nil
+        }
+        return sizeError(observedByteCount: observedByteCount)
+    }
+
+    private func sizeError(
+        observedByteCount: UInt64
+    ) -> PublishedRuntimeArchiveDownloadError {
+        .exceedsSizeLimit(
+            expectedByteCount: expectedByteCount,
+            maximumByteCount: maximumByteCount,
+            observedByteCount: observedByteCount
+        )
+    }
+
+    @discardableResult
+    private func recordTerminalError(_ error: any Error) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if continuation != nil,
+           !cancellationRequested,
+           pendingTerminalError == nil {
+            pendingTerminalError = error
+            return true
+        }
+        return false
+    }
+
     private func startDownload(
         from url: URL,
         continuation: CheckedContinuation<PublishedRuntimeArchiveDownloadResult, any Error>
@@ -189,12 +373,8 @@ final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDeleg
         }
 
         self.continuation = continuation
-        let session = URLSession(
-            configuration: configuration,
-            delegate: self,
-            delegateQueue: nil
-        )
-        let task = session.downloadTask(with: url)
+        let session = sessionFactory(configuration, self)
+        let task = session.dataTask(with: url)
         self.session = session
         self.task = task
         lock.unlock()
@@ -245,6 +425,7 @@ final class PublishedRuntimeArchiveDownloader: NSObject, URLSessionDownloadDeleg
         task = nil
         downloadedFileURL = nil
         response = nil
+        pendingTerminalError = nil
         return completion
     }
 }
