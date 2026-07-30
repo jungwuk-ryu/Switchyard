@@ -37,7 +37,9 @@ private final class URLHandlerDelegate: NSObject, NSApplicationDelegate {
             rawURL: rawURL,
             prefixPath: route.prefixPath,
             winePath: route.winePath,
-            handlerExecutablePath: route.handlerExecutablePath
+            handlerExecutablePath: route.handlerExecutablePath,
+            rosettaAVXAdvertisingPreference:
+                route.rosettaAVXAdvertisingPreference
         )
         guard let requestURL = try? writeProtectedRequest(request) else { return }
         defer { try? FileManager.default.removeItem(at: requestURL) }

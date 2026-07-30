@@ -24,7 +24,9 @@ private enum SwitchyardShortcutHandler {
             shortcutID: route.id,
             prefixPath: route.prefixPath,
             winePath: route.winePath,
-            windowsShortcutPath: route.windowsShortcutPath
+            windowsShortcutPath: route.windowsShortcutPath,
+            rosettaAVXAdvertisingPreference:
+                route.rosettaAVXAdvertisingPreference
         )
         guard let requestURL = try? writeProtectedRequest(request) else { return }
         defer { try? FileManager.default.removeItem(at: requestURL) }

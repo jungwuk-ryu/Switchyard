@@ -10,6 +10,12 @@ FAKE_WINE="$TEST_ROOT/wine"
 REQUEST_PATH="$TEST_ROOT/request.json"
 ARGUMENTS_PATH="$TEST_ROOT/arguments.txt"
 ENVIRONMENT_PATH="$TEST_ROOT/environment.txt"
+MACOS_MAJOR_VERSION="$(sw_vers -productVersion | cut -d. -f1)"
+if [ "$(uname -m)" = "arm64" ] && [ "$MACOS_MAJOR_VERSION" -ge 15 ]; then
+  EXPECTED_ROSETTA_AVX="1"
+else
+  EXPECTED_ROSETTA_AVX="0"
+fi
 
 cleanup() {
   rm -rf "$TEST_ROOT"
@@ -25,7 +31,8 @@ printf '%s\n' '[invocation]' "$@" >>"$SWITCHYARD_TEST_ARGUMENTS_PATH"
 printf '%s\n' \
   "$WINEPREFIX" \
   "$SWITCHYARD_DESKTOP_SHORTCUTS_FILE" \
-  "$SWITCHYARD_PRIVATE_DESKTOP" >>"$SWITCHYARD_TEST_ENVIRONMENT_PATH"
+  "$SWITCHYARD_PRIVATE_DESKTOP" \
+  "rosetta=${ROSETTA_ADVERTISE_AVX:-missing}" >>"$SWITCHYARD_TEST_ENVIRONMENT_PATH"
 SCRIPT
 chmod +x "$FAKE_WINE"
 
@@ -53,7 +60,31 @@ diff -u \
   <(printf '%s\n' \
     "$PREFIX_PATH" \
     'C:\windows\temp\switchyard-desktop-shortcuts-v1.txt' \
-    '1') \
+    '1' \
+    "rosetta=$EXPECTED_ROSETTA_AVX") \
+  "$ENVIRONMENT_PATH"
+
+: >"$ARGUMENTS_PATH"
+: >"$ENVIRONMENT_PATH"
+cat >"$REQUEST_PATH" <<JSON
+{
+  "shortcutID": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "prefixPath": "$PREFIX_PATH",
+  "winePath": "$FAKE_WINE",
+  "windowsShortcutPath": "C:\\\\users\\\\steamuser\\\\Desktop\\\\Heartopia.lnk",
+  "rosettaAVXAdvertisingPreference": "disabled"
+}
+JSON
+chmod 600 "$REQUEST_PATH"
+SWITCHYARD_TEST_ARGUMENTS_PATH="$ARGUMENTS_PATH" \
+SWITCHYARD_TEST_ENVIRONMENT_PATH="$ENVIRONMENT_PATH" \
+  "$RUNNER_PATH" open-shortcut --request "$REQUEST_PATH"
+diff -u \
+  <(printf '%s\n' \
+    "$PREFIX_PATH" \
+    'C:\windows\temp\switchyard-desktop-shortcuts-v1.txt' \
+    '1' \
+    'rosetta=0') \
   "$ENVIRONMENT_PATH"
 
 cat >"$REQUEST_PATH" <<JSON
@@ -122,5 +153,27 @@ test -d "$HOME/Desktop"
 test "$(rg -c -x 'winemenubuilder.exe' "$ARGUMENTS_PATH")" = "1"
 test "$(rg -c -x -- '-m' "$ARGUMENTS_PATH")" = "1"
 test "$(rg -c -F -x 'C:\Game.exe' "$ARGUMENTS_PATH")" = "1"
+test "$(rg -c -F -x "rosetta=$EXPECTED_ROSETTA_AVX" "$ENVIRONMENT_PATH")" = "2"
+
+: >"$ARGUMENTS_PATH"
+: >"$ENVIRONMENT_PATH"
+cat >"$PLAN_PATH" <<JSON
+{
+  "executable": "$FAKE_WINE",
+  "arguments": ["C:\\\\Game.exe"],
+  "environment": {
+    "WINEPREFIX": "$PREFIX_PATH",
+    "SWITCHYARD_DESKTOP_SHORTCUTS_FILE": "C:\\\\windows\\\\temp\\\\switchyard-desktop-shortcuts-v1.txt",
+    "SWITCHYARD_PRIVATE_DESKTOP": "1",
+    "ROSETTA_ADVERTISE_AVX": "0"
+  },
+  "workingDirectory": "$PREFIX_PATH",
+  "logSource": "desktop-shortcut-test"
+}
+JSON
+SWITCHYARD_TEST_ARGUMENTS_PATH="$ARGUMENTS_PATH" \
+SWITCHYARD_TEST_ENVIRONMENT_PATH="$ENVIRONMENT_PATH" \
+  "$RUNNER_PATH" run --plan "$PLAN_PATH" >/dev/null
+test "$(rg -c -F -x 'rosetta=0' "$ENVIRONMENT_PATH")" = "2"
 
 printf 'runner desktop shortcut test passed\n'

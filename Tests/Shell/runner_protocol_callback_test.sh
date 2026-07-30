@@ -9,6 +9,12 @@ FAKE_WINE="$TEST_ROOT/wine"
 REQUEST_PATH="$TEST_ROOT/request.json"
 ARGUMENTS_PATH="$TEST_ROOT/arguments.txt"
 ENVIRONMENT_PATH="$TEST_ROOT/environment.txt"
+MACOS_MAJOR_VERSION="$(sw_vers -productVersion | cut -d. -f1)"
+if [ "$(uname -m)" = "arm64" ] && [ "$MACOS_MAJOR_VERSION" -ge 15 ]; then
+  EXPECTED_ROSETTA_AVX="1"
+else
+  EXPECTED_ROSETTA_AVX="0"
+fi
 
 cleanup() {
   rm -rf "$TEST_ROOT"
@@ -41,7 +47,10 @@ if [ "${1:-}" = "taskkill" ]; then
   exit 0
 fi
 printf '%s\n' '[invocation]' "$@" >>"$SWITCHYARD_TEST_ARGUMENTS_PATH"
-printf '%s\n' "$WINEPREFIX" "$SWITCHYARD_PROTOCOL_ASSOCIATIONS_FILE" >>"$SWITCHYARD_TEST_ENVIRONMENT_PATH"
+printf '%s\n' \
+  "$WINEPREFIX" \
+  "$SWITCHYARD_PROTOCOL_ASSOCIATIONS_FILE" \
+  "rosetta=${ROSETTA_ADVERTISE_AVX:-missing}" >>"$SWITCHYARD_TEST_ENVIRONMENT_PATH"
 if [ "${1:-}" = "reg" ] && [ "${2:-}" = "query" ]; then
   exit "${SWITCHYARD_TEST_QUERY_STATUS:-1}"
 fi
@@ -93,7 +102,9 @@ diff -u \
 diff -u \
   <(printf '%s\n' \
     "$PREFIX_PATH" 'C:\windows\temp\switchyard-protocols-v1.txt' \
-    "$PREFIX_PATH" 'C:\windows\temp\switchyard-protocols-v1.txt') \
+    "rosetta=$EXPECTED_ROSETTA_AVX" \
+    "$PREFIX_PATH" 'C:\windows\temp\switchyard-protocols-v1.txt' \
+    "rosetta=$EXPECTED_ROSETTA_AVX") \
   "$ENVIRONMENT_PATH"
 
 mkdir -p "$PREFIX_PATH/dosdevices" "$TEST_ROOT/ExternalLibrary/Heartopia"
@@ -201,5 +212,6 @@ test "$(rg -c -x -- '-m' "$ARGUMENTS_PATH")" = "1"
 test "$(rg -c -F -x 'C:\Game.exe' "$ARGUMENTS_PATH")" = "1"
 test "$(rg -c -F -x "$PREFIX_PATH" "$ENVIRONMENT_PATH")" = "2"
 test "$(rg -c -F -x 'C:\windows\temp\switchyard-protocols-v1.txt' "$ENVIRONMENT_PATH")" = "2"
+test "$(rg -c -F -x "rosetta=$EXPECTED_ROSETTA_AVX" "$ENVIRONMENT_PATH")" = "2"
 
 printf 'runner protocol callback test passed\n'

@@ -169,6 +169,7 @@ public struct WineProtocolRoute: Codable, Equatable, Sendable {
     public var runnerPath: String
     public var handlerExecutablePath: String?
     public var lastActivatedAt: Date
+    public var rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference?
 
     public init(
         scheme: String,
@@ -177,7 +178,8 @@ public struct WineProtocolRoute: Codable, Equatable, Sendable {
         winePath: String,
         runnerPath: String,
         handlerExecutablePath: String? = nil,
-        lastActivatedAt: Date
+        lastActivatedAt: Date,
+        rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference? = nil
     ) {
         self.scheme = scheme
         self.containerID = containerID
@@ -186,6 +188,7 @@ public struct WineProtocolRoute: Codable, Equatable, Sendable {
         self.runnerPath = runnerPath
         self.handlerExecutablePath = handlerExecutablePath
         self.lastActivatedAt = lastActivatedAt
+        self.rosettaAVXAdvertisingPreference = rosettaAVXAdvertisingPreference
     }
 }
 
@@ -323,18 +326,21 @@ public struct WineURLCallbackRequest: Codable, Equatable, Sendable {
     public var prefixPath: String
     public var winePath: String
     public var handlerExecutablePath: String?
+    public var rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference?
 
     public init(
         scheme: String,
         rawURL: String,
         prefixPath: String,
         winePath: String,
-        handlerExecutablePath: String? = nil
+        handlerExecutablePath: String? = nil,
+        rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference? = nil
     ) {
         self.scheme = scheme
         self.rawURL = rawURL
         self.prefixPath = prefixPath
         self.winePath = winePath
         self.handlerExecutablePath = handlerExecutablePath
+        self.rosettaAVXAdvertisingPreference = rosettaAVXAdvertisingPreference
     }
 }

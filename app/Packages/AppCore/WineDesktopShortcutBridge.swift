@@ -239,6 +239,7 @@ public struct WineDesktopShortcutRoute: Codable, Equatable, Sendable {
     public var winePath: String
     public var runnerPath: String
     public var windowsShortcutPath: String
+    public var rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference?
 
     public init(
         id: String,
@@ -246,7 +247,8 @@ public struct WineDesktopShortcutRoute: Codable, Equatable, Sendable {
         prefixPath: String,
         winePath: String,
         runnerPath: String,
-        windowsShortcutPath: String
+        windowsShortcutPath: String,
+        rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference? = nil
     ) {
         self.id = id
         self.containerID = containerID
@@ -254,6 +256,7 @@ public struct WineDesktopShortcutRoute: Codable, Equatable, Sendable {
         self.winePath = winePath
         self.runnerPath = runnerPath
         self.windowsShortcutPath = windowsShortcutPath
+        self.rosettaAVXAdvertisingPreference = rosettaAVXAdvertisingPreference
     }
 }
 
@@ -279,16 +282,19 @@ public struct WineDesktopShortcutRequest: Codable, Equatable, Sendable {
     public var prefixPath: String
     public var winePath: String
     public var windowsShortcutPath: String
+    public var rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference?
 
     public init(
         shortcutID: String,
         prefixPath: String,
         winePath: String,
-        windowsShortcutPath: String
+        windowsShortcutPath: String,
+        rosettaAVXAdvertisingPreference: RosettaAVXAdvertisingPreference? = nil
     ) {
         self.shortcutID = shortcutID
         self.prefixPath = prefixPath
         self.winePath = winePath
         self.windowsShortcutPath = windowsShortcutPath
+        self.rosettaAVXAdvertisingPreference = rosettaAVXAdvertisingPreference
     }
 }

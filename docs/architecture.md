@@ -74,3 +74,4 @@ Switchyard has one active Wine runtime and one active GPTK path selected in app 
 - [ADR 0001: Runtime boundaries](adr/0001-runtime-boundaries.md)
 - [ADR 0002: Container data model](adr/0002-container-data-model.md)
 - [ADR 0003: Runtime update model](adr/0003-runtime-update-model.md)
+- [ADR 0004: Rosetta AVX advertising](adr/0004-rosetta-avx-advertising.md)

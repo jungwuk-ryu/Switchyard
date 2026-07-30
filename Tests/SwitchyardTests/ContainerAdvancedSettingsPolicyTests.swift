@@ -9,6 +9,11 @@ import Testing
     }
     #expect(
         EnvironmentOverridePolicy.isAllowedKey(
+            RosettaAVXAdvertisingPolicy.environmentKey
+        )
+    )
+    #expect(
+        EnvironmentOverridePolicy.isAllowedKey(
             D3DMetalFrameRateLimitPolicy.environmentKey
         )
     )

@@ -48,7 +48,10 @@ import Testing
     try fileManager.createDirectory(at: unownedCollision, withIntermediateDirectories: false)
     let container = Container(
         name: "Test Container",
-        path: prefix.path
+        path: prefix.path,
+        environmentOverrides: [
+            RosettaAVXAdvertisingPolicy.environmentKey: "0"
+        ]
     )
     let bridge = WineDesktopShortcutBridge(
         fileManager: fileManager,
@@ -90,6 +93,10 @@ import Testing
     let routesData = try Data(contentsOf: bridgeRoot.appendingPathComponent("routes-v1.json"))
     let routes = try JSONDecoder().decode(WineDesktopShortcutRouteIndex.self, from: routesData)
     #expect(routes.route(forID: shortcutID)?.windowsShortcutPath == windowsPath)
+    #expect(
+        routes.route(forID: shortcutID)?.rosettaAVXAdvertisingPreference
+            == .disabled
+    )
 
     let second = try bridge.refresh(
         containers: [container],

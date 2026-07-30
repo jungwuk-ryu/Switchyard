@@ -588,7 +588,17 @@ struct ContainerSettingsView: View {
     }
 
     private var advertiseRosettaAVXBinding: Binding<Bool> {
-        environmentToggleBinding(.advertiseRosettaAVX)
+        Binding {
+            RosettaAVXHostPolicy.current.isEnabled(
+                in: liveContainer.environmentOverrides
+            )
+        } set: { enabled in
+            store.updateEnvironmentOverride(
+                for: container.id,
+                key: RosettaAVXAdvertisingPolicy.environmentKey,
+                value: enabled ? "1" : "0"
+            )
+        }
     }
 
     private var wineLoggingBinding: Binding<Bool> {
@@ -600,9 +610,7 @@ struct ContainerSettingsView: View {
     }
 
     private var supportsRosettaAVXAdvertising: Bool {
-        ProcessInfo.processInfo.isOperatingSystemAtLeast(
-            OperatingSystemVersion(majorVersion: 15, minorVersion: 0, patchVersion: 0)
-        )
+        RosettaAVXHostPolicy.current.isSupported
     }
 
     private var d3dMetalAvailabilityBadge: String {

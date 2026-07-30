@@ -2,6 +2,31 @@ import AppCore
 import Darwin
 import Foundation
 
+private enum RunnerRosettaAVXPolicy {
+    static let current = RosettaAVXAdvertisingPolicy(
+        isAppleSiliconHost: isAppleSiliconHost,
+        macOSMajorVersion: ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+    )
+
+    private static var isAppleSiliconHost: Bool {
+        #if arch(arm64)
+        true
+        #elseif arch(x86_64)
+        var isTranslated: Int32 = 0
+        var size = MemoryLayout.size(ofValue: isTranslated)
+        return sysctlbyname(
+            "sysctl.proc_translated",
+            &isTranslated,
+            &size,
+            nil,
+            0
+        ) == 0 && isTranslated == 1
+        #else
+        false
+        #endif
+    }
+}
+
 private enum SwitchyardRunnerError: LocalizedError {
     case missingWineServer(String)
     case invalidURLCallbackRequest
@@ -1121,7 +1146,8 @@ struct SwitchyardRunner {
 
         let planURL = URL(fileURLWithPath: arguments[1])
         let data = try Data(contentsOf: planURL)
-        let plan = try JSONDecoder().decode(CommandPlan.self, from: data)
+        var plan = try JSONDecoder().decode(CommandPlan.self, from: data)
+        plan.environment = RunnerRosettaAVXPolicy.current.resolving(plan.environment)
         let debugLogWriter = openDebugLogWriter(path: plan.debugLogPath, source: plan.logSource)
         let liveLogWriter = openLiveLogWriter(path: plan.liveLogPath, source: plan.logSource)
         defer {
@@ -1637,14 +1663,17 @@ struct SwitchyardRunner {
             handlerExecutablePath = nil
         }
 
-        let environment = ProcessInfo.processInfo.environment.merging([
-            "WINEPREFIX": request.prefixPath,
-            WineProtocolAssociationFormat.manifestEnvironmentKey:
-                WineProtocolAssociationFormat.windowsManifestPath,
-            WineDesktopShortcutFormat.manifestEnvironmentKey:
-                WineDesktopShortcutFormat.windowsManifestPath,
-            WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
-        ]) { _, new in new }
+        let environment = RunnerRosettaAVXPolicy.current.resolving(
+            ProcessInfo.processInfo.environment.merging([
+                "WINEPREFIX": request.prefixPath,
+                WineProtocolAssociationFormat.manifestEnvironmentKey:
+                    WineProtocolAssociationFormat.windowsManifestPath,
+                WineDesktopShortcutFormat.manifestEnvironmentKey:
+                    WineDesktopShortcutFormat.windowsManifestPath,
+                WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
+            ]) { _, new in new },
+            preference: request.rosettaAVXAdvertisingPreference ?? .automatic
+        )
         if let handlerExecutablePath {
             let registrationExists = try protocolRegistrationExists(
                 scheme: scheme,
@@ -1747,14 +1776,17 @@ struct SwitchyardRunner {
             throw SwitchyardRunnerError.invalidDesktopShortcutRequest
         }
 
-        let environment = ProcessInfo.processInfo.environment.merging([
-            "WINEPREFIX": request.prefixPath,
-            WineProtocolAssociationFormat.manifestEnvironmentKey:
-                WineProtocolAssociationFormat.windowsManifestPath,
-            WineDesktopShortcutFormat.manifestEnvironmentKey:
-                WineDesktopShortcutFormat.windowsManifestPath,
-            WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
-        ]) { _, new in new }
+        let environment = RunnerRosettaAVXPolicy.current.resolving(
+            ProcessInfo.processInfo.environment.merging([
+                "WINEPREFIX": request.prefixPath,
+                WineProtocolAssociationFormat.manifestEnvironmentKey:
+                    WineProtocolAssociationFormat.windowsManifestPath,
+                WineDesktopShortcutFormat.manifestEnvironmentKey:
+                    WineDesktopShortcutFormat.windowsManifestPath,
+                WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
+            ]) { _, new in new },
+            preference: request.rosettaAVXAdvertisingPreference ?? .automatic
+        )
         let process = Process()
         process.executableURL = URL(fileURLWithPath: request.winePath)
         process.arguments = ["start", shortcutPath]

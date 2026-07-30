@@ -1,10 +1,10 @@
 import AppCore
+import Darwin
 import Foundation
 
 enum ContainerAdvancedEnvironmentOption: CaseIterable {
     case d3dMetalStatistics
     case forceDirectXRaytracing
-    case advertiseRosettaAVX
     case legacyAddressSpace
     case wineDiagnostics
 
@@ -14,8 +14,6 @@ enum ContainerAdvancedEnvironmentOption: CaseIterable {
             "D3DM_SHOW_HUD_STATS"
         case .forceDirectXRaytracing:
             "D3DM_SUPPORT_DXR"
-        case .advertiseRosettaAVX:
-            "ROSETTA_ADVERTISE_AVX"
         case .legacyAddressSpace:
             "WINE_LARGE_ADDRESS_AWARE"
         case .wineDiagnostics:
@@ -25,7 +23,7 @@ enum ContainerAdvancedEnvironmentOption: CaseIterable {
 
     var enabledValue: String {
         switch self {
-        case .d3dMetalStatistics, .forceDirectXRaytracing, .advertiseRosettaAVX:
+        case .d3dMetalStatistics, .forceDirectXRaytracing:
             "1"
         case .legacyAddressSpace:
             "0"
@@ -49,6 +47,33 @@ enum ContainerAdvancedEnvironmentOption: CaseIterable {
             updated.removeValue(forKey: environmentKey)
         }
         return updated
+    }
+}
+
+enum RosettaAVXHostPolicy {
+    static var current: RosettaAVXAdvertisingPolicy {
+        RosettaAVXAdvertisingPolicy(
+            isAppleSiliconHost: isAppleSiliconHost,
+            macOSMajorVersion: ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        )
+    }
+
+    private static var isAppleSiliconHost: Bool {
+        #if arch(arm64)
+        true
+        #elseif arch(x86_64)
+        var isTranslated: Int32 = 0
+        var size = MemoryLayout.size(ofValue: isTranslated)
+        return sysctlbyname(
+            "sysctl.proc_translated",
+            &isTranslated,
+            &size,
+            nil,
+            0
+        ) == 0 && isTranslated == 1
+        #else
+        false
+        #endif
     }
 }
 

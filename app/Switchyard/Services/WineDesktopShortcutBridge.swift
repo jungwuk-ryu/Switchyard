@@ -177,7 +177,11 @@ final class WineDesktopShortcutBridge {
                         prefixPath: container.path,
                         winePath: winePath,
                         runnerPath: runnerPath,
-                        windowsShortcutPath: entry.windowsShortcutPath
+                        windowsShortcutPath: entry.windowsShortcutPath,
+                        rosettaAVXAdvertisingPreference:
+                            RosettaAVXAdvertisingPolicy.explicitPreference(
+                                in: container.environmentOverrides
+                            )
                     )
                 )
             }

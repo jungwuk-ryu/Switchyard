@@ -112,7 +112,11 @@ final class WineProtocolBridge {
                         lastActivatedAt: max(
                             containerActivatedAt,
                             learnedAssociation?.learnedAt ?? .distantPast
-                        )
+                        ),
+                        rosettaAVXAdvertisingPreference:
+                            RosettaAVXAdvertisingPolicy.explicitPreference(
+                                in: container.environmentOverrides
+                            )
                     )
                 )
             }
@@ -168,7 +172,11 @@ final class WineProtocolBridge {
             rawURL: trimmedURL,
             prefixPath: container.path,
             winePath: winePath,
-            handlerExecutablePath: normalizedHandlerPath
+            handlerExecutablePath: normalizedHandlerPath,
+            rosettaAVXAdvertisingPreference:
+                RosettaAVXAdvertisingPolicy.explicitPreference(
+                    in: container.environmentOverrides
+                )
         )
     }
 
