@@ -537,6 +537,195 @@ private func makeLaunchReadyGPTKLayout(
     )
 }
 
+@Test func managedRuntimeSourceDirtyTriStateControlsCompatibility() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let unknownRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-unknown",
+        isDirectory: true
+    )
+    let dirtyRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-dirty",
+        isDirectory: true
+    )
+    let cleanRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-clean",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: cacheRoot) }
+
+    let sourceRevision = String(repeating: "a", count: 40)
+    let unknownWine = try createSwitchyardWineRuntime(
+        at: unknownRoot,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: sourceRevision,
+        sourceDirty: nil
+    )
+    let dirtyWine = try createSwitchyardWineRuntime(
+        at: dirtyRoot,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: sourceRevision,
+        sourceDirty: true
+    )
+    let cleanWine = try createSwitchyardWineRuntime(
+        at: cleanRoot,
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: sourceRevision,
+        sourceDirty: false
+    )
+    try setManifestModificationDate(
+        at: unknownRoot,
+        to: Date(timeIntervalSince1970: 300)
+    )
+    try setManifestModificationDate(
+        at: dirtyRoot,
+        to: Date(timeIntervalSince1970: 200)
+    )
+    try setManifestModificationDate(
+        at: cleanRoot,
+        to: Date(timeIntervalSince1970: 100)
+    )
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+    let installations = locator.installedManagedRuntimes()
+    let installationsByID = Dictionary(
+        uniqueKeysWithValues: installations.map { ($0.id, $0) }
+    )
+    let compatible = RuntimeLocator.compatibleInstalledRuntime(
+        in: installations,
+        sourceRevision: sourceRevision
+    )
+    let unknownSourceCheck = try #require(
+        locator.diagnose(
+            gptkPath: nil,
+            winePath: unknownWine.path,
+            expectedSourceRevision: sourceRevision
+        ).1.first { $0.id == "runtime-source" }
+    )
+    let dirtySourceCheck = try #require(
+        locator.diagnose(
+            gptkPath: nil,
+            winePath: dirtyWine.path,
+            expectedSourceRevision: sourceRevision
+        ).1.first { $0.id == "runtime-source" }
+    )
+    let cleanSourceCheck = try #require(
+        locator.diagnose(
+            gptkPath: nil,
+            winePath: cleanWine.path,
+            expectedSourceRevision: sourceRevision
+        ).1.first { $0.id == "runtime-source" }
+    )
+
+    #expect(installations.count == 3)
+    #expect(
+        installationsByID[unknownRoot.lastPathComponent]?.isCleanSource == false
+    )
+    #expect(
+        installationsByID[dirtyRoot.lastPathComponent]?.isCleanSource == false
+    )
+    #expect(
+        installationsByID[cleanRoot.lastPathComponent]?.isCleanSource == true
+    )
+    #expect(compatible?.id == cleanRoot.lastPathComponent)
+    #expect(
+        locator.preferredWineExecutablePath(
+            for: nil,
+            expectedSourceRevision: sourceRevision
+        ) == cleanWine.path
+    )
+    #expect(
+        locator.preferredWineExecutablePath(
+            for: unknownWine.path,
+            expectedSourceRevision: sourceRevision
+        ) == cleanWine.path
+    )
+    #expect(unknownSourceCheck.status == .warning)
+    #expect(unknownSourceCheck.result.contains("could not be verified"))
+    #expect(dirtySourceCheck.status == .warning)
+    #expect(dirtySourceCheck.result.contains("dirty source tree"))
+    #expect(cleanSourceCheck.status == .ok)
+    #expect(FileManager.default.fileExists(atPath: unknownRoot.path))
+    #expect(
+        FileManager.default.fileExists(
+            atPath: unknownRoot
+                .appendingPathComponent("switchyard-runtime.json")
+                .path
+        )
+    )
+}
+
+@Test func managedRuntimeExactPreferenceHasNoUnverifiedFallback() throws {
+    let unknownCacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let dirtyCacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer {
+        try? FileManager.default.removeItem(at: unknownCacheRoot)
+        try? FileManager.default.removeItem(at: dirtyCacheRoot)
+    }
+
+    let sourceRevision = String(repeating: "a", count: 40)
+    let unknownWine = try createSwitchyardWineRuntime(
+        at: unknownCacheRoot.appendingPathComponent(
+            "switchyard-runtime-unknown",
+            isDirectory: true
+        ),
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: sourceRevision,
+        sourceDirty: nil
+    )
+    let dirtyWine = try createSwitchyardWineRuntime(
+        at: dirtyCacheRoot.appendingPathComponent(
+            "switchyard-runtime-dirty",
+            isDirectory: true
+        ),
+        peArchitectures: ["i386", "x86_64"],
+        sourceRevision: sourceRevision,
+        sourceDirty: true
+    )
+    let deletedWine = unknownCacheRoot
+        .appendingPathComponent(
+            "switchyard-runtime-deleted",
+            isDirectory: true
+        )
+        .appendingPathComponent("bin", isDirectory: true)
+        .appendingPathComponent("wine")
+    let unknownLocator = RuntimeLocator(runtimeCacheRoot: unknownCacheRoot)
+    let dirtyLocator = RuntimeLocator(runtimeCacheRoot: dirtyCacheRoot)
+
+    #expect(
+        unknownLocator.preferredWineExecutablePath(
+            for: nil,
+            expectedSourceRevision: sourceRevision
+        ) == nil
+    )
+    #expect(
+        unknownLocator.preferredWineExecutablePath(
+            for: unknownWine.path,
+            expectedSourceRevision: sourceRevision
+        ) == nil
+    )
+    #expect(
+        dirtyLocator.preferredWineExecutablePath(
+            for: nil,
+            expectedSourceRevision: sourceRevision
+        ) == nil
+    )
+    #expect(
+        dirtyLocator.preferredWineExecutablePath(
+            for: dirtyWine.path,
+            expectedSourceRevision: sourceRevision
+        ) == nil
+    )
+    #expect(
+        unknownLocator.preferredWineExecutablePath(
+            for: deletedWine.path,
+            expectedSourceRevision: sourceRevision
+        ) == nil
+    )
+}
+
 @Test func preferredWineExecutablePathRecoversDeletedManagedRuntimeSelection() throws {
     let cacheRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     let cacheRuntimeRoot = cacheRoot.appendingPathComponent("switchyard-local-new", isDirectory: true)
@@ -572,6 +761,12 @@ private func makeLaunchReadyGPTKLayout(
     let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
 
     #expect(locator.preferredWineExecutablePath(for: externalRoot.path) == externalWine.path)
+    #expect(
+        locator.preferredWineExecutablePath(
+            for: externalRoot.path,
+            expectedSourceRevision: String(repeating: "b", count: 40)
+        ) == externalWine.path
+    )
 }
 
 @Test func pinnedSourcePolicyRejectsUnverifiedExternalWine() throws {
@@ -1153,7 +1348,7 @@ private func createSwitchyardWineRuntime(
     at root: URL,
     peArchitectures: [String],
     sourceRevision: String = String(repeating: "a", count: 40),
-    sourceDirty: Bool = false,
+    sourceDirty: Bool? = false,
     manifestExecutable: String? = nil
 ) throws -> URL {
     let bin = root.appendingPathComponent("bin", isDirectory: true)
@@ -1171,6 +1366,9 @@ private func createSwitchyardWineRuntime(
     let quotedArchitectures = peArchitectures
         .map { "\"\($0)\"" }
         .joined(separator: ", ")
+    let sourceDirtyEntry = sourceDirty.map {
+        "      \"sourceDirty\": \($0),\n"
+    } ?? ""
     let manifest = """
     {
       "id": "switchyard-test-runtime",
@@ -1179,8 +1377,7 @@ private func createSwitchyardWineRuntime(
       "executable": "\(manifestExecutable ?? wine.path)",
       "sourceRepository": "https://github.com/jungwuk-ryu/switchyard-wine",
       "sourceRevision": "\(sourceRevision)",
-      "sourceDirty": \(sourceDirty),
-      "patchsetID": "switchyard-test-patchset"
+    \(sourceDirtyEntry)      "patchsetID": "switchyard-test-patchset"
     }
     """
     try Data(manifest.utf8).write(to: root.appendingPathComponent("switchyard-runtime.json"))

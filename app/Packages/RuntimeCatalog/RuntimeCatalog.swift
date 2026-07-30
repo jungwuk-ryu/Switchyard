@@ -23,7 +23,7 @@ private struct SwitchyardRuntimeCandidate {
     var runtimeID: String
     var patchsetID: String
     var sourceRevision: String?
-    var sourceDirty: Bool
+    var sourceDirty: Bool?
 }
 
 public struct ManagedRuntimeInstallation: Identifiable, Sendable, Equatable {
@@ -366,11 +366,16 @@ public struct RuntimeLocator {
 
     public func preferredWineExecutablePath(for path: String?, expectedSourceRevision: String? = nil) -> String? {
         let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let preferredCachedPath = latestCachedSwitchyardWineExecutablePath(matchingSourceRevision: expectedSourceRevision)
-            ?? latestCachedSwitchyardWineExecutablePath()
+        let preferredCachedPath = latestCachedSwitchyardWineExecutablePath(
+            matchingSourceRevision: expectedSourceRevision
+        )
 
         if trimmedPath.isEmpty {
-            return preferredCachedPath ?? resolveWineExecutable(at: defaultWineRuntimePath())
+            if expectedSourceRevision != nil {
+                return preferredCachedPath
+            }
+            return preferredCachedPath
+                ?? resolveWineExecutable(at: defaultWineRuntimePath())
         }
 
         let isManagedCacheSelection = isSwitchyardRuntimeCachePath(trimmedPath)
@@ -385,7 +390,7 @@ public struct RuntimeLocator {
             if let rootURL = runtimeRoot(forWineExecutable: resolvedPath),
                let manifest = loadSwitchyardRuntimeManifest(under: rootURL),
                (manifest.sourceRevision ?? manifest.wineRevision) == expectedSourceRevision,
-               manifest.sourceDirty != true,
+               manifest.sourceDirty == false,
                hasPEArchitecture("i386", under: rootURL, manifest: manifest),
                hasPEArchitecture("x86_64", under: rootURL, manifest: manifest) {
                 return resolvedPath
@@ -459,7 +464,7 @@ public struct RuntimeLocator {
                     ),
                     installedAt: candidate.modifiedAt,
                     isCompleteWoW64: candidate.isCompleteWoW64,
-                    isCleanSource: !candidate.sourceDirty
+                    isCleanSource: candidate.sourceDirty == false
                 )
             }
     }
@@ -779,7 +784,17 @@ public struct RuntimeLocator {
         let shortRevision = String(sourceRevision.prefix(12))
         let repository = manifest.sourceRepository
             ?? String(localized: "unrecorded repository", bundle: SwitchyardStrings.bundle)
-        if manifest.sourceDirty == true {
+        guard let sourceDirty = manifest.sourceDirty else {
+            return RuntimeSourceValidation(
+                status: .warning,
+                version: shortRevision,
+                message: String(
+                    localized: "The runtime is runnable, but its source identity could not be verified.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+        }
+        if sourceDirty {
             return RuntimeSourceValidation(
                 status: .warning,
                 version: shortRevision,
@@ -867,7 +882,8 @@ public struct RuntimeLocator {
         let matchingCandidates: [SwitchyardRuntimeCandidate]
         if let expectedSourceRevision {
             matchingCandidates = candidates.filter {
-                $0.sourceRevision == expectedSourceRevision && !$0.sourceDirty
+                $0.sourceRevision == expectedSourceRevision
+                    && $0.sourceDirty == false
             }
         } else {
             matchingCandidates = candidates
@@ -953,7 +969,7 @@ public struct RuntimeLocator {
                 runtimeID: runtimeID,
                 patchsetID: patchsetID,
                 sourceRevision: sourceRevision,
-                sourceDirty: manifest.sourceDirty == true
+                sourceDirty: manifest.sourceDirty
             )
         }
     }
