@@ -26,6 +26,89 @@ import Testing
     #expect(ordered.map(\.title) == ["First Updated", "Second Updated", "New"])
 }
 
+@Test func sessionStageWindowLayoutKeepsIdentityAcrossReorderAndRemoval() {
+    let first = window(id: 10, title: "First", ownerProcessID: 101)
+    let second = window(id: 20, title: "Second", ownerProcessID: 202)
+
+    let original = SessionStageWindowGridLayout.items(for: [first, second])
+    let reordered = SessionStageWindowGridLayout.items(for: [second, first])
+    let afterRemoval = SessionStageWindowGridLayout.items(for: [second])
+
+    #expect(original.map(\.id) == [reordered[1].id, reordered[0].id])
+    #expect(original[1].id == afterRemoval[0].id)
+    #expect(original[1].layoutIndex == 1)
+    #expect(afterRemoval[0].layoutIndex == 0)
+    #expect(original[0].id != afterRemoval[0].id)
+}
+
+@Test func sessionStageWindowIdentityRejectsReusedWindowIDFromAnotherProcess() {
+    let original = window(id: 10, title: "Original", ownerProcessID: 101)
+    let reused = window(id: 10, title: "Replacement", ownerProcessID: 202)
+    let identity = SessionStageWindowIdentity(window: original)
+
+    #expect(identity.matches(original))
+    #expect(!identity.matches(reused))
+}
+
+@MainActor
+@Test func sessionStageTreatsReusedWindowIDAsNewWindowForOrdering() {
+    let original = window(id: 10, title: "Original", ownerProcessID: 101)
+    let existing = window(id: 20, title: "Existing", ownerProcessID: 303)
+    let reused = window(id: 10, title: "Replacement", ownerProcessID: 202)
+
+    let ordered = ContainerSessionStageModel.windowsKeepingStableOrder(
+        previous: [original, existing],
+        refreshed: [reused, existing]
+    )
+
+    #expect(ordered.map(\.ownerProcessID) == [303, 202])
+    #expect(ordered.map(\.title) == ["Existing", "Replacement"])
+}
+
+@Test func sessionStageWindowStateRejectsReusedWindowIDFromAnotherProcess() throws {
+    let original = window(id: 10, title: "Original", ownerProcessID: 101)
+    let reused = window(id: 10, title: "Replacement", ownerProcessID: 202)
+    let reusedItem = try #require(
+        SessionStageWindowGridLayout.items(for: [reused]).first
+    )
+    let selectedIdentity = SessionStageWindowIdentity(window: original)
+    let closingIdentities: Set<SessionStageWindowIdentity> = [selectedIdentity]
+
+    #expect(reusedItem.id != selectedIdentity)
+    #expect(!selectedIdentity.matches(reused))
+    #expect(!closingIdentities.contains(reusedItem.id))
+}
+
+@MainActor
+@Test func sessionStageSelectionFallsBackWhenSelectedWindowIDIsReused() {
+    let original = window(id: 10, title: "Original", ownerProcessID: 101)
+    let fallback = window(id: 20, title: "Fallback", ownerProcessID: 303)
+    let reused = window(id: 10, title: "Replacement", ownerProcessID: 202)
+
+    let selected = ContainerSessionStageModel.selectedWindowIdentity(
+        previous: SessionStageWindowIdentity(window: original),
+        selectedWindowID: original.id,
+        windows: [fallback, reused]
+    )
+
+    #expect(selected == SessionStageWindowIdentity(window: fallback))
+    #expect(selected != SessionStageWindowIdentity(window: reused))
+}
+
+@MainActor
+@Test func sessionStageClosingStateDropsReusedWindowIDFromAnotherProcess() {
+    let original = window(id: 10, title: "Original", ownerProcessID: 101)
+    let reused = window(id: 10, title: "Replacement", ownerProcessID: 202)
+    let closing = Set([SessionStageWindowIdentity(window: original)])
+
+    let pruned = ContainerSessionStageModel.closingWindowIdentities(
+        closing,
+        stillPresentIn: [reused]
+    )
+
+    #expect(pruned.isEmpty)
+}
+
 private func window(
     id: CGWindowID,
     title: String,
@@ -93,7 +176,7 @@ private func window(
             #"C:\Games\First\game.exe"#,
         ],
         prefixPath: prefixPath,
-        selectedWindowID: 2,
+        selectedWindowIdentity: SessionStageWindowIdentity(window: windows[1]),
         fallbackName: "Games"
     )
 
@@ -103,6 +186,23 @@ private func window(
     #expect(items.allSatisfy { $0.isRunning })
     #expect(items.map(\.isActive) == [false, true])
     #expect(!items.contains(where: { $0.title == "Not Running" }))
+}
+
+@Test func sessionTaskbarDoesNotMarkReusedWindowIDActive() {
+    let original = window(id: 10, title: "Original", ownerProcessID: 101)
+    let reused = window(id: 10, title: "Replacement", ownerProcessID: 202)
+
+    let items = SessionStageTaskbarPolicy.makeItems(
+        windows: [reused],
+        programs: [],
+        pinnedWindowsPaths: [],
+        prefixPath: "/tmp/SwitchyardTaskbarPrefix",
+        selectedWindowIdentity: SessionStageWindowIdentity(window: original),
+        fallbackName: "Games"
+    )
+
+    #expect(items.count == 1)
+    #expect(!items[0].isActive)
 }
 
 @Test func sessionTaskbarKeepsPinnedAppsWithoutInventingRunningState() {
@@ -119,7 +219,7 @@ private func window(
         programs: [program],
         pinnedWindowsPaths: [#"C:\Apps\Launcher.exe"#],
         prefixPath: prefixPath,
-        selectedWindowID: nil,
+        selectedWindowIdentity: nil,
         fallbackName: "Games"
     )
 
@@ -147,7 +247,7 @@ private func window(
         programs: [],
         pinnedWindowsPaths: [#"C:\Games\Heartopia\Heartopia.exe"#],
         prefixPath: prefixPath,
-        selectedWindowID: runningWindow.id,
+        selectedWindowIdentity: SessionStageWindowIdentity(window: runningWindow),
         fallbackName: "Steam"
     )
     #expect(runningItems.count == 1)
@@ -161,7 +261,7 @@ private func window(
         programs: [],
         pinnedWindowsPaths: [#"C:\Games\Heartopia\Heartopia.exe"#],
         prefixPath: prefixPath,
-        selectedWindowID: nil,
+        selectedWindowIdentity: nil,
         fallbackName: "Steam"
     )
     #expect(stoppedItems.count == 1)
@@ -182,7 +282,7 @@ private func window(
         programs: [],
         pinnedWindowsPaths: [],
         prefixPath: "/tmp/SwitchyardTaskbarPrefix",
-        selectedWindowID: nil,
+        selectedWindowIdentity: nil,
         fallbackName: "Games"
     )
 

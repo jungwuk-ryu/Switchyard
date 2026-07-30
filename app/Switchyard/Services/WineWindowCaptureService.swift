@@ -989,15 +989,18 @@ final class ContainerSessionStageModel: ObservableObject {
     @Published private(set) var windows: [WineWindowSnapshot] = []
     @Published private(set) var screenRecordingAccessUnavailable = false
     @Published private(set) var previewMessage: String?
-    @Published private(set) var closingWindowIDs: Set<CGWindowID> = []
+    @Published private(set) var closingWindowIdentities:
+        Set<SessionStageWindowIdentity> = []
     @Published private(set) var resourceSnapshot: WineSessionResourceSnapshot?
     @Published var selectedWindowID: CGWindowID?
+    @Published private(set) var selectedWindowIdentity:
+        SessionStageWindowIdentity?
 
     private let captureService = WineWindowCaptureService()
     private let previewStore = ContainerPreviewImageStore.shared
     private let resourceMetricsService = WineSessionResourceMetricsService()
     private var refreshGeneration = 0
-    private var lastPersistedWindowID: CGWindowID?
+    private var lastPersistedWindowIdentity: SessionStageWindowIdentity?
     private var lastPersistedAt: Date?
 
     func monitor(containerID: UUID, store: AppStore) async {
@@ -1036,26 +1039,34 @@ final class ContainerSessionStageModel: ObservableObject {
         resourceSnapshot = resources
         screenRecordingAccessUnavailable = result.screenRecordingAccessUnavailable
         previewMessage = result.message
-        if selectedWindowID == nil
-            || !windows.contains(where: { $0.id == selectedWindowID }) {
-            selectedWindowID = windows.first?.id
-        }
+        selectedWindowIdentity = Self.selectedWindowIdentity(
+            previous: selectedWindowIdentity,
+            selectedWindowID: selectedWindowID,
+            windows: windows
+        )
+        selectedWindowID = selectedWindowIdentity?.windowID
+        closingWindowIdentities = Self.closingWindowIdentities(
+            closingWindowIdentities,
+            stillPresentIn: windows
+        )
         await persistCurrentPreview(containerID: containerID, store: store)
     }
 
     func activate(_ window: WineWindowSnapshot) {
         selectedWindowID = window.id
+        selectedWindowIdentity = SessionStageWindowIdentity(window: window)
         captureService.activate(window)
     }
 
     @discardableResult
     func close(_ window: WineWindowSnapshot) async -> WineWindowCloseResult {
-        guard !closingWindowIDs.contains(window.id) else {
+        let identity = SessionStageWindowIdentity(window: window)
+        guard !closingWindowIdentities.contains(identity) else {
             return .operationFailed
         }
-        closingWindowIDs.insert(window.id)
+        closingWindowIdentities.insert(identity)
         defer {
-            closingWindowIDs.remove(window.id)
+            closingWindowIdentities.remove(identity)
         }
 
         let result = await captureService.close(window)
@@ -1079,7 +1090,8 @@ final class ContainerSessionStageModel: ObservableObject {
         }
 
         let now = Date()
-        let shouldPersist = lastPersistedWindowID != window.id
+        let windowIdentity = SessionStageWindowIdentity(window: window)
+        let shouldPersist = lastPersistedWindowIdentity != windowIdentity
             || lastPersistedAt.map {
                 now.timeIntervalSince($0) >= 5
             } ?? true
@@ -1095,20 +1107,56 @@ final class ContainerSessionStageModel: ObservableObject {
         ) else {
             return
         }
-        lastPersistedWindowID = window.id
+        lastPersistedWindowIdentity = windowIdentity
         lastPersistedAt = persistedAt
     }
 
-    static func windowsKeepingStableOrder(
+    nonisolated static func selectedWindowIdentity(
+        previous: SessionStageWindowIdentity?,
+        selectedWindowID: CGWindowID?,
+        windows: [WineWindowSnapshot]
+    ) -> SessionStageWindowIdentity? {
+        if let previous,
+           windows.contains(where: previous.matches) {
+            return previous
+        }
+        if previous == nil,
+           let selectedWindowID,
+           let selectedWindow = windows.first(where: {
+               $0.id == selectedWindowID
+           }) {
+            return SessionStageWindowIdentity(window: selectedWindow)
+        }
+        return windows.first.map(SessionStageWindowIdentity.init)
+    }
+
+    nonisolated static func closingWindowIdentities(
+        _ identities: Set<SessionStageWindowIdentity>,
+        stillPresentIn windows: [WineWindowSnapshot]
+    ) -> Set<SessionStageWindowIdentity> {
+        Set(identities.filter { identity in
+            windows.contains(where: identity.matches)
+        })
+    }
+
+    nonisolated static func windowsKeepingStableOrder(
         previous: [WineWindowSnapshot],
         refreshed: [WineWindowSnapshot]
     ) -> [WineWindowSnapshot] {
         let refreshedByID = Dictionary(
-            uniqueKeysWithValues: refreshed.map { ($0.id, $0) }
+            uniqueKeysWithValues: refreshed.map {
+                (SessionStageWindowIdentity(window: $0), $0)
+            }
         )
-        var ordered = previous.compactMap { refreshedByID[$0.id] }
-        let existingIDs = Set(ordered.map(\.id))
-        ordered.append(contentsOf: refreshed.filter { !existingIDs.contains($0.id) })
+        var ordered = previous.compactMap {
+            refreshedByID[SessionStageWindowIdentity(window: $0)]
+        }
+        let existingIdentities = Set(
+            ordered.map(SessionStageWindowIdentity.init)
+        )
+        ordered.append(contentsOf: refreshed.filter {
+            !existingIdentities.contains(SessionStageWindowIdentity(window: $0))
+        })
         return ordered
     }
 }

@@ -135,7 +135,7 @@ enum SessionStageTaskbarPolicy {
         programs: [InstalledProgram],
         pinnedWindowsPaths: [String],
         prefixPath: String,
-        selectedWindowID: CGWindowID?,
+        selectedWindowIdentity: SessionStageWindowIdentity?,
         fallbackName: String
     ) -> [SessionStageTaskbarItem] {
         let groups = runningGroups(windows: windows, prefixPath: prefixPath)
@@ -187,7 +187,7 @@ enum SessionStageTaskbarPolicy {
                 title: title,
                 windows: group.windows,
                 isActive: group.windows.contains {
-                    $0.id == selectedWindowID
+                    selectedWindowIdentity?.matches($0) == true
                 }
             )
         }
@@ -569,7 +569,7 @@ struct ContainerSessionStageView: View {
         }
         .animation(
             reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.84),
-            value: stageModel.selectedWindowID
+            value: stageModel.selectedWindowIdentity
         )
         .animation(
             reduceMotion ? nil : .snappy(duration: 0.28),
@@ -598,15 +598,18 @@ struct ContainerSessionStageView: View {
                         )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
+                    let gridItems = SessionStageWindowGridLayout.items(
+                        for: stageModel.windows
+                    )
                     ScrollView(
                         .vertical,
                         showsIndicators: metrics.contentHeight > availableSize.height
                     ) {
                         SessionStageWindowGrid(
-                            itemCount: stageModel.windows.count,
+                            items: gridItems,
                             metrics: metrics
-                        ) { index in
-                            let window = stageModel.windows[index]
+                        ) { item in
+                            let window = item.window
                             let program = program(for: window)
                             SessionStageWindowCard(
                                 window: window,
@@ -618,16 +621,16 @@ struct ContainerSessionStageView: View {
                                 presentation: windowPresentation(
                                     for: window,
                                     program: program,
-                                    index: index
+                                    index: item.layoutIndex
                                 ),
                                 isRunning: true,
-                                isSelected: window.id == stageModel.selectedWindowID,
-                                isClosing: stageModel.closingWindowIDs.contains(window.id),
+                                isSelected: stageModel.selectedWindowIdentity == item.id,
+                                isClosing: stageModel.closingWindowIdentities.contains(item.id),
                                 onClose: {
-                                    requestClose(window)
+                                    requestClose(item.id)
                                 }
                             ) {
-                                stageModel.activate(window)
+                                activateWindow(item.id)
                             }
                         }
                         .frame(
@@ -657,7 +660,7 @@ struct ContainerSessionStageView: View {
             onActivateOrLaunch: { item in
                 startMenuPresented = false
                 if let selectedWindow = item.windows.first(where: {
-                    $0.id == stageModel.selectedWindowID
+                    stageModel.selectedWindowIdentity?.matches($0) == true
                 }) ?? item.windows.first {
                     stageModel.activate(selectedWindow)
                 } else if let program = item.program {
@@ -993,7 +996,7 @@ struct ContainerSessionStageView: View {
             programs: programs,
             pinnedWindowsPaths: liveContainer.pinnedWindowsExecutablePaths,
             prefixPath: liveContainer.path,
-            selectedWindowID: stageModel.selectedWindowID,
+            selectedWindowIdentity: stageModel.selectedWindowIdentity,
             fallbackName: liveContainer.name
         )
     }
@@ -1079,10 +1082,22 @@ struct ContainerSessionStageView: View {
         }
     }
 
-    private func requestClose(_ window: WineWindowSnapshot) {
+    private func activateWindow(_ identity: SessionStageWindowIdentity) {
+        guard let window = stageModel.windows.first(where: identity.matches) else {
+            return
+        }
+        stageModel.activate(window)
+    }
+
+    private func requestClose(_ identity: SessionStageWindowIdentity) {
         Task {
-            let result = await stageModel.close(window)
-            await stageModel.refresh(containerID: container.id, store: store)
+            let result: WineWindowCloseResult
+            if let window = stageModel.windows.first(where: identity.matches) {
+                result = await stageModel.close(window)
+                await stageModel.refresh(containerID: container.id, store: store)
+            } else {
+                result = .staleWindow
+            }
             guard result != .requested else { return }
 
             let notice = closeNotice(for: result)

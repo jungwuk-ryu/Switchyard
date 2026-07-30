@@ -70,7 +70,7 @@ import Testing
         programs: [],
         pinnedWindowsPaths: [],
         prefixPath: "/prefix",
-        selectedWindowID: snapshot.id,
+        selectedWindowIdentity: SessionStageWindowIdentity(window: snapshot),
         fallbackName: "Steam"
     )
 
@@ -125,7 +125,7 @@ import Testing
             programs: [],
             pinnedWindowsPaths: [],
             prefixPath: prefixURL.path,
-            selectedWindowID: snapshot.id,
+            selectedWindowIdentity: SessionStageWindowIdentity(window: snapshot),
             fallbackName: "Rockstar"
         ).first
     )

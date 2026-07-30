@@ -1,5 +1,6 @@
 import AppCore
 import CoreGraphics
+import Darwin
 import SwiftUI
 
 struct SessionStageWindowGridMetrics: Equatable {
@@ -178,17 +179,51 @@ struct SessionStageWindowPresentation: Equatable {
     }
 }
 
+struct SessionStageWindowIdentity: Hashable {
+    let windowID: CGWindowID
+    let ownerProcessID: pid_t
+
+    init(window: WineWindowSnapshot) {
+        windowID = window.id
+        ownerProcessID = window.ownerProcessID
+    }
+
+    func matches(_ window: WineWindowSnapshot) -> Bool {
+        window.id == windowID && window.ownerProcessID == ownerProcessID
+    }
+}
+
+struct SessionStageWindowGridItem: Identifiable {
+    let id: SessionStageWindowIdentity
+    let layoutIndex: Int
+    let window: WineWindowSnapshot
+}
+
+enum SessionStageWindowGridLayout {
+    static func items(
+        for windows: [WineWindowSnapshot]
+    ) -> [SessionStageWindowGridItem] {
+        windows.enumerated().map { layoutIndex, window in
+            SessionStageWindowGridItem(
+                id: SessionStageWindowIdentity(window: window),
+                layoutIndex: layoutIndex,
+                window: window
+            )
+        }
+    }
+}
+
 struct SessionStageWindowGrid<Content: View>: View {
-    let itemCount: Int
+    let items: [SessionStageWindowGridItem]
     let metrics: SessionStageWindowGridMetrics
-    private let content: (Int) -> Content
+    private let content: (SessionStageWindowGridItem) -> Content
 
     init(
-        itemCount: Int,
+        items: [SessionStageWindowGridItem],
         metrics: SessionStageWindowGridMetrics,
-        @ViewBuilder content: @escaping (Int) -> Content
+        @ViewBuilder content: @escaping (SessionStageWindowGridItem) -> Content
     ) {
-        self.itemCount = itemCount
+        self.items = items
         self.metrics = metrics
         self.content = content
     }
@@ -197,10 +232,10 @@ struct SessionStageWindowGrid<Content: View>: View {
         VStack(spacing: metrics.spacing) {
             ForEach(0..<metrics.rows, id: \.self) { row in
                 let start = row * metrics.columns
-                let end = min(itemCount, start + metrics.columns)
+                let end = min(items.count, start + metrics.columns)
                 HStack(spacing: metrics.spacing) {
-                    ForEach(start..<end, id: \.self) { index in
-                        content(index)
+                    ForEach(Array(items[start..<end])) { item in
+                        content(item)
                             .frame(
                                 width: metrics.cardSize.width,
                                 height: metrics.cardSize.height
