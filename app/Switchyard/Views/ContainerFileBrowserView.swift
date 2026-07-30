@@ -14,6 +14,7 @@ struct ContainerFileBrowserView: View {
     @State private var entries: [ContainerFileEntry] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
+    @State private var directoryLoader = ContainerDirectoryRequestLoader()
 
     init(
         container: Container,
@@ -239,23 +240,103 @@ struct ContainerFileBrowserView: View {
     }
 
     private func loadDirectory() async {
-        isLoading = true
-        errorMessage = nil
+        guard !Task.isCancelled else {
+            return
+        }
         let requestedURL = directoryURL
         let container = container
 
-        do {
-            let loadedEntries = try await Task.detached(priority: .userInitiated) {
-                try ContainerDirectoryCatalog().contents(of: requestedURL, in: container)
-            }.value
-            guard requestedURL == directoryURL else { return }
-            entries = loadedEntries
-        } catch {
-            guard requestedURL == directoryURL else { return }
-            entries = []
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        await directoryLoader.load(
+            request: requestedURL,
+            prepare: {
+                isLoading = true
+                errorMessage = nil
+            },
+            operation: { url in
+                await ContainerDirectoryLoadOperation.load(
+                    directoryURL: url,
+                    container: container
+                )
+            },
+            isCurrent: { url in
+                url == directoryURL
+            },
+            publish: { result in
+                switch result {
+                case .success(let loadedEntries):
+                    entries = loadedEntries
+                    errorMessage = nil
+                case .failure(let message):
+                    entries = []
+                    errorMessage = message
+                case .cancelled:
+                    return
+                }
+                isLoading = false
+            }
+        )
+    }
+}
+
+@MainActor
+final class ContainerDirectoryRequestLoader {
+    private let loader = LatestAsyncValueLoader<URL>()
+
+    func load<Value: Sendable>(
+        request: URL,
+        prepare: () -> Void,
+        operation: @escaping @Sendable (URL) async -> Value,
+        isCurrent: (URL) -> Bool,
+        publish: (Value) -> Void
+    ) async {
+        guard !Task.isCancelled else {
+            return
         }
-        isLoading = false
+        prepare()
+        await loader.load(
+            request: request,
+            operation: operation,
+            isCurrent: isCurrent,
+            publish: publish
+        )
+    }
+}
+
+private enum ContainerDirectoryLoadResult: Sendable {
+    case success([ContainerFileEntry])
+    case failure(String)
+    case cancelled
+}
+
+private enum ContainerDirectoryLoadOperation {
+    static func load(
+        directoryURL: URL,
+        container: Container
+    ) async -> ContainerDirectoryLoadResult {
+        let task = Task.detached(priority: .userInitiated) {
+            try Task.checkCancellation()
+            let entries = try ContainerDirectoryCatalog().contents(
+                of: directoryURL,
+                in: container
+            )
+            try Task.checkCancellation()
+            return entries
+        }
+
+        do {
+            let entries = try await withTaskCancellationHandler {
+                try await task.value
+            } onCancel: {
+                task.cancel()
+            }
+            return .success(entries)
+        } catch is CancellationError {
+            return .cancelled
+        } catch {
+            return .failure(
+                (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            )
+        }
     }
 }
 
