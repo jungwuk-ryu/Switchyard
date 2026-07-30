@@ -64,6 +64,16 @@ jobs:
       - name: Test runner lifecycle and logging
         run: Tests/Shell/runner_prefix_session_test.sh
 
+      - name: Test runner protocol, shortcut, and partial-log handling
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift build --product switchyard-runner --jobs "$SWIFT_BUILD_JOBS"
+          runner_path="$(swift build --show-bin-path)/switchyard-runner"
+          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_protocol_callback_test.sh
+          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_desktop_shortcut_test.sh
+          SWITCHYARD_RUNNER="$runner_path" Tests/Shell/runner_partial_log_buffer_test.sh
+
       - name: Verify app bundle
         env:
           SWITCHYARD_SKIP_RUNTIME_ENSURE: "1"

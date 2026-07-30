@@ -201,6 +201,11 @@ jobs:
           swift test --jobs "$SWIFT_BUILD_JOBS"
           Tests/Shell/create_dmg_test.sh
           Tests/Shell/generate_appcast_test.sh
+          swift build --product switchyard-runner --jobs "$SWIFT_BUILD_JOBS"
+          runner_path="$(swift build --show-bin-path)/switchyard-runner"
+          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_protocol_callback_test.sh
+          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_desktop_shortcut_test.sh
+          SWITCHYARD_RUNNER="$runner_path" Tests/Shell/runner_partial_log_buffer_test.sh
           for script in \
             script/build_and_run.sh \
             script/sign_sparkle_framework.sh \
