@@ -1,7 +1,230 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+LAUNCH_OBSERVATION_ATTEMPTS=20
+LAUNCH_OBSERVATION_DELAY=0.5
+
+usage() {
+  echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--help]" >&2
+}
+
+trim_process_field() {
+  /usr/bin/sed \
+    -e 's/^[[:space:]]*//' \
+    -e 's/[[:space:]]*$//'
+}
+
+process_start_identity() {
+  local pid="$1"
+  /bin/ps -ww -p "$pid" -o lstart= 2>/dev/null | trim_process_field
+}
+
+process_executable_path() {
+  local pid="$1"
+  /bin/ps -ww -p "$pid" -o comm= 2>/dev/null | trim_process_field
+}
+
+process_command_line() {
+  local pid="$1"
+  /bin/ps -ww -p "$pid" -o command= 2>/dev/null | trim_process_field
+}
+
+process_state() {
+  local pid="$1"
+  /bin/ps -ww -p "$pid" -o state= 2>/dev/null | trim_process_field
+}
+
+process_matches_launch() {
+  local pid="$1"
+  local expected_start_identity="$2"
+  local expected_executable="$3"
+  local launch_argument="$4"
+  local current_start_identity
+  local current_command_line
+  local current_state
+
+  case "$pid" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  [ "$(process_executable_path "$pid")" = "$expected_executable" ] || return 1
+  current_start_identity="$(process_start_identity "$pid")"
+  [ -n "$current_start_identity" ] || return 1
+  [ "$current_start_identity" = "$expected_start_identity" ] || return 1
+  current_state="$(process_state "$pid")"
+  case "$current_state" in
+    Z*) return 1 ;;
+  esac
+  current_command_line="$(process_command_line "$pid")"
+  case " $current_command_line " in
+    *" $launch_argument "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+tagged_process_records() {
+  local expected_executable="$1"
+  local launch_argument="$2"
+  local candidate_pid
+  local candidate_executable
+  local candidate_command_line
+  local candidate_start_identity
+
+  while IFS=' ' read -r candidate_pid candidate_executable; do
+    [ "$candidate_executable" = "$expected_executable" ] || continue
+    candidate_command_line="$(process_command_line "$candidate_pid")"
+    case " $candidate_command_line " in
+      *" $launch_argument "*) ;;
+      *) continue ;;
+    esac
+    candidate_start_identity="$(process_start_identity "$candidate_pid")"
+    [ -n "$candidate_start_identity" ] || continue
+    /usr/bin/printf '%s\t%s\n' "$candidate_pid" "$candidate_start_identity"
+  done < <(/bin/ps -ww -axo pid=,comm=)
+}
+
+wait_for_tagged_process_record() {
+  local expected_executable="$1"
+  local launch_argument="$2"
+  local attempts="${3:-20}"
+  local delay="${4:-0.5}"
+  local records
+  local record_count
+
+  while [ "$attempts" -gt 0 ]; do
+    records="$(tagged_process_records "$expected_executable" "$launch_argument")"
+    record_count="$(
+      /usr/bin/printf '%s\n' "$records" \
+        | /usr/bin/awk 'NF { count += 1 } END { print count + 0 }'
+    )"
+    if [ "$record_count" -eq 1 ]; then
+      /usr/bin/printf '%s\n' "$records"
+      return 0
+    fi
+    if [ "$record_count" -gt 1 ]; then
+      echo "refusing to select between multiple processes with the same launch identity" >&2
+      return 1
+    fi
+    attempts=$((attempts - 1))
+    if [ "$attempts" -gt 0 ]; then
+      sleep "$delay"
+    fi
+  done
+  return 1
+}
+
+terminate_tagged_process() {
+  local pid="$1"
+  local start_identity="$2"
+  local expected_executable="$3"
+  local launch_argument="$4"
+  local term_attempts="${5:-30}"
+  local kill_attempts="${6:-20}"
+
+  if ! process_matches_launch \
+    "$pid" \
+    "$start_identity" \
+    "$expected_executable" \
+    "$launch_argument"; then
+    return 0
+  fi
+
+  kill -TERM "$pid" >/dev/null 2>&1 || true
+  while [ "$term_attempts" -gt 0 ]; do
+    if ! process_matches_launch \
+      "$pid" \
+      "$start_identity" \
+      "$expected_executable" \
+      "$launch_argument"; then
+      wait "$pid" >/dev/null 2>&1 || true
+      return 0
+    fi
+    term_attempts=$((term_attempts - 1))
+    sleep 0.1
+  done
+
+  kill -KILL "$pid" >/dev/null 2>&1 || true
+  while [ "$kill_attempts" -gt 0 ]; do
+    if ! process_matches_launch \
+      "$pid" \
+      "$start_identity" \
+      "$expected_executable" \
+      "$launch_argument"; then
+      wait "$pid" >/dev/null 2>&1 || true
+      return 0
+    fi
+    kill_attempts=$((kill_attempts - 1))
+    sleep 0.1
+  done
+
+  echo "tracked app process $pid did not exit after SIGKILL" >&2
+  return 1
+}
+
+cleanup_tracked_app() {
+  local exit_status=$?
+  local record
+
+  if [ "${CLEANUP_TRACKED_APP_ON_EXIT:-0}" = "1" ]; then
+    if [ -z "${TRACKED_APP_PID:-}" ] \
+      && [ -n "${TRACKED_APP_EXECUTABLE:-}" ] \
+      && [ -n "${TRACKED_APP_LAUNCH_ARGUMENT:-}" ]; then
+      record="$(
+        wait_for_tagged_process_record \
+          "$TRACKED_APP_EXECUTABLE" \
+          "$TRACKED_APP_LAUNCH_ARGUMENT" \
+          "$LAUNCH_OBSERVATION_ATTEMPTS" \
+          "$LAUNCH_OBSERVATION_DELAY" \
+          || true
+      )"
+      if [ -n "$record" ]; then
+        TRACKED_APP_PID="${record%%	*}"
+        TRACKED_APP_START_IDENTITY="${record#*	}"
+      fi
+    fi
+    if [ -n "${TRACKED_APP_PID:-}" ] \
+      && [ -n "${TRACKED_APP_START_IDENTITY:-}" ]; then
+      terminate_tagged_process \
+        "$TRACKED_APP_PID" \
+        "$TRACKED_APP_START_IDENTITY" \
+        "$TRACKED_APP_EXECUTABLE" \
+        "$TRACKED_APP_LAUNCH_ARGUMENT" \
+        || true
+    fi
+  fi
+  return "$exit_status"
+}
+
+main() {
 MODE="${1:-run}"
+if [ "$#" -gt 1 ]; then
+  usage
+  exit 2
+fi
+case "$MODE" in
+  run|--debug|debug|--logs|logs|--telemetry|telemetry|--verify|verify) ;;
+  --help|help|-h)
+    usage
+    exit 0
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+cd "$ROOT_DIR"
+
+TRACKED_APP_PID=""
+TRACKED_APP_START_IDENTITY=""
+TRACKED_APP_EXECUTABLE=""
+TRACKED_APP_LAUNCH_ARGUMENT=""
+CLEANUP_TRACKED_APP_ON_EXIT=0
+trap cleanup_tracked_app EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 APP_NAME="Switchyard"
 BUNDLE_ID="dev.switchyard.Switchyard"
 MIN_SYSTEM_VERSION="14.0"
@@ -18,7 +241,6 @@ case "$DISABLE_SWIFTPM_SANDBOX" in
   *) echo "SWITCHYARD_DISABLE_SWIFTPM_SANDBOX must be 0 or 1" >&2; exit 2 ;;
 esac
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IDENTITY_SELECTOR="$ROOT_DIR/script/local_codesign_identity.sh"
 SPARKLE_SIGNER="$ROOT_DIR/script/sign_sparkle_framework.sh"
 APP_UPDATE_CONFIG="$ROOT_DIR/config/app-update.env"
@@ -93,6 +315,7 @@ elif [ "$SWIFT_BUILD_JOBS" -lt 1 ]; then
   SWIFT_BUILD_JOBS=1
 fi
 SWIFT_BUILD_OPTIONS=(
+  --package-path "$ROOT_DIR"
   -c "$BUILD_CONFIGURATION"
   --jobs "$SWIFT_BUILD_JOBS"
 )
@@ -104,18 +327,6 @@ fi
   echo "missing app icon: $APP_ICON_SOURCE" >&2
   exit 1
 }
-
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-for _ in {1..50}; do
-  if ! pgrep -x "$APP_NAME" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.1
-done
-if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
-  echo "$APP_NAME did not stop before the runtime build started" >&2
-  exit 1
-fi
 
 if [ "${SWITCHYARD_SKIP_RUNTIME_ENSURE:-0}" != "1" ]; then
   "$ROOT_DIR/script/ensure_wine_runtime.sh"
@@ -305,55 +516,80 @@ else
   echo "signed local app with persistent identity: $LOCAL_CODESIGN_IDENTITY"
 fi
 
-open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
-}
+open_app_and_track() {
+  local launch_token
+  local record
 
-wait_for_app_pid() {
-  local app_pid=""
-  for _ in {1..20}; do
-    app_pid="$(pgrep -x "$APP_NAME" | tail -n 1 || true)"
-    if [ -n "$app_pid" ]; then
-      /usr/bin/printf '%s\n' "$app_pid"
-      return 0
-    fi
-    sleep 0.5
-  done
-  return 1
+  launch_token="$(/usr/bin/uuidgen)"
+  TRACKED_APP_EXECUTABLE="$APP_BINARY"
+  TRACKED_APP_LAUNCH_ARGUMENT="--switchyard-launch-token=$launch_token"
+  CLEANUP_TRACKED_APP_ON_EXIT=1
+
+  /usr/bin/open \
+    -n \
+    "$APP_BUNDLE" \
+    --args \
+    "$TRACKED_APP_LAUNCH_ARGUMENT"
+
+  record="$(
+    wait_for_tagged_process_record \
+      "$TRACKED_APP_EXECUTABLE" \
+      "$TRACKED_APP_LAUNCH_ARGUMENT" \
+      "$LAUNCH_OBSERVATION_ATTEMPTS" \
+      "$LAUNCH_OBSERVATION_DELAY" \
+      || true
+  )"
+  if [ -z "$record" ]; then
+    echo "$APP_NAME did not start with the expected bundle executable within 10 seconds" >&2
+    return 1
+  fi
+
+  TRACKED_APP_PID="${record%%	*}"
+  TRACKED_APP_START_IDENTITY="${record#*	}"
 }
 
 case "$MODE" in
   run)
-    open_app
+    open_app_and_track
+    CLEANUP_TRACKED_APP_ON_EXIT=0
     ;;
   --debug|debug)
-    open_app
-    debug_pid="$(wait_for_app_pid || true)"
-    if [ -z "$debug_pid" ]; then
-      echo "$APP_NAME did not start within 10 seconds" >&2
-      exit 1
-    fi
-    lldb -p "$debug_pid"
+    open_app_and_track
+    lldb -p "$TRACKED_APP_PID"
+    CLEANUP_TRACKED_APP_ON_EXIT=0
     ;;
   --logs|logs)
-    open_app
-    /usr/bin/log stream --info --style compact --predicate "process == \"$APP_NAME\""
+    open_app_and_track
+    /usr/bin/log stream \
+      --info \
+      --style compact \
+      --predicate "processIdentifier == $TRACKED_APP_PID"
+    CLEANUP_TRACKED_APP_ON_EXIT=0
     ;;
   --telemetry|telemetry)
-    open_app
-    /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
+    open_app_and_track
+    /usr/bin/log stream \
+      --info \
+      --style compact \
+      --predicate "processIdentifier == $TRACKED_APP_PID AND subsystem == \"$BUNDLE_ID\""
+    CLEANUP_TRACKED_APP_ON_EXIT=0
     ;;
   --verify|verify)
-    open_app
-    verified_pid="$(wait_for_app_pid || true)"
-    if [ -z "$verified_pid" ]; then
-      echo "$APP_NAME did not start within 10 seconds" >&2
+    open_app_and_track
+    if ! terminate_tagged_process \
+      "$TRACKED_APP_PID" \
+      "$TRACKED_APP_START_IDENTITY" \
+      "$TRACKED_APP_EXECUTABLE" \
+      "$TRACKED_APP_LAUNCH_ARGUMENT"; then
       exit 1
     fi
-    kill "$verified_pid" >/dev/null 2>&1 || true
-    ;;
-  *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify]" >&2
-    exit 2
+    TRACKED_APP_PID=""
+    TRACKED_APP_START_IDENTITY=""
+    CLEANUP_TRACKED_APP_ON_EXIT=0
     ;;
 esac
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi
