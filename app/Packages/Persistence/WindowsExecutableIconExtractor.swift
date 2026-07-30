@@ -368,7 +368,8 @@ private struct PEIconParser {
 
     private static func uint8(in data: Data, at offset: Int) -> UInt8? {
         guard offset >= 0, offset < data.count else { return nil }
-        return data[offset]
+        let index = data.index(data.startIndex, offsetBy: offset)
+        return data[index]
     }
 
     private static func uint16(in data: Data, at offset: Int) -> UInt16? {
@@ -394,7 +395,9 @@ private struct PEIconParser {
               count <= data.count - offset else {
             return nil
         }
-        return Data(data[offset..<(offset + count)])
+        let lowerBound = data.index(data.startIndex, offsetBy: offset)
+        let upperBound = data.index(lowerBound, offsetBy: count)
+        return Data(data[lowerBound..<upperBound])
     }
 
     private static func append<T: FixedWidthInteger>(_ value: T, to data: inout Data) {

@@ -783,6 +783,17 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(WindowsExecutableIconExtractor.iconData(from: executable) == nil)
 }
 
+@Test func windowsExecutableIconExtractorReadsNonzeroBasedDataSlice() throws {
+    let iconImage = Data([0x11, 0x22, 0x33, 0x44])
+    let executable = makePEExecutableWithIconResource(iconImage: iconImage)
+    let paddedExecutable = Data(repeating: 0xCC, count: 17) + executable
+    let executableSlice = paddedExecutable.dropFirst(17)
+
+    #expect(executableSlice.startIndex == 17)
+    let icon = try #require(WindowsExecutableIconExtractor.iconData(from: executableSlice))
+    #expect(Array(icon.suffix(iconImage.count)) == Array(iconImage))
+}
+
 private func makePEExecutableWithIconResource(iconImage: Data) -> Data {
     var data = Data(repeating: 0, count: 0x600)
     data[0] = 0x4D
