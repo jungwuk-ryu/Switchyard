@@ -194,14 +194,7 @@ private struct SwitchyardWineSourcePolicy {
             .appendingPathComponent("config/switchyard-wine.env")
         let sourceURL = bundledURL ?? developmentURL
         let contents = (try? String(contentsOf: sourceURL, encoding: .utf8)) ?? ""
-        let values = Dictionary(
-            uniqueKeysWithValues: contents
-                .split(whereSeparator: { $0.isNewline })
-                .compactMap { line -> (String, String)? in
-                    guard !line.hasPrefix("#"), let separator = line.firstIndex(of: "=") else { return nil }
-                    return (String(line[..<separator]), String(line[line.index(after: separator)...]))
-                }
-        )
+        let values = SourceEnvironmentFile.parse(contents)
         let unresolvedRevision = values["SWITCHYARD_WINE_REVISION"] ?? ""
         let unresolvedRevisionTimestamp = values["SWITCHYARD_WINE_REVISION_TIMESTAMP"] ?? ""
         let unresolvedManifestURL = values["SWITCHYARD_WINE_RELEASE_MANIFEST_URL"] ?? ""
