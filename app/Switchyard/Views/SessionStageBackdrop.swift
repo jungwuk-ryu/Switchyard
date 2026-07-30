@@ -8,6 +8,7 @@ struct SessionStageBackdrop: View {
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var backgroundImage: LoadedSessionBackground?
+    @State private var backgroundImageLoader = LatestAsyncValueLoader<String>()
 
     var body: some View {
         ZStack {
@@ -33,9 +34,23 @@ struct SessionStageBackdrop: View {
         .clipped()
         .ignoresSafeArea()
         .task(id: backgroundIdentity) {
-            backgroundImage = await SessionBackgroundImageLoader.load(
-                relativePath: container.sessionAppearance.backgroundImageRelativePath,
-                containerPath: container.path
+            let requestedIdentity = backgroundIdentity
+            let relativePath = container.sessionAppearance.backgroundImageRelativePath
+            let containerPath = container.path
+            await backgroundImageLoader.load(
+                request: requestedIdentity,
+                operation: { _ in
+                    await SessionBackgroundImageLoader.load(
+                        relativePath: relativePath,
+                        containerPath: containerPath
+                    )
+                },
+                isCurrent: { identity in
+                    identity == backgroundIdentity
+                },
+                publish: { loadedImage in
+                    backgroundImage = loadedImage
+                }
             )
         }
         .accessibilityHidden(true)

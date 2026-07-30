@@ -815,6 +815,7 @@ private struct SessionAppearancePreview: View {
     let appearance: ContainerSessionAppearance
 
     @State private var image: SettingsPreviewImage?
+    @State private var imageLoader = LatestAsyncValueLoader<URL?>()
 
     var body: some View {
         GeometryReader { proxy in
@@ -839,7 +840,19 @@ private struct SessionAppearancePreview: View {
             .shadow(color: .black.opacity(0.22), radius: 20, y: 10)
         }
         .task(id: imageURL) {
-            image = await SettingsPreviewImageLoader.load(from: imageURL)
+            let requestedURL = imageURL
+            await imageLoader.load(
+                request: requestedURL,
+                operation: { url in
+                    await SettingsPreviewImageLoader.load(from: url)
+                },
+                isCurrent: { url in
+                    url == imageURL
+                },
+                publish: { loadedImage in
+                    image = loadedImage
+                }
+            )
         }
     }
 
