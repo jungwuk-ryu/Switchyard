@@ -121,6 +121,11 @@ The first full source build can take a while. Wine source, build products, impor
 
 Start with [Architecture](docs/architecture.md), [Development](docs/development.md), and the [official launcher installer catalog](docs/launcher-installers.md). Contributions are welcome through [CONTRIBUTING.md](CONTRIBUTING.md); report vulnerabilities according to [SECURITY.md](SECURITY.md).
 
+## Community
+
+Join the [Switchyard Discord](https://discord.gg/USNfzUza7B) for setup help,
+compatibility reports, testing, and development discussion.
+
 ## License
 
 Switchyard app and runner code are available under the [MIT License](LICENSE). The patched Wine runtime and third-party components retain their own licenses and distribution requirements.
