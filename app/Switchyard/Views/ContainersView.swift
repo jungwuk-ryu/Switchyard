@@ -350,7 +350,10 @@ private struct ContainerLibraryCard: View {
             await model.monitor(containerID: container.id, store: store)
         }
         .task(id: sizeTaskIdentity) {
-            await model.refreshStorageSize(for: container)
+            await model.refreshStorageSize(
+                for: container,
+                store: store
+            )
         }
         .accessibilityIdentifier("containers.card.\(container.id.uuidString)")
     }
@@ -540,6 +543,11 @@ private struct ContainerLibraryCard: View {
     }
 
     private var sizeTaskIdentity: String {
-        container.path
+        [
+            container.id.uuidString,
+            URL(fileURLWithPath: container.path, isDirectory: true)
+                .standardizedFileURL
+                .path,
+        ].joined(separator: "\u{0}")
     }
 }

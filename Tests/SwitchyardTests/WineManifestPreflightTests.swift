@@ -420,6 +420,98 @@ struct WineManifestPreflightTests {
         #expect(desktopEntries.allSatisfy { $0.pathExtension.lowercased() != "app" })
     }
 
+    @MainActor
+    @Test func indexedProtocolRefreshNeverFallsBackToTheManifestOnDisk() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent(
+                "switchyard-indexed-protocol-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let prefix = root.appendingPathComponent(
+            "Test.container",
+            isDirectory: true
+        )
+        let bridgeRoot = root.appendingPathComponent(
+            "Bridge",
+            isDirectory: true
+        )
+        let wine = root.appendingPathComponent("wine")
+        let runner = root.appendingPathComponent("runner")
+        defer { try? fileManager.removeItem(at: root) }
+
+        try makeExecutable(at: wine, fileManager: fileManager)
+        try makeExecutable(at: runner, fileManager: fileManager)
+        let manifestURL = WineProtocolAssociationFormat.manifestURL(
+            prefixPath: prefix.path
+        )
+        try fileManager.createDirectory(
+            at: manifestURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(
+            "\(WineProtocolAssociationFormat.manifestHeader)\nxdt\n".utf8
+        ).write(to: manifestURL)
+        let container = Container(name: "Test", path: prefix.path)
+        let bridge = WineProtocolBridge(
+            fileManager: fileManager,
+            rootURL: bridgeRoot
+        )
+
+        _ = try bridge.refresh(
+            containers: [container],
+            indexedMetadataByContainerID: [:],
+            winePath: wine.path,
+            runnerPath: runner.path
+        )
+
+        let routeData = try Data(
+            contentsOf: bridgeRoot.appendingPathComponent("routes-v1.json")
+        )
+        let routes = try JSONDecoder().decode(
+            WineProtocolRouteIndex.self,
+            from: routeData
+        )
+        #expect(routes.routes.isEmpty)
+    }
+
+    @MainActor
+    @Test func indexedDesktopRoutesUseOnlySharedMetadata() {
+        let container = Container(
+            name: "Test",
+            path: "/containers/Test"
+        )
+        let entry = WineDesktopShortcutManifestEntry(
+            kind: .url,
+            displayName: "Indexed Game",
+            windowsShortcutPath:
+                #"C:\users\steamuser\Desktop\Indexed Game.url"#
+        )
+        let bridge = WineDesktopShortcutBridge()
+
+        let absent = bridge.desiredShortcutRoutesForTesting(
+            containers: [container],
+            indexedMetadataByContainerID: [:],
+            winePath: "/test/wine",
+            runnerPath: "/test/runner"
+        )
+        let indexed = bridge.desiredShortcutRoutesForTesting(
+            containers: [container],
+            indexedMetadataByContainerID: [
+                container.id: ContainerBridgeIndexMetadata(
+                    desktopShortcutEntries: [entry]
+                )
+            ],
+            winePath: "/test/wine",
+            runnerPath: "/test/runner"
+        )
+
+        #expect(absent.isEmpty)
+        #expect(indexed.count == 1)
+        #expect(indexed.first?.containerID == container.id)
+        #expect(indexed.first?.windowsShortcutPath == entry.windowsShortcutPath)
+    }
+
     private func desktopManifestLine(_ index: Int) -> String {
         desktopManifestLine(
             name: "Shortcut \(index)",

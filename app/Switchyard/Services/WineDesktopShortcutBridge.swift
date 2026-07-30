@@ -112,6 +112,37 @@ final class WineDesktopShortcutBridge {
         winePath: String,
         runnerPath: String
     ) throws -> PreparedRefresh {
+        try prepareRefresh(
+            containers: containers,
+            indexedMetadataByContainerID: nil,
+            winePath: winePath,
+            runnerPath: runnerPath
+        )
+    }
+
+    func prepareRefresh(
+        containers: [Container],
+        indexedMetadataByContainerID:
+            [UUID: ContainerBridgeIndexMetadata],
+        winePath: String,
+        runnerPath: String
+    ) throws -> PreparedRefresh {
+        try prepareRefresh(
+            containers: containers,
+            indexedMetadataByContainerID:
+                Optional(indexedMetadataByContainerID),
+            winePath: winePath,
+            runnerPath: runnerPath
+        )
+    }
+
+    private func prepareRefresh(
+        containers: [Container],
+        indexedMetadataByContainerID:
+            [UUID: ContainerBridgeIndexMetadata]?,
+        winePath: String,
+        runnerPath: String
+    ) throws -> PreparedRefresh {
         let wineURL = URL(fileURLWithPath: winePath).standardizedFileURL
         let runnerURL = URL(
             fileURLWithPath: runnerPath
@@ -140,6 +171,8 @@ final class WineDesktopShortcutBridge {
 
         let desired = desiredShortcuts(
             containers: containers,
+            indexedMetadataByContainerID:
+                indexedMetadataByContainerID,
             winePath: winePath,
             runnerPath: runnerPath
         )
@@ -262,28 +295,64 @@ final class WineDesktopShortcutBridge {
         ).map(\.route)
     }
 
+    func desiredShortcutRoutesForTesting(
+        containers: [Container],
+        indexedMetadataByContainerID:
+            [UUID: ContainerBridgeIndexMetadata],
+        winePath: String,
+        runnerPath: String
+    ) -> [WineDesktopShortcutRoute] {
+        desiredShortcuts(
+            containers: containers,
+            indexedMetadataByContainerID:
+                indexedMetadataByContainerID,
+            winePath: winePath,
+            runnerPath: runnerPath
+        ).map(\.route)
+    }
+
     private func desiredShortcuts(
         containers: [Container],
+        indexedMetadataByContainerID:
+            [UUID: ContainerBridgeIndexMetadata]? = nil,
         winePath: String,
         runnerPath: String
     ) -> [DesiredShortcut] {
         var candidatesByID: [String: ShortcutCandidate] = [:]
         for container in containers {
-            let manifestURL = WineDesktopShortcutFormat.manifestURL(prefixPath: container.path)
-            guard let contents = WineManifestFileReader.contents(
-                at: manifestURL,
-                insidePrefix: container.path,
-                maximumBytes: WineDesktopShortcutFormat.maximumManifestBytes
-            ) else {
-                continue
+            let entries: [WineDesktopShortcutManifestEntry]
+            if let indexedMetadataByContainerID {
+                // Missing indexed data is deliberately fail-closed. Falling back
+                // to disk here would restore one manifest scan per bridge.
+                entries =
+                    indexedMetadataByContainerID[container.id]?
+                        .desktopShortcutEntries ?? []
+            } else {
+                let manifestURL = WineDesktopShortcutFormat.manifestURL(
+                    prefixPath: container.path
+                )
+                guard let contents = WineManifestFileReader.contents(
+                    at: manifestURL,
+                    insidePrefix: container.path,
+                    maximumBytes:
+                        WineDesktopShortcutFormat.maximumManifestBytes
+                ) else {
+                    continue
+                }
+                entries = WineDesktopShortcutFormat.entries(
+                    inManifest: contents
+                )
             }
 
-            for entry in WineDesktopShortcutFormat.entries(inManifest: contents) {
+            for entry in entries {
                 guard let sourceURL = WineDesktopShortcutFormat.hostShortcutURL(
                     windowsPath: entry.windowsShortcutPath,
                     prefixPath: container.path
-                ),
-                      isRegularNonSymbolicFile(sourceURL) else {
+                ) else {
+                    continue
+                }
+                if indexedMetadataByContainerID == nil,
+                   !isRegularNonSymbolicFile(sourceURL) {
                     continue
                 }
                 let iconURL = entry.windowsIconPath.flatMap {
@@ -291,7 +360,12 @@ final class WineDesktopShortcutBridge {
                         windowsPath: $0,
                         prefixPath: container.path
                     )
-                }.flatMap { isRegularNonSymbolicFile($0) ? $0 : nil }
+                }.flatMap {
+                    indexedMetadataByContainerID != nil
+                        || isRegularNonSymbolicFile($0)
+                        ? $0
+                        : nil
+                }
                 let id = shortcutID(containerID: container.id, windowsPath: entry.windowsShortcutPath)
                 let candidate = ShortcutCandidate(
                     id: id,

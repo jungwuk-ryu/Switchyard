@@ -66,6 +66,16 @@ enum ContainerPreviewWindowPolicy {
 }
 
 @MainActor
+protocol ContainerStorageIndexProviding: AnyObject {
+    var containers: [Container] { get }
+
+    func containerStorageByteCount(
+        for containerID: UUID,
+        force: Bool
+    ) async throws -> Int64
+}
+
+@MainActor
 final class ContainerLibraryCardModel: ObservableObject {
     @Published private(set) var previewImage: CGImage?
     @Published private(set) var storageByteCount: Int64?
@@ -73,18 +83,16 @@ final class ContainerLibraryCardModel: ObservableObject {
 
     private let captureService: WineWindowCaptureService
     private let previewStore: ContainerPreviewImageStore
-    private let storageSizeService: ContainerStorageSizeService
     private var lastPersistedWindowID: CGWindowID?
     private var lastPersistedAt: Date?
+    private var storageRefreshID: UUID?
 
     init(
         captureService: WineWindowCaptureService = WineWindowCaptureService(),
-        previewStore: ContainerPreviewImageStore = .shared,
-        storageSizeService: ContainerStorageSizeService = .shared
+        previewStore: ContainerPreviewImageStore = .shared
     ) {
         self.captureService = captureService
         self.previewStore = previewStore
-        self.storageSizeService = storageSizeService
     }
 
     func monitor(containerID: UUID, store: AppStore) async {
@@ -106,7 +114,11 @@ final class ContainerLibraryCardModel: ObservableObject {
             if isRunning {
                 await refreshLivePreview(for: container, store: store)
             } else if wasRunning {
-                await refreshStorageSize(for: container)
+                await refreshStorageSize(
+                    for: container,
+                    store: store,
+                    force: true
+                )
             }
             wasRunning = isRunning
 
@@ -120,16 +132,40 @@ final class ContainerLibraryCardModel: ObservableObject {
         }
     }
 
-    func refreshStorageSize(for container: Container) async {
-        isMeasuringSize = true
-        defer { isMeasuringSize = false }
+    func refreshStorageSize(
+        for container: Container,
+        store: any ContainerStorageIndexProviding,
+        force: Bool = false
+    ) async {
+        let refreshID = UUID()
+        storageRefreshID = refreshID
+        setIsMeasuringSize(true)
+        defer {
+            if storageRefreshID == refreshID {
+                storageRefreshID = nil
+                setIsMeasuringSize(false)
+            }
+        }
 
-        let containerURL = URL(
-            fileURLWithPath: container.path,
-            isDirectory: true
-        )
-        storageByteCount = try? await storageSizeService
-            .byteCount(forContainerAt: containerURL)
+        guard let byteCount = try? await store.containerStorageByteCount(
+            for: container.id,
+            force: force
+        ),
+              !Task.isCancelled,
+              storageRefreshID == refreshID,
+              store.containers.first(where: { $0.id == container.id })
+                .map({ ContainerIndexRequest(container: $0).identity })
+                == ContainerIndexRequest(container: container).identity else {
+            return
+        }
+        if storageByteCount != byteCount {
+            storageByteCount = byteCount
+        }
+    }
+
+    private func setIsMeasuringSize(_ value: Bool) {
+        guard isMeasuringSize != value else { return }
+        isMeasuringSize = value
     }
 
     private func loadPersistedPreview(for container: Container) async {

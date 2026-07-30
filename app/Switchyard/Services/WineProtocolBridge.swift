@@ -284,6 +284,7 @@ final class WineProtocolBridge {
     private let rootURL: URL
     private var registeredSchemes: Set<String> = []
     private var activationDates: [UUID: Date] = [:]
+    private var manifestSchemesByContainerID: [UUID: Set<String>] = [:]
 
     init(fileManager: FileManager = .default, rootURL: URL? = nil) {
         self.fileManager = fileManager
@@ -302,6 +303,40 @@ final class WineProtocolBridge {
         winePath: String,
         runnerPath: String
     ) throws -> WineProtocolBridgeRefreshResult {
+        try refresh(
+            containers: containers,
+            indexedMetadataByContainerID: nil,
+            winePath: winePath,
+            runnerPath: runnerPath
+        )
+    }
+
+    func refresh(
+        containers: [Container],
+        indexedMetadataByContainerID:
+            [UUID: ContainerBridgeIndexMetadata],
+        winePath: String,
+        runnerPath: String
+    ) throws -> WineProtocolBridgeRefreshResult {
+        try refresh(
+            containers: containers,
+            indexedMetadataByContainerID:
+                Optional(indexedMetadataByContainerID),
+            winePath: winePath,
+            runnerPath: runnerPath
+        )
+    }
+
+    private func refresh(
+        containers: [Container],
+        indexedMetadataByContainerID:
+            [UUID: ContainerBridgeIndexMetadata]?,
+        winePath: String,
+        runnerPath: String
+    ) throws -> WineProtocolBridgeRefreshResult {
+        // Any failed refresh must leave callback recovery fail-closed instead
+        // of consulting schemes retained from an older container snapshot.
+        manifestSchemesByContainerID = [:]
         var observedDependencyURLs = observedDependencyURLs(
             containers: containers,
             winePath: winePath,
@@ -327,14 +362,32 @@ final class WineProtocolBridge {
         var routes: [WineProtocolRoute] = []
         var manifestSchemeCandidates: Set<String> = []
         var latestLearnedDateByScheme: [String: Date] = [:]
+        var refreshedManifestSchemesByContainerID:
+            [UUID: Set<String>] = [:]
         for container in containers {
-            let manifestURL = WineProtocolAssociationFormat.manifestURL(prefixPath: container.path)
-            let contents = WineManifestFileReader.contents(
-                at: manifestURL,
-                insidePrefix: container.path,
-                maximumBytes: WineProtocolAssociationFormat.maximumManifestBytes
-            ) ?? ""
-            let manifestSchemes = WineProtocolAssociationFormat.schemes(inManifest: contents)
+            let manifestSchemes: Set<String>
+            if let indexedMetadataByContainerID {
+                // Missing indexed data is deliberately fail-closed. Falling back
+                // to disk here would restore one manifest scan per bridge.
+                manifestSchemes =
+                    indexedMetadataByContainerID[container.id]?
+                        .protocolSchemes ?? []
+            } else {
+                let manifestURL = WineProtocolAssociationFormat.manifestURL(
+                    prefixPath: container.path
+                )
+                let contents = WineManifestFileReader.contents(
+                    at: manifestURL,
+                    insidePrefix: container.path,
+                    maximumBytes:
+                        WineProtocolAssociationFormat.maximumManifestBytes
+                ) ?? ""
+                manifestSchemes = WineProtocolAssociationFormat.schemes(
+                    inManifest: contents
+                )
+            }
+            refreshedManifestSchemesByContainerID[container.id] =
+                manifestSchemes
             let learnedForContainer = learnedAssociations.associations(for: container.id)
             let latestLearnedAssociations = Dictionary(grouping: learnedForContainer, by: \.scheme)
                 .compactMapValues { associations in
@@ -376,6 +429,8 @@ final class WineProtocolBridge {
                 )
             }
         }
+        manifestSchemesByContainerID =
+            refreshedManifestSchemesByContainerID
 
         let acceptedSchemes = acceptedSchemes(
             manifestSchemes: manifestSchemeCandidates,
@@ -504,7 +559,6 @@ final class WineProtocolBridge {
             try writeLearnedAssociations(learnedAssociations)
         }
         recordLaunch(containerID: containerID, at: date)
-        _ = try refresh(containers: containers, winePath: request.winePath, runnerPath: runnerPath)
     }
 
     func learnedSchemes(for containerID: UUID) -> [String] {
@@ -514,15 +568,14 @@ final class WineProtocolBridge {
     }
 
     func hasRegisteredScheme(_ rawScheme: String, in container: Container) -> Bool {
-        guard let scheme = WineProtocolAssociationFormat.normalizedScheme(rawScheme),
-              let contents = WineManifestFileReader.contents(
-                  at: WineProtocolAssociationFormat.manifestURL(prefixPath: container.path),
-                  insidePrefix: container.path,
-                  maximumBytes: WineProtocolAssociationFormat.maximumManifestBytes
-              ) else {
+        guard let scheme = WineProtocolAssociationFormat.normalizedScheme(
+            rawScheme
+        ) else {
             return false
         }
-        return WineProtocolAssociationFormat.schemes(inManifest: contents).contains(scheme)
+        return manifestSchemesByContainerID[container.id]?.contains(
+            scheme
+        ) == true
     }
 
     private func writeRouteIndex(_ index: WineProtocolRouteIndex) throws {

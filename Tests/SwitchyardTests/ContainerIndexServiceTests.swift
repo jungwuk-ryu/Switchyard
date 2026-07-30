@@ -45,6 +45,49 @@ struct ContainerIndexServiceTests {
         #expect(metrics[.containerIndexCoalescedRequests] == 1)
     }
 
+    @Test(
+        "overlapping forced refreshes bypass cache without cancelling their shared scan",
+        .timeLimit(.minutes(1))
+    )
+    func overlappingForcedRefreshesCoalesce() async throws {
+        let request = makeRequest()
+        let gate = ContainerIndexScannerGate<[InstalledProgram]>(
+            value: [makeProgram()]
+        )
+        let counters = PerformanceCounters()
+        let service = makeService(
+            counters: counters,
+            installedPrograms: { request in
+                try await gate.scan(request)
+            }
+        )
+
+        let installerMonitor = Task {
+            try await service.snapshot(
+                for: request,
+                scopes: .installedPrograms,
+                bypassCache: true
+            )
+        }
+        await gate.waitForScanCount(1)
+        let manualRefresh = Task {
+            try await service.snapshot(
+                for: request,
+                scopes: .installedPrograms,
+                bypassCache: true
+            )
+        }
+        try await waitUntilContainerIndex {
+            counters.snapshot()[.containerIndexCoalescedRequests] == 1
+        }
+
+        await gate.release()
+        #expect(try await installerMonitor.value.installedPrograms == [makeProgram()])
+        #expect(try await manualRefresh.value.installedPrograms == [makeProgram()])
+        #expect(await gate.scanCount == 1)
+        #expect(counters.snapshot()[.containerIndexScans] == 1)
+    }
+
     @Test("reuses fresh cached values and expires them at the TTL boundary")
     func cachedHitAndTTL() async throws {
         let request = makeRequest()
@@ -125,7 +168,7 @@ struct ContainerIndexServiceTests {
     }
 
     @Test(
-        "does not cache stale in-flight results after invalidation",
+        "rejects stale in-flight results after invalidation",
         .timeLimit(.minutes(1))
     )
     func invalidationRejectsStaleCompletion() async throws {
@@ -154,16 +197,94 @@ struct ContainerIndexServiceTests {
             scopes: .installedPrograms
         )
         await scanner.releaseFirstScan()
-        let stale = try await staleRequest.value
+        await #expect(throws: CancellationError.self) {
+            try await staleRequest.value
+        }
         let cached = try await service.snapshot(
             for: request,
             scopes: .installedPrograms
         )
 
-        #expect(stale.installedPrograms == [makeProgram(name: "Stale")])
         #expect(fresh.installedPrograms == [makeProgram(name: "Fresh")])
         #expect(cached.installedPrograms == fresh.installedPrograms)
         #expect(await scanner.scanCount == 2)
+    }
+
+    @Test("default request identity ignores unrelated manifest timestamps")
+    func defaultIdentityIsStableAcrossLastModifiedChanges() {
+        let containerID = UUID()
+        let first = ContainerIndexRequest(
+            container: Container(
+                id: containerID,
+                name: "Game",
+                path: "/containers/A",
+                lastModified: Date(timeIntervalSinceReferenceDate: 1)
+            )
+        )
+        let second = ContainerIndexRequest(
+            container: Container(
+                id: containerID,
+                name: "Renamed in UI",
+                path: "/containers/A",
+                lastModified: Date(timeIntervalSinceReferenceDate: 9_999)
+            )
+        )
+
+        #expect(first.identity == second.identity)
+    }
+
+    @Test(
+        "a moved or deleted container rejects stale scans and prunes old identity state",
+        .timeLimit(.minutes(1))
+    )
+    func movedAndDeletedContainerRejectStaleScans() async throws {
+        let containerID = UUID()
+        let scanner = ContainerIndexInvalidationScanner()
+        let counters = PerformanceCounters()
+        let service = makeService(
+            counters: counters,
+            installedPrograms: { request in
+                try await scanner.scan(request)
+            }
+        )
+        let oldRequest = makeRequest(
+            id: containerID,
+            path: "/containers/Old",
+            revision: "stable"
+        )
+        let movedRequest = makeRequest(
+            id: containerID,
+            path: "/containers/New",
+            revision: "stable"
+        )
+
+        let staleMove = Task {
+            try await service.snapshot(
+                for: oldRequest,
+                scopes: .installedPrograms
+            )
+        }
+        await scanner.waitForScanCount(1)
+        let moved = try await service.snapshot(
+            for: movedRequest,
+            scopes: .installedPrograms
+        )
+        await scanner.releaseFirstScan()
+        await #expect(throws: CancellationError.self) {
+            try await staleMove.value
+        }
+        #expect(moved.installedPrograms == [makeProgram(name: "Fresh")])
+        #expect(await service.knownIdentityCount(for: containerID) == 1)
+
+        await service.invalidate(containerID: containerID)
+        #expect(await service.knownIdentityCount(for: containerID) == 0)
+        let afterDelete = try await service.snapshot(
+            for: movedRequest,
+            scopes: .installedPrograms
+        )
+        #expect(afterDelete.installedPrograms == [makeProgram(name: "Fresh")])
+        #expect(await scanner.scanCount == 3)
+        #expect(counters.snapshot()[.containerIndexScans] == 3)
     }
 
     @Test("isolates path and revision identities while normalizing path spelling")
@@ -345,6 +466,91 @@ struct ContainerIndexServiceTests {
         #expect(metrics[.containerIndexScans] == 6)
     }
 
+    @Test(
+        "a cancelled queued storage request returns its permit to the next scan",
+        .timeLimit(.minutes(1))
+    )
+    func cancelledQueuedStorageRequestReleasesTransferredPermit() async throws {
+        let storageProbe = ContainerIndexStorageProbe()
+        let counters = PerformanceCounters()
+        let service = makeService(
+            configuration: ContainerIndexConfiguration(
+                installedProgramsTTL: 5,
+                startMenuEntriesTTL: 5,
+                storageByteCountTTL: 30,
+                bridgeMetadataTTL: 1,
+                storageScanConcurrencyLimit: 1
+            ),
+            counters: counters,
+            storageByteCount: { request in
+                try await storageProbe.scan(request)
+            }
+        )
+        let activeRequest = makeRequest(path: "/containers/active")
+        let deletedRequest = makeRequest(path: "/containers/deleted")
+        let active = Task {
+            try await service.snapshot(
+                for: activeRequest,
+                scopes: .storageByteCount
+            )
+        }
+        await storageProbe.waitForStartedCount(1)
+        let deleted = Task {
+            try await service.snapshot(
+                for: deletedRequest,
+                scopes: .storageByteCount
+            )
+        }
+        try await waitUntilContainerIndex {
+            let waiterCount = await service.storageWaiterCount()
+            return counters.snapshot()[.containerStorageScans] == 2
+                && waiterCount == 1
+        }
+
+        await service.invalidate(
+            containerID: deletedRequest.identity.containerID
+        )
+        // Release the active scan immediately, without waiting for the
+        // cancellation handler to remove the queued waiter. This covers the
+        // race where release transfers the permit to an already-cancelled task.
+        await storageProbe.release()
+        _ = try await active.value
+        await #expect(throws: CancellationError.self) {
+            try await deleted.value
+        }
+
+        let followUpRequest = makeRequest(path: "/containers/follow-up")
+        let followUp = Task {
+            try await service.snapshot(
+                for: followUpRequest,
+                scopes: .storageByteCount
+            )
+        }
+        do {
+            try await waitUntilContainerIndex {
+                await storageProbe.startedCount == 2
+            }
+        } catch {
+            await service.invalidate(
+                containerID: followUpRequest.identity.containerID
+            )
+            _ = await followUp.result
+            throw error
+        }
+        #expect(
+            try await followUp.value.storageByteCount
+                == Int64(followUpRequest.identity.path.utf8.count)
+        )
+
+        #expect(await storageProbe.startedCount == 2)
+        #expect(await service.storageWaiterCount() == 0)
+        #expect(
+            await service.knownIdentityCount(
+                for: deletedRequest.identity.containerID
+            ) == 0
+        )
+    }
+
     @Test("retries after a failed scan without poisoning the cache")
     func failureRetry() async throws {
         let request = makeRequest()
@@ -415,6 +621,135 @@ struct ContainerIndexServiceTests {
         #expect(snapshot.storageByteCount == 8_192)
         #expect(await gate.scanCount == 1)
         #expect(counters.snapshot()[.containerStorageScans] == 1)
+    }
+
+    @Test(
+        "protocol and shortcut consumers share one bridge metadata scan",
+        .timeLimit(.minutes(1))
+    )
+    func bridgeConsumersShareMetadataScan() async throws {
+        let request = makeRequest()
+        let metadata = ContainerBridgeIndexMetadata(
+            protocolSchemes: ["switchyard"],
+            desktopShortcutEntries: [
+                WineDesktopShortcutManifestEntry(
+                    kind: .lnk,
+                    displayName: "Game",
+                    windowsShortcutPath: #"C:\Users\Test\Desktop\Game.lnk"#
+                )
+            ]
+        )
+        let gate = ContainerIndexScannerGate<ContainerBridgeIndexMetadata>(
+            value: metadata
+        )
+        let counters = PerformanceCounters()
+        let service = makeService(
+            counters: counters,
+            bridgeMetadata: { request in
+                try await gate.scan(request)
+            }
+        )
+
+        let protocolConsumer = Task {
+            try await service.snapshot(for: request, scopes: .bridgeMetadata)
+        }
+        await gate.waitForScanCount(1)
+        let shortcutConsumer = Task {
+            try await service.snapshot(for: request, scopes: .bridgeMetadata)
+        }
+        try await waitUntilContainerIndex {
+            counters.snapshot()[.containerIndexCoalescedRequests] == 1
+        }
+
+        await gate.release()
+        let protocolSnapshot = try await protocolConsumer.value
+        let shortcutSnapshot = try await shortcutConsumer.value
+
+        #expect(protocolSnapshot.bridgeMetadata == metadata)
+        #expect(shortcutSnapshot.bridgeMetadata == metadata)
+        #expect(await gate.scanCount == 1)
+        #expect(counters.snapshot()[.containerIndexScans] == 1)
+    }
+
+    @Test("live bridge scanner reads both manifests in one indexed scope")
+    func liveBridgeScannerCombinesManifests() async throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent(
+                "switchyard-container-index-bridge-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer { try? fileManager.removeItem(at: root) }
+        let protocolManifestURL = WineProtocolAssociationFormat.manifestURL(
+            prefixPath: root.path
+        )
+        let shortcutManifestURL = WineDesktopShortcutFormat.manifestURL(
+            prefixPath: root.path
+        )
+        let windowsShortcutPath =
+            #"C:\users\steamuser\Desktop\Indexed Game.url"#
+        let shortcutURL = try #require(
+            WineDesktopShortcutFormat.hostShortcutURL(
+                windowsPath: windowsShortcutPath,
+                prefixPath: root.path
+            )
+        )
+        for url in [
+            protocolManifestURL,
+            shortcutManifestURL,
+            shortcutURL,
+        ] {
+            try fileManager.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+        }
+        try Data(
+            "\(WineProtocolAssociationFormat.manifestHeader)\nxdt\n".utf8
+        ).write(to: protocolManifestURL)
+        let encodedName = "Indexed Game".utf8.map {
+            String(format: "%02x", $0)
+        }.joined()
+        let encodedPath = windowsShortcutPath.utf8.map {
+            String(format: "%02x", $0)
+        }.joined()
+        try Data(
+            """
+            \(WineDesktopShortcutFormat.manifestHeader)
+            url\t\(encodedName)\t\(encodedPath)\t
+            """.utf8
+        ).write(to: shortcutManifestURL)
+        try Data("[InternetShortcut]\nURL=xdt://launch\n".utf8)
+            .write(to: shortcutURL)
+        let counters = PerformanceCounters()
+        let service = ContainerIndexService(
+            scanners: .live,
+            counters: counters
+        )
+        let request = ContainerIndexRequest(
+            container: Container(name: "Test", path: root.path)
+        )
+
+        let snapshot = try await service.snapshot(
+            for: request,
+            scopes: .bridgeMetadata
+        )
+        let metadata = try #require(snapshot.bridgeMetadata)
+
+        #expect(metadata.protocolSchemes == ["xdt"])
+        #expect(
+            metadata.desktopShortcutEntries.map(\.windowsShortcutPath)
+                == [windowsShortcutPath]
+        )
+        #expect(
+            Set(metadata.dependencies.map(\.role))
+                == [
+                    .protocolManifest,
+                    .desktopShortcutManifest,
+                    .desktopShortcut,
+                ]
+        )
+        #expect(counters.snapshot()[.containerIndexScans] == 1)
     }
 }
 

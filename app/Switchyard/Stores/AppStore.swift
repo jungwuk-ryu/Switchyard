@@ -406,8 +406,40 @@ private struct LauncherInstallationKey: Hashable, Sendable {
     var applicationID: String
 }
 
+private struct ProtocolBridgeContainerIdentity: Equatable {
+    let id: UUID
+    let path: String
+    let lastRun: Date?
+    let environmentOverrides: [String: String]
+}
+
+private struct ShortcutBridgeContainerIdentity: Equatable {
+    let id: UUID
+    let name: String
+    let path: String
+    let environmentOverrides: [String: String]
+}
+
 @MainActor
-final class AppStore: ObservableObject {
+enum IndexedLaunchCoordinator {
+    static func launch<Session>(
+        prepareIndex: () async -> Void,
+        launch: () throws -> Session,
+        register: (Session) -> Void,
+        publishRunning: () -> Void
+    ) async rethrows -> Session {
+        await prepareIndex()
+        let session = try launch()
+        // No suspension is allowed between registration and the running
+        // publication. An immediate onExit callback can only apply afterward.
+        register(session)
+        publishRunning()
+        return session
+    }
+}
+
+@MainActor
+final class AppStore: ObservableObject, ContainerStorageIndexProviding {
     @Published var selectedSection: SidebarSelection = .containers {
         didSet {
             guard selectedSection != oldValue else { return }
@@ -471,8 +503,12 @@ final class AppStore: ObservableObject {
     @Published private(set) var debugRunLogStorage = DebugRunLogStorageSnapshot.empty
     @Published var containers: [Container] {
         didSet {
-            guard containers != oldValue else { return }
-            invalidateWineBridges(.all)
+            let scope = Self.bridgeRefreshScope(
+                oldContainers: oldValue,
+                newContainers: containers
+            )
+            guard !scope.isEmpty else { return }
+            invalidateWineBridges(scope)
         }
     }
     let logStore = LogStore()
@@ -486,6 +522,7 @@ final class AppStore: ObservableObject {
     private let jobEngine = JobEngine()
     private let runnerClient: SwitchyardRunnerClient
     private let sessionMonitor: SessionMonitor
+    private let containerIndexService: ContainerIndexService
     private let protocolBridge = WineProtocolBridge()
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
     private let bridgeDigestCache = WineBridgeFileDigestCache()
@@ -518,7 +555,9 @@ final class AppStore: ObservableObject {
     private var gptkComponentTaskID: UUID?
     private var steamDownloadTask: Task<Void, Never>?
     private var installedProgramTasks: [UUID: Task<Void, Never>] = [:]
+    private var installedProgramTaskIDs: [UUID: UUID] = [:]
     private var startMenuCatalogTasks: [UUID: Task<Void, Never>] = [:]
+    private var startMenuCatalogTaskIDs: [UUID: UUID] = [:]
     private var starterApplicationDetectionTask: Task<Void, Never>?
     private var launcherInstallationIDs: [LauncherInstallationKey: UUID] = [:]
     private var launcherDownloadTasks: [LauncherInstallationKey: Task<URL, Error>] = [:]
@@ -535,10 +574,13 @@ final class AppStore: ObservableObject {
     private var lastProtocolBridgeError: String?
     private var lastDesktopShortcutBridgeError: String?
 
-    init() {
+    init(
+        containerIndexService: ContainerIndexService = .shared
+    ) {
         let runnerClient = SwitchyardRunnerClient()
         self.runnerClient = runnerClient
         sessionMonitor = SessionMonitor(inspector: runnerClient)
+        self.containerIndexService = containerIndexService
         let bridgeRefreshEventRelay = bridgeRefreshEventRelay
         let bridgeRefreshHandlerRelay = bridgeRefreshHandlerRelay
         let bridgeFileEventSource = WineBridgeFileEventSource {
@@ -2301,6 +2343,7 @@ final class AppStore: ObservableObject {
                         containers: self.containers,
                         runnerPath: runnerPath
                     )
+                    self.invalidateWineBridges(.protocols)
                     self.loginCallbackRecoveryStates[containerID] = .succeeded(scheme: request.scheme)
                     self.logLines.insert(
                         LogLine(
@@ -2863,6 +2906,8 @@ final class AppStore: ObservableObject {
                 try runnerClient.stopWineServer(winePath: winePath, prefixPath: prefixPath)
             }.value
             finishPrefixStartup(for: containerID)
+            await containerIndexService.invalidate(containerID: containerID)
+            invalidateWineBridges(.all)
             await refreshContainerSession(
                 for: containerID,
                 includeProcessDetails: false
@@ -3233,16 +3278,31 @@ final class AppStore: ObservableObject {
     }
 
     func refreshInstalledPrograms(for containerID: UUID) {
-        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard containers.contains(where: { $0.id == containerID }) else {
+            return
+        }
         installedProgramTasks[containerID]?.cancel()
-
+        let taskID = UUID()
+        installedProgramTaskIDs[containerID] = taskID
         installedProgramTasks[containerID] = Task {
-            let programs = await Task.detached(priority: .userInitiated) {
-                InstalledProgramCatalog().installedPrograms(in: container)
-            }.value
-            guard !Task.isCancelled else { return }
-            guard self.containers.contains(where: { $0.id == containerID }) else { return }
-            self.installedProgramsByContainerID[containerID] = programs
+            defer {
+                if installedProgramTaskIDs[containerID] == taskID {
+                    installedProgramTaskIDs.removeValue(forKey: containerID)
+                    installedProgramTasks.removeValue(forKey: containerID)
+                }
+            }
+            guard let programs = try? await indexedInstalledPrograms(
+                for: containerID,
+                force: true
+            ),
+                  !Task.isCancelled,
+                  installedProgramTaskIDs[containerID] == taskID else {
+                return
+            }
+            publishInstalledProgramsIfChanged(
+                programs,
+                containerID: containerID
+            )
             self.selectStarterApplicationAsDefaultIfNeeded(
                 programs,
                 containerID: containerID
@@ -3251,24 +3311,125 @@ final class AppStore: ObservableObject {
                 programs,
                 containerID: containerID
             )
-            self.installedProgramTasks.removeValue(forKey: containerID)
         }
     }
 
     func refreshStartMenuEntries(for containerID: UUID) {
-        guard let container = containers.first(where: { $0.id == containerID }) else { return }
+        guard containers.contains(where: { $0.id == containerID }) else {
+            return
+        }
         startMenuCatalogTasks[containerID]?.cancel()
-
+        let taskID = UUID()
+        startMenuCatalogTaskIDs[containerID] = taskID
         startMenuCatalogTasks[containerID] = Task {
-            let entries = await Task.detached(priority: .utility) {
-                WindowsStartMenuCatalog().entries(in: container)
-            }.value
-            guard !Task.isCancelled,
-                  self.containers.contains(where: { $0.id == containerID }) else {
+            defer {
+                if startMenuCatalogTaskIDs[containerID] == taskID {
+                    startMenuCatalogTaskIDs.removeValue(forKey: containerID)
+                    startMenuCatalogTasks.removeValue(forKey: containerID)
+                }
+            }
+            guard let entries = try? await indexedStartMenuEntries(
+                for: containerID,
+                force: true
+            ),
+                  !Task.isCancelled,
+                  startMenuCatalogTaskIDs[containerID] == taskID else {
                 return
             }
-            self.startMenuEntriesByContainerID[containerID] = entries
-            self.startMenuCatalogTasks.removeValue(forKey: containerID)
+            publishStartMenuEntriesIfChanged(
+                entries,
+                containerID: containerID
+            )
+        }
+    }
+
+    func containerStorageByteCount(
+        for containerID: UUID,
+        force: Bool = false
+    ) async throws -> Int64 {
+        let snapshot = try await indexedSnapshot(
+            for: containerID,
+            scopes: .storageByteCount,
+            force: force
+        )
+        guard let storageByteCount = snapshot.storageByteCount else {
+            throw CancellationError()
+        }
+        return storageByteCount
+    }
+
+    private func indexedInstalledPrograms(
+        for containerID: UUID,
+        force: Bool
+    ) async throws -> [InstalledProgram] {
+        let snapshot = try await indexedSnapshot(
+            for: containerID,
+            scopes: .installedPrograms,
+            force: force
+        )
+        guard let installedPrograms = snapshot.installedPrograms else {
+            throw CancellationError()
+        }
+        return installedPrograms
+    }
+
+    private func indexedStartMenuEntries(
+        for containerID: UUID,
+        force: Bool
+    ) async throws -> [WindowsStartMenuEntry] {
+        let snapshot = try await indexedSnapshot(
+            for: containerID,
+            scopes: .startMenuEntries,
+            force: force
+        )
+        guard let startMenuEntries = snapshot.startMenuEntries else {
+            throw CancellationError()
+        }
+        return startMenuEntries
+    }
+
+    private func indexedSnapshot(
+        for containerID: UUID,
+        scopes: ContainerIndexScope,
+        force: Bool
+    ) async throws -> ContainerIndexSnapshot {
+        guard let container = containers.first(where: {
+            $0.id == containerID
+        }) else {
+            throw CancellationError()
+        }
+        let request = ContainerIndexRequest(container: container)
+        let snapshot = try await containerIndexService.snapshot(
+            for: request,
+            scopes: scopes,
+            bypassCache: force
+        )
+        try Task.checkCancellation()
+        guard let currentContainer = containers.first(where: {
+            $0.id == containerID
+        }),
+              ContainerIndexRequest(container: currentContainer).identity
+                == snapshot.identity else {
+            throw CancellationError()
+        }
+        return snapshot
+    }
+
+    private func publishInstalledProgramsIfChanged(
+        _ programs: [InstalledProgram],
+        containerID: UUID
+    ) {
+        if installedProgramsByContainerID[containerID] ?? [] != programs {
+            installedProgramsByContainerID[containerID] = programs
+        }
+    }
+
+    private func publishStartMenuEntriesIfChanged(
+        _ entries: [WindowsStartMenuEntry],
+        containerID: UUID
+    ) {
+        if startMenuEntriesByContainerID[containerID] ?? [] != entries {
+            startMenuEntriesByContainerID[containerID] = entries
         }
     }
 
@@ -3281,17 +3442,30 @@ final class AppStore: ObservableObject {
         for _ in 0..<120 {
             guard !Task.isCancelled,
                   launcherInstallationIDs[key] == installationID,
-                  let container = containers.first(where: { $0.id == containerID }) else {
+                  containers.contains(where: { $0.id == containerID }) else {
                 return
             }
-            let programs = await Task.detached(priority: .utility) {
-                InstalledProgramCatalog().installedPrograms(in: container)
-            }.value
+            let programs: [InstalledProgram]
+            do {
+                programs = try await indexedInstalledPrograms(
+                    for: containerID,
+                    force: true
+                )
+            } catch is CancellationError {
+                guard !Task.isCancelled else { return }
+                await Task.yield()
+                continue
+            } catch {
+                return
+            }
             guard !Task.isCancelled,
                   launcherInstallationIDs[key] == installationID else {
                 return
             }
-            installedProgramsByContainerID[containerID] = programs
+            publishInstalledProgramsIfChanged(
+                programs,
+                containerID: containerID
+            )
             selectStarterApplicationAsDefaultIfNeeded(
                 programs,
                 containerID: containerID
@@ -3477,14 +3651,27 @@ final class AppStore: ObservableObject {
 
             for _ in 0..<60 {
                 guard !Task.isCancelled,
-                      let container = containers.first(where: { $0.id == containerID }) else {
+                      containers.contains(where: { $0.id == containerID }) else {
                     return
                 }
-                let programs = await Task.detached(priority: .utility) {
-                    InstalledProgramCatalog().installedPrograms(in: container)
-                }.value
+                let programs: [InstalledProgram]
+                do {
+                    programs = try await indexedInstalledPrograms(
+                        for: containerID,
+                        force: true
+                    )
+                } catch is CancellationError {
+                    guard !Task.isCancelled else { return }
+                    await Task.yield()
+                    continue
+                } catch {
+                    return
+                }
                 guard !Task.isCancelled else { return }
-                installedProgramsByContainerID[containerID] = programs
+                publishInstalledProgramsIfChanged(
+                    programs,
+                    containerID: containerID
+                )
                 selectStarterApplicationAsDefaultIfNeeded(
                     programs,
                     containerID: containerID
@@ -3682,6 +3869,7 @@ final class AppStore: ObservableObject {
             return false
         }
 
+        await containerIndexService.invalidate(containerID: containerID)
         do {
             let occupiedDirectoryNames = ContainerPathPolicy.occupiedDirectoryNames(
                 containers: containers.filter { $0.id != containerID },
@@ -3703,9 +3891,11 @@ final class AppStore: ObservableObject {
 
             installedProgramTasks[containerID]?.cancel()
             installedProgramTasks.removeValue(forKey: containerID)
+            installedProgramTaskIDs.removeValue(forKey: containerID)
             installedProgramsByContainerID.removeValue(forKey: containerID)
             startMenuCatalogTasks[containerID]?.cancel()
             startMenuCatalogTasks.removeValue(forKey: containerID)
+            startMenuCatalogTaskIDs.removeValue(forKey: containerID)
             startMenuEntriesByContainerID.removeValue(forKey: containerID)
             containers[currentIndex] = renamedContainer
 
@@ -4059,6 +4249,7 @@ final class AppStore: ObservableObject {
             containerStorageOperationIDs.insert(containerID)
             defer { containerStorageOperationIDs.remove(containerID) }
             await cancelLoginCallbackRecoveryForStorageOperation(in: containerID)
+            await containerIndexService.invalidate(containerID: containerID)
 
             let winePath = runtimeForExistingSession(for: container).winePath
             let prefixPath = container.path
@@ -4111,6 +4302,7 @@ final class AppStore: ObservableObject {
                 return false
             }
         } else {
+            await containerIndexService.invalidate(containerID: containerID)
             logLines.insert(
                 LogLine(
                     containerID: containerID,
@@ -4132,9 +4324,11 @@ final class AppStore: ObservableObject {
         loginCallbackRecoveryStates.removeValue(forKey: containerID)
         installedProgramTasks[containerID]?.cancel()
         installedProgramTasks.removeValue(forKey: containerID)
+        installedProgramTaskIDs.removeValue(forKey: containerID)
         installedProgramsByContainerID.removeValue(forKey: containerID)
         startMenuCatalogTasks[containerID]?.cancel()
         startMenuCatalogTasks.removeValue(forKey: containerID)
+        startMenuCatalogTaskIDs.removeValue(forKey: containerID)
         startMenuEntriesByContainerID.removeValue(forKey: containerID)
         let launcherKeys = launcherInstallationStates.keys.filter {
             $0.containerID == containerID
@@ -4327,22 +4521,48 @@ final class AppStore: ObservableObject {
                 configureContainerDisplay: !prefixWasActive || terminateExistingPrefixSession
             )
             plan.liveLogPath = liveLogPath
-            let runSession = try runnerClient.launch(
-                plan,
-                containerID: container.id,
-                containerName: container.name,
-                onLogs: { [weak self] lines in
-                    Task { @MainActor in
-                        self?.recordIncomingLogs(lines)
-                    }
+            _ = try await IndexedLaunchCoordinator.launch(
+                prepareIndex: {
+                    await containerIndexService.invalidate(
+                        ContainerIndexRequest(container: container).identity,
+                        scopes: [
+                            .storageByteCount,
+                            .bridgeMetadata,
+                        ]
+                    )
                 },
-                onExit: { [weak self] completedSession in
-                    Task { @MainActor in
-                        self?.completeRunSession(completedSession)
-                    }
+                launch: {
+                    try runnerClient.launch(
+                        plan,
+                        containerID: container.id,
+                        containerName: container.name,
+                        onLogs: { [weak self] lines in
+                            Task { @MainActor in
+                                self?.recordIncomingLogs(lines)
+                            }
+                        },
+                        onExit: { [weak self] completedSession in
+                            Task { @MainActor in
+                                self?.completeRunSession(completedSession)
+                            }
+                        }
+                    )
+                },
+                register: { session in
+                    activeRunSessionIDsByContainerID[
+                        container.id,
+                        default: []
+                    ].insert(session.id)
+                },
+                publishRunning: {
+                    mark(
+                        container.id,
+                        as: .running,
+                        runtime: activeRuntime,
+                        gptkFingerprint: activeGPTKFingerprint
+                    )
                 }
             )
-            activeRunSessionIDsByContainerID[container.id, default: []].insert(runSession.id)
             if !prefixWasActive || terminateExistingPrefixSession {
                 preserveLaunchingExecutable = true
                 beginPrefixStartupMonitoring(
@@ -4362,12 +4582,6 @@ final class AppStore: ObservableObject {
             }
             protocolBridge.recordLaunch(containerID: container.id)
             invalidateWineBridges(.protocols)
-            mark(
-                container.id,
-                as: .running,
-                runtime: activeRuntime,
-                gptkFingerprint: activeGPTKFingerprint
-            )
             let executableName = launchedExecutable
                 .replacingOccurrences(of: "\\", with: "/")
                 .split(separator: "/")
@@ -4572,7 +4786,11 @@ final class AppStore: ObservableObject {
         _ scope: WineBridgeRefreshScope
     ) {
         let monitor = bridgeRefreshMonitor
+        let containerIndexService = containerIndexService
         Task {
+            await containerIndexService.invalidateAll(
+                scopes: .bridgeMetadata
+            )
             await monitor.invalidate(scope)
         }
     }
@@ -4584,6 +4802,17 @@ final class AppStore: ObservableObject {
         let refreshContainers = containers
         let refreshWinePath = currentRuntime.winePath
         let refreshRunnerPath = try runnerClient.runnerURL().path
+        await containerIndexService.invalidateAll(
+            scopes: .bridgeMetadata
+        )
+        let bridgeMetadataByContainerID = try await loadBridgeMetadata(
+            for: refreshContainers
+        )
+        guard refreshContainers == containers,
+              refreshWinePath == currentRuntime.winePath,
+              refreshRunnerPath == (try? runnerClient.runnerURL().path) else {
+            throw CancellationError()
+        }
         var scopesByDependencyURL: [URL: WineBridgeRefreshScope] = [:]
 
         func observe(
@@ -4604,6 +4833,24 @@ final class AppStore: ObservableObject {
             URL(fileURLWithPath: refreshRunnerPath).standardizedFileURL,
         ]
         observe(runtimeDependencyURLs, for: request.scope)
+        for metadata in bridgeMetadataByContainerID.values {
+            for dependency in metadata.dependencies {
+                let scope: WineBridgeRefreshScope
+                switch dependency.role {
+                case .protocolManifest:
+                    scope = .protocols
+                case .desktopShortcutManifest,
+                     .desktopShortcut,
+                     .desktopShortcutIcon:
+                    scope = .shortcuts
+                }
+                guard request.scope.contains(scope) else { continue }
+                observe(
+                    [URL(fileURLWithPath: dependency.path)],
+                    for: scope
+                )
+            }
+        }
 
         if request.scope.contains(.protocols) {
             observe(
@@ -4617,6 +4864,8 @@ final class AppStore: ObservableObject {
             do {
                 let result = try protocolBridge.refresh(
                     containers: refreshContainers,
+                    indexedMetadataByContainerID:
+                        bridgeMetadataByContainerID,
                     winePath: refreshWinePath,
                     runnerPath: refreshRunnerPath
                 )
@@ -4644,6 +4893,8 @@ final class AppStore: ObservableObject {
             do {
                 let prepared = try desktopShortcutBridge.prepareRefresh(
                     containers: refreshContainers,
+                    indexedMetadataByContainerID:
+                        bridgeMetadataByContainerID,
                     winePath: refreshWinePath,
                     runnerPath: refreshRunnerPath
                 )
@@ -4700,6 +4951,38 @@ final class AppStore: ObservableObject {
                     )
                 }
         )
+    }
+
+    private func loadBridgeMetadata(
+        for containers: [Container]
+    ) async throws -> [UUID: ContainerBridgeIndexMetadata] {
+        let requests = containers.map { container in
+            ContainerIndexRequest(container: container)
+        }
+        let service = containerIndexService
+        return try await withThrowingTaskGroup(
+            of: (UUID, ContainerBridgeIndexMetadata).self,
+            returning: [UUID: ContainerBridgeIndexMetadata].self
+        ) { group in
+            for request in requests {
+                group.addTask {
+                    let snapshot = try await service.snapshot(
+                        for: request,
+                        scopes: .bridgeMetadata
+                    )
+                    guard let metadata = snapshot.bridgeMetadata else {
+                        throw CancellationError()
+                    }
+                    return (request.identity.containerID, metadata)
+                }
+            }
+
+            var result: [UUID: ContainerBridgeIndexMetadata] = [:]
+            for try await (containerID, metadata) in group {
+                result[containerID] = metadata
+            }
+            return result
+        }
     }
 
     private func recordProtocolBridgeRefresh(
@@ -5233,6 +5516,53 @@ final class AppStore: ObservableObject {
         (error as? LocalizedError)?.errorDescription ?? String(describing: error)
     }
 
+    private static func bridgeRefreshScope(
+        oldContainers: [Container],
+        newContainers: [Container]
+    ) -> WineBridgeRefreshScope {
+        var scope: WineBridgeRefreshScope = []
+        let oldProtocols = oldContainers.map {
+            ProtocolBridgeContainerIdentity(
+                id: $0.id,
+                path: $0.path,
+                lastRun: $0.lastRun,
+                environmentOverrides: $0.environmentOverrides
+            )
+        }
+        let newProtocols = newContainers.map {
+            ProtocolBridgeContainerIdentity(
+                id: $0.id,
+                path: $0.path,
+                lastRun: $0.lastRun,
+                environmentOverrides: $0.environmentOverrides
+            )
+        }
+        if oldProtocols != newProtocols {
+            scope.insert(.protocols)
+        }
+
+        let oldShortcuts = oldContainers.map {
+            ShortcutBridgeContainerIdentity(
+                id: $0.id,
+                name: $0.name,
+                path: $0.path,
+                environmentOverrides: $0.environmentOverrides
+            )
+        }
+        let newShortcuts = newContainers.map {
+            ShortcutBridgeContainerIdentity(
+                id: $0.id,
+                name: $0.name,
+                path: $0.path,
+                environmentOverrides: $0.environmentOverrides
+            )
+        }
+        if oldShortcuts != newShortcuts {
+            scope.insert(.shortcuts)
+        }
+        return scope
+    }
+
     private func completeRunSession(_ session: RunSession) {
         let wasStoppedByUser = userStoppedRunSessionIDs.remove(session.id) != nil
         let normalizedOutcome = RunCompletionPolicy.normalizedOutcome(
@@ -5248,9 +5578,10 @@ final class AppStore: ObservableObject {
                 as: RunCompletionPolicy.containerStatus(for: normalizedOutcome)
             )
         }
-        refreshInstalledPrograms(for: session.containerID)
-        refreshStartMenuEntries(for: session.containerID)
         Task {
+            await refreshContainerIndexesAfterRun(
+                containerID: session.containerID
+            )
             await refreshContainerSession(
                 for: session.containerID,
                 includeProcessDetails: false
@@ -5277,6 +5608,40 @@ final class AppStore: ObservableObject {
             at: 0
         )
         refreshDebugRunLogStorage()
+    }
+
+    private func refreshContainerIndexesAfterRun(
+        containerID: UUID
+    ) async {
+        await containerIndexService.invalidate(containerID: containerID)
+        invalidateWineBridges(.all)
+        guard let snapshot = try? await indexedSnapshot(
+            for: containerID,
+            scopes: [.installedPrograms, .startMenuEntries],
+            force: false
+        ) else {
+            return
+        }
+        if let programs = snapshot.installedPrograms {
+            publishInstalledProgramsIfChanged(
+                programs,
+                containerID: containerID
+            )
+            selectStarterApplicationAsDefaultIfNeeded(
+                programs,
+                containerID: containerID
+            )
+            reconcileLauncherInstallations(
+                programs,
+                containerID: containerID
+            )
+        }
+        if let entries = snapshot.startMenuEntries {
+            publishStartMenuEntriesIfChanged(
+                entries,
+                containerID: containerID
+            )
+        }
     }
 
     private func mark(

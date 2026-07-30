@@ -1,5 +1,6 @@
 import AppCore
 import Foundation
+import Persistence
 
 struct ContainerIndexScope: OptionSet, Hashable, Sendable {
     let rawValue: UInt8
@@ -46,7 +47,7 @@ struct ContainerIndexRequest: Sendable {
         let identity = ContainerIndexIdentity(
             containerID: container.id,
             path: container.path,
-            revision: revision ?? Self.revision(for: container)
+            revision: revision ?? Self.productionRevision
         )
         var normalizedContainer = container
         normalizedContainer.path = identity.path
@@ -55,9 +56,10 @@ struct ContainerIndexRequest: Sendable {
         self.container = normalizedContainer
     }
 
-    private static func revision(for container: Container) -> String {
-        String(container.lastModified.timeIntervalSinceReferenceDate.bitPattern, radix: 16)
-    }
+    // Index contents are invalidated by filesystem/runner events. UI-only manifest
+    // updates such as status and lastRun must not create an unbounded stream of
+    // otherwise equivalent cache identities.
+    private static let productionRevision = "container-index-v1"
 }
 
 struct ContainerBridgeDependencyMetadata: Hashable, Sendable {
@@ -140,6 +142,26 @@ struct ContainerIndexScanners: Sendable {
         self.storageByteCount = storageByteCount
         self.bridgeMetadata = bridgeMetadata
     }
+
+    static let live = ContainerIndexScanners(
+        installedPrograms: { request in
+            InstalledProgramCatalog().installedPrograms(in: request.container)
+        },
+        startMenuEntries: { request in
+            WindowsStartMenuCatalog().entries(in: request.container)
+        },
+        storageByteCount: { request in
+            try ContainerStorageSizeService.calculateByteCount(
+                forContainerAt: URL(
+                    fileURLWithPath: request.identity.path,
+                    isDirectory: true
+                )
+            )
+        },
+        bridgeMetadata: { request in
+            LiveContainerBridgeMetadataScanner.scan(request)
+        }
+    )
 }
 
 struct ContainerIndexConfiguration: Sendable {
@@ -162,7 +184,9 @@ private struct SystemContainerIndexClock: ContainerIndexClock {
 
 private actor ContainerStorageScanLimiter {
     private var availablePermits: Int
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var waiterOrder: [UUID] = []
+    private var waiters:
+        [UUID: CheckedContinuation<Void, any Error>] = [:]
 
     init(limit: Int) {
         precondition(limit > 0, "Storage scan concurrency limit must be positive.")
@@ -172,27 +196,58 @@ private actor ContainerStorageScanLimiter {
     func withPermit<Value: Sendable>(
         _ operation: @escaping @Sendable () async throws -> Value
     ) async throws -> Value {
-        await acquire()
+        try await acquire()
         defer { release() }
+        try Task.checkCancellation()
         return try await operation()
     }
 
-    private func acquire() async {
+    private func acquire() async throws {
+        try Task.checkCancellation()
         guard availablePermits == 0 else {
             availablePermits -= 1
             return
         }
-        await withCheckedContinuation { continuation in
-            waiters.append(continuation)
+        let waiterID = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, any Error>) in
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                waiterOrder.append(waiterID)
+                waiters[waiterID] = continuation
+            }
+        } onCancel: {
+            Task {
+                await self.cancelWaiter(waiterID)
+            }
         }
     }
 
     private func release() {
-        guard !waiters.isEmpty else {
-            availablePermits += 1
-            return
+        while let waiterID = waiterOrder.first {
+            waiterOrder.removeFirst()
+            if let continuation = waiters.removeValue(
+                forKey: waiterID
+            ) {
+                continuation.resume()
+                return
+            }
         }
-        waiters.removeFirst().resume()
+        availablePermits += 1
+    }
+
+    private func cancelWaiter(_ waiterID: UUID) {
+        if let continuation = waiters.removeValue(forKey: waiterID) {
+            waiterOrder.removeAll { $0 == waiterID }
+            continuation.resume(throwing: CancellationError())
+        }
+    }
+
+    func waitingCount() -> Int {
+        waiters.count
     }
 }
 
@@ -250,6 +305,8 @@ private final class ContainerIndexTaskWaiter<Value: Sendable>:
 }
 
 actor ContainerIndexService {
+    static let shared = ContainerIndexService(scanners: .live)
+
     private struct Cached<Value: Sendable>: Sendable {
         let value: Value
         let observedAt: TimeInterval
@@ -309,6 +366,8 @@ actor ContainerIndexService {
         [ContainerIndexIdentity: UInt64] = [:]
     private var bridgeMetadataGenerations:
         [ContainerIndexIdentity: UInt64] = [:]
+    private var currentIdentityByContainerID:
+        [UUID: ContainerIndexIdentity] = [:]
 
     init(
         scanners: ContainerIndexScanners,
@@ -334,9 +393,21 @@ actor ContainerIndexService {
 
     func snapshot(
         for request: ContainerIndexRequest,
-        scopes: ContainerIndexScope
+        scopes: ContainerIndexScope,
+        bypassCache: Bool = false
     ) async throws -> ContainerIndexSnapshot {
         counters.increment(.containerIndexRequests)
+        prepareIdentity(request.identity)
+        if bypassCache {
+            removeCachedValues(
+                for: request.identity,
+                scopes: scopes
+            )
+        }
+        let generationToken = generationToken(
+            for: request.identity,
+            scopes: scopes
+        )
 
         let installedProgramsSource = scopes.contains(.installedPrograms)
             ? installedProgramsSource(for: request)
@@ -356,6 +427,15 @@ actor ContainerIndexService {
         let storageByteCount = try await storageByteCountSource?.value()
         let bridgeMetadata = try await bridgeMetadataSource?.value()
 
+        guard currentIdentityByContainerID[request.identity.containerID]
+                == request.identity,
+              generationToken == self.generationToken(
+                  for: request.identity,
+                  scopes: scopes
+              ) else {
+            throw CancellationError()
+        }
+
         return ContainerIndexSnapshot(
             identity: request.identity,
             requestedScopes: scopes,
@@ -372,22 +452,22 @@ actor ContainerIndexService {
     ) {
         if scopes.contains(.installedPrograms) {
             installedProgramsCache.removeValue(forKey: identity)
-            installedProgramsTasks.removeValue(forKey: identity)
+            installedProgramsTasks.removeValue(forKey: identity)?.task.cancel()
             advanceGeneration(&installedProgramsGenerations, for: identity)
         }
         if scopes.contains(.startMenuEntries) {
             startMenuEntriesCache.removeValue(forKey: identity)
-            startMenuEntriesTasks.removeValue(forKey: identity)
+            startMenuEntriesTasks.removeValue(forKey: identity)?.task.cancel()
             advanceGeneration(&startMenuEntriesGenerations, for: identity)
         }
         if scopes.contains(.storageByteCount) {
             storageByteCountCache.removeValue(forKey: identity)
-            storageByteCountTasks.removeValue(forKey: identity)
+            storageByteCountTasks.removeValue(forKey: identity)?.task.cancel()
             advanceGeneration(&storageByteCountGenerations, for: identity)
         }
         if scopes.contains(.bridgeMetadata) {
             bridgeMetadataCache.removeValue(forKey: identity)
-            bridgeMetadataTasks.removeValue(forKey: identity)
+            bridgeMetadataTasks.removeValue(forKey: identity)?.task.cancel()
             advanceGeneration(&bridgeMetadataGenerations, for: identity)
         }
     }
@@ -396,6 +476,14 @@ actor ContainerIndexService {
         containerID: UUID,
         scopes: ContainerIndexScope = .all
     ) {
+        if scopes == .all {
+            for identity in knownIdentities()
+            where identity.containerID == containerID {
+                prune(identity)
+            }
+            currentIdentityByContainerID.removeValue(forKey: containerID)
+            return
+        }
         for identity in knownIdentities() where identity.containerID == containerID {
             invalidate(identity, scopes: scopes)
         }
@@ -404,6 +492,32 @@ actor ContainerIndexService {
     func invalidateAll(scopes: ContainerIndexScope = .all) {
         for identity in knownIdentities() {
             invalidate(identity, scopes: scopes)
+        }
+    }
+
+    func knownIdentityCount(for containerID: UUID) -> Int {
+        knownIdentities().filter { $0.containerID == containerID }.count
+    }
+
+    func storageWaiterCount() async -> Int {
+        await storageLimiter.waitingCount()
+    }
+
+    private func removeCachedValues(
+        for identity: ContainerIndexIdentity,
+        scopes: ContainerIndexScope
+    ) {
+        if scopes.contains(.installedPrograms) {
+            installedProgramsCache.removeValue(forKey: identity)
+        }
+        if scopes.contains(.startMenuEntries) {
+            startMenuEntriesCache.removeValue(forKey: identity)
+        }
+        if scopes.contains(.storageByteCount) {
+            storageByteCountCache.removeValue(forKey: identity)
+        }
+        if scopes.contains(.bridgeMetadata) {
+            bridgeMetadataCache.removeValue(forKey: identity)
         }
     }
 
@@ -430,7 +544,9 @@ actor ContainerIndexService {
         counters.increment(.containerIndexScans)
         let task = Task.detached(priority: .utility) { [weak self] in
             do {
+                try Task.checkCancellation()
                 let value = try await scanner(request)
+                try Task.checkCancellation()
                 await self?.finishInstalledPrograms(
                     value,
                     for: identity,
@@ -478,7 +594,9 @@ actor ContainerIndexService {
         counters.increment(.containerIndexScans)
         let task = Task.detached(priority: .utility) { [weak self] in
             do {
+                try Task.checkCancellation()
                 let value = try await scanner(request)
+                try Task.checkCancellation()
                 await self?.finishStartMenuEntries(
                     value,
                     for: identity,
@@ -529,8 +647,10 @@ actor ContainerIndexService {
         let task = Task.detached(priority: .utility) { [weak self] in
             do {
                 let value = try await limiter.withPermit {
-                    try await scanner(request)
+                    try Task.checkCancellation()
+                    return try await scanner(request)
                 }
+                try Task.checkCancellation()
                 await self?.finishStorageByteCount(
                     value,
                     for: identity,
@@ -578,7 +698,9 @@ actor ContainerIndexService {
         counters.increment(.containerIndexScans)
         let task = Task.detached(priority: .utility) { [weak self] in
             do {
+                try Task.checkCancellation()
                 let value = try await scanner(request)
+                try Task.checkCancellation()
                 await self?.finishBridgeMetadata(
                     value,
                     for: identity,
@@ -744,6 +866,61 @@ actor ContainerIndexService {
         generations[identity, default: 0] &+= 1
     }
 
+    private struct GenerationToken: Equatable {
+        let installedPrograms: UInt64?
+        let startMenuEntries: UInt64?
+        let storageByteCount: UInt64?
+        let bridgeMetadata: UInt64?
+    }
+
+    private func generationToken(
+        for identity: ContainerIndexIdentity,
+        scopes: ContainerIndexScope
+    ) -> GenerationToken {
+        GenerationToken(
+            installedPrograms: scopes.contains(.installedPrograms)
+                ? installedProgramsGenerations[identity, default: 0]
+                : nil,
+            startMenuEntries: scopes.contains(.startMenuEntries)
+                ? startMenuEntriesGenerations[identity, default: 0]
+                : nil,
+            storageByteCount: scopes.contains(.storageByteCount)
+                ? storageByteCountGenerations[identity, default: 0]
+                : nil,
+            bridgeMetadata: scopes.contains(.bridgeMetadata)
+                ? bridgeMetadataGenerations[identity, default: 0]
+                : nil
+        )
+    }
+
+    private func prepareIdentity(_ identity: ContainerIndexIdentity) {
+        if currentIdentityByContainerID[identity.containerID] == identity {
+            return
+        }
+
+        for staleIdentity in knownIdentities()
+        where staleIdentity.containerID == identity.containerID
+            && staleIdentity != identity {
+            prune(staleIdentity)
+        }
+        currentIdentityByContainerID[identity.containerID] = identity
+    }
+
+    private func prune(_ identity: ContainerIndexIdentity) {
+        installedProgramsCache.removeValue(forKey: identity)
+        startMenuEntriesCache.removeValue(forKey: identity)
+        storageByteCountCache.removeValue(forKey: identity)
+        bridgeMetadataCache.removeValue(forKey: identity)
+        installedProgramsTasks.removeValue(forKey: identity)?.task.cancel()
+        startMenuEntriesTasks.removeValue(forKey: identity)?.task.cancel()
+        storageByteCountTasks.removeValue(forKey: identity)?.task.cancel()
+        bridgeMetadataTasks.removeValue(forKey: identity)?.task.cancel()
+        installedProgramsGenerations.removeValue(forKey: identity)
+        startMenuEntriesGenerations.removeValue(forKey: identity)
+        storageByteCountGenerations.removeValue(forKey: identity)
+        bridgeMetadataGenerations.removeValue(forKey: identity)
+    }
+
     private func knownIdentities() -> Set<ContainerIndexIdentity> {
         Set(installedProgramsCache.keys)
             .union(startMenuEntriesCache.keys)
@@ -757,5 +934,110 @@ actor ContainerIndexService {
             .union(startMenuEntriesGenerations.keys)
             .union(storageByteCountGenerations.keys)
             .union(bridgeMetadataGenerations.keys)
+            .union(currentIdentityByContainerID.values)
+    }
+}
+
+private enum LiveContainerBridgeMetadataScanner {
+    static func scan(
+        _ request: ContainerIndexRequest
+    ) -> ContainerBridgeIndexMetadata {
+        let prefixPath = request.identity.path
+        let protocolManifestURL = WineProtocolAssociationFormat.manifestURL(
+            prefixPath: prefixPath
+        )
+        let shortcutManifestURL = WineDesktopShortcutFormat.manifestURL(
+            prefixPath: prefixPath
+        )
+        let protocolContents = WineManifestFileReader.contents(
+            at: protocolManifestURL,
+            insidePrefix: prefixPath,
+            maximumBytes: WineProtocolAssociationFormat.maximumManifestBytes
+        ) ?? ""
+        let shortcutContents = WineManifestFileReader.contents(
+            at: shortcutManifestURL,
+            insidePrefix: prefixPath,
+            maximumBytes: WineDesktopShortcutFormat.maximumManifestBytes
+        ) ?? ""
+
+        var dependencies = [
+            dependency(.protocolManifest, url: protocolManifestURL),
+            dependency(.desktopShortcutManifest, url: shortcutManifestURL),
+        ]
+        let entries = WineDesktopShortcutFormat.entries(
+            inManifest: shortcutContents
+        ).compactMap { entry -> WineDesktopShortcutManifestEntry? in
+            guard let shortcutURL = WineDesktopShortcutFormat.hostShortcutURL(
+                windowsPath: entry.windowsShortcutPath,
+                prefixPath: prefixPath
+            ) else {
+                return nil
+            }
+            dependencies.append(
+                dependency(.desktopShortcut, url: shortcutURL)
+            )
+            guard isRegularNonSymbolicFile(shortcutURL) else {
+                return nil
+            }
+
+            var validatedEntry = entry
+            if let windowsIconPath = entry.windowsIconPath,
+               let iconURL = WineDesktopShortcutFormat.hostIconURL(
+                   windowsPath: windowsIconPath,
+                   prefixPath: prefixPath
+               ) {
+                dependencies.append(
+                    dependency(.desktopShortcutIcon, url: iconURL)
+                )
+                if !isRegularNonSymbolicFile(iconURL) {
+                    validatedEntry.windowsIconPath = nil
+                }
+            } else {
+                validatedEntry.windowsIconPath = nil
+            }
+            return validatedEntry
+        }
+
+        return ContainerBridgeIndexMetadata(
+            protocolSchemes: WineProtocolAssociationFormat.schemes(
+                inManifest: protocolContents
+            ),
+            desktopShortcutEntries: entries,
+            dependencies: Array(Set(dependencies)).sorted {
+                if $0.role != $1.role {
+                    return $0.role.rawValue < $1.role.rawValue
+                }
+                return $0.path < $1.path
+            }
+        )
+    }
+
+    private static func dependency(
+        _ role: ContainerBridgeDependencyMetadata.Role,
+        url: URL
+    ) -> ContainerBridgeDependencyMetadata {
+        let normalizedURL = url.standardizedFileURL
+        let values = try? normalizedURL.resourceValues(
+            forKeys: [
+                .fileSizeKey,
+                .contentModificationDateKey,
+            ]
+        )
+        return ContainerBridgeDependencyMetadata(
+            role: role,
+            path: normalizedURL.path,
+            byteCount: values?.fileSize.map(Int64.init),
+            modificationDate: values?.contentModificationDate
+        )
+    }
+
+    private static func isRegularNonSymbolicFile(_ url: URL) -> Bool {
+        guard let values = try? url.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ) else {
+            return false
+        }
+        return values.isRegularFile == true
+            && values.isSymbolicLink != true
     }
 }
