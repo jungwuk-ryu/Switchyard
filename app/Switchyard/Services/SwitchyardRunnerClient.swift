@@ -410,6 +410,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         guard Darwin.chmod(requestsURL.path, mode_t(S_IRWXU)) == 0 else {
             throw POSIXError(.EACCES)
         }
+        WineCallbackRequestCleanup.removeStaleRequests(inBridgeRoot: rootURL)
 
         let requestURL = requestsURL.appendingPathComponent("\(UUID().uuidString).json")
         do {

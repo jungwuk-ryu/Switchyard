@@ -81,7 +81,7 @@ private final class URLHandlerDelegate: NSObject, NSApplicationDelegate {
         return requestURL
     }
 
-    private static var bridgeRootURL: URL {
+    fileprivate static var bridgeRootURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Switchyard", isDirectory: true)
             .appendingPathComponent("ProtocolBridge", isDirectory: true)
@@ -91,6 +91,9 @@ private final class URLHandlerDelegate: NSObject, NSApplicationDelegate {
 @main
 private enum SwitchyardURLHandler {
     static func main() {
+        WineCallbackRequestCleanup.removeStaleRequests(
+            inBridgeRoot: URLHandlerDelegate.bridgeRootURL
+        )
         let delegate = URLHandlerDelegate()
         let application = NSApplication.shared
         application.delegate = delegate

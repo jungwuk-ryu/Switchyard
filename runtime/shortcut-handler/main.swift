@@ -5,6 +5,7 @@ import Foundation
 @main
 private enum SwitchyardShortcutHandler {
     static func main() {
+        WineCallbackRequestCleanup.removeStaleRequests(inBridgeRoot: bridgeRootURL)
         guard let shortcutID = Bundle.main.object(
             forInfoDictionaryKey: "SwitchyardDesktopShortcutID"
         ) as? String,
