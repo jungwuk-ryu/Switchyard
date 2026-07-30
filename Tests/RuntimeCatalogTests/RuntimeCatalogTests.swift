@@ -786,6 +786,262 @@ private func makeLaunchReadyGPTKLayout(
     #expect(status.missingFonts.count == OpenFontPackCatalog.files.count)
 }
 
+@Test func managedRuntimeWithRegularFilesRemainsSelectableAndComplete() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let runtimeRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-regular",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: cacheRoot) }
+
+    let wine = try createSwitchyardWineRuntime(
+        at: runtimeRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+    let installation = try #require(locator.installedManagedRuntimes().first)
+
+    #expect(installation.runtime.winePath == wine.path)
+    #expect(installation.isCompleteWoW64)
+    #expect(locator.resolveWineExecutablePath(for: runtimeRoot.path) == wine.path)
+    #expect(locator.preferredWineExecutablePath(for: nil) == wine.path)
+}
+
+@Test func managedRuntimeRejectsWineSymlinkEscapingRuntimeRoot() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let runtimeRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-escaping-wine",
+        isDirectory: true
+    )
+    let outsideRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let outsideWine = outsideRoot.appendingPathComponent("wine")
+    defer {
+        try? FileManager.default.removeItem(at: cacheRoot)
+        try? FileManager.default.removeItem(at: outsideRoot)
+    }
+
+    try writeExecutable(at: outsideWine)
+    let wine = try createSwitchyardWineRuntime(
+        at: runtimeRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    try FileManager.default.removeItem(at: wine)
+    try FileManager.default.createSymbolicLink(
+        at: wine,
+        withDestinationURL: outsideWine
+    )
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+    let diagnosis = locator.diagnose(gptkPath: nil, winePath: runtimeRoot.path)
+    let wineCheck = try #require(
+        diagnosis.1.first { $0.id == "wine-runtime" }
+    )
+
+    #expect(locator.resolveWineExecutablePath(for: runtimeRoot.path) == nil)
+    #expect(locator.preferredWineExecutablePath(for: nil) == nil)
+    #expect(locator.installedManagedRuntimes().isEmpty)
+    #expect(locator.runtimeBuild(for: wine.path).id == "external-unverified")
+    #expect(wineCheck.status == .missing)
+}
+
+@Test func managedRuntimeManifestCannotAuthorizeOutsideExecutable() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let runtimeRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-escaping-manifest",
+        isDirectory: true
+    )
+    let outsideRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let outsideWine = outsideRoot.appendingPathComponent("wine")
+    defer {
+        try? FileManager.default.removeItem(at: cacheRoot)
+        try? FileManager.default.removeItem(at: outsideRoot)
+    }
+
+    try writeExecutable(at: outsideWine)
+    let wine = try createSwitchyardWineRuntime(
+        at: runtimeRoot,
+        peArchitectures: ["i386", "x86_64"],
+        manifestExecutable: outsideWine.path
+    )
+    try FileManager.default.removeItem(at: wine)
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+
+    #expect(locator.preferredWineExecutablePath(for: nil) == nil)
+    #expect(locator.installedManagedRuntimes().isEmpty)
+}
+
+@Test func managedRuntimeRejectsEscapingWineServerSymlink() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let runtimeRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-escaping-wineserver",
+        isDirectory: true
+    )
+    let outsideRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let outsideWineServer = outsideRoot.appendingPathComponent("wineserver")
+    defer {
+        try? FileManager.default.removeItem(at: cacheRoot)
+        try? FileManager.default.removeItem(at: outsideRoot)
+    }
+
+    try writeExecutable(at: outsideWineServer)
+    let wine = try createSwitchyardWineRuntime(
+        at: runtimeRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    try FileManager.default.createSymbolicLink(
+        at: wine.deletingLastPathComponent()
+            .appendingPathComponent("wineserver"),
+        withDestinationURL: outsideWineServer
+    )
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+
+    #expect(locator.resolveWineExecutablePath(for: runtimeRoot.path) == nil)
+    #expect(locator.installedManagedRuntimes().isEmpty)
+}
+
+@Test func managedRuntimeRejectsExecutableThroughEscapingDirectorySymlink() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let runtimeRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-escaping-bin",
+        isDirectory: true
+    )
+    let outsideRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let outsideWine = outsideRoot
+        .appendingPathComponent("bin", isDirectory: true)
+        .appendingPathComponent("wine")
+    defer {
+        try? FileManager.default.removeItem(at: cacheRoot)
+        try? FileManager.default.removeItem(at: outsideRoot)
+    }
+
+    try createSwitchyardWineRuntime(
+        at: runtimeRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    try FileManager.default.removeItem(
+        at: runtimeRoot.appendingPathComponent("bin", isDirectory: true)
+    )
+    try writeExecutable(at: outsideWine)
+    try FileManager.default.createSymbolicLink(
+        at: runtimeRoot.appendingPathComponent("bin", isDirectory: true),
+        withDestinationURL: outsideWine.deletingLastPathComponent()
+    )
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+
+    #expect(locator.resolveWineExecutablePath(for: runtimeRoot.path) == nil)
+    #expect(locator.installedManagedRuntimes().isEmpty)
+}
+
+@Test func managedRuntimeRejectsPEMarkerSymlinkEscapingRuntimeRoot() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let runtimeRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-escaping-marker",
+        isDirectory: true
+    )
+    let outsideRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let outsideMarker = outsideRoot.appendingPathComponent("ntdll.dll")
+    defer {
+        try? FileManager.default.removeItem(at: cacheRoot)
+        try? FileManager.default.removeItem(at: outsideRoot)
+    }
+
+    try FileManager.default.createDirectory(
+        at: outsideRoot,
+        withIntermediateDirectories: true
+    )
+    try Data().write(to: outsideMarker)
+    try createSwitchyardWineRuntime(
+        at: runtimeRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    let marker = runtimeRoot
+        .appendingPathComponent("lib/wine/i386-windows", isDirectory: true)
+        .appendingPathComponent("ntdll.dll")
+    try FileManager.default.removeItem(at: marker)
+    try FileManager.default.createSymbolicLink(
+        at: marker,
+        withDestinationURL: outsideMarker
+    )
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+    let installation = try #require(locator.installedManagedRuntimes().first)
+    let diagnosis = locator.diagnose(gptkPath: nil, winePath: runtimeRoot.path)
+    let wineCheck = try #require(
+        diagnosis.1.first { $0.id == "wine-runtime" }
+    )
+
+    #expect(!installation.isCompleteWoW64)
+    #expect(wineCheck.status == .warning)
+    #expect(wineCheck.result.contains("missing PE architecture(s): i386"))
+}
+
+@Test func managedRuntimeAllowsRelativeSymlinksThatStayInsideRuntimeRoot() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let runtimeRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-internal-links",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: cacheRoot) }
+
+    let wine = try createSwitchyardWineRuntime(
+        at: runtimeRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    let bin = wine.deletingLastPathComponent()
+    let wine64 = bin.appendingPathComponent("wine64")
+    try FileManager.default.moveItem(at: wine, to: wine64)
+    try FileManager.default.createSymbolicLink(
+        atPath: wine.path,
+        withDestinationPath: "wine64"
+    )
+    let wineServerTarget = bin.appendingPathComponent("wineserver.real")
+    try writeExecutable(at: wineServerTarget)
+    try FileManager.default.createSymbolicLink(
+        atPath: bin.appendingPathComponent("wineserver").path,
+        withDestinationPath: "wineserver.real"
+    )
+
+    let marker = runtimeRoot
+        .appendingPathComponent("lib/wine/i386-windows", isDirectory: true)
+        .appendingPathComponent("ntdll.dll")
+    let sharedMarker = marker
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appendingPathComponent("shared-ntdll.dll")
+    try FileManager.default.moveItem(at: marker, to: sharedMarker)
+    try FileManager.default.createSymbolicLink(
+        atPath: marker.path,
+        withDestinationPath: "../shared-ntdll.dll"
+    )
+
+    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+    let installation = try #require(locator.installedManagedRuntimes().first)
+    let diagnosis = locator.diagnose(gptkPath: nil, winePath: runtimeRoot.path)
+    let wineCheck = try #require(
+        diagnosis.1.first { $0.id == "wine-runtime" }
+    )
+
+    #expect(installation.runtime.winePath == wine.path)
+    #expect(installation.isCompleteWoW64)
+    #expect(locator.resolveWineExecutablePath(for: runtimeRoot.path) == wine.path)
+    #expect(wineCheck.status == .ok)
+}
+
 @Test func managedRuntimeCatalogListsAndRemovesOnlyCacheRuntimes() throws {
     let cacheRoot = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -897,13 +1153,12 @@ private func createSwitchyardWineRuntime(
     at root: URL,
     peArchitectures: [String],
     sourceRevision: String = String(repeating: "a", count: 40),
-    sourceDirty: Bool = false
+    sourceDirty: Bool = false,
+    manifestExecutable: String? = nil
 ) throws -> URL {
     let bin = root.appendingPathComponent("bin", isDirectory: true)
     let wine = bin.appendingPathComponent("wine")
-    try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-    try Data("#!/bin/sh\n".utf8).write(to: wine)
-    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: wine.path)
+    try writeExecutable(at: wine)
 
     for architecture in peArchitectures {
         let peDirectory = root
@@ -921,7 +1176,7 @@ private func createSwitchyardWineRuntime(
       "id": "switchyard-test-runtime",
       "buildProfile": "switchyard-wow64-pe",
       "peArchitectures": [\(quotedArchitectures)],
-      "executable": "\(wine.path)",
+      "executable": "\(manifestExecutable ?? wine.path)",
       "sourceRepository": "https://github.com/jungwuk-ryu/switchyard-wine",
       "sourceRevision": "\(sourceRevision)",
       "sourceDirty": \(sourceDirty),
@@ -930,6 +1185,18 @@ private func createSwitchyardWineRuntime(
     """
     try Data(manifest.utf8).write(to: root.appendingPathComponent("switchyard-runtime.json"))
     return wine
+}
+
+private func writeExecutable(at url: URL) throws {
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try Data("#!/bin/sh\n".utf8).write(to: url)
+    try FileManager.default.setAttributes(
+        [.posixPermissions: 0o755],
+        ofItemAtPath: url.path
+    )
 }
 
 private func setManifestModificationDate(at runtimeRoot: URL, to date: Date) throws {

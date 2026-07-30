@@ -354,14 +354,14 @@ public struct RuntimeLocator {
     public func resolveWineExecutablePath(for path: String?) -> String? {
         let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !trimmedPath.isEmpty {
-            return resolveWineExecutable(at: trimmedPath)
+            return resolveWineExecutableForSelection(at: trimmedPath)
         }
 
         if let cachedPath = latestCachedSwitchyardWineExecutablePath() {
             return cachedPath
         }
 
-        return resolveWineExecutable(at: defaultWineRuntimePath())
+        return resolveWineExecutableForSelection(at: defaultWineRuntimePath())
     }
 
     public func preferredWineExecutablePath(for path: String?, expectedSourceRevision: String? = nil) -> String? {
@@ -374,7 +374,7 @@ public struct RuntimeLocator {
         }
 
         let isManagedCacheSelection = isSwitchyardRuntimeCachePath(trimmedPath)
-        guard let resolvedPath = resolveWineExecutable(at: trimmedPath) else {
+        guard let resolvedPath = resolveWineExecutableForSelection(at: trimmedPath) else {
             return isManagedCacheSelection ? preferredCachedPath : nil
         }
 
@@ -405,7 +405,12 @@ public struct RuntimeLocator {
             ?? path?.trimmingCharacters(in: .whitespacesAndNewlines)
             ?? ""
         guard let rootURL = runtimeRoot(forWineExecutable: resolvedPath),
-              let manifest = loadSwitchyardRuntimeManifest(under: rootURL) else {
+              let manifest = loadSwitchyardRuntimeManifest(under: rootURL),
+              !isSwitchyardRuntimeCachePath(rootURL.path)
+                || validateManagedWineExecutable(
+                    at: resolvedPath,
+                    under: rootURL
+                ) != nil else {
             return RuntimeBuild(
                 id: "external-unverified",
                 winePath: resolvedPath,
@@ -612,7 +617,7 @@ public struct RuntimeLocator {
         let trimmedPath = path?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let candidate = trimmedPath.isEmpty ? (latestCachedSwitchyardWineExecutablePath() ?? defaultWineRuntimePath()) : trimmedPath
 
-        if let resolvedPath = resolveWineExecutable(at: candidate) {
+        if let resolvedPath = resolveWineExecutableForSelection(at: candidate) {
             return describeWine(
                 at: resolvedPath,
                 expectedSourceRevision: expectedSourceRevision,
@@ -842,6 +847,21 @@ public struct RuntimeLocator {
         return nil
     }
 
+    private func resolveWineExecutableForSelection(at path: String) -> String? {
+        guard let executable = resolveWineExecutable(at: path) else {
+            return nil
+        }
+        guard let rootURL = runtimeRoot(forWineExecutable: executable),
+              isSwitchyardRuntimeCachePath(rootURL.path) else {
+            return executable
+        }
+
+        return validateManagedWineExecutable(
+            at: executable,
+            under: rootURL
+        )
+    }
+
     private func latestCachedSwitchyardWineExecutablePath(matchingSourceRevision expectedSourceRevision: String? = nil) -> String? {
         let candidates = cachedSwitchyardRuntimeCandidates()
         let matchingCandidates: [SwitchyardRuntimeCandidate]
@@ -889,14 +909,30 @@ public struct RuntimeLocator {
             var isDirectory: ObjCBool = false
             guard fileManager.fileExists(atPath: runtimeURL.path, isDirectory: &isDirectory),
                   isDirectory.boolValue,
+                  isVerifiedManagedRuntimeRoot(runtimeURL),
                   let manifest = loadSwitchyardRuntimeManifest(under: runtimeURL) else {
                 return nil
             }
 
             let manifestURL = runtimeURL.appendingPathComponent("switchyard-runtime.json")
             let modifiedAt = (try? manifestURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            let executable = resolveWineExecutable(at: runtimeURL.path)
-                ?? manifest.executable.flatMap { resolveWineExecutable(at: $0) }
+            let executable: String?
+            if let discoveredExecutable = resolveWineExecutable(at: runtimeURL.path) {
+                executable = validateManagedWineExecutable(
+                    at: discoveredExecutable,
+                    under: runtimeURL
+                )
+            } else if let manifestExecutable = manifest.executable,
+                      let resolvedManifestExecutable = resolveWineExecutable(
+                        at: manifestExecutable
+                      ) {
+                executable = validateManagedWineExecutable(
+                    at: resolvedManifestExecutable,
+                    under: runtimeURL
+                )
+            } else {
+                executable = nil
+            }
 
             guard let executable else {
                 return nil
@@ -933,6 +969,7 @@ public struct RuntimeLocator {
 
     private func isManagedSwitchyardRuntimePath(_ path: String) -> Bool {
         guard let rootURL = runtimeRoot(forWineExecutable: path),
+              isVerifiedManagedRuntimeRoot(rootURL),
               loadSwitchyardRuntimeManifest(under: rootURL) != nil else {
             return false
         }
@@ -940,9 +977,25 @@ public struct RuntimeLocator {
     }
 
     private func isSwitchyardRuntimeCachePath(_ path: String) -> Bool {
-        let cacheRootPath = switchyardRuntimeCacheRoot().standardizedFileURL.path
-        let candidatePath = URL(fileURLWithPath: path).standardizedFileURL.path
-        return candidatePath == cacheRootPath || candidatePath.hasPrefix(cacheRootPath + "/")
+        let listedCandidateURL = URL(fileURLWithPath: path)
+            .standardizedFileURL
+        let listedCacheRootURL = switchyardRuntimeCacheRoot()
+            .standardizedFileURL
+        if isComponentContained(
+            listedCandidateURL,
+            in: listedCacheRootURL
+        ) {
+            return true
+        }
+
+        return isComponentContained(
+            listedCandidateURL
+                .resolvingSymlinksInPath()
+                .standardizedFileURL,
+            in: listedCacheRootURL
+                .resolvingSymlinksInPath()
+                .standardizedFileURL
+        )
     }
 
     private func runtimeRoot(forWineExecutable path: String) -> URL? {
@@ -968,13 +1021,148 @@ public struct RuntimeLocator {
             return false
         }
 
-        return fileManager.fileExists(
-            atPath: rootURL
-                .appendingPathComponent("lib/wine", isDirectory: true)
-                .appendingPathComponent("\(architecture)-windows", isDirectory: true)
-                .appendingPathComponent("ntdll.dll")
-                .path
+        let markerURL = rootURL
+            .appendingPathComponent("lib/wine", isDirectory: true)
+            .appendingPathComponent("\(architecture)-windows", isDirectory: true)
+            .appendingPathComponent("ntdll.dll")
+        if isSwitchyardRuntimeCachePath(rootURL.path) {
+            return isManagedRuntimeRegularFile(
+                markerURL,
+                under: rootURL
+            )
+        }
+        return fileManager.fileExists(atPath: markerURL.path)
+    }
+
+    private func validateManagedWineExecutable(
+        at path: String,
+        under rootURL: URL
+    ) -> String? {
+        let wineURL = URL(fileURLWithPath: path).standardizedFileURL
+        guard isVerifiedManagedRuntimeRoot(rootURL),
+              isManagedRuntimeRegularFile(
+                wineURL,
+                under: rootURL,
+                mustBeExecutable: true
+              ) else {
+            return nil
+        }
+
+        let resolvedWineURL = wineURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        var inspectedDirectories = Set<String>()
+        for directoryURL in [
+            wineURL.deletingLastPathComponent(),
+            resolvedWineURL.deletingLastPathComponent()
+        ] {
+            guard inspectedDirectories.insert(directoryURL.path).inserted else {
+                continue
+            }
+            let wineServerURL = directoryURL.appendingPathComponent("wineserver")
+            if fileSystemEntryType(at: wineServerURL) != nil,
+               !isManagedRuntimeRegularFile(
+                wineServerURL,
+                under: rootURL
+               ) {
+                return nil
+            }
+        }
+
+        return wineURL.path
+    }
+
+    private func isVerifiedManagedRuntimeRoot(_ rootURL: URL) -> Bool {
+        let listedRootURL = rootURL.standardizedFileURL
+        let listedCacheRootURL = switchyardRuntimeCacheRoot()
+            .standardizedFileURL
+        guard listedRootURL != listedCacheRootURL,
+              fileSystemEntryType(at: listedRootURL) == S_IFDIR else {
+            return false
+        }
+
+        let resourceValues = try? listedRootURL.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
         )
+        guard resourceValues?.isDirectory == true,
+              resourceValues?.isSymbolicLink != true else {
+            return false
+        }
+
+        let canonicalCacheRootURL = listedCacheRootURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let canonicalRootURL = listedRootURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        return canonicalRootURL != canonicalCacheRootURL
+            && isComponentContained(
+                canonicalRootURL,
+                in: canonicalCacheRootURL
+            )
+    }
+
+    private func isManagedRuntimeRegularFile(
+        _ fileURL: URL,
+        under rootURL: URL,
+        mustBeExecutable: Bool = false
+    ) -> Bool {
+        let listedFileURL = fileURL.standardizedFileURL
+        let listedRootURL = rootURL.standardizedFileURL
+        guard isVerifiedManagedRuntimeRoot(listedRootURL),
+              let listedEntryType = fileSystemEntryType(at: listedFileURL),
+              listedEntryType == S_IFREG || listedEntryType == S_IFLNK else {
+            return false
+        }
+
+        let canonicalRootURL = listedRootURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let canonicalFileURL = listedFileURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        guard isComponentContained(
+            canonicalFileURL,
+            in: canonicalRootURL
+        ) else {
+            return false
+        }
+
+        let resourceValues = try? canonicalFileURL.resourceValues(
+            forKeys: [.isRegularFileKey]
+        )
+        guard resourceValues?.isRegularFile == true else {
+            return false
+        }
+        return !mustBeExecutable
+            || fileManager.isExecutableFile(atPath: canonicalFileURL.path)
+    }
+
+    private func fileSystemEntryType(at url: URL) -> mode_t? {
+        var fileInformation = stat()
+        let status = url.path.withCString {
+            Darwin.lstat($0, &fileInformation)
+        }
+        guard status == 0 else {
+            return nil
+        }
+        return fileInformation.st_mode & S_IFMT
+    }
+
+    private func isComponentContained(
+        _ candidateURL: URL,
+        in rootURL: URL
+    ) -> Bool {
+        let candidateComponents = candidateURL
+            .standardizedFileURL
+            .pathComponents
+        let rootComponents = rootURL
+            .standardizedFileURL
+            .pathComponents
+        return candidateComponents.count >= rootComponents.count
+            && candidateComponents
+                .prefix(rootComponents.count)
+                .elementsEqual(rootComponents)
     }
 
     private var isAppleSilicon: Bool {
