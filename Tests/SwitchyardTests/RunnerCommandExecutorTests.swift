@@ -51,9 +51,9 @@ struct RunnerCommandExecutorTests {
             terminationGrace: .milliseconds(50)
         )
         let readinessURL = fixtureReadinessURL()
-        var processID: pid_t?
+        var fixtureProcessIDs: [pid_t] = []
         defer {
-            terminateFixtureIfNeeded(processID)
+            terminateFixturesIfNeeded(fixtureProcessIDs)
             try? FileManager.default.removeItem(at: readinessURL)
         }
         let task = Task {
@@ -61,18 +61,36 @@ struct RunnerCommandExecutorTests {
                 executableURL: URL(fileURLWithPath: "/usr/bin/perl"),
                 arguments: [
                     "-e",
-                    "$SIG{TERM} = 'IGNORE';"
-                        + "open(my $fh, '>', $ARGV[0]) or die;"
-                        + "print $fh $$;"
-                        + "close($fh);"
-                        + "sleep(30);",
+                    """
+                    use POSIX qw(pause);
+                    $SIG{TERM} = 'IGNORE';
+                    pipe(my $readyReader, my $readyWriter) or die;
+                    my $child = fork();
+                    die unless defined($child);
+                    if ($child == 0) {
+                        close($readyReader);
+                        print $readyWriter "ready";
+                        close($readyWriter);
+                        pause() while 1;
+                    }
+                    close($readyWriter);
+                    <$readyReader>;
+                    close($readyReader);
+                    open(my $fh, '>', $ARGV[0]) or die;
+                    print $fh "$$ $child";
+                    close($fh);
+                    waitpid($child, 0);
+                    """,
                     readinessURL.path,
                     "switchyard-runner-executor-deadline-fixture",
                 ],
                 deadline: .seconds(1)
             )
         }
-        processID = try await waitForFixtureProcess(at: readinessURL)
+        fixtureProcessIDs = try await waitForFixtureProcesses(
+            at: readinessURL,
+            expectedCount: 2
+        )
 
         do {
             _ = try await task.value
@@ -83,8 +101,10 @@ struct RunnerCommandExecutorTests {
             Issue.record("Unexpected error: \(error)")
         }
 
+        try await waitForFixtureExit(fixtureProcessIDs)
         #expect(executor.activeExecutionCount == 0)
-        #expect(processID.map { !isProcessRunning($0) } == true)
+        #expect(fixtureProcessIDs.allSatisfy { !isProcessRunning($0) })
+        fixtureProcessIDs.removeAll()
     }
 
     @Test("task cancellation terminates and waits for the helper")
@@ -93,9 +113,9 @@ struct RunnerCommandExecutorTests {
             terminationGrace: .milliseconds(100)
         )
         let readinessURL = fixtureReadinessURL()
-        var processID: pid_t?
+        var fixtureProcessIDs: [pid_t] = []
         defer {
-            terminateFixtureIfNeeded(processID)
+            terminateFixturesIfNeeded(fixtureProcessIDs)
             try? FileManager.default.removeItem(at: readinessURL)
         }
         let task = Task {
@@ -103,10 +123,30 @@ struct RunnerCommandExecutorTests {
                 executableURL: URL(fileURLWithPath: "/usr/bin/perl"),
                 arguments: [
                     "-e",
-                    "open(my $fh, '>', $ARGV[0]) or die;"
-                        + "print $fh $$;"
-                        + "close($fh);"
-                        + "sleep(30);",
+                    """
+                    use POSIX qw(pause);
+                    my $child;
+                    $SIG{TERM} = sub {
+                        kill('TERM', $child) if $child;
+                    };
+                    pipe(my $readyReader, my $readyWriter) or die;
+                    $child = fork();
+                    die unless defined($child);
+                    if ($child == 0) {
+                        close($readyReader);
+                        $SIG{TERM} = sub { exit(0); };
+                        print $readyWriter "ready";
+                        close($readyWriter);
+                        pause() while 1;
+                    }
+                    close($readyWriter);
+                    <$readyReader>;
+                    close($readyReader);
+                    open(my $fh, '>', $ARGV[0]) or die;
+                    print $fh "$$ $child";
+                    close($fh);
+                    waitpid($child, 0);
+                    """,
                     readinessURL.path,
                     "switchyard-runner-executor-cancellation-fixture",
                 ],
@@ -114,7 +154,10 @@ struct RunnerCommandExecutorTests {
             )
         }
 
-        processID = try await waitForFixtureProcess(at: readinessURL)
+        fixtureProcessIDs = try await waitForFixtureProcesses(
+            at: readinessURL,
+            expectedCount: 2
+        )
         task.cancel()
 
         do {
@@ -126,8 +169,10 @@ struct RunnerCommandExecutorTests {
             Issue.record("Unexpected error: \(error)")
         }
 
+        try await waitForFixtureExit(fixtureProcessIDs)
         #expect(executor.activeExecutionCount == 0)
-        #expect(processID.map { !isProcessRunning($0) } == true)
+        #expect(fixtureProcessIDs.allSatisfy { !isProcessRunning($0) })
+        fixtureProcessIDs.removeAll()
     }
 
     @Test("pre-cancelled tasks do not retain an execution")
@@ -156,47 +201,73 @@ struct RunnerCommandExecutorTests {
         #expect(executor.activeExecutionCount == 0)
     }
 
-    @Test("direct child exit bounds inherited pipe drain time")
-    func directChildExitBoundsPipeDrain() async throws {
+    @Test("immediate direct child exit cleans inherited pipe descendants")
+    func immediateDirectChildExitCleansInheritedPipeDescendant() async throws {
         let executor = RunnerCommandExecutor(
-            outputDrainGrace: .milliseconds(50)
+            terminationGrace: .milliseconds(100),
+            outputDrainGrace: .seconds(3)
         )
         let readinessURL = fixtureReadinessURL()
-        var descendantProcessID: pid_t?
+        var fixtureProcessIDs: [pid_t] = []
+        let unrelatedProcess = Process()
+        unrelatedProcess.executableURL = URL(fileURLWithPath: "/usr/bin/perl")
+        unrelatedProcess.arguments = [
+            "-MPOSIX=pause",
+            "-e",
+            "pause() while 1",
+            "switchyard-runner-executor-unrelated-fixture",
+        ]
+        try unrelatedProcess.run()
+        let unrelatedProcessID = unrelatedProcess.processIdentifier
         defer {
-            terminateFixtureIfNeeded(descendantProcessID)
+            terminateFixturesIfNeeded(fixtureProcessIDs)
+            terminateProcessIfNeeded(unrelatedProcess)
             try? FileManager.default.removeItem(at: readinessURL)
         }
+
         let clock = ContinuousClock()
         let startedAt = clock.now
-
-        let result = try await executor.execute(
-            executableURL: URL(fileURLWithPath: "/usr/bin/perl"),
-            arguments: [
-                "-e",
-                "my $pid = fork();"
-                    + "die unless defined($pid);"
-                    + "if ($pid == 0) {"
-                    + "open(my $fh, '>', $ARGV[0]) or die;"
-                    + "print $fh $$;"
-                    + "close($fh);"
-                    + "select(undef, undef, undef, 0.25);"
-                    + "exit(0);"
-                    + "}"
-                    + "print 'done';",
-                readinessURL.path,
-                "switchyard-runner-executor-pipe-descendant-fixture",
-            ],
-            deadline: .seconds(2)
+        let task = Task {
+            try await executor.execute(
+                executableURL: URL(fileURLWithPath: "/usr/bin/perl"),
+                arguments: [
+                    "-e",
+                    """
+                    use POSIX qw(pause);
+                    $SIG{TERM} = 'IGNORE';
+                    my $child = fork();
+                    die unless defined($child);
+                    if ($child == 0) {
+                        pause() while 1;
+                    }
+                    open(my $fh, '>', $ARGV[0]) or die;
+                    print $fh "$$ $child";
+                    close($fh);
+                    print "done";
+                    exit(0);
+                    """,
+                    readinessURL.path,
+                    "switchyard-runner-executor-pipe-descendant-fixture",
+                ],
+                deadline: .seconds(2)
+            )
+        }
+        fixtureProcessIDs = try await waitForFixtureProcesses(
+            at: readinessURL,
+            expectedCount: 2
         )
-        descendantProcessID = try await waitForFixtureProcess(at: readinessURL)
+        let result = try await task.value
 
         #expect(result.terminationStatus == 0)
         #expect(String(decoding: result.standardOutput, as: UTF8.self) == "done")
         #expect(startedAt.duration(to: clock.now) < .seconds(1))
-        try await waitForFixtureExit(descendantProcessID!)
-        #expect(!isProcessRunning(descendantProcessID!))
+        try await waitForFixtureExit(fixtureProcessIDs)
+        #expect(fixtureProcessIDs.allSatisfy { !isProcessRunning($0) })
+        fixtureProcessIDs.removeAll()
+        #expect(unrelatedProcess.isRunning)
         #expect(executor.activeExecutionCount == 0)
+        terminateProcessIfNeeded(unrelatedProcess)
+        #expect(!isProcessRunning(unrelatedProcessID))
     }
 }
 
@@ -362,19 +433,32 @@ private func fixtureReadinessURL() -> URL {
         .appendingPathComponent("switchyard-runner-executor-\(UUID().uuidString).pid")
 }
 
-private func waitForFixtureProcess(at url: URL) async throws -> pid_t {
+private func waitForFixtureProcesses(
+    at url: URL,
+    expectedCount: Int
+) async throws -> [pid_t] {
     let clock = ContinuousClock()
     let deadline = clock.now.advanced(by: .seconds(2))
     while clock.now < deadline {
         if let data = try? Data(contentsOf: url),
-           let rawValue = String(data: data, encoding: .utf8),
-           let processID = pid_t(rawValue),
-           processID > 0 {
-            return processID
+           let rawValue = String(data: data, encoding: .utf8) {
+            let processIDs = rawValue
+                .split(whereSeparator: \.isWhitespace)
+                .compactMap { pid_t($0) }
+                .filter { $0 > 0 }
+            if processIDs.count == expectedCount {
+                return processIDs
+            }
         }
         try await Task.sleep(for: .milliseconds(10))
     }
     throw RunnerCommandFixtureError.didNotBecomeReady
+}
+
+private func waitForFixtureExit(_ processIDs: [pid_t]) async throws {
+    for processID in processIDs {
+        try await waitForFixtureExit(processID)
+    }
 }
 
 private func waitForFixtureExit(_ processID: pid_t) async throws {
@@ -390,10 +474,42 @@ private func waitForFixtureExit(_ processID: pid_t) async throws {
 }
 
 private func isProcessRunning(_ processID: pid_t) -> Bool {
-    Darwin.kill(processID, 0) == 0 || errno == EPERM
+    errno = 0
+    return Darwin.kill(processID, 0) == 0 || errno == EPERM
 }
 
-private func terminateFixtureIfNeeded(_ processID: pid_t?) {
-    guard let processID, isProcessRunning(processID) else { return }
-    Darwin.kill(processID, SIGKILL)
+private func terminateFixturesIfNeeded(_ processIDs: [pid_t]) {
+    for processID in processIDs where isProcessRunning(processID) {
+        Darwin.kill(processID, SIGTERM)
+    }
+    let deadline = Date().addingTimeInterval(1)
+    while Date() < deadline,
+          processIDs.contains(where: { isProcessRunning($0) }) {
+        Thread.sleep(forTimeInterval: 0.01)
+    }
+    for processID in processIDs where isProcessRunning(processID) {
+        Darwin.kill(processID, SIGKILL)
+    }
+    let killDeadline = Date().addingTimeInterval(1)
+    while Date() < killDeadline,
+          processIDs.contains(where: { isProcessRunning($0) }) {
+        Thread.sleep(forTimeInterval: 0.01)
+    }
+}
+
+private func terminateProcessIfNeeded(_ process: Process) {
+    if process.isRunning {
+        process.terminate()
+    }
+    let deadline = Date().addingTimeInterval(1)
+    while process.isRunning, Date() < deadline {
+        Thread.sleep(forTimeInterval: 0.01)
+    }
+    if process.isRunning {
+        Darwin.kill(process.processIdentifier, SIGKILL)
+    }
+    let killDeadline = Date().addingTimeInterval(1)
+    while process.isRunning, Date() < killDeadline {
+        Thread.sleep(forTimeInterval: 0.01)
+    }
 }
