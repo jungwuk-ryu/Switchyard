@@ -478,6 +478,12 @@ public enum ManagedRuntimeCatalogError: LocalizedError, Equatable, Sendable {
 }
 
 public struct RuntimeLocator {
+    private static let maximumPathComponentByteCount = 255
+    private static let temporaryImportComponentPrefix = "."
+    private static let temporaryImportComponentSuffix = ".tmp-"
+    private static let uuidStringByteCount =
+        "00000000-0000-0000-0000-000000000000".utf8.count
+
     public var fileManager: FileManager
     private let runtimeCacheRootOverride: URL?
     private let hdiutilPath = "/usr/bin/hdiutil"
@@ -1782,7 +1788,11 @@ public struct RuntimeLocator {
         try fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
 
         let destinationURL = URL(fileURLWithPath: destination, isDirectory: true)
-        let temporaryURL = rootURL.appendingPathComponent(".\(destinationURL.lastPathComponent).tmp-\(UUID().uuidString)", isDirectory: true)
+        let temporaryURL = rootURL.appendingPathComponent(
+            "\(Self.temporaryImportComponentPrefix)\(destinationURL.lastPathComponent)"
+                + "\(Self.temporaryImportComponentSuffix)\(UUID().uuidString)",
+            isDirectory: true
+        )
         var shouldRemoveTemporary = true
         defer {
             if shouldRemoveTemporary {
@@ -1812,8 +1822,19 @@ public struct RuntimeLocator {
         let url = URL(fileURLWithPath: path)
         let baseName = sanitizedRuntimeName(url.deletingPathExtension().lastPathComponent)
         let digest = try sha256(of: url)
+        let digestSuffix = "-\(digest)"
+        let temporaryComponentOverhead = Self.temporaryImportComponentPrefix.utf8.count
+            + Self.temporaryImportComponentSuffix.utf8.count
+            + Self.uuidStringByteCount
+        let maximumBaseNameByteCount = Self.maximumPathComponentByteCount
+            - temporaryComponentOverhead
+            - digestSuffix.utf8.count
+        let boundedBaseName = utf8Prefix(
+            baseName,
+            maximumByteCount: maximumBaseNameByteCount
+        )
         return URL(fileURLWithPath: importRoot, isDirectory: true)
-            .appendingPathComponent("\(baseName)-\(digest)", isDirectory: true)
+            .appendingPathComponent("\(boundedBaseName)\(digestSuffix)", isDirectory: true)
             .path
     }
 
@@ -1829,6 +1850,24 @@ public struct RuntimeLocator {
         return hasher.finalize().map {
             String(format: "%02x", $0)
         }.joined()
+    }
+
+    private func utf8Prefix(_ value: String, maximumByteCount: Int) -> String {
+        guard value.utf8.count > maximumByteCount else {
+            return value
+        }
+
+        var result = ""
+        var byteCount = 0
+        for character in value {
+            let characterByteCount = String(character).utf8.count
+            guard byteCount + characterByteCount <= maximumByteCount else {
+                break
+            }
+            result.append(character)
+            byteCount += characterByteCount
+        }
+        return result
     }
 
     private func sanitizedRuntimeName(_ name: String) -> String {

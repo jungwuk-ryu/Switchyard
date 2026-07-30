@@ -469,6 +469,50 @@ private func makeLaunchReadyGPTKLayout(
     #expect(firstDestination != thirdDestination)
 }
 
+@Test func gptkImportDestinationBoundsLongUTF8PathComponents() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+    let longBaseName = "A" + String(repeating: "界", count: 83)
+    let archive = root.appendingPathComponent("\(longBaseName).dmg")
+    let firstContent = Data("first long-name archive".utf8)
+    let secondContent = Data("second long-name archive".utf8)
+    try firstContent.write(to: archive)
+
+    let locator = RuntimeLocator()
+    let firstDestination = try locator.importDestination(
+        forDiskImageAt: archive.path,
+        under: root.path
+    )
+    let firstComponent = URL(fileURLWithPath: firstDestination).lastPathComponent
+    let firstTemporaryComponent = ".\(firstComponent).tmp-\(UUID().uuidString)"
+
+    #expect(archive.lastPathComponent.utf8.count <= 255)
+    #expect(firstComponent.utf8.count <= 255)
+    #expect(firstTemporaryComponent.utf8.count == 255)
+    #expect(firstComponent.hasPrefix("A界"))
+    #expect(firstComponent.suffix(64).allSatisfy { $0.isHexDigit })
+    #expect(URL(fileURLWithPath: firstDestination).pathExtension.isEmpty)
+    #expect(
+        URL(fileURLWithPath: firstDestination).deletingLastPathComponent()
+            == root.standardizedFileURL
+    )
+
+    try secondContent.write(to: archive)
+    let secondDestination = try locator.importDestination(
+        forDiskImageAt: archive.path,
+        under: root.path
+    )
+    let secondComponent = URL(fileURLWithPath: secondDestination).lastPathComponent
+
+    #expect(firstDestination != secondDestination)
+    #expect(firstComponent.dropLast(64) == secondComponent.dropLast(64))
+}
+
 @Test func wineDirectorySelectionResolvesBinWineExecutable() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     let bin = root.appendingPathComponent("bin", isDirectory: true)
