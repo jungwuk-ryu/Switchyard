@@ -45,6 +45,15 @@ enum WineProtocolBridgeError: LocalizedError {
 
 struct WineProtocolBridgeRefreshResult {
     var newlyRegisteredSchemes: [String]
+    var observedDependencyURLs: Set<URL>
+
+    init(
+        newlyRegisteredSchemes: [String],
+        observedDependencyURLs: Set<URL> = []
+    ) {
+        self.newlyRegisteredSchemes = newlyRegisteredSchemes
+        self.observedDependencyURLs = observedDependencyURLs
+    }
 }
 
 enum WineManifestFileReader {
@@ -293,9 +302,18 @@ final class WineProtocolBridge {
         winePath: String,
         runnerPath: String
     ) throws -> WineProtocolBridgeRefreshResult {
+        var observedDependencyURLs = observedDependencyURLs(
+            containers: containers,
+            winePath: winePath,
+            runnerPath: runnerPath
+        )
+
         guard fileManager.isExecutableFile(atPath: winePath),
               fileManager.isExecutableFile(atPath: runnerPath) else {
-            return WineProtocolBridgeRefreshResult(newlyRegisteredSchemes: [])
+            return WineProtocolBridgeRefreshResult(
+                newlyRegisteredSchemes: [],
+                observedDependencyURLs: observedDependencyURLs
+            )
         }
 
         let validContainerIDs = Set(containers.map(\.id))
@@ -373,17 +391,48 @@ final class WineProtocolBridge {
         try removeStaleHandlers(keeping: acceptedSchemes)
         registeredSchemes.formIntersection(acceptedSchemes)
         guard !routes.isEmpty else {
-            return WineProtocolBridgeRefreshResult(newlyRegisteredSchemes: [])
+            return WineProtocolBridgeRefreshResult(
+                newlyRegisteredSchemes: [],
+                observedDependencyURLs: observedDependencyURLs
+            )
         }
 
         let helperURL = try locateURLHandler()
+        observedDependencyURLs.insert(helperURL.standardizedFileURL)
         var newlyRegisteredSchemes: [String] = []
         for scheme in Set(routes.map(\.scheme)).sorted() where !registeredSchemes.contains(scheme) {
             try registerHandler(for: scheme, helperURL: helperURL)
             registeredSchemes.insert(scheme)
             newlyRegisteredSchemes.append(scheme)
         }
-        return WineProtocolBridgeRefreshResult(newlyRegisteredSchemes: newlyRegisteredSchemes)
+        return WineProtocolBridgeRefreshResult(
+            newlyRegisteredSchemes: newlyRegisteredSchemes,
+            observedDependencyURLs: observedDependencyURLs
+        )
+    }
+
+    func observedDependencyURLs(
+        containers: [Container],
+        winePath: String,
+        runnerPath: String
+    ) -> Set<URL> {
+        var urls = Set(
+            containers.map {
+                WineProtocolAssociationFormat.manifestURL(
+                    prefixPath: $0.path
+                ).standardizedFileURL
+            }
+        )
+        urls.insert(
+            URL(fileURLWithPath: winePath).standardizedFileURL
+        )
+        urls.insert(
+            URL(fileURLWithPath: runnerPath).standardizedFileURL
+        )
+        urls.insert(
+            learnedAssociationsURL.standardizedFileURL
+        )
+        return urls
     }
 
     func makeCallbackRecoveryRequest(

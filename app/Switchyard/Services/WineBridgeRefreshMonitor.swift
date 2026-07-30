@@ -1,4 +1,5 @@
 import AppCore
+import CryptoKit
 import Darwin
 import Foundation
 
@@ -167,6 +168,8 @@ private final class WineBridgeRefreshMonitorMetricsRecorder:
 actor WineBridgeRefreshMonitor {
     typealias Sleep = @Sendable (TimeInterval) async throws -> Void
     typealias Stamp = @Sendable (URL) async -> WineBridgeFileStamp
+    typealias ObservedDependenciesChanged =
+        @Sendable (Set<URL>) -> Void
     typealias Refresh = @Sendable (
         WineBridgeRefreshRequest
     ) async throws -> WineBridgeRefreshResult
@@ -254,6 +257,7 @@ actor WineBridgeRefreshMonitor {
     private let counters: PerformanceCounters
     private let sleep: Sleep
     private let stamp: Stamp
+    private let observedDependenciesChanged: ObservedDependenciesChanged
     private let refresh: Refresh
 
     private var lifecycle: Lifecycle = .idle
@@ -279,12 +283,15 @@ actor WineBridgeRefreshMonitor {
         stamp: @escaping Stamp = { url in
             WineBridgeFileStamp.read(from: url)
         },
+        observedDependenciesChanged:
+            @escaping ObservedDependenciesChanged = { _ in },
         refresh: @escaping Refresh
     ) {
         self.configuration = configuration
         self.counters = counters
         self.sleep = sleep
         self.stamp = stamp
+        self.observedDependenciesChanged = observedDependenciesChanged
         self.refresh = refresh
     }
 
@@ -340,6 +347,7 @@ actor WineBridgeRefreshMonitor {
         activeRefresh = nil
         observedDependencies.removeAll()
         dependencyGeneration &+= 1
+        observedDependenciesChanged([])
     }
 
     func invalidate(_ scope: WineBridgeRefreshScope) {
@@ -623,6 +631,7 @@ actor WineBridgeRefreshMonitor {
         with dependencies: [WineBridgeObservedDependency],
         stamps: [URL: WineBridgeFileStamp]
     ) -> WineBridgeRefreshScope {
+        let previousURLs = Set(observedDependencies.keys)
         var updated = observedDependencies
         var additionallyInvalidatedScope: WineBridgeRefreshScope = []
 
@@ -652,6 +661,10 @@ actor WineBridgeRefreshMonitor {
 
         observedDependencies = updated
         dependencyGeneration &+= 1
+        let updatedURLs = Set(updated.keys)
+        if updatedURLs != previousURLs {
+            observedDependenciesChanged(updatedURLs)
+        }
         return additionallyInvalidatedScope
     }
 
@@ -701,5 +714,425 @@ actor WineBridgeRefreshMonitor {
 
     nonisolated private static func normalizedURL(_ url: URL) -> URL {
         url.standardizedFileURL
+    }
+}
+
+enum WineBridgeFileDigestError: Error {
+    case invalidFile
+    case fileChangedDuringRead
+}
+
+actor WineBridgeFileDigestCache {
+    private struct FileIdentity: Equatable, Sendable {
+        let device: UInt64
+        let inode: UInt64
+        let size: Int64
+        let modificationSeconds: Int64
+        let modificationNanoseconds: Int64
+        let changeSeconds: Int64
+        let changeNanoseconds: Int64
+
+        init?(_ status: stat) {
+            guard status.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG),
+                  status.st_size >= 0 else {
+                return nil
+            }
+            device = UInt64(status.st_dev)
+            inode = UInt64(status.st_ino)
+            size = Int64(status.st_size)
+            modificationSeconds = Int64(status.st_mtimespec.tv_sec)
+            modificationNanoseconds = Int64(status.st_mtimespec.tv_nsec)
+            changeSeconds = Int64(status.st_ctimespec.tv_sec)
+            changeNanoseconds = Int64(status.st_ctimespec.tv_nsec)
+        }
+    }
+
+    private struct Entry: Sendable {
+        let identity: FileIdentity
+        let digest: String
+        var accessSequence: UInt64
+    }
+
+    private struct DigestResult: Sendable {
+        let identity: FileIdentity
+        let digest: String
+        let wasCacheHit: Bool
+    }
+
+    private let counters: PerformanceCounters
+    private let maximumEntryCount: Int
+    private var entriesByPath: [String: Entry] = [:]
+    private var requestGenerationByPath: [String: UInt64] = [:]
+    private var accessSequence: UInt64 = 0
+
+    init(
+        counters: PerformanceCounters = .shared,
+        maximumEntryCount: Int = 1_024
+    ) {
+        self.counters = counters
+        self.maximumEntryCount = max(1, maximumEntryCount)
+    }
+
+    func sha256Hex(of url: URL) async throws -> String {
+        try Task.checkCancellation()
+        let normalizedURL = url.standardizedFileURL
+        let path = normalizedURL.path
+        let cachedEntry = entriesByPath[path]
+        let generation = requestGenerationByPath[path, default: 0] &+ 1
+        requestGenerationByPath[path] = generation
+
+        let digestTask = Task.detached(priority: .utility) {
+            try Self.readDigest(
+                at: normalizedURL,
+                cachedEntry: cachedEntry
+            )
+        }
+        let result = try await withTaskCancellationHandler {
+            try await digestTask.value
+        } onCancel: {
+            digestTask.cancel()
+        }
+        try Task.checkCancellation()
+
+        if result.wasCacheHit {
+            counters.increment(.bridgeDigestCacheHits)
+        }
+        guard requestGenerationByPath[path] == generation else {
+            return result.digest
+        }
+
+        accessSequence &+= 1
+        entriesByPath[path] = Entry(
+            identity: result.identity,
+            digest: result.digest,
+            accessSequence: accessSequence
+        )
+        evictIfNeeded()
+        return result.digest
+    }
+
+    func removeAll() {
+        entriesByPath.removeAll(keepingCapacity: false)
+        requestGenerationByPath.removeAll(keepingCapacity: false)
+    }
+
+    private func evictIfNeeded() {
+        while entriesByPath.count > maximumEntryCount,
+              let oldest = entriesByPath.min(by: {
+                  $0.value.accessSequence < $1.value.accessSequence
+              }) {
+            entriesByPath.removeValue(forKey: oldest.key)
+            requestGenerationByPath.removeValue(forKey: oldest.key)
+        }
+    }
+
+    nonisolated private static func readDigest(
+        at url: URL,
+        cachedEntry: Entry?
+    ) throws -> DigestResult {
+        let descriptor = url.path.withCString {
+            Darwin.open(
+                $0,
+                O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+            )
+        }
+        guard descriptor >= 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        defer { Darwin.close(descriptor) }
+
+        var initialStatus = stat()
+        guard Darwin.fstat(descriptor, &initialStatus) == 0,
+              let initialIdentity = FileIdentity(initialStatus) else {
+            throw WineBridgeFileDigestError.invalidFile
+        }
+        if let cachedEntry,
+           cachedEntry.identity == initialIdentity {
+            return DigestResult(
+                identity: initialIdentity,
+                digest: cachedEntry.digest,
+                wasCacheHit: true
+            )
+        }
+
+        var hasher = SHA256()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1_024)
+        var bytesReadTotal: Int64 = 0
+        while true {
+            try Task.checkCancellation()
+            let bytesRead = buffer.withUnsafeMutableBytes { bytes in
+                Darwin.read(descriptor, bytes.baseAddress, bytes.count)
+            }
+            if bytesRead < 0 {
+                if errno == EINTR { continue }
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+            if bytesRead == 0 { break }
+            bytesReadTotal += Int64(bytesRead)
+            hasher.update(data: Data(buffer.prefix(Int(bytesRead))))
+        }
+
+        var finalStatus = stat()
+        guard Darwin.fstat(descriptor, &finalStatus) == 0,
+              let finalIdentity = FileIdentity(finalStatus),
+              initialIdentity == finalIdentity,
+              bytesReadTotal == initialIdentity.size else {
+            throw WineBridgeFileDigestError.fileChangedDuringRead
+        }
+
+        return DigestResult(
+            identity: initialIdentity,
+            digest: hasher.finalize().map {
+                String(format: "%02x", $0)
+            }.joined(),
+            wasCacheHit: false
+        )
+    }
+}
+
+final class WineBridgeFileEventSource: @unchecked Sendable {
+    private enum TargetKind: String, Hashable {
+        case file
+        case directory
+    }
+
+    private struct Target: Hashable {
+        let kind: TargetKind
+        let url: URL
+
+        var key: String {
+            "\(kind.rawValue):\(url.path)"
+        }
+    }
+
+    private struct SourceRecord {
+        let source: DispatchSourceFileSystemObject
+    }
+
+    private let queue = DispatchQueue(
+        label: "dev.switchyard.bridge-file-events",
+        qos: .utility
+    )
+    private let queueKey = DispatchSpecificKey<UInt8>()
+    private let cancellationGroup = DispatchGroup()
+    private let onEvent: @Sendable () -> Void
+    private var requestedDependencyURLs: Set<URL> = []
+    private var recordsByKey: [String: SourceRecord] = [:]
+    private var isShutdown = false
+
+    init(onEvent: @escaping @Sendable () -> Void) {
+        self.onEvent = onEvent
+        queue.setSpecific(key: queueKey, value: 1)
+    }
+
+    deinit {
+        shutdown()
+    }
+
+    func update(dependencyURLs: Set<URL>) {
+        executeOnQueue {
+            guard !isShutdown else { return }
+            requestedDependencyURLs = Set(
+                dependencyURLs.map(\.standardizedFileURL)
+            )
+            rebuildSources()
+        }
+    }
+
+    func shutdown() {
+        let calledFromQueue = DispatchQueue.getSpecific(key: queueKey) != nil
+        executeOnQueue {
+            guard !isShutdown else { return }
+            isShutdown = true
+            requestedDependencyURLs.removeAll()
+            let records = recordsByKey.values
+            recordsByKey.removeAll()
+            records.forEach { $0.source.cancel() }
+        }
+        if !calledFromQueue {
+            cancellationGroup.wait()
+        }
+    }
+
+    private func executeOnQueue(_ work: () -> Void) {
+        if DispatchQueue.getSpecific(key: queueKey) != nil {
+            work()
+        } else {
+            queue.sync(execute: work)
+        }
+    }
+
+    private func rebuildSources() {
+        guard !isShutdown else { return }
+        let targets = desiredTargets()
+        let desiredKeys = Set(targets.map(\.key))
+
+        for key in recordsByKey.keys
+        where !desiredKeys.contains(key) {
+            recordsByKey.removeValue(forKey: key)?.source.cancel()
+        }
+        for target in targets where recordsByKey[target.key] == nil {
+            if let record = makeSource(for: target) {
+                recordsByKey[target.key] = record
+            }
+        }
+    }
+
+    private func desiredTargets() -> Set<Target> {
+        var targets: Set<Target> = []
+        for dependencyURL in requestedDependencyURLs {
+            if isExistingItem(
+                dependencyURL,
+                expectedType: mode_t(S_IFREG)
+            ) {
+                targets.insert(Target(kind: .file, url: dependencyURL))
+            }
+            if let directoryURL = nearestExistingDirectory(
+                to: dependencyURL.deletingLastPathComponent()
+            ) {
+                targets.insert(
+                    Target(kind: .directory, url: directoryURL)
+                )
+            }
+        }
+        return targets
+    }
+
+    private func nearestExistingDirectory(to requestedURL: URL) -> URL? {
+        var candidate = requestedURL.standardizedFileURL
+        while true {
+            if isExistingItem(
+                candidate,
+                expectedType: mode_t(S_IFDIR)
+            ) {
+                return candidate
+            }
+            let parent = candidate.deletingLastPathComponent()
+            if parent.path == candidate.path { return nil }
+            candidate = parent
+        }
+    }
+
+    private func isExistingItem(
+        _ url: URL,
+        expectedType: mode_t
+    ) -> Bool {
+        var status = stat()
+        return lstat(url.path, &status) == 0
+            && status.st_mode & mode_t(S_IFMT) == expectedType
+    }
+
+    private func makeSource(for target: Target) -> SourceRecord? {
+        let descriptor = target.url.path.withCString {
+            Darwin.open(
+                $0,
+                O_EVTONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+            )
+        }
+        guard descriptor >= 0 else { return nil }
+
+        var descriptorStatus = stat()
+        var pathStatus = stat()
+        let expectedType: mode_t = target.kind == .file
+            ? mode_t(S_IFREG)
+            : mode_t(S_IFDIR)
+        guard Darwin.fstat(descriptor, &descriptorStatus) == 0,
+              lstat(target.url.path, &pathStatus) == 0,
+              descriptorStatus.st_dev == pathStatus.st_dev,
+              descriptorStatus.st_ino == pathStatus.st_ino,
+              descriptorStatus.st_mode & mode_t(S_IFMT) == expectedType,
+              pathStatus.st_mode & mode_t(S_IFMT) == expectedType else {
+            Darwin.close(descriptor)
+            return nil
+        }
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: descriptor,
+            eventMask: [
+                .write,
+                .extend,
+                .attrib,
+                .delete,
+                .rename,
+                .revoke,
+            ],
+            queue: queue
+        )
+        cancellationGroup.enter()
+        source.setCancelHandler { [cancellationGroup] in
+            Darwin.close(descriptor)
+            cancellationGroup.leave()
+        }
+        source.setEventHandler { [weak self, weak source] in
+            guard let self, !isShutdown else { return }
+            let destructiveEvents: DispatchSource.FileSystemEvent = [
+                .delete,
+                .rename,
+                .revoke,
+            ]
+            if let source,
+               !source.data.intersection(destructiveEvents).isEmpty {
+                recordsByKey.removeValue(forKey: target.key)?
+                    .source.cancel()
+            }
+            onEvent()
+            rebuildSources()
+        }
+        source.resume()
+        return SourceRecord(source: source)
+    }
+}
+
+final class WineBridgeRefreshEventRelay: @unchecked Sendable {
+    private let lock = NSLock()
+    private weak var monitor: WineBridgeRefreshMonitor?
+
+    func connect(_ monitor: WineBridgeRefreshMonitor) {
+        lock.withLock {
+            self.monitor = monitor
+        }
+    }
+
+    func disconnect() {
+        lock.withLock {
+            monitor = nil
+        }
+    }
+
+    func handleFileSystemEvent() {
+        let monitor = lock.withLock { self.monitor }
+        guard let monitor else { return }
+        Task {
+            await monitor.handleFileSystemEvent()
+        }
+    }
+}
+
+final class WineBridgeRefreshHandlerRelay: @unchecked Sendable {
+    private let lock = NSLock()
+    private var refresh:
+        WineBridgeRefreshMonitor.Refresh?
+
+    func connect(
+        _ refresh: @escaping WineBridgeRefreshMonitor.Refresh
+    ) {
+        lock.withLock {
+            self.refresh = refresh
+        }
+    }
+
+    func disconnect() {
+        lock.withLock {
+            refresh = nil
+        }
+    }
+
+    func refresh(
+        _ request: WineBridgeRefreshRequest
+    ) async throws -> WineBridgeRefreshResult {
+        guard let refresh = lock.withLock({ self.refresh }) else {
+            throw CancellationError()
+        }
+        return try await refresh(request)
     }
 }

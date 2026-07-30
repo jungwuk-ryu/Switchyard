@@ -334,6 +334,39 @@ struct WineBridgeRefreshMonitorTests {
         await monitor.shutdown()
     }
 
+    @Test("unchanged file events replace per-second bridge polling")
+    func unchangedFileEventsDoNotRefresh() async {
+        let dependencyURL = URL(
+            fileURLWithPath: "/virtual/prefix/protocols.reg"
+        )
+        let harness = WineBridgeRefreshHarness()
+        await harness.setStamp(stamp(inode: 1), for: dependencyURL)
+        await harness.setDependencies([
+            WineBridgeObservedDependency(
+                url: dependencyURL,
+                scope: .all
+            )
+        ])
+        let counters = PerformanceCounters()
+        let monitor = makeMonitor(
+            harness: harness,
+            counters: counters
+        )
+        await monitor.start()
+
+        for _ in 0..<60 {
+            await monitor.handleFileSystemEvent()
+        }
+        await monitor.flushPendingRefresh()
+
+        #expect(await harness.requestCount() == 1)
+        #expect(counters.snapshot()[.protocolBridgeRefreshes] == 1)
+        #expect(counters.snapshot()[.shortcutBridgeRefreshes] == 1)
+        #expect(await monitor.snapshot().metrics.refreshExecutions == 1)
+
+        await monitor.shutdown()
+    }
+
     @Test("the slow timer performs a forced all-scope safety refresh")
     func safetyTimerForcesRefresh() async throws {
         let clock = WineBridgeRefreshManualClock()
@@ -438,6 +471,169 @@ struct WineBridgeRefreshMonitorTests {
         await monitor.invalidate(.all)
         await monitor.performSafetyResyncNow()
         #expect(await harness.requestCount() == 2)
+    }
+}
+
+@Suite("Wine Bridge File Digest Cache")
+struct WineBridgeFileDigestCacheTests {
+    @Test("reuses a digest only while stable file identity is unchanged")
+    func stableIdentityCacheHitAndAtomicReplacementMiss() async throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(
+            "switchyard-bridge-digest-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let sourceURL = root.appendingPathComponent("Shortcut.ico")
+        let replacementURL = root.appendingPathComponent("replacement.ico")
+        defer { try? fileManager.removeItem(at: root) }
+        try fileManager.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        try Data("first-icon".utf8).write(to: sourceURL)
+
+        let counters = PerformanceCounters()
+        let cache = WineBridgeFileDigestCache(counters: counters)
+        let first = try await cache.sha256Hex(of: sourceURL)
+        let second = try await cache.sha256Hex(of: sourceURL)
+
+        #expect(first == second)
+        #expect(counters.snapshot()[.bridgeDigestCacheHits] == 1)
+
+        try Data("other-icon".utf8).write(to: replacementURL)
+        try fileManager.removeItem(at: sourceURL)
+        try fileManager.moveItem(at: replacementURL, to: sourceURL)
+
+        let replaced = try await cache.sha256Hex(of: sourceURL)
+        #expect(replaced != first)
+        #expect(counters.snapshot()[.bridgeDigestCacheHits] == 1)
+    }
+
+    @Test("does not follow symbolic links")
+    func symbolicLinkIsRejected() async throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(
+            "switchyard-bridge-digest-link-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let targetURL = root.appendingPathComponent("target")
+        let linkURL = root.appendingPathComponent("link")
+        defer { try? fileManager.removeItem(at: root) }
+        try fileManager.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        try Data("target".utf8).write(to: targetURL)
+        try fileManager.createSymbolicLink(
+            at: linkURL,
+            withDestinationURL: targetURL
+        )
+
+        let cache = WineBridgeFileDigestCache()
+        var rejected = false
+        do {
+            _ = try await cache.sha256Hex(of: linkURL)
+        } catch {
+            rejected = true
+        }
+        #expect(rejected)
+    }
+}
+
+@Suite("Wine Bridge File Events")
+struct WineBridgeFileEventSourceTests {
+    @Test("reports an in-place dependency write without periodic polling")
+    func reportsDependencyWrite() async throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(
+            "switchyard-bridge-events-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        let dependencyURL = root.appendingPathComponent("protocols.reg")
+        defer { try? fileManager.removeItem(at: root) }
+        try fileManager.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        try Data("before".utf8).write(to: dependencyURL)
+
+        let recorder = WineBridgeFileEventRecorder()
+        let source = WineBridgeFileEventSource {
+            recorder.record()
+        }
+        source.update(dependencyURLs: [dependencyURL])
+        try Data("after".utf8).write(to: dependencyURL)
+
+        for _ in 0..<200 where recorder.count == 0 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        source.shutdown()
+        #expect(recorder.count > 0)
+    }
+}
+
+@MainActor
+@Suite("Wine Bridge Refresh Dependencies")
+struct WineBridgeRefreshDependencyTests {
+    @Test("tracks manifests, runtime, runner, and learned routes before inputs exist")
+    func tracksBaselineInputs() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "switchyard-bridge-dependencies-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        let prefixURL = root.appendingPathComponent(
+            "Test.container",
+            isDirectory: true
+        )
+        let wineURL = root.appendingPathComponent("wine")
+        let runnerURL = root.appendingPathComponent("switchyard-runner")
+        let protocolRootURL = root.appendingPathComponent(
+            "ProtocolBridge",
+            isDirectory: true
+        )
+        let container = Container(
+            name: "Test",
+            path: prefixURL.path
+        )
+
+        let desktopBridge = WineDesktopShortcutBridge(
+            rootURL: root.appendingPathComponent("DesktopBridge"),
+            desktopURL: root.appendingPathComponent("Desktop")
+        )
+        let prepared = try desktopBridge.prepareRefresh(
+            containers: [container],
+            winePath: wineURL.path,
+            runnerPath: runnerURL.path
+        )
+        #expect(prepared.digestURLs.isEmpty)
+        #expect(prepared.observedDependencyURLs == [
+            WineDesktopShortcutFormat.manifestURL(
+                prefixPath: prefixURL.path
+            ).standardizedFileURL,
+            wineURL.standardizedFileURL,
+            runnerURL.standardizedFileURL,
+        ])
+
+        let protocolBridge = WineProtocolBridge(
+            rootURL: protocolRootURL
+        )
+        #expect(
+            protocolBridge.observedDependencyURLs(
+                containers: [container],
+                winePath: wineURL.path,
+                runnerPath: runnerURL.path
+            ) == [
+                WineProtocolAssociationFormat.manifestURL(
+                    prefixPath: prefixURL.path
+                ).standardizedFileURL,
+                protocolRootURL.appendingPathComponent(
+                    "learned-associations-v1.json"
+                ).standardizedFileURL,
+                wineURL.standardizedFileURL,
+                runnerURL.standardizedFileURL,
+            ]
+        )
     }
 }
 
@@ -670,6 +866,21 @@ private final class WineBridgeRefreshManualClock: @unchecked Sendable {
             return nil
         }
         continuation?.resume(throwing: CancellationError())
+    }
+}
+
+private final class WineBridgeFileEventRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    var count: Int {
+        lock.withLock { value }
+    }
+
+    func record() {
+        lock.withLock {
+            value += 1
+        }
     }
 }
 

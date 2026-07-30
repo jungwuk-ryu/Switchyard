@@ -421,7 +421,12 @@ final class AppStore: ObservableObject {
     @Published var isSetupAssistantPresented = false
     @Published var libraryPath: String
     @Published private(set) var gptkPath: String
-    @Published var winePath: String
+    @Published var winePath: String {
+        didSet {
+            guard winePath != oldValue else { return }
+            invalidateWineBridges(.all)
+        }
+    }
     @Published private(set) var runtimeStatus = RuntimeStatus()
     @Published private(set) var diagnostics: [DiagnosticCheck] = []
     @Published private(set) var isRefreshingDiagnostics = false
@@ -464,7 +469,12 @@ final class AppStore: ObservableObject {
     @Published private(set) var containerStorageOperationIDs: Set<UUID> = []
     @Published private(set) var loginCallbackRecoveryStates: [UUID: LoginCallbackRecoveryState] = [:]
     @Published private(set) var debugRunLogStorage = DebugRunLogStorageSnapshot.empty
-    @Published var containers: [Container]
+    @Published var containers: [Container] {
+        didSet {
+            guard containers != oldValue else { return }
+            invalidateWineBridges(.all)
+        }
+    }
     let logStore = LogStore()
     private(set) var logLines: [LogLine] {
         get { logStore.lines }
@@ -478,6 +488,13 @@ final class AppStore: ObservableObject {
     private let sessionMonitor: SessionMonitor
     private let protocolBridge = WineProtocolBridge()
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
+    private let bridgeDigestCache = WineBridgeFileDigestCache()
+    private let bridgeRefreshEventRelay =
+        WineBridgeRefreshEventRelay()
+    private let bridgeRefreshHandlerRelay =
+        WineBridgeRefreshHandlerRelay()
+    private let bridgeFileEventSource: WineBridgeFileEventSource
+    private let bridgeRefreshMonitor: WineBridgeRefreshMonitor
     private let containerBackgroundImageStore = ContainerBackgroundImageStore()
     private let debugRunLogStore = DebugRunLogStore()
     private let liveLogJournalStore = LiveLogJournalStore()
@@ -522,6 +539,25 @@ final class AppStore: ObservableObject {
         let runnerClient = SwitchyardRunnerClient()
         self.runnerClient = runnerClient
         sessionMonitor = SessionMonitor(inspector: runnerClient)
+        let bridgeRefreshEventRelay = bridgeRefreshEventRelay
+        let bridgeRefreshHandlerRelay = bridgeRefreshHandlerRelay
+        let bridgeFileEventSource = WineBridgeFileEventSource {
+            [bridgeRefreshEventRelay] in
+            bridgeRefreshEventRelay.handleFileSystemEvent()
+        }
+        self.bridgeFileEventSource = bridgeFileEventSource
+        let bridgeRefreshMonitor = WineBridgeRefreshMonitor(
+            observedDependenciesChanged: { dependencyURLs in
+                bridgeFileEventSource.update(
+                    dependencyURLs: dependencyURLs
+                )
+            },
+            refresh: { request in
+                try await bridgeRefreshHandlerRelay.refresh(request)
+            }
+        )
+        self.bridgeRefreshMonitor = bridgeRefreshMonitor
+        bridgeRefreshEventRelay.connect(bridgeRefreshMonitor)
 
         let defaultLibrary = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("Switchyard", isDirectory: true)
@@ -584,6 +620,10 @@ final class AppStore: ObservableObject {
             persistRecentProgramLaunches()
         }
         pruneDebugRunLogs()
+        bridgeRefreshHandlerRelay.connect { [weak self] request in
+            guard let self else { throw CancellationError() }
+            return try await self.performWineBridgeRefresh(request)
+        }
         startProtocolBridgeMonitoring()
 
 #if DEBUG
@@ -595,9 +635,17 @@ final class AppStore: ObservableObject {
 
     deinit {
         liveLogJournalMonitor.stopAll()
+        protocolBridgeTask?.cancel()
+        bridgeRefreshEventRelay.disconnect()
+        bridgeRefreshHandlerRelay.disconnect()
+        bridgeFileEventSource.shutdown()
         let sessionMonitor = sessionMonitor
+        let bridgeRefreshMonitor = bridgeRefreshMonitor
+        let bridgeDigestCache = bridgeDigestCache
         Task {
             await sessionMonitor.shutdown()
+            await bridgeRefreshMonitor.shutdown()
+            await bridgeDigestCache.removeAll()
         }
     }
 
@@ -3677,7 +3725,7 @@ final class AppStore: ObservableObject {
             persistRecentProgramLaunches()
             refreshInstalledPrograms(for: containerID)
             refreshStartMenuEntries(for: containerID)
-            refreshProtocolAssociations()
+            invalidateWineBridges(.all)
             logLines.insert(
                 LogLine(
                     containerID: containerID,
@@ -4313,7 +4361,7 @@ final class AppStore: ObservableObject {
                 )
             }
             protocolBridge.recordLaunch(containerID: container.id)
-            refreshProtocolAssociations()
+            invalidateWineBridges(.protocols)
             mark(
                 container.id,
                 as: .running,
@@ -4514,96 +4562,225 @@ final class AppStore: ObservableObject {
 
     private func startProtocolBridgeMonitoring() {
         protocolBridgeTask?.cancel()
-        protocolBridgeTask = Task { [weak self] in
-            while !Task.isCancelled {
-                self?.refreshProtocolAssociations()
-                self?.refreshDesktopShortcuts()
-                do {
-                    try await Task.sleep(for: .seconds(1))
-                } catch {
-                    return
+        let monitor = bridgeRefreshMonitor
+        protocolBridgeTask = Task {
+            await monitor.start()
+        }
+    }
+
+    private func invalidateWineBridges(
+        _ scope: WineBridgeRefreshScope
+    ) {
+        let monitor = bridgeRefreshMonitor
+        Task {
+            await monitor.invalidate(scope)
+        }
+    }
+
+    private func performWineBridgeRefresh(
+        _ request: WineBridgeRefreshRequest
+    ) async throws -> WineBridgeRefreshResult {
+        try Task.checkCancellation()
+        let refreshContainers = containers
+        let refreshWinePath = currentRuntime.winePath
+        let refreshRunnerPath = try runnerClient.runnerURL().path
+        var scopesByDependencyURL: [URL: WineBridgeRefreshScope] = [:]
+
+        func observe(
+            _ urls: Set<URL>,
+            for scope: WineBridgeRefreshScope
+        ) {
+            for url in urls {
+                let normalizedURL = url.standardizedFileURL
+                scopesByDependencyURL[
+                    normalizedURL,
+                    default: []
+                ].formUnion(scope)
+            }
+        }
+
+        let runtimeDependencyURLs: Set<URL> = [
+            URL(fileURLWithPath: refreshWinePath).standardizedFileURL,
+            URL(fileURLWithPath: refreshRunnerPath).standardizedFileURL,
+        ]
+        observe(runtimeDependencyURLs, for: request.scope)
+
+        if request.scope.contains(.protocols) {
+            observe(
+                protocolBridge.observedDependencyURLs(
+                    containers: refreshContainers,
+                    winePath: refreshWinePath,
+                    runnerPath: refreshRunnerPath
+                ),
+                for: .protocols
+            )
+            do {
+                let result = try protocolBridge.refresh(
+                    containers: refreshContainers,
+                    winePath: refreshWinePath,
+                    runnerPath: refreshRunnerPath
+                )
+                observe(
+                    result.observedDependencyURLs,
+                    for: .protocols
+                )
+                recordProtocolBridgeRefresh(result)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                recordProtocolBridgeRefreshError(error)
+            }
+        }
+
+        if request.scope.contains(.shortcuts) {
+            observe(
+                Set(refreshContainers.map {
+                    WineDesktopShortcutFormat.manifestURL(
+                        prefixPath: $0.path
+                    ).standardizedFileURL
+                }),
+                for: .shortcuts
+            )
+            do {
+                let prepared = try desktopShortcutBridge.prepareRefresh(
+                    containers: refreshContainers,
+                    winePath: refreshWinePath,
+                    runnerPath: refreshRunnerPath
+                )
+                observe(
+                    prepared.observedDependencyURLs,
+                    for: .shortcuts
+                )
+
+                var fileDigests: [URL: String] = [:]
+                for url in prepared.digestURLs.sorted(
+                    by: { $0.path < $1.path }
+                ) {
+                    try Task.checkCancellation()
+                    fileDigests[url] = try await bridgeDigestCache
+                        .sha256Hex(of: url)
                 }
+                try Task.checkCancellation()
+
+                guard refreshContainers == containers,
+                      refreshWinePath == currentRuntime.winePath,
+                      refreshRunnerPath
+                        == (try? runnerClient.runnerURL().path) else {
+                    invalidateWineBridges(.shortcuts)
+                    return WineBridgeRefreshResult(
+                        observedDependencies:
+                            scopesByDependencyURL.map {
+                                WineBridgeObservedDependency(
+                                    url: $0.key,
+                                    scope: $0.value
+                                )
+                            }
+                    )
+                }
+
+                let result = try desktopShortcutBridge.refresh(
+                    prepared,
+                    fileDigests: fileDigests
+                )
+                recordDesktopShortcutBridgeRefresh(result)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                recordDesktopShortcutBridgeRefreshError(error)
             }
         }
+
+        return WineBridgeRefreshResult(
+            observedDependencies: scopesByDependencyURL
+                .sorted { $0.key.path < $1.key.path }
+                .map {
+                    WineBridgeObservedDependency(
+                        url: $0.key,
+                        scope: $0.value
+                    )
+                }
+        )
     }
 
-    private func refreshProtocolAssociations() {
-        do {
-            let runnerPath = try runnerClient.runnerURL().path
-            let result = try protocolBridge.refresh(
-                containers: containers,
-                winePath: currentRuntime.winePath,
-                runnerPath: runnerPath
-            )
-            lastProtocolBridgeError = nil
-            for scheme in result.newlyRegisteredSchemes {
-                logLines.insert(
-                    LogLine(
-                        level: "info",
-                        source: "protocols",
-                        message: String(
-                            localized: "Registered a macOS callback bridge for a Wine URL scheme: \(scheme)",
-                            bundle: SwitchyardStrings.bundle
-                        )
-                    ),
-                    at: 0
-                )
-            }
-        } catch {
-            let description = Self.errorDescription(error)
-            guard description != lastProtocolBridgeError else { return }
-            lastProtocolBridgeError = description
+    private func recordProtocolBridgeRefresh(
+        _ result: WineProtocolBridgeRefreshResult
+    ) {
+        lastProtocolBridgeError = nil
+        for scheme in result.newlyRegisteredSchemes {
             logLines.insert(
-                LogLine(level: "warning", source: "protocols", message: description),
+                LogLine(
+                    level: "info",
+                    source: "protocols",
+                    message: String(
+                        localized: "Registered a macOS callback bridge for a Wine URL scheme: \(scheme)",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
                 at: 0
             )
         }
     }
 
-    private func refreshDesktopShortcuts() {
-        do {
-            let runnerPath = try runnerClient.runnerURL().path
-            let result = try desktopShortcutBridge.refresh(
-                containers: containers,
-                winePath: currentRuntime.winePath,
-                runnerPath: runnerPath
-            )
-            lastDesktopShortcutBridgeError = nil
-            for name in result.createdShortcutNames {
-                logLines.insert(
-                    LogLine(
-                        level: "info",
-                        source: "shortcuts",
-                        message: String(
-                            localized: "Created a native macOS desktop shortcut for \(name).",
-                            bundle: SwitchyardStrings.bundle
-                        )
-                    ),
-                    at: 0
-                )
-            }
-            for name in result.removedShortcutNames {
-                logLines.insert(
-                    LogLine(
-                        level: "info",
-                        source: "shortcuts",
-                        message: String(
-                            localized: "Removed a stale macOS desktop shortcut for \(name).",
-                            bundle: SwitchyardStrings.bundle
-                        )
-                    ),
-                    at: 0
-                )
-            }
-        } catch {
-            let description = Self.errorDescription(error)
-            guard description != lastDesktopShortcutBridgeError else { return }
-            lastDesktopShortcutBridgeError = description
+    private func recordProtocolBridgeRefreshError(_ error: Error) {
+        let description = Self.errorDescription(error)
+        guard description != lastProtocolBridgeError else { return }
+        lastProtocolBridgeError = description
+        logLines.insert(
+            LogLine(
+                level: "warning",
+                source: "protocols",
+                message: description
+            ),
+            at: 0
+        )
+    }
+
+    private func recordDesktopShortcutBridgeRefresh(
+        _ result: WineDesktopShortcutBridgeRefreshResult
+    ) {
+        lastDesktopShortcutBridgeError = nil
+        for name in result.createdShortcutNames {
             logLines.insert(
-                LogLine(level: "warning", source: "shortcuts", message: description),
+                LogLine(
+                    level: "info",
+                    source: "shortcuts",
+                    message: String(
+                        localized: "Created a native macOS desktop shortcut for \(name).",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
                 at: 0
             )
         }
+        for name in result.removedShortcutNames {
+            logLines.insert(
+                LogLine(
+                    level: "info",
+                    source: "shortcuts",
+                    message: String(
+                        localized: "Removed a stale macOS desktop shortcut for \(name).",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+        }
+    }
+
+    private func recordDesktopShortcutBridgeRefreshError(
+        _ error: Error
+    ) {
+        let description = Self.errorDescription(error)
+        guard description != lastDesktopShortcutBridgeError else { return }
+        lastDesktopShortcutBridgeError = description
+        logLines.insert(
+            LogLine(
+                level: "warning",
+                source: "shortcuts",
+                message: description
+            ),
+            at: 0
+        )
     }
 
     private func debugRunEnvironmentOverrides(for container: Container) -> [String: String] {

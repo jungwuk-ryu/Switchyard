@@ -47,10 +47,11 @@ final class WineDesktopShortcutBridge {
         var verifiedIconURL: URL?
     }
 
-    private struct DesiredShortcut {
+    fileprivate struct DesiredShortcut {
         var id: String
         var displayName: String
         var containerName: String
+        var sourceURL: URL
         var iconURL: URL?
         var route: WineDesktopShortcutRoute
     }
@@ -58,6 +59,16 @@ final class WineDesktopShortcutBridge {
     private struct Placement {
         var desired: DesiredShortcut
         var bundleURL: URL
+    }
+
+    struct PreparedRefresh {
+        let observedDependencyURLs: Set<URL>
+        let digestURLs: Set<URL>
+
+        fileprivate let desired: [DesiredShortcut]
+        fileprivate let helperURL: URL?
+        fileprivate let wineURL: URL
+        fileprivate let runnerURL: URL
     }
 
     private let fileManager: FileManager
@@ -83,8 +94,97 @@ final class WineDesktopShortcutBridge {
         winePath: String,
         runnerPath: String
     ) throws -> WineDesktopShortcutBridgeRefreshResult {
+        let prepared = try prepareRefresh(
+            containers: containers,
+            winePath: winePath,
+            runnerPath: runnerPath
+        )
+        let fileDigests = try Dictionary(
+            uniqueKeysWithValues: prepared.digestURLs.map { url in
+                (url, try sha256Hex(of: url))
+            }
+        )
+        return try refresh(prepared, fileDigests: fileDigests)
+    }
+
+    func prepareRefresh(
+        containers: [Container],
+        winePath: String,
+        runnerPath: String
+    ) throws -> PreparedRefresh {
+        let wineURL = URL(fileURLWithPath: winePath).standardizedFileURL
+        let runnerURL = URL(
+            fileURLWithPath: runnerPath
+        ).standardizedFileURL
+        var observedDependencyURLs = Set(
+            containers.map {
+                WineDesktopShortcutFormat.manifestURL(
+                    prefixPath: $0.path
+                ).standardizedFileURL
+            }
+        )
+        observedDependencyURLs.insert(wineURL)
+        observedDependencyURLs.insert(runnerURL)
+
         guard fileManager.isExecutableFile(atPath: winePath),
               fileManager.isExecutableFile(atPath: runnerPath) else {
+            return PreparedRefresh(
+                observedDependencyURLs: observedDependencyURLs,
+                digestURLs: [],
+                desired: [],
+                helperURL: nil,
+                wineURL: wineURL,
+                runnerURL: runnerURL
+            )
+        }
+
+        let desired = desiredShortcuts(
+            containers: containers,
+            winePath: winePath,
+            runnerPath: runnerPath
+        )
+        for shortcut in desired {
+            observedDependencyURLs.insert(
+                shortcut.sourceURL.standardizedFileURL
+            )
+            if let iconURL = shortcut.iconURL {
+                observedDependencyURLs.insert(
+                    iconURL.standardizedFileURL
+                )
+            }
+        }
+
+        let helperURL = try desired.isEmpty
+            ? nil
+            : locateShortcutHandler().standardizedFileURL
+        var digestURLs = Set(
+            desired.compactMap(\.iconURL).map(\.standardizedFileURL)
+        )
+        if let helperURL {
+            digestURLs.insert(helperURL)
+            observedDependencyURLs.insert(helperURL)
+        }
+
+        return PreparedRefresh(
+            observedDependencyURLs: observedDependencyURLs,
+            digestURLs: digestURLs,
+            desired: desired,
+            helperURL: helperURL,
+            wineURL: wineURL,
+            runnerURL: runnerURL
+        )
+    }
+
+    func refresh(
+        _ prepared: PreparedRefresh,
+        fileDigests: [URL: String]
+    ) throws -> WineDesktopShortcutBridgeRefreshResult {
+        guard fileManager.isExecutableFile(
+            atPath: prepared.wineURL.path
+        ),
+              fileManager.isExecutableFile(
+                  atPath: prepared.runnerURL.path
+              ) else {
             return WineDesktopShortcutBridgeRefreshResult(
                 createdShortcutNames: [],
                 removedShortcutNames: []
@@ -97,11 +197,7 @@ final class WineDesktopShortcutBridge {
         }
         try fileManager.createDirectory(at: desktopURL, withIntermediateDirectories: true)
 
-        let desired = desiredShortcuts(
-            containers: containers,
-            winePath: winePath,
-            runnerPath: runnerPath
-        )
+        let desired = prepared.desired
         try writeRouteIndex(WineDesktopShortcutRouteIndex(routes: desired.map(\.route)))
 
         let desiredIDs = Set(desired.map(\.id))
@@ -113,13 +209,20 @@ final class WineDesktopShortcutBridge {
             )
         }
 
-        let helperURL = try locateShortcutHandler()
-        let helperDigest = try sha256Hex(of: helperURL)
+        guard let helperURL = prepared.helperURL else {
+            throw WineDesktopShortcutBridgeError.missingShortcutHandler
+        }
+        let helperDigest = try digest(
+            of: helperURL,
+            cachedDigests: fileDigests
+        )
         let placements = try makePlacements(for: desired)
         var createdNames: [String] = []
 
         for placement in placements {
-            let iconDigest = try placement.desired.iconURL.map(sha256Hex(of:))
+            let iconDigest = try placement.desired.iconURL.map {
+                try digest(of: $0, cachedDigests: fileDigests)
+            }
             if !isCurrentBundle(
                 at: placement.bundleURL,
                 desired: placement.desired,
@@ -212,6 +315,7 @@ final class WineDesktopShortcutBridge {
                     id: candidate.id,
                     displayName: entry.displayName,
                     containerName: candidate.containerName,
+                    sourceURL: candidate.verifiedSourceURL,
                     iconURL: candidate.verifiedIconURL,
                     route: WineDesktopShortcutRoute(
                         id: candidate.id,
@@ -655,6 +759,15 @@ final class WineDesktopShortcutBridge {
     private func sha256Hex(of url: URL) throws -> String {
         let digest = SHA256.hash(data: try Data(contentsOf: url))
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func digest(
+        of url: URL,
+        cachedDigests: [URL: String]
+    ) throws -> String {
+        let normalizedURL = url.standardizedFileURL
+        return try cachedDigests[normalizedURL]
+            ?? sha256Hex(of: normalizedURL)
     }
 
     private func isRegularNonSymbolicFile(_ url: URL) -> Bool {
