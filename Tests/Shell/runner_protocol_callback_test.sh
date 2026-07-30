@@ -9,6 +9,7 @@ FAKE_WINE="$TEST_ROOT/wine"
 REQUEST_PATH="$TEST_ROOT/request.json"
 ARGUMENTS_PATH="$TEST_ROOT/arguments.txt"
 ENVIRONMENT_PATH="$TEST_ROOT/environment.txt"
+INVALID_REQUEST_PID=""
 MACOS_MAJOR_VERSION="$(sw_vers -productVersion | cut -d. -f1)"
 if [ "$(uname -m)" = "arm64" ] && [ "$MACOS_MAJOR_VERSION" -ge 15 ]; then
   EXPECTED_ROSETTA_AVX="1"
@@ -17,6 +18,11 @@ else
 fi
 
 cleanup() {
+  if [ -n "$INVALID_REQUEST_PID" ] \
+    && kill -0 "$INVALID_REQUEST_PID" >/dev/null 2>&1; then
+    kill -TERM "$INVALID_REQUEST_PID" >/dev/null 2>&1 || true
+    wait "$INVALID_REQUEST_PID" >/dev/null 2>&1 || true
+  fi
   rm -rf "$TEST_ROOT"
 }
 trap cleanup EXIT
@@ -106,6 +112,41 @@ diff -u \
     "$PREFIX_PATH" 'C:\windows\temp\switchyard-protocols-v1.txt' \
     "rosetta=$EXPECTED_ROSETTA_AVX") \
   "$ENVIRONMENT_PATH"
+
+: >"$ARGUMENTS_PATH"
+: >"$ENVIRONMENT_PATH"
+cat >"$REQUEST_PATH" <<JSON
+{"scheme":"xdt","rawURL":"xdt://callback\\u0000suffix","prefixPath":"$PREFIX_PATH","winePath":"$FAKE_WINE"}
+JSON
+chmod 600 "$REQUEST_PATH"
+
+set +e
+SWITCHYARD_TEST_ARGUMENTS_PATH="$ARGUMENTS_PATH" \
+SWITCHYARD_TEST_ENVIRONMENT_PATH="$ENVIRONMENT_PATH" \
+  "$RUNNER_PATH" open-url --request "$REQUEST_PATH" >/dev/null 2>&1 &
+INVALID_REQUEST_PID="$!"
+for _ in $(seq 1 100); do
+  if ! kill -0 "$INVALID_REQUEST_PID" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.05
+done
+if kill -0 "$INVALID_REQUEST_PID" >/dev/null 2>&1; then
+  kill -TERM "$INVALID_REQUEST_PID" >/dev/null 2>&1 || true
+  wait "$INVALID_REQUEST_PID" >/dev/null 2>&1 || true
+  INVALID_REQUEST_PID=""
+  set -e
+  echo "runner did not reject a control character in the callback deadline" >&2
+  exit 1
+fi
+wait "$INVALID_REQUEST_PID"
+invalid_request_status="$?"
+INVALID_REQUEST_PID=""
+set -e
+test "$invalid_request_status" -eq 1
+test ! -e "$REQUEST_PATH"
+test ! -s "$ARGUMENTS_PATH"
+test ! -s "$ENVIRONMENT_PATH"
 
 mkdir -p "$PREFIX_PATH/dosdevices" "$TEST_ROOT/ExternalLibrary/Heartopia"
 ln -s "$TEST_ROOT/ExternalLibrary" "$PREFIX_PATH/dosdevices/d:"

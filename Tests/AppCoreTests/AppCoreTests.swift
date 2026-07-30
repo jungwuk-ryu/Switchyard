@@ -547,6 +547,9 @@ import Testing
     )
     #expect(WineProtocolAssociationFormat.scheme(inRawURL: "XDT://callback?code=secret") == "xdt")
     #expect(WineProtocolAssociationFormat.scheme(inRawURL: "https://example.com") == nil)
+    #expect(WineProtocolAssociationFormat.scheme(inRawURL: "xdt://callback\u{0}suffix") == nil)
+    #expect(WineProtocolAssociationFormat.scheme(inRawURL: "xdt://callback\nsuffix") == nil)
+    #expect(WineProtocolAssociationFormat.scheme(inRawURL: "xdt://callback\u{7F}suffix") == nil)
 }
 
 @Test func wineProtocolRoutesPreferTheMostRecentlyActivatedContainer() {

@@ -31,7 +31,12 @@ public enum WineProtocolAssociationFormat {
     }
 
     public static func scheme(inRawURL rawURL: String) -> String? {
-        guard rawURL.utf8.count <= 65_536 else { return nil }
+        guard rawURL.utf8.count <= 65_536,
+              !rawURL.unicodeScalars.contains(where: {
+                  $0.value < 0x20 || $0.value == 0x7F
+              }) else {
+            return nil
+        }
         guard let separator = rawURL.firstIndex(of: ":") else { return nil }
         return normalizedScheme(String(rawURL[..<separator]))
     }
