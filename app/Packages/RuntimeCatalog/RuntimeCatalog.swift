@@ -424,7 +424,8 @@ private struct SwitchyardRuntimeManifest: Decodable {
 private struct SwitchyardRuntimeCandidate {
     var rootURL: URL
     var winePath: String
-    var modifiedAt: Date
+    var manifestModifiedAt: Date
+    var installedAt: Date
     var isCompleteWoW64: Bool
     var runtimeID: String
     var patchsetID: String
@@ -486,12 +487,31 @@ public struct RuntimeLocator {
 
     public var fileManager: FileManager
     private let runtimeCacheRootOverride: URL?
+    private let managedRuntimeInstallationDateProvider:
+        @Sendable (URL) -> Date?
     private let hdiutilPath = "/usr/bin/hdiutil"
     private let hdiutilTimeout: TimeInterval = 20
 
     public init(fileManager: FileManager = .default, runtimeCacheRoot: URL? = nil) {
         self.fileManager = fileManager
         runtimeCacheRootOverride = runtimeCacheRoot
+        managedRuntimeInstallationDateProvider = { runtimeRoot in
+            try? runtimeRoot.resourceValues(
+                forKeys: [.creationDateKey]
+            ).creationDate
+        }
+    }
+
+    init(
+        fileManager: FileManager = .default,
+        runtimeCacheRoot: URL?,
+        managedRuntimeInstallationDateProvider:
+            @escaping @Sendable (URL) -> Date?
+    ) {
+        self.fileManager = fileManager
+        runtimeCacheRootOverride = runtimeCacheRoot
+        self.managedRuntimeInstallationDateProvider =
+            managedRuntimeInstallationDateProvider
     }
 
     public func diagnose(
@@ -860,7 +880,7 @@ public struct RuntimeLocator {
         versionDatesBySourceRevision: [String: Date] = [:]
     ) -> [ManagedRuntimeInstallation] {
         cachedSwitchyardRuntimeCandidates()
-            .sorted { $0.modifiedAt > $1.modifiedAt }
+            .sorted { $0.installedAt > $1.installedAt }
             .map { candidate in
                 let sourceRevision = candidate.sourceRevision ?? ""
                 return ManagedRuntimeInstallation(
@@ -871,10 +891,10 @@ public struct RuntimeLocator {
                         winePath: candidate.winePath,
                         patchsetID: candidate.patchsetID,
                         sourceRevision: sourceRevision,
-                        createdAt: candidate.modifiedAt,
+                        createdAt: candidate.manifestModifiedAt,
                         versionDate: versionDatesBySourceRevision[sourceRevision]
                     ),
-                    installedAt: candidate.modifiedAt,
+                    installedAt: candidate.installedAt,
                     isCompleteWoW64: candidate.isCompleteWoW64,
                     isCleanSource: candidate.sourceDirty == false
                 )
@@ -1305,7 +1325,7 @@ public struct RuntimeLocator {
             if $0.isCompleteWoW64 != $1.isCompleteWoW64 {
                 return $0.isCompleteWoW64
             }
-            return $0.modifiedAt > $1.modifiedAt
+            return $0.installedAt > $1.installedAt
         }
         return sortedCandidates.first?.winePath
     }
@@ -1343,7 +1363,13 @@ public struct RuntimeLocator {
             }
 
             let manifestURL = runtimeURL.appendingPathComponent("switchyard-runtime.json")
-            let modifiedAt = (try? manifestURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let manifestModifiedAt =
+                (try? manifestURL.resourceValues(
+                    forKeys: [.contentModificationDateKey]
+                ).contentModificationDate) ?? .distantPast
+            let installedAt =
+                managedRuntimeInstallationDateProvider(runtimeURL)
+                ?? manifestModifiedAt
             let executable: String?
             if let discoveredExecutable = resolveWineExecutable(at: runtimeURL.path) {
                 executable = validateManagedWineExecutable(
@@ -1376,7 +1402,8 @@ public struct RuntimeLocator {
             return SwitchyardRuntimeCandidate(
                 rootURL: runtimeURL,
                 winePath: executable,
-                modifiedAt: modifiedAt,
+                manifestModifiedAt: manifestModifiedAt,
+                installedAt: installedAt,
                 isCompleteWoW64: isCompleteWoW64,
                 runtimeID: runtimeID,
                 patchsetID: patchsetID,

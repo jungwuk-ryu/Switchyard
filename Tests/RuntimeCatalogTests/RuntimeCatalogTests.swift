@@ -550,10 +550,16 @@ private func makeLaunchReadyGPTKLayout(
         peArchitectures: ["i386", "x86_64"],
         sourceRevision: newSourceRevision
     )
-    try setManifestModificationDate(at: oldRoot, to: Date(timeIntervalSince1970: 100))
-    try setManifestModificationDate(at: newRoot, to: Date(timeIntervalSince1970: 200))
-
-    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
+    let installationDates = [
+        oldRoot.lastPathComponent: Date(timeIntervalSince1970: 100),
+        newRoot.lastPathComponent: Date(timeIntervalSince1970: 200)
+    ]
+    let locator = RuntimeLocator(
+        runtimeCacheRoot: cacheRoot,
+        managedRuntimeInstallationDateProvider: {
+            installationDates[$0.lastPathComponent]
+        }
+    )
 
     #expect(locator.preferredWineExecutablePath(for: nil) == newWine.path)
     #expect(locator.preferredWineExecutablePath(for: oldWine.path) == oldWine.path)
@@ -1377,16 +1383,16 @@ private func makeLaunchReadyGPTKLayout(
         peArchitectures: ["i386", "x86_64"],
         sourceRevision: String(repeating: "b", count: 40)
     )
-    try setManifestModificationDate(
-        at: olderRoot,
-        to: Date(timeIntervalSince1970: 100)
+    let installationDates = [
+        olderRoot.lastPathComponent: Date(timeIntervalSince1970: 100),
+        newerRoot.lastPathComponent: Date(timeIntervalSince1970: 200)
+    ]
+    let locator = RuntimeLocator(
+        runtimeCacheRoot: cacheRoot,
+        managedRuntimeInstallationDateProvider: {
+            installationDates[$0.lastPathComponent]
+        }
     )
-    try setManifestModificationDate(
-        at: newerRoot,
-        to: Date(timeIntervalSince1970: 200)
-    )
-
-    let locator = RuntimeLocator(runtimeCacheRoot: cacheRoot)
     let installations = locator.installedManagedRuntimes()
 
     #expect(installations.map(\.rootURL.lastPathComponent) == [
@@ -1453,6 +1459,66 @@ private func makeLaunchReadyGPTKLayout(
 
     #expect(!FileManager.default.fileExists(atPath: olderRoot.path))
     #expect(FileManager.default.fileExists(atPath: newerRoot.path))
+}
+
+@Test func managedRuntimeInstallationDateIgnoresArchivedManifestTimestamp() throws {
+    let cacheRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let firstRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-first",
+        isDirectory: true
+    )
+    let latestRoot = cacheRoot.appendingPathComponent(
+        "switchyard-runtime-latest",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: cacheRoot) }
+
+    let firstWine = try createSwitchyardWineRuntime(
+        at: firstRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    let latestWine = try createSwitchyardWineRuntime(
+        at: latestRoot,
+        peArchitectures: ["i386", "x86_64"]
+    )
+    let firstArchivedManifestDate = Date(timeIntervalSince1970: 2_000)
+    let latestArchivedManifestDate = Date(timeIntervalSince1970: 1_000)
+    try setManifestModificationDate(
+        at: firstRoot,
+        to: firstArchivedManifestDate
+    )
+    try setManifestModificationDate(
+        at: latestRoot,
+        to: latestArchivedManifestDate
+    )
+
+    let firstInstalledAt = Date(timeIntervalSince1970: 3_000)
+    let latestInstalledAt = Date(timeIntervalSince1970: 4_000)
+    let installationDates = [
+        firstRoot.lastPathComponent: firstInstalledAt,
+        latestRoot.lastPathComponent: latestInstalledAt
+    ]
+    let locator = RuntimeLocator(
+        runtimeCacheRoot: cacheRoot,
+        managedRuntimeInstallationDateProvider: {
+            installationDates[$0.lastPathComponent]
+        }
+    )
+
+    let installations = locator.installedManagedRuntimes()
+
+    #expect(installations.map(\.rootURL) == [latestRoot, firstRoot])
+    #expect(installations.map(\.installedAt) == [
+        latestInstalledAt,
+        firstInstalledAt
+    ])
+    #expect(installations.map(\.runtime.createdAt) == [
+        latestArchivedManifestDate,
+        firstArchivedManifestDate
+    ])
+    #expect(locator.preferredWineExecutablePath(for: nil) == latestWine.path)
+    #expect(locator.preferredWineExecutablePath(for: firstWine.path) == firstWine.path)
 }
 
 @discardableResult
