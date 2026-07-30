@@ -1080,6 +1080,8 @@
 	<string>Démarrage…</string>
 	<key>Steam could not be started</key>
 	<string>Steam n'a pas pu être démarré</string>
+	<key>Steam Setup Incomplete</key>
+	<string>Configuration de Steam incomplète</string>
 	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
 	<string>L'installation de Steam n'a pas été terminée. Choisissez Continuer la configuration Steam pour réessayer.</string>
 	<key>Steam is installed and ready to launch.</key>

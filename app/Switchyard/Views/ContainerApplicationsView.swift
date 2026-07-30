@@ -29,13 +29,13 @@ struct ContainerApplicationsView: View {
                     }
 
                     Button {
-                        if isSteamStarterContainer {
+                        if needsSteamSetupRecovery {
                             store.continueSteamSetup()
                         } else {
                             store.chooseExecutableAndRun(in: container.id)
                         }
                     } label: {
-                        if isSteamStarterContainer && starterSetupIsBusy {
+                        if needsSteamSetupRecovery && starterSetupIsBusy {
                             HStack(spacing: 7) {
                                 ProgressView()
                                     .controlSize(.small)
@@ -55,8 +55,9 @@ struct ContainerApplicationsView: View {
                             }
                         } else {
                             Label(
-                                isSteamStarterContainer ? "Continue Steam Setup" : "Install or Run App…",
-                                systemImage: isSteamStarterContainer ? "arrow.clockwise.circle" : "play.square"
+                                needsSteamSetupRecovery ? "Continue Steam Setup" : "Install or Run App…",
+                                systemImage: needsSteamSetupRecovery
+                                    ? "arrow.clockwise.circle" : "play.square"
                             )
                         }
                     }
@@ -74,32 +75,43 @@ struct ContainerApplicationsView: View {
                     )
                 }
 
-                if programs.isEmpty {
+                if needsSteamSetupRecovery {
                     VStack {
                         ContentUnavailableView {
-                            Label("No Programs Found", systemImage: "app.dashed")
+                            Label("Steam Setup Incomplete", systemImage: "arrow.clockwise.circle")
                         } actions: {
-                            Button(isSteamStarterContainer ? "Continue Steam Setup" : "Choose Windows App…") {
-                                if isSteamStarterContainer {
-                                    store.continueSteamSetup()
-                                } else {
-                                    store.chooseExecutableAndRun(in: container.id)
-                                }
+                            Button("Continue Steam Setup") {
+                                store.continueSteamSetup()
                             }
                             .disabled(store.isContainerTransitioning(container.id) || starterSetupIsBusy)
                         }
 
-                        if isSteamStarterContainer,
-                           let message = store.steamInstallationState.errorMessage {
+                        if let message = store.steamInstallationState.errorMessage {
                             Text(message)
                                 .font(.callout)
                                 .foregroundStyle(.red)
                                 .multilineTextAlignment(.center)
                         }
                     }
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: programs.isEmpty ? 360 : 180
+                    )
+                    .dashboardPanel()
+                } else if programs.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Programs Found", systemImage: "app.dashed")
+                    } actions: {
+                        Button("Choose Windows App…") {
+                            store.chooseExecutableAndRun(in: container.id)
+                        }
+                        .disabled(store.isContainerTransitioning(container.id))
+                    }
                     .frame(maxWidth: .infinity, minHeight: 360)
                     .dashboardPanel()
-                } else {
+                }
+
+                if !programs.isEmpty {
                     Text("All Applications")
                         .font(.headline)
 
@@ -129,14 +141,30 @@ struct ContainerApplicationsView: View {
         store.recentInstalledPrograms(for: container.id)
     }
 
-    private var isSteamStarterContainer: Bool {
-        container.starterApplicationID == StarterApplicationCatalog.steam.id
-            && programs.isEmpty
+    private var needsSteamSetupRecovery: Bool {
+        SteamStarterRecoveryPolicy.needsRecovery(
+            starterApplicationID: container.starterApplicationID,
+            installedPrograms: programs
+        )
     }
 
     private var starterSetupIsBusy: Bool {
-        isSteamStarterContainer
+        needsSteamSetupRecovery
             && (store.isDownloadingSteamInstaller || store.steamInstallationState.isWorking)
+    }
+}
+
+enum SteamStarterRecoveryPolicy {
+    static func needsRecovery(
+        starterApplicationID: String?,
+        installedPrograms: [InstalledProgram]
+    ) -> Bool {
+        guard starterApplicationID == StarterApplicationCatalog.steam.id else {
+            return false
+        }
+        return StarterApplicationCatalog.steam.installedProgram(
+            in: installedPrograms
+        ) == nil
     }
 }
 

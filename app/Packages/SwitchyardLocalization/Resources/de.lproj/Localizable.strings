@@ -1080,6 +1080,8 @@
 	<string>Wird gestartet…</string>
 	<key>Steam could not be started</key>
 	<string>Steam konnte nicht gestartet werden</string>
+	<key>Steam Setup Incomplete</key>
+	<string>Steam-Einrichtung unvollständig</string>
 	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
 	<string>Die Installation von Steam wurde nicht abgeschlossen. Wählen Sie Steam Setup fortsetzen, um es erneut zu versuchen.</string>
 	<key>Steam is installed and ready to launch.</key>

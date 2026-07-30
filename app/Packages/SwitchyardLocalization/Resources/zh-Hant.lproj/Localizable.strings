@@ -1080,6 +1080,8 @@
 	<string>開始…</string>
 	<key>Steam could not be started</key>
 	<string>Steam無法啟動</string>
+	<key>Steam Setup Incomplete</key>
+	<string>Steam 設定未完成</string>
 	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
 	<string>Steam 安裝未完成。選擇繼續 Steam 安裝程式重試。</string>
 	<key>Steam is installed and ready to launch.</key>

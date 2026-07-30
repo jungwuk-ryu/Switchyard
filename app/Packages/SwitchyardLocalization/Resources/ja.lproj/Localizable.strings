@@ -1080,6 +1080,8 @@
 	<string>開始中…</string>
 	<key>Steam could not be started</key>
 	<string>Steam を開始できませんでした</string>
+	<key>Steam Setup Incomplete</key>
+	<string>Steam のセットアップが完了していません</string>
 	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
 	<string>Steam インストールが完了しませんでした。 [Continue Steam Setup] を選択して、再試行します。</string>
 	<key>Steam is installed and ready to launch.</key>

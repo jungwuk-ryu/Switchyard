@@ -1080,6 +1080,8 @@
 	<string>Запуск…</string>
 	<key>Steam could not be started</key>
 	<string>Steam не удалось запустить.</string>
+	<key>Steam Setup Incomplete</key>
+	<string>Настройка Steam не завершена</string>
 	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
 	<string>Установка Steam не завершена. Выберите «Продолжить настройку Steam», чтобы повторить попытку.</string>
 	<key>Steam is installed and ready to launch.</key>

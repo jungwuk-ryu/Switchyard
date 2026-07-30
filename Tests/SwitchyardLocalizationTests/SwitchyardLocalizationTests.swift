@@ -28,6 +28,7 @@ final class SwitchyardLocalizationTests: XCTestCase {
             "Pin to taskbar",
             "Search Start Menu",
             "Start Menu",
+            "Steam Setup Incomplete",
             "System Default",
             "Unpin from taskbar",
             "Restart Switchyard to apply the selected language."

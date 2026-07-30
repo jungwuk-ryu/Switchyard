@@ -1080,6 +1080,8 @@
 	<string>시작 중…</string>
 	<key>Steam could not be started</key>
 	<string>Steam을 시작하지 못했습니다.</string>
+	<key>Steam Setup Incomplete</key>
+	<string>Steam 설정이 완료되지 않았습니다</string>
 	<key>Steam installation did not finish. Choose Continue Steam Setup to try again.</key>
 	<string>Steam 설치가 완료되지 않았습니다. 다시 시도하려면 Steam 설정 계속을 선택하세요.</string>
 	<key>Steam is installed and ready to launch.</key>
