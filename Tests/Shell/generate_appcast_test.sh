@@ -9,9 +9,14 @@ ACTIVE_COMMAND_PID=""
 
 exact_child_state() {
   local child_pid="$1"
-  /bin/ps -o state= -p "$child_pid" 2>/dev/null |
-    /usr/bin/tr -d '[:space:]' |
-    /usr/bin/cut -c 1 || true
+  local state
+  if state="$(/bin/ps -o state= -p "$child_pid" 2>/dev/null)"; then
+    /usr/bin/printf '%s' "$state" |
+      /usr/bin/tr -d '[:space:]' |
+      /usr/bin/cut -c 1
+  elif /bin/kill -0 "$child_pid" 2>/dev/null; then
+    /usr/bin/printf '?\n'
+  fi
 }
 
 terminate_and_reap_exact_child() {
