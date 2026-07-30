@@ -147,6 +147,30 @@ import Testing
     #expect(plan.workingDirectory == "/tmp/Toolbox.container")
 }
 
+@Test func jobEngineDoesNotReuseSavedArgumentsForAdHocExecutables() throws {
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        executablePath: "/tmp/Toolbox/Toolbox.exe",
+        executableArguments: ["-silent"]
+    )
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: "abc123"
+    )
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        executablePath: "/tmp/Installers/Setup.exe",
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.arguments == ["/tmp/Installers/Setup.exe"])
+}
+
 @Test func jobEngineAppliesBattleNetDisplayCompatibilityArguments() throws {
     let container = Container(name: "Battle.net", path: "/tmp/BattleNet.container")
     let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
@@ -206,6 +230,25 @@ import Testing
     let plan = try JobEngine().runPlan(container: container, runtime: runtime, gptkPath: nil)
 
     #expect(plan.arguments == ["/tmp/Toolbox/Toolbox.exe", "-safe-mode", "-lang", "ko-KR"])
+}
+
+@Test func jobEnginePreservesExplicitlyEmptyArgumentsForDefaultRuns() throws {
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        executablePath: "/tmp/Toolbox/Toolbox.exe",
+        executableArguments: ["-safe-mode", "-lang", "ko-KR"]
+    )
+    let runtime = RuntimeBuild(id: "wine-a", winePath: "/opt/wine/bin/wine", patchsetID: "patch-a", sourceRevision: "abc123")
+
+    let plan = try JobEngine().runPlan(
+        container: container,
+        executableArguments: [],
+        runtime: runtime,
+        gptkPath: nil
+    )
+
+    #expect(plan.arguments == ["/tmp/Toolbox/Toolbox.exe"])
 }
 
 @Test func jobEngineCanReplaceAnExistingPrefixSessionBeforeDefaultRun() throws {

@@ -4133,14 +4133,14 @@ final class AppStore: ObservableObject {
     }
 
     private func runSelectedContainer(containerID: UUID) async {
-        await runContainer(containerID: containerID, executablePath: nil, executableArguments: [])
+        await runContainer(containerID: containerID, executablePath: nil, executableArguments: nil)
     }
 
     @discardableResult
     private func runContainer(
         containerID: UUID,
         executablePath: String?,
-        executableArguments: [String],
+        executableArguments: [String]?,
         recordsRecentProgramLaunch: Bool = true
     ) async -> Bool {
         guard let container = containers.first(where: { $0.id == containerID }) else {

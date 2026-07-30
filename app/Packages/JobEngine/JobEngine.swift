@@ -70,7 +70,7 @@ public struct JobEngine {
     public func runPlan(
         container: Container,
         executablePath: String? = nil,
-        executableArguments: [String] = [],
+        executableArguments: [String]? = nil,
         runtime: RuntimeBuild,
         gptkPath: String?,
         environmentOverrides: [String: String] = [:],
@@ -93,7 +93,8 @@ public struct JobEngine {
             runtime: runtime,
             container: container,
             executablePath: preparedExecutablePath,
-            executableArguments: executablePath == nil && executableArguments.isEmpty ? container.executableArguments : executableArguments,
+            executableArguments: executableArguments
+                ?? (executablePath == nil ? container.executableArguments : []),
             gptkPath: gptkPath,
             overrides: mergedEnvironmentOverrides,
             containerDisplayMode: configureContainerDisplay ? container.displayMode : nil,
@@ -123,7 +124,7 @@ public struct JobEngine {
     public func run(
         container: Container,
         executablePath: String? = nil,
-        executableArguments: [String] = [],
+        executableArguments: [String]? = nil,
         runtime: RuntimeBuild,
         gptkPath: String?
     ) throws -> RunSession {
