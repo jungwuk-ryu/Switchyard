@@ -11,7 +11,7 @@ exact_child_state() {
   local child_pid="$1"
   /bin/ps -o state= -p "$child_pid" 2>/dev/null |
     /usr/bin/tr -d '[:space:]' |
-    /usr/bin/cut -c 1
+    /usr/bin/cut -c 1 || true
 }
 
 terminate_and_reap_exact_child() {
