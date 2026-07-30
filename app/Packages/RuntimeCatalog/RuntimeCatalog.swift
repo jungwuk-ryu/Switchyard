@@ -3,6 +3,411 @@ import Darwin
 import Foundation
 import Security
 
+struct RuntimeProcessResult: Equatable, Sendable {
+    var terminationStatus: Int32
+    var standardOutput: Data
+    var standardError: Data
+    var standardOutputWasTruncated: Bool
+    var standardErrorWasTruncated: Bool
+}
+
+enum RuntimeProcessExecutionError: Error, Equatable {
+    case captureShutdownUnconfirmed
+    case cancelled
+    case terminationUnconfirmed(processIdentifier: pid_t)
+    case timedOut
+}
+
+struct RuntimeProcessRunner {
+    private let maximumCapturedBytesPerStream: Int
+    private let terminationGrace: TimeInterval
+    private let cancellationPollingInterval: TimeInterval
+    private let postKillConfirmationTimeout: TimeInterval
+    private let captureShutdownTimeout: TimeInterval
+    private let postKillCompletionWait:
+        (DispatchSemaphore, TimeInterval) -> DispatchTimeoutResult
+
+    init(
+        maximumCapturedBytesPerStream: Int = 4 * 1_024 * 1_024,
+        terminationGrace: TimeInterval = 2,
+        cancellationPollingInterval: TimeInterval = 0.05,
+        postKillConfirmationTimeout: TimeInterval = 2,
+        captureShutdownTimeout: TimeInterval = 1,
+        postKillCompletionWait:
+            @escaping (DispatchSemaphore, TimeInterval) -> DispatchTimeoutResult = {
+                completion,
+                timeout in
+                completion.wait(
+                    timeout: .now() + .milliseconds(
+                        RuntimeProcessRunner.milliseconds(for: timeout)
+                    )
+                )
+            }
+    ) {
+        self.maximumCapturedBytesPerStream = maximumCapturedBytesPerStream
+        self.terminationGrace = terminationGrace
+        self.cancellationPollingInterval = cancellationPollingInterval
+        self.postKillConfirmationTimeout = postKillConfirmationTimeout
+        self.captureShutdownTimeout = captureShutdownTimeout
+        self.postKillCompletionWait = postKillCompletionWait
+    }
+
+    func run(
+        executableURL: URL,
+        arguments: [String],
+        timeout: TimeInterval,
+        cancellationRequested: () -> Bool = { false }
+    ) throws -> RuntimeProcessResult {
+        guard timeout > 0 else {
+            throw RuntimeProcessExecutionError.timedOut
+        }
+        guard !cancellationRequested() else {
+            throw RuntimeProcessExecutionError.cancelled
+        }
+
+        let process = Process()
+        process.executableURL = executableURL
+        process.arguments = arguments
+
+        let outputPipe = Pipe()
+        let errorPipe = Pipe()
+        process.standardOutput = outputPipe
+        process.standardError = errorPipe
+
+        let completionState = RuntimeProcessCompletionState()
+        let outputCapture = BoundedPipeCapture(
+            fileHandle: outputPipe.fileHandleForReading,
+            maximumCapturedBytes: maximumCapturedBytesPerStream
+        )
+        let errorCapture = BoundedPipeCapture(
+            fileHandle: errorPipe.fileHandleForReading,
+            maximumCapturedBytes: maximumCapturedBytesPerStream
+        )
+        let captureGroup = DispatchGroup()
+        outputCapture.start(completionState: completionState, group: captureGroup)
+        errorCapture.start(completionState: completionState, group: captureGroup)
+
+        do {
+            try process.run()
+        } catch {
+            try? outputPipe.fileHandleForWriting.close()
+            try? errorPipe.fileHandleForWriting.close()
+            completionState.markFinished()
+            _ = waitForCaptureShutdown(
+                captureGroup,
+                completionState: completionState
+            )
+            throw error
+        }
+
+        try? outputPipe.fileHandleForWriting.close()
+        try? errorPipe.fileHandleForWriting.close()
+
+        let completion = DispatchSemaphore(value: 0)
+        let processWaiter = RuntimeProcessWaiter(
+            process: process,
+            completionState: completionState,
+            completion: completion
+        )
+        processWaiter.start()
+
+        let deadline = DispatchTime.now() + timeout
+        let pollingMilliseconds = Self.milliseconds(
+            for: cancellationPollingInterval
+        )
+        var executionError: RuntimeProcessExecutionError?
+
+        while true {
+            if cancellationRequested() {
+                executionError = .cancelled
+                if let terminationError = terminateAndWait(
+                    process,
+                    completion: completion
+                ) {
+                    executionError = terminationError
+                    completionState.requestCaptureStop()
+                }
+                break
+            }
+            if DispatchTime.now() >= deadline {
+                executionError = .timedOut
+                if let terminationError = terminateAndWait(
+                    process,
+                    completion: completion
+                ) {
+                    executionError = terminationError
+                    completionState.requestCaptureStop()
+                }
+                break
+            }
+            if completion.wait(
+                timeout: .now() + .milliseconds(pollingMilliseconds)
+            ) == .success {
+                break
+            }
+        }
+
+        let capturesStopped = waitForCaptureShutdown(
+            captureGroup,
+            completionState: completionState
+        )
+        if !capturesStopped, executionError == nil {
+            executionError = .captureShutdownUnconfirmed
+        }
+        if let executionError {
+            throw executionError
+        }
+
+        let output = outputCapture.snapshot
+        let error = errorCapture.snapshot
+        return RuntimeProcessResult(
+            terminationStatus: process.terminationStatus,
+            standardOutput: output.data,
+            standardError: error.data,
+            standardOutputWasTruncated: output.wasTruncated,
+            standardErrorWasTruncated: error.wasTruncated
+        )
+    }
+
+    private func terminateAndWait(
+        _ process: Process,
+        completion: DispatchSemaphore
+    ) -> RuntimeProcessExecutionError? {
+        let processIdentifier = process.processIdentifier
+        if process.isRunning {
+            process.terminate()
+        }
+
+        if completion.wait(
+            timeout: .now() + .milliseconds(
+                Self.milliseconds(for: terminationGrace)
+            )
+        ) == .success {
+            return nil
+        }
+
+        if process.isRunning {
+            _ = Darwin.kill(processIdentifier, SIGKILL)
+        }
+        guard postKillCompletionWait(
+            completion,
+            postKillConfirmationTimeout
+        ) == .success else {
+            return .terminationUnconfirmed(
+                processIdentifier: processIdentifier
+            )
+        }
+        return nil
+    }
+
+    private func waitForCaptureShutdown(
+        _ captureGroup: DispatchGroup,
+        completionState: RuntimeProcessCompletionState
+    ) -> Bool {
+        if captureGroup.wait(
+            timeout: .now() + .milliseconds(
+                Self.milliseconds(for: captureShutdownTimeout)
+            )
+        ) == .success {
+            return true
+        }
+
+        completionState.requestCaptureStop()
+        return captureGroup.wait(
+            timeout: .now() + .milliseconds(
+                Self.milliseconds(for: captureShutdownTimeout)
+            )
+        ) == .success
+    }
+
+    private static func milliseconds(for interval: TimeInterval) -> Int {
+        max(1, Int((max(0.001, interval) * 1_000).rounded(.up)))
+    }
+}
+
+private final class RuntimeProcessCompletionState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var finished = false
+    private var captureStopRequested = false
+
+    var isFinished: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return finished
+    }
+
+    var shouldStopCapturing: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return captureStopRequested
+    }
+
+    func markFinished() {
+        lock.lock()
+        finished = true
+        lock.unlock()
+    }
+
+    func requestCaptureStop() {
+        lock.lock()
+        captureStopRequested = true
+        lock.unlock()
+    }
+}
+
+private final class RuntimeProcessWaiter: @unchecked Sendable {
+    private let process: Process
+    private let completionState: RuntimeProcessCompletionState
+    private let completion: DispatchSemaphore
+
+    init(
+        process: Process,
+        completionState: RuntimeProcessCompletionState,
+        completion: DispatchSemaphore
+    ) {
+        self.process = process
+        self.completionState = completionState
+        self.completion = completion
+    }
+
+    func start() {
+        DispatchQueue.global(qos: .utility).async { [self] in
+            process.waitUntilExit()
+            completionState.markFinished()
+            completion.signal()
+        }
+    }
+}
+
+private final class BoundedPipeCapture: @unchecked Sendable {
+    private let fileHandle: FileHandle
+    private let descriptor: Int32
+    private let maximumCapturedBytes: Int
+    private let lock = NSLock()
+    private var data = Data()
+    private var wasTruncated = false
+
+    init(fileHandle: FileHandle, maximumCapturedBytes: Int) {
+        self.fileHandle = fileHandle
+        descriptor = fileHandle.fileDescriptor
+        self.maximumCapturedBytes = max(0, maximumCapturedBytes)
+
+        let flags = fcntl(descriptor, F_GETFL)
+        if flags >= 0 {
+            _ = fcntl(descriptor, F_SETFL, flags | O_NONBLOCK)
+        }
+    }
+
+    var snapshot: (data: Data, wasTruncated: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (data, wasTruncated)
+    }
+
+    func start(
+        completionState: RuntimeProcessCompletionState,
+        group: DispatchGroup
+    ) {
+        group.enter()
+        DispatchQueue.global(qos: .utility).async { [self] in
+            defer {
+                try? fileHandle.close()
+                group.leave()
+            }
+            drain(completionState: completionState)
+        }
+    }
+
+    private func drain(completionState: RuntimeProcessCompletionState) {
+        var pollDescriptor = pollfd(
+            fd: descriptor,
+            events: Int16(POLLIN | POLLHUP | POLLERR),
+            revents: 0
+        )
+
+        while true {
+            pollDescriptor.revents = 0
+            let pollResult = Darwin.poll(&pollDescriptor, 1, 50)
+            if pollResult < 0 {
+                if errno == EINTR {
+                    continue
+                }
+                return
+            }
+
+            if pollResult > 0 {
+                if pollDescriptor.revents & Int16(POLLNVAL) != 0 {
+                    return
+                }
+                if readAvailableBytes(completionState: completionState) {
+                    return
+                }
+            }
+
+            if completionState.isFinished
+                || completionState.shouldStopCapturing {
+                _ = readAvailableBytes(completionState: completionState)
+                return
+            }
+        }
+    }
+
+    private func readAvailableBytes(
+        completionState: RuntimeProcessCompletionState
+    ) -> Bool {
+        var buffer = [UInt8](repeating: 0, count: 32 * 1_024)
+
+        while true {
+            let count = buffer.withUnsafeMutableBytes { rawBuffer in
+                Darwin.read(
+                    descriptor,
+                    rawBuffer.baseAddress,
+                    rawBuffer.count
+                )
+            }
+
+            if count > 0 {
+                append(buffer, count: count)
+                if completionState.shouldStopCapturing
+                    || (completionState.isFinished && isCaptureFull) {
+                    return true
+                }
+                continue
+            }
+            if count == 0 {
+                return true
+            }
+            if errno == EINTR {
+                continue
+            }
+            if errno == EAGAIN || errno == EWOULDBLOCK {
+                return false
+            }
+            return true
+        }
+    }
+
+    private var isCaptureFull: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return data.count >= maximumCapturedBytes
+    }
+
+    private func append(_ buffer: [UInt8], count: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let remainingCapacity = max(0, maximumCapturedBytes - data.count)
+        let capturedCount = min(count, remainingCapacity)
+        if capturedCount > 0 {
+            data.append(contentsOf: buffer.prefix(capturedCount))
+        }
+        if capturedCount < count {
+            wasTruncated = true
+        }
+    }
+}
+
 private struct SwitchyardRuntimeManifest: Decodable {
     var id: String?
     var buildProfile: String?
@@ -75,7 +480,7 @@ public struct RuntimeLocator {
     public var fileManager: FileManager
     private let runtimeCacheRootOverride: URL?
     private let hdiutilPath = "/usr/bin/hdiutil"
-    private let hdiutilTimeout: DispatchTimeInterval = .seconds(20)
+    private let hdiutilTimeout: TimeInterval = 20
 
     public init(fileManager: FileManager = .default, runtimeCacheRoot: URL? = nil) {
         self.fileManager = fileManager
@@ -1602,43 +2007,50 @@ public struct RuntimeLocator {
     }
 
     private func runHdiutil(arguments: [String]) throws -> Data {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: hdiutilPath)
-        process.arguments = arguments
-
-        let outputPipe = Pipe()
-        let errorPipe = Pipe()
-        process.standardOutput = outputPipe
-        process.standardError = errorPipe
-
-        let semaphore = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in
-            semaphore.signal()
-        }
-        try process.run()
-
-        if semaphore.wait(timeout: .now() + hdiutilTimeout) == .timedOut {
-            process.terminate()
-            if semaphore.wait(timeout: .now() + .seconds(2)) == .timedOut {
-                kill(process.processIdentifier, SIGKILL)
-                process.waitUntilExit()
-            }
+        let result: RuntimeProcessResult
+        do {
+            result = try RuntimeProcessRunner().run(
+                executableURL: URL(fileURLWithPath: hdiutilPath),
+                arguments: arguments,
+                timeout: hdiutilTimeout
+            )
+        } catch RuntimeProcessExecutionError.timedOut {
             throw RuntimeLocatorError.hdiutilTimedOut
+        } catch RuntimeProcessExecutionError.cancelled {
+            throw RuntimeLocatorError.hdiutilFailed("hdiutil was cancelled.")
+        } catch RuntimeProcessExecutionError.terminationUnconfirmed(
+            let processIdentifier
+        ) {
+            throw RuntimeLocatorError.hdiutilFailed(
+                "hdiutil process \(processIdentifier) did not confirm termination."
+            )
+        } catch RuntimeProcessExecutionError.captureShutdownUnconfirmed {
+            throw RuntimeLocatorError.hdiutilFailed(
+                "hdiutil output capture did not shut down in time."
+            )
         }
 
-        let output = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        if process.terminationStatus == 0 {
-            return output
+        guard !result.standardOutputWasTruncated else {
+            throw RuntimeLocatorError.hdiutilFailed(
+                "hdiutil standard output exceeded the capture limit."
+            )
+        }
+        if result.terminationStatus == 0 {
+            return result.standardOutput
         }
 
-        let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
-        let errorMessage = String(data: errorData, encoding: .utf8)?
+        var errorMessage = String(decoding: result.standardError, as: UTF8.self)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        if result.standardErrorWasTruncated {
+            errorMessage += "\n[hdiutil stderr truncated at the capture limit]"
+        }
         let fallbackMessage = String(
-            localized: "hdiutil exited with status \(process.terminationStatus)",
+            localized: "hdiutil exited with status \(result.terminationStatus)",
             bundle: SwitchyardStrings.bundle
         )
-        throw RuntimeLocatorError.hdiutilFailed(errorMessage ?? fallbackMessage)
+        throw RuntimeLocatorError.hdiutilFailed(
+            errorMessage.isEmpty ? fallbackMessage : errorMessage
+        )
     }
 
     private func fingerprint(forMarkersAt rootPath: String, markers: [String]) -> String {
