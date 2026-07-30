@@ -36,16 +36,16 @@ private struct WindowsApplicationOpenHandlingModifier: ViewModifier {
                     id: handlerID,
                     openMainWindow: {
                         openWindow(id: "main")
+                    },
+                    claimableItemDidBecomeAvailable: {
+                        processNextItemSoon()
                     }
                 )
                 processNextItemIfPossible()
             }
             .onDisappear {
-                completePresentedItem()
                 coordinator.handlerDidDisappear(id: handlerID)
-            }
-            .onChange(of: coordinator.pendingItems) { _, _ in
-                processNextItemIfPossible()
+                completePresentedItem()
             }
             .onChange(of: store.hasCompletedSetup) { _, _ in
                 processNextItemIfPossible()

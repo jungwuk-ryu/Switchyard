@@ -18,7 +18,7 @@ final class WindowsApplicationOpenCoordinator: ObservableObject {
     @Published private(set) var pendingItems: [WindowsApplicationOpenItem] = []
     @Published private(set) var claimedItem: WindowsApplicationOpenItem?
 
-    private var mountedHandlerIDs: Set<UUID> = []
+    private var mountedHandlers: [UUID: () -> Void] = [:]
     private var openMainWindow: (() -> Void)?
 
     var nextItem: WindowsApplicationOpenItem? {
@@ -27,6 +27,7 @@ final class WindowsApplicationOpenCoordinator: ObservableObject {
 
     @discardableResult
     func enqueue(_ urls: [URL]) -> Bool {
+        let previousClaimableItemID = claimableItemID
         var didAcceptWindowsApplication = false
         for url in urls {
             guard url.isFileURL,
@@ -46,6 +47,9 @@ final class WindowsApplicationOpenCoordinator: ObservableObject {
                 WindowsApplicationOpenItem(applicationURL: standardizedURL)
             )
         }
+        notifyHandlersIfClaimableItemChanged(
+            from: previousClaimableItemID
+        )
         return didAcceptWindowsApplication
     }
 
@@ -57,28 +61,53 @@ final class WindowsApplicationOpenCoordinator: ObservableObject {
     }
 
     func complete(_ itemID: WindowsApplicationOpenItem.ID) {
+        let previousClaimableItemID = claimableItemID
         if claimedItem?.id == itemID {
             claimedItem = nil
-            return
+        } else {
+            pendingItems.removeAll { $0.id == itemID }
         }
-        pendingItems.removeAll { $0.id == itemID }
+        notifyHandlersIfClaimableItemChanged(
+            from: previousClaimableItemID
+        )
     }
 
     func handlerDidAppear(
         id: UUID,
-        openMainWindow: @escaping () -> Void
+        openMainWindow: @escaping () -> Void,
+        claimableItemDidBecomeAvailable: @escaping () -> Void
     ) {
-        mountedHandlerIDs.insert(id)
+        mountedHandlers[id] = claimableItemDidBecomeAvailable
         self.openMainWindow = openMainWindow
     }
 
     func handlerDidDisappear(id: UUID) {
-        mountedHandlerIDs.remove(id)
+        mountedHandlers.removeValue(forKey: id)
     }
 
     func showMainWindowIfNeeded() {
-        guard mountedHandlerIDs.isEmpty else { return }
+        guard mountedHandlers.isEmpty else { return }
         openMainWindow?()
+    }
+
+    private var claimableItemID: WindowsApplicationOpenItem.ID? {
+        guard claimedItem == nil else { return nil }
+        return pendingItems.first?.id
+    }
+
+    private func notifyHandlersIfClaimableItemChanged(
+        from previousItemID: WindowsApplicationOpenItem.ID?
+    ) {
+        guard let claimableItemID,
+              claimableItemID != previousItemID else {
+            return
+        }
+
+        let handlers = mountedHandlers
+        for (handlerID, notifyHandler) in handlers {
+            guard mountedHandlers[handlerID] != nil else { continue }
+            notifyHandler()
+        }
     }
 }
 
