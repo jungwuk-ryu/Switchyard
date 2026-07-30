@@ -2,6 +2,23 @@ import AppCore
 import Darwin
 import Foundation
 
+private enum ShortcutHandlerError: LocalizedError {
+    case runnerTimedOut
+    case runnerTerminationUnconfirmed(pid_t)
+    case runnerFailed(Int32)
+
+    var errorDescription: String? {
+        switch self {
+        case .runnerTimedOut:
+            "The Switchyard runner did not finish opening the desktop shortcut within 30 seconds."
+        case let .runnerTerminationUnconfirmed(processID):
+            "The timed-out Switchyard runner process \(processID) could not be stopped."
+        case let .runnerFailed(status):
+            "The Switchyard runner failed to open the desktop shortcut with status \(status)."
+        }
+    }
+}
+
 @main
 private enum SwitchyardShortcutHandler {
     static func main() {
@@ -36,13 +53,71 @@ private enum SwitchyardShortcutHandler {
         process.executableURL = URL(fileURLWithPath: route.runnerPath)
         process.arguments = ["open-shortcut", "--request", requestURL.path]
         process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        process.standardError = FileHandle.standardError
         do {
             try process.run()
-            process.waitUntilExit()
+            try waitForRunner(process)
         } catch {
+            FileHandle.standardError.write(
+                Data("switchyard-shortcut-handler failed: \(error.localizedDescription)\n".utf8)
+            )
             return
         }
+    }
+
+    private static func waitForRunner(_ process: Process) throws {
+        guard waitForExit(process, timeout: runnerTimeout) else {
+            try stopAndReap(process)
+            throw ShortcutHandlerError.runnerTimedOut
+        }
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw ShortcutHandlerError.runnerFailed(process.terminationStatus)
+        }
+    }
+
+    private static var runnerTimeout: TimeInterval {
+        #if DEBUG
+        if let rawValue = ProcessInfo.processInfo.environment[
+            "SWITCHYARD_TEST_HANDLER_RUNNER_TIMEOUT"
+        ],
+           let value = TimeInterval(rawValue),
+           value >= 0.05,
+           value <= 5 {
+            return value
+        }
+        #endif
+        return 30
+    }
+
+    private static func stopAndReap(_ process: Process) throws {
+        guard process.isRunning else {
+            process.waitUntilExit()
+            return
+        }
+
+        let processID = process.processIdentifier
+        process.terminate()
+        if !waitForExit(process, timeout: 2) {
+            guard process.isRunning else {
+                process.waitUntilExit()
+                return
+            }
+            _ = Darwin.kill(processID, SIGKILL)
+            guard waitForExit(process, timeout: 1) else {
+                throw ShortcutHandlerError.runnerTerminationUnconfirmed(processID)
+            }
+        }
+        process.waitUntilExit()
+    }
+
+    private static func waitForExit(_ process: Process, timeout: TimeInterval) -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(timeout))
+        while process.isRunning, clock.now < deadline {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        return !process.isRunning
     }
 
     private static func loadRouteIndex() -> WineDesktopShortcutRouteIndex? {

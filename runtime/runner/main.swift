@@ -194,6 +194,8 @@ private let wineRegistryCommandTimeout: TimeInterval = {
     return seconds
 }()
 
+private let callbackPrefixLockTimeout: Duration = .seconds(3)
+
 private let outputDrainTimeout: TimeInterval = {
     guard let value = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_OUTPUT_DRAIN_TIMEOUT"],
           let seconds = TimeInterval(value),
@@ -1950,7 +1952,11 @@ struct SwitchyardRunner {
 
         let prefixLock = try WinePrefixFileLock(
             prefixPath: request.prefixPath,
-            mode: .shared
+            mode: .shared,
+            acquisitionTimeout: callbackPrefixLockTimeout,
+            cancellationCheck: {
+                RunnerProcessRegistry.shared.requestedExitStatus != nil
+            }
         )
         defer { prefixLock.unlock() }
         guard FileManager.default.isExecutableFile(atPath: request.winePath),
@@ -2066,7 +2072,14 @@ struct SwitchyardRunner {
             throw SwitchyardRunnerError.invalidDesktopShortcutRequest
         }
 
-        let prefixLock = try WinePrefixFileLock(prefixPath: request.prefixPath, mode: .shared)
+        let prefixLock = try WinePrefixFileLock(
+            prefixPath: request.prefixPath,
+            mode: .shared,
+            acquisitionTimeout: callbackPrefixLockTimeout,
+            cancellationCheck: {
+                RunnerProcessRegistry.shared.requestedExitStatus != nil
+            }
+        )
         defer { prefixLock.unlock() }
         guard FileManager.default.isExecutableFile(atPath: request.winePath),
               FileManager.default.fileExists(atPath: request.prefixPath),
