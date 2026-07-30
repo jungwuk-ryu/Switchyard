@@ -69,10 +69,13 @@ jobs:
         run: |
           set -euo pipefail
           swift build --product switchyard-runner --jobs "$SWIFT_BUILD_JOBS"
+          swift build --product switchyard-url-handler --jobs "$SWIFT_BUILD_JOBS"
           swift build --product switchyard-shortcut-handler --jobs "$SWIFT_BUILD_JOBS"
           bin_path="$(swift build --show-bin-path)"
           runner_path="$bin_path/switchyard-runner"
+          url_handler_path="$bin_path/switchyard-url-handler"
           shortcut_handler_path="$bin_path/switchyard-shortcut-handler"
+          SWITCHYARD_URL_HANDLER_PATH="$url_handler_path" Tests/Shell/url_handler_batch_delivery_test.sh
           SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_protocol_callback_test.sh
           SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_desktop_shortcut_test.sh
           SWITCHYARD_RUNNER_PATH="$runner_path" \
