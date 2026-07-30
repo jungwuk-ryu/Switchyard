@@ -12,6 +12,7 @@ enum WinePrefixSessionState: Equatable {
 enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     case missingRunner
     case couldNotEncodePlan
+    case couldNotInspectSession(Int32)
     case couldNotListWindowsProcesses(Int32)
     case couldNotListWineHostProcesses(Int32)
     case couldNotStopWineServer(Int32, String)
@@ -27,6 +28,11 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
         case .couldNotEncodePlan:
             String(
                 localized: "Command plan could not be serialized for the runner.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case let .couldNotInspectSession(status):
+            String(
+                localized: "The Wine session could not be inspected (exit code \(status)).",
                 bundle: SwitchyardStrings.bundle
             )
         case let .couldNotListWindowsProcesses(status):
@@ -63,6 +69,11 @@ struct RunningWindowsProcess: Codable, Equatable, Sendable {
 final class SwitchyardRunnerClient: @unchecked Sendable {
     private var processes: [UUID: Process] = [:]
     private let lock = NSLock()
+    private let commandExecutor: any RunnerCommandExecuting
+
+    init(commandExecutor: any RunnerCommandExecuting = RunnerCommandExecutor()) {
+        self.commandExecutor = commandExecutor
+    }
 
     func runnerURL() throws -> URL {
         try locateRunner()
@@ -94,6 +105,30 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         default:
             return .unavailable
         }
+    }
+
+    func inspectSession(
+        winePath: String,
+        prefixPath: String
+    ) async throws -> WinePrefixSessionInspection {
+        let result = try await commandExecutor.execute(
+            executableURL: try locateRunner(),
+            arguments: [
+                "inspect-session",
+                "--wine", winePath,
+                "--prefix", prefixPath,
+            ],
+            deadline: .seconds(5)
+        )
+        guard result.terminationStatus == 0 else {
+            throw SwitchyardRunnerClientError.couldNotInspectSession(
+                result.terminationStatus
+            )
+        }
+        return try JSONDecoder().decode(
+            WinePrefixSessionInspection.self,
+            from: result.standardOutput
+        )
     }
 
     func hostProcessPrefixSessionState(
@@ -171,6 +206,53 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         return try runningWindowsExecutablePaths(
             winePath: winePath,
             prefixPath: prefixPath
+        ).map {
+            RunningWindowsProcess(executablePath: $0, processID: nil)
+        }
+    }
+
+    func runningWindowsProcessesAsync(
+        winePath: String,
+        prefixPath: String
+    ) async throws -> [RunningWindowsProcess] {
+        let runnerURL = try locateRunner()
+        let result = try await commandExecutor.execute(
+            executableURL: runnerURL,
+            arguments: [
+                "list-process-details",
+                "--wine", winePath,
+                "--prefix", prefixPath,
+            ],
+            deadline: .seconds(20)
+        )
+        if result.terminationStatus == 0 {
+            return try Self.decodeRunningWindowsProcesses(
+                from: result.standardOutput
+            )
+        }
+        guard result.terminationStatus == 2 else {
+            throw SwitchyardRunnerClientError.couldNotListWindowsProcesses(
+                result.terminationStatus
+            )
+        }
+
+        let fallback = try await commandExecutor.execute(
+            executableURL: runnerURL,
+            arguments: [
+                "list-processes",
+                "--wine", winePath,
+                "--prefix", prefixPath,
+            ],
+            deadline: .seconds(20)
+        )
+        guard fallback.terminationStatus == 0 else {
+            throw SwitchyardRunnerClientError.couldNotListWindowsProcesses(
+                fallback.terminationStatus
+            )
+        }
+        return try JSONDecoder().decode(
+            [String].self,
+            from: fallback.standardOutput
         ).map {
             RunningWindowsProcess(executablePath: $0, processID: nil)
         }
@@ -398,6 +480,7 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         for process in activeProcesses where process.isRunning {
             process.terminate()
         }
+        commandExecutor.cancelAll()
     }
 
     private func locateRunner() throws -> URL {
