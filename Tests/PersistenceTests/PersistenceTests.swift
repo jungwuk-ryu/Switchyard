@@ -352,6 +352,149 @@ private enum TestContainerRenameError: Error, Equatable {
     ])
 }
 
+@Test func containerManifestStoreRejectsWritesOutsideItsLibrary() throws {
+    let testRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let libraryURL = testRoot.appendingPathComponent("Library", isDirectory: true)
+    let outsideURL = testRoot.appendingPathComponent(
+        "Outside.container",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: testRoot) }
+
+    let container = Container(name: "Outside", path: outsideURL.path)
+    let store = ContainerManifestStore(rootURL: libraryURL)
+
+    #expect(
+        throws: PersistenceError.containerOutsideLibrary(
+            outsideURL.standardizedFileURL
+        )
+    ) {
+        try store.save(container)
+    }
+    #expect(!FileManager.default.fileExists(atPath: outsideURL.path))
+}
+
+@Test func containerManifestStoreIgnoresContainerSymlinksOutsideItsLibrary() throws {
+    let testRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let libraryURL = testRoot.appendingPathComponent("Library", isDirectory: true)
+    let outsideURL = testRoot.appendingPathComponent(
+        "Outside.container",
+        isDirectory: true
+    )
+    let linkedURL = libraryURL.appendingPathComponent(
+        "Linked.container",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: testRoot) }
+
+    try FileManager.default.createDirectory(
+        at: libraryURL,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: outsideURL,
+        withIntermediateDirectories: true
+    )
+    let outsideContainer = Container(name: "Outside", path: outsideURL.path)
+    try JSONEncoder.switchyard.encode(outsideContainer).write(
+        to: outsideURL.appendingPathComponent("switchyard-container.json")
+    )
+    try FileManager.default.createSymbolicLink(
+        at: linkedURL,
+        withDestinationURL: outsideURL
+    )
+
+    let store = ContainerManifestStore(rootURL: libraryURL)
+    #expect(try store.loadContainers().isEmpty)
+    #expect(
+        throws: PersistenceError.containerOutsideLibrary(
+            linkedURL.standardizedFileURL
+        )
+    ) {
+        try store.save(
+            Container(name: "Linked", path: linkedURL.path)
+        )
+    }
+}
+
+@Test func containerManifestStoreSupportsASymlinkedLibraryRoot() throws {
+    let testRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let realLibraryURL = testRoot.appendingPathComponent(
+        "RealLibrary",
+        isDirectory: true
+    )
+    let linkedLibraryURL = testRoot.appendingPathComponent(
+        "LinkedLibrary",
+        isDirectory: true
+    )
+    let containerURL = linkedLibraryURL.appendingPathComponent(
+        "New.container",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: testRoot) }
+
+    try FileManager.default.createDirectory(
+        at: realLibraryURL,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createSymbolicLink(
+        at: linkedLibraryURL,
+        withDestinationURL: realLibraryURL
+    )
+
+    let container = Container(name: "New", path: containerURL.path)
+    let store = ContainerManifestStore(rootURL: linkedLibraryURL)
+    try store.save(container)
+
+    #expect(
+        FileManager.default.fileExists(
+            atPath: realLibraryURL
+                .appendingPathComponent("New.container/switchyard-container.json")
+                .path
+        )
+    )
+    let loaded = try #require(try store.loadContainers().first)
+    #expect(loaded.id == container.id)
+    #expect(loaded.path == containerURL.path)
+}
+
+@Test func containerManifestStoreIgnoresSymlinkedManifestFiles() throws {
+    let testRoot = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let libraryURL = testRoot.appendingPathComponent("Library", isDirectory: true)
+    let containerURL = libraryURL.appendingPathComponent(
+        "LinkedManifest.container",
+        isDirectory: true
+    )
+    let outsideManifestURL = testRoot.appendingPathComponent(
+        "outside-manifest.json"
+    )
+    let manifestURL = containerURL.appendingPathComponent(
+        "switchyard-container.json"
+    )
+    defer { try? FileManager.default.removeItem(at: testRoot) }
+
+    try FileManager.default.createDirectory(
+        at: containerURL,
+        withIntermediateDirectories: true
+    )
+    let container = Container(name: "Linked Manifest", path: containerURL.path)
+    try JSONEncoder.switchyard.encode(container).write(to: outsideManifestURL)
+    try FileManager.default.createSymbolicLink(
+        at: manifestURL,
+        withDestinationURL: outsideManifestURL
+    )
+
+    let store = ContainerManifestStore(rootURL: libraryURL)
+    #expect(try store.loadContainers().isEmpty)
+    #expect(throws: PersistenceError.unsafeManifest(manifestURL)) {
+        try store.save(container)
+    }
+}
+
 @Test func librarySnapshotReadsLegacyBottleKeysAndMigratesRunTargetFields() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }

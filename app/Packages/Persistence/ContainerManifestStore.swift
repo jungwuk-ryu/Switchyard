@@ -1,8 +1,30 @@
 import AppCore
 import Foundation
 
-public enum PersistenceError: Error, Equatable {
+public enum PersistenceError: LocalizedError, Equatable {
     case missingManifest(URL)
+    case containerOutsideLibrary(URL)
+    case unsafeManifest(URL)
+
+    public var errorDescription: String? {
+        switch self {
+        case .missingManifest(let url):
+            String(
+                localized: "The container folder has no Switchyard manifest: \(url.deletingLastPathComponent().path)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .containerOutsideLibrary(let url):
+            String(
+                localized: "The container folder is outside the active Switchyard library: \(url.path)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .unsafeManifest(let url):
+            String(
+                localized: "The container folder has no Switchyard manifest: \(url.deletingLastPathComponent().path)",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+    }
 }
 
 public struct ContainerManifestStore {
@@ -19,16 +41,14 @@ public struct ContainerManifestStore {
             return []
         }
 
-        let containerDirectories = try fileManager.contentsOfDirectory(at: rootURL, includingPropertiesForKeys: nil)
+        let containerDirectories = try fileManager.contentsOfDirectory(
+            atPath: rootURL.path
+        ).map {
+            rootURL.appendingPathComponent($0, isDirectory: true)
+        }
         return try containerDirectories.compactMap { directory in
-            let manifestURL = directory.appendingPathComponent("switchyard-container.json")
-            let legacyManifestURL = directory.appendingPathComponent("switchyard-bottle.json")
-            let readableManifestURL: URL
-            if fileManager.fileExists(atPath: manifestURL.path) {
-                readableManifestURL = manifestURL
-            } else if fileManager.fileExists(atPath: legacyManifestURL.path) {
-                readableManifestURL = legacyManifestURL
-            } else {
+            guard isContainerDirectoryInsideRoot(directory),
+                  let readableManifestURL = readableManifestURL(in: directory) else {
                 return nil
             }
             let data = try Data(contentsOf: readableManifestURL)
@@ -39,11 +59,86 @@ public struct ContainerManifestStore {
     }
 
     public func save(_ container: Container) throws {
-        let directory = URL(fileURLWithPath: container.path, isDirectory: true)
+        let directory = try validatedContainerDirectory(
+            URL(fileURLWithPath: container.path, isDirectory: true)
+        )
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let manifestURL = directory.appendingPathComponent("switchyard-container.json")
+        if fileManager.fileExists(atPath: manifestURL.path),
+           !isRegularManifest(manifestURL, inside: directory) {
+            throw PersistenceError.unsafeManifest(manifestURL)
+        }
         let data = try JSONEncoder.switchyard.encode(container)
         try data.write(to: manifestURL, options: [.atomic])
+    }
+
+    private func validatedContainerDirectory(_ directory: URL) throws -> URL {
+        let standardizedDirectory = directory.standardizedFileURL
+        guard isContainerDirectoryInsideRoot(standardizedDirectory) else {
+            throw PersistenceError.containerOutsideLibrary(standardizedDirectory)
+        }
+        return standardizedDirectory
+    }
+
+    private func isContainerDirectoryInsideRoot(_ directory: URL) -> Bool {
+        let standardizedRoot = rootURL.standardizedFileURL
+        let standardizedDirectory = directory.standardizedFileURL
+        let standardizedParent = standardizedDirectory.deletingLastPathComponent()
+        guard standardizedParent.path == standardizedRoot.path else {
+            return false
+        }
+
+        let resolvedRoot = standardizedRoot.resolvingSymlinksInPath()
+        guard standardizedParent.resolvingSymlinksInPath().path
+                == resolvedRoot.path else {
+            return false
+        }
+        if let values = try? standardizedDirectory.resourceValues(
+            forKeys: [.isSymbolicLinkKey]
+        ),
+        values.isSymbolicLink == true {
+            return false
+        }
+
+        guard fileManager.fileExists(atPath: standardizedDirectory.path) else {
+            return true
+        }
+        let resolvedDirectory = standardizedDirectory.resolvingSymlinksInPath()
+        return resolvedDirectory.deletingLastPathComponent().path
+            == resolvedRoot.path
+    }
+
+    private func readableManifestURL(in directory: URL) -> URL? {
+        for fileName in [
+            "switchyard-container.json",
+            "switchyard-bottle.json",
+        ] {
+            let manifestURL = directory.appendingPathComponent(fileName)
+            guard fileManager.fileExists(atPath: manifestURL.path) else {
+                continue
+            }
+            if isRegularManifest(manifestURL, inside: directory) {
+                return manifestURL
+            }
+        }
+        return nil
+    }
+
+    private func isRegularManifest(_ manifestURL: URL, inside directory: URL) -> Bool {
+        guard let values = try? manifestURL.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ),
+        values.isRegularFile == true,
+        values.isSymbolicLink != true else {
+            return false
+        }
+
+        let resolvedDirectory = directory.standardizedFileURL
+            .resolvingSymlinksInPath()
+        let resolvedManifest = manifestURL.standardizedFileURL
+            .resolvingSymlinksInPath()
+        return resolvedManifest.deletingLastPathComponent().path
+            == resolvedDirectory.path
     }
 }
 
