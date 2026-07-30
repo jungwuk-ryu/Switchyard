@@ -7,6 +7,8 @@
 [![CI](https://github.com/jungwuk-ryu/Switchyard/actions/workflows/ci.yml/badge.svg)](https://github.com/jungwuk-ryu/Switchyard/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black.svg)](https://support.apple.com/macos)
+[![GitHub Stars](https://img.shields.io/github/stars/jungwuk-ryu/Switchyard?style=flat&logo=github&label=Stars)](https://github.com/jungwuk-ryu/Switchyard/stargazers)
+[![README Hits](https://hits.sh/github.com/jungwuk-ryu/Switchyard.svg?label=README%20hits)](https://hits.sh/github.com/jungwuk-ryu/Switchyard/)
 
 Switchyard is an experimental, open-source macOS app for running Windows game launchers and other executables in user-managed Wine containers on Apple Silicon.
 
