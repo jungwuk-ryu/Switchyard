@@ -6,6 +6,7 @@ public enum PersistenceError: LocalizedError, Equatable {
     case containerOutsideLibrary(URL)
     case unsafeManifest(URL)
     case duplicateContainerID(UUID, [URL])
+    case duplicateContainerPath(URL, [UUID])
 
     public var errorDescription: String? {
         switch self {
@@ -29,8 +30,21 @@ public enum PersistenceError: LocalizedError, Equatable {
                 localized: "Multiple container manifests use the same identifier \(id.uuidString): \(manifestURLs.map(\.path).joined(separator: ", "))",
                 bundle: SwitchyardStrings.bundle
             )
+        case .duplicateContainerPath(let directoryURL, let containerIDs):
+            String(
+                localized: "Multiple containers use the same folder \(directoryURL.path): \(containerIDs.map(\.uuidString).joined(separator: ", "))",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
+}
+
+fileprivate struct PreparedContainerManifestSave {
+    var containerID: UUID
+    var directoryURL: URL
+    var resolvedDirectoryURL: URL
+    var manifestURL: URL
+    var data: Data
 }
 
 public struct ContainerManifestStore {
@@ -86,17 +100,50 @@ public struct ContainerManifestStore {
     }
 
     public func save(_ container: Container) throws {
+        try write(prepareSave(container))
+    }
+
+    fileprivate func prepareSave(
+        _ container: Container
+    ) throws -> PreparedContainerManifestSave {
         let directory = try validatedContainerDirectory(
             URL(fileURLWithPath: container.path, isDirectory: true)
         )
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let manifestURL = directory.appendingPathComponent("switchyard-container.json")
-        if fileManager.fileExists(atPath: manifestURL.path),
+        if fileSystemEntryExists(at: directory) {
+            guard let values = try? directory.resourceValues(
+                forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+            ),
+            values.isDirectory == true,
+            values.isSymbolicLink != true else {
+                throw PersistenceError.unsafeManifest(manifestURL)
+            }
+        }
+        if fileSystemEntryExists(at: manifestURL),
            !isRegularManifest(manifestURL, inside: directory) {
             throw PersistenceError.unsafeManifest(manifestURL)
         }
         let data = try JSONEncoder.switchyard.encode(container)
-        try data.write(to: manifestURL, options: [.atomic])
+        return PreparedContainerManifestSave(
+            containerID: container.id,
+            directoryURL: directory,
+            resolvedDirectoryURL: directory.resolvingSymlinksInPath(),
+            manifestURL: manifestURL,
+            data: data
+        )
+    }
+
+    fileprivate func write(
+        _ preparedSave: PreparedContainerManifestSave
+    ) throws {
+        try fileManager.createDirectory(
+            at: preparedSave.directoryURL,
+            withIntermediateDirectories: true
+        )
+        try preparedSave.data.write(
+            to: preparedSave.manifestURL,
+            options: [.atomic]
+        )
     }
 
     private func validatedContainerDirectory(_ directory: URL) throws -> URL {
@@ -166,6 +213,11 @@ public struct ContainerManifestStore {
             .resolvingSymlinksInPath()
         return resolvedManifest.deletingLastPathComponent().path
             == resolvedDirectory.path
+    }
+
+    private func fileSystemEntryExists(at url: URL) -> Bool {
+        fileManager.fileExists(atPath: url.path)
+            || (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
     }
 }
 
@@ -302,13 +354,28 @@ public struct LibraryManifestStore {
     }
 
     public func save(_ snapshot: SwitchyardContainerSnapshot) throws {
-        try fileManager.createDirectory(at: rootURL, withIntermediateDirectories: true)
-        let containerStore = ContainerManifestStore(rootURL: rootURL, fileManager: fileManager)
-        for container in snapshot.containers {
-            try containerStore.save(container)
-        }
+        try throwIfDuplicateContainerIDsBeforeSave(in: snapshot.containers)
 
+        let containerStore = ContainerManifestStore(
+            rootURL: rootURL,
+            fileManager: fileManager
+        )
+        let preparedContainerSaves = try snapshot.containers.map {
+            try containerStore.prepareSave($0)
+        }
+        try throwIfDuplicateContainerPaths(
+            in: preparedContainerSaves
+        )
         let data = try JSONEncoder.switchyard.encode(snapshot)
+        try validateLibraryManifestDestination()
+
+        try fileManager.createDirectory(
+            at: rootURL,
+            withIntermediateDirectories: true
+        )
+        for preparedSave in preparedContainerSaves {
+            try containerStore.write(preparedSave)
+        }
         try data.write(to: manifestURL, options: [.atomic])
     }
 
@@ -401,6 +468,153 @@ public struct LibraryManifestStore {
                 [manifestURL]
             )
         }
+    }
+
+    private func throwIfDuplicateContainerIDsBeforeSave(
+        in containers: [Container]
+    ) throws {
+        let duplicate = Dictionary(grouping: containers) {
+            $0.id
+        }.filter {
+            $0.value.count > 1
+        }.min {
+            $0.key.uuidString < $1.key.uuidString
+        }
+        if let duplicate {
+            let manifestURLs = duplicate.value.map {
+                URL(fileURLWithPath: $0.path, isDirectory: true)
+                    .standardizedFileURL
+                    .appendingPathComponent("switchyard-container.json")
+            }.sorted {
+                $0.path < $1.path
+            }
+            throw PersistenceError.duplicateContainerID(
+                duplicate.key,
+                manifestURLs
+            )
+        }
+    }
+
+    private func throwIfDuplicateContainerPaths(
+        in preparedSaves: [PreparedContainerManifestSave]
+    ) throws {
+        let volumeSupportsCaseSensitiveNames =
+            try volumeSupportsCaseSensitiveNames()
+        var pathOwners: [String: Set<UUID>] = [:]
+        var displayPaths: [String: String] = [:]
+        for preparedSave in preparedSaves {
+            let pathKeys = Set([
+                preparedSave.directoryURL.path,
+                preparedSave.resolvedDirectoryURL.path,
+            ].map {
+                comparisonKey(
+                    for: $0,
+                    volumeSupportsCaseSensitiveNames:
+                        volumeSupportsCaseSensitiveNames
+                )
+            })
+            for pathKey in pathKeys {
+                pathOwners[pathKey, default: []].insert(
+                    preparedSave.containerID
+                )
+                displayPaths[pathKey] = min(
+                    displayPaths[pathKey] ?? preparedSave.directoryURL.path,
+                    preparedSave.directoryURL.path
+                )
+            }
+        }
+
+        let duplicate = pathOwners.filter {
+            $0.value.count > 1
+        }.min {
+            $0.key < $1.key
+        }
+        if let duplicate {
+            throw PersistenceError.duplicateContainerPath(
+                URL(
+                    fileURLWithPath: displayPaths[duplicate.key]
+                        ?? duplicate.key,
+                    isDirectory: true
+                ),
+                duplicate.value.sorted {
+                    $0.uuidString < $1.uuidString
+                }
+            )
+        }
+    }
+
+    private func volumeSupportsCaseSensitiveNames() throws -> Bool {
+        var candidate = rootURL.standardizedFileURL
+            .resolvingSymlinksInPath()
+        while !fileManager.fileExists(atPath: candidate.path) {
+            let parent = candidate.deletingLastPathComponent()
+            guard parent.path != candidate.path else {
+                throw PersistenceError.unsafeManifest(manifestURL)
+            }
+            candidate = parent
+        }
+
+        guard let values = try? candidate.resourceValues(
+            forKeys: [.volumeSupportsCaseSensitiveNamesKey]
+        ),
+        let supportsCaseSensitiveNames =
+            values.volumeSupportsCaseSensitiveNames else {
+            throw PersistenceError.unsafeManifest(manifestURL)
+        }
+        return supportsCaseSensitiveNames
+    }
+
+    private func comparisonKey(
+        for path: String,
+        volumeSupportsCaseSensitiveNames: Bool
+    ) -> String {
+        guard !volumeSupportsCaseSensitiveNames else {
+            return path
+        }
+        return path.folding(
+            options: [.caseInsensitive],
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+    }
+
+    private func validateLibraryManifestDestination() throws {
+        let standardizedRoot = rootURL.standardizedFileURL
+        let resolvedRoot = standardizedRoot.resolvingSymlinksInPath()
+        if fileSystemEntryExists(at: standardizedRoot) {
+            guard let values = try? resolvedRoot.resourceValues(
+                forKeys: [.isDirectoryKey]
+            ),
+            values.isDirectory == true else {
+                throw PersistenceError.unsafeManifest(manifestURL)
+            }
+        }
+
+        let standardizedManifest = manifestURL.standardizedFileURL
+        guard standardizedManifest.deletingLastPathComponent().path
+                == standardizedRoot.path else {
+            throw PersistenceError.unsafeManifest(manifestURL)
+        }
+        guard fileSystemEntryExists(at: standardizedManifest) else {
+            return
+        }
+        guard let values = try? standardizedManifest.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ),
+        values.isRegularFile == true,
+        values.isSymbolicLink != true else {
+            throw PersistenceError.unsafeManifest(manifestURL)
+        }
+        let resolvedManifest = standardizedManifest
+            .resolvingSymlinksInPath()
+        guard resolvedManifest.deletingLastPathComponent().path
+                == resolvedRoot.path else {
+            throw PersistenceError.unsafeManifest(manifestURL)
+        }
+    }
+
+    private func fileSystemEntryExists(at url: URL) -> Bool {
+        fileManager.fileExists(atPath: url.path)
+            || (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
     }
 }
 
