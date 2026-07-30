@@ -1072,6 +1072,15 @@ struct SwitchyardRunner {
         switch arguments[0] {
         case "diagnose":
             print("switchyard-runner ok")
+        case "inspect-session":
+            do {
+                try inspectSession(arguments: Array(arguments.dropFirst()))
+            } catch {
+                FileHandle.standardError.write(
+                    Data("Unable to inspect Wine prefix session: \(error.localizedDescription)\n".utf8)
+                )
+                runnerExit(2)
+            }
         case "probe-prefix":
             probePrefix(arguments: Array(arguments.dropFirst()))
         case "probe-prefix-host":
@@ -1599,16 +1608,52 @@ struct SwitchyardRunner {
                 runnerExit(2)
             }
 
-            let result = try probeWinePrefixSession(
+            let result = try inspectWinePrefixSession(
                 wineExecutablePath: arguments[1],
                 wineServerURL: wineServerURL,
                 prefixPath: arguments[3]
-            )
+            ).result
             runnerExit(result.exitStatus)
         } catch {
             FileHandle.standardError.write(Data("Unable to inspect Wine prefix session: \(error)\n".utf8))
             runnerExit(2)
         }
+    }
+
+    private static func inspectSession(arguments: [String]) throws {
+        let configuration = processInspectionConfiguration(arguments: arguments)
+        let prefixLock = try WinePrefixFileLock(
+            prefixPath: configuration.prefixPath,
+            mode: .shared
+        )
+        defer { prefixLock.unlock() }
+        validateProcessInspectionPaths(configuration)
+        guard let wineServerURL = wineServerURL(
+            forWineExecutable: configuration.winePath
+        ) else {
+            throw SwitchyardRunnerError.missingWineServer(configuration.winePath)
+        }
+
+        let inspection = try inspectWinePrefixSession(
+            wineExecutablePath: configuration.winePath,
+            wineServerURL: wineServerURL,
+            prefixPath: configuration.prefixPath
+        )
+        let wireState: WinePrefixInspectionState = switch inspection.result {
+        case .active:
+            .active
+        case .inactive:
+            .inactive
+        case .residualProcesses:
+            .orphaned
+        }
+        let response = WinePrefixSessionInspection(
+            state: wireState,
+            hostProcessIDs: inspection.hostProcessIDs.map { Int32($0) }
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        FileHandle.standardOutput.write(try encoder.encode(response))
     }
 
     private static func probePrefixHost(arguments: [String]) {
@@ -1971,7 +2016,7 @@ struct SwitchyardRunner {
 
     private static func printUsage() {
         FileHandle.standardError.write(
-            Data("usage: switchyard-runner diagnose | probe-prefix --wine <path> --prefix <path> | probe-prefix-host --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | list-process-details --wine <path> --prefix <path> | list-host-processes --wine <path> --prefix <path> | terminate-process --wine <path> --prefix <path> --pid <guest-pid> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
+            Data("usage: switchyard-runner diagnose | inspect-session --wine <path> --prefix <path> | probe-prefix --wine <path> --prefix <path> | probe-prefix-host --wine <path> --prefix <path> | list-processes --wine <path> --prefix <path> | list-process-details --wine <path> --prefix <path> | list-host-processes --wine <path> --prefix <path> | terminate-process --wine <path> --prefix <path> --pid <guest-pid> | stop-prefix --wine <path> --prefix <path> | open-url --request <request.json> | open-shortcut --request <request.json> | run --plan <command-plan.json>\n".utf8)
         )
     }
 }
@@ -2119,19 +2164,25 @@ private enum WinePrefixProbeResult {
     }
 }
 
-private func probeWinePrefixSession(
+private struct WinePrefixSessionProbe {
+    let result: WinePrefixProbeResult
+    let hostProcessIDs: [pid_t]
+}
+
+private func inspectWinePrefixSession(
     wineExecutablePath: String,
     wineServerURL: URL,
     prefixPath: String
-) throws -> WinePrefixProbeResult {
+) throws -> WinePrefixSessionProbe {
     // `wineserver -w` can start a fresh server for an inactive prefix.
     // Check the host process table first so every read-only probe, including
     // extended output draining, leaves an inactive session untouched.
-    guard !wineProcessIDs(
+    let initialProcessIDs = wineProcessIDs(
         wineExecutablePath: wineExecutablePath,
         prefixPath: prefixPath
-    ).isEmpty else {
-        return .inactive
+    )
+    guard !initialProcessIDs.isEmpty else {
+        return WinePrefixSessionProbe(result: .inactive, hostProcessIDs: [])
     }
 
     let process = Process()
@@ -2151,15 +2202,40 @@ private func probeWinePrefixSession(
                 output: ""
             )
         }
-        let hasResidualProcesses = !wineProcessIDs(
+        let residualProcessIDs = wineProcessIDs(
             wineExecutablePath: wineExecutablePath,
             prefixPath: prefixPath
-        ).isEmpty
-        return hasResidualProcesses ? .residualProcesses : .inactive
+        )
+        return WinePrefixSessionProbe(
+            result: residualProcessIDs.isEmpty ? .inactive : .residualProcesses,
+            hostProcessIDs: residualProcessIDs
+        )
     }
 
     stopProcessWithinDeadline(process)
-    return .active
+    let activeProcessIDs = wineProcessIDs(
+        wineExecutablePath: wineExecutablePath,
+        prefixPath: prefixPath
+    )
+    guard !activeProcessIDs.isEmpty else {
+        return WinePrefixSessionProbe(result: .inactive, hostProcessIDs: [])
+    }
+    return WinePrefixSessionProbe(
+        result: .active,
+        hostProcessIDs: activeProcessIDs
+    )
+}
+
+private func probeWinePrefixSession(
+    wineExecutablePath: String,
+    wineServerURL: URL,
+    prefixPath: String
+) throws -> WinePrefixProbeResult {
+    try inspectWinePrefixSession(
+        wineExecutablePath: wineExecutablePath,
+        wineServerURL: wineServerURL,
+        prefixPath: prefixPath
+    ).result
 }
 
 private let knownWineProcessExecutableNames: Set<String> = [

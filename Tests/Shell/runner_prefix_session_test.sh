@@ -196,6 +196,18 @@ if [ -s "$EVENTS" ]; then
   echo "inactive prefix probe launched wineserver" >&2
   exit 1
 fi
+inactive_inspection_json="$(
+  TEST_EVENTS="$EVENTS" \
+    "$RUNNER" inspect-session --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+)"
+if [ "$inactive_inspection_json" != '{"hostProcessIDs":[],"state":"inactive"}' ]; then
+  echo "inactive session inspection returned unexpected JSON: $inactive_inspection_json" >&2
+  exit 1
+fi
+if [ -s "$EVENTS" ]; then
+  echo "inactive session inspection launched wineserver" >&2
+  exit 1
+fi
 
 (
   "$TEST_ROOT/wine" "$PREFIX" "$TEST_ROOT/active-probe-wine.ready" default &
@@ -215,6 +227,15 @@ printf '%s\n' "$active_probe_wine_pid" > "$TEST_ROOT/active-probe-wine.pid"
 
 TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 \
   "$RUNNER" probe-prefix --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+active_inspection_json="$(
+  TEST_EVENTS="$EVENTS" TEST_PROBE_ACTIVE=1 \
+    "$RUNNER" inspect-session --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+)"
+expected_active_inspection_json="{\"hostProcessIDs\":[$active_probe_wine_pid],\"state\":\"active\"}"
+if [ "$active_inspection_json" != "$expected_active_inspection_json" ]; then
+  echo "active session inspection omitted state or host PID: $active_inspection_json" >&2
+  exit 1
+fi
 kill "$active_probe_wine_pid"
 wait "$active_probe_wine_reaper_pid"
 rm -f "$TEST_ROOT/active-probe-wine.pid"
@@ -431,6 +452,18 @@ if printf '%s\n' "$host_processes_json" \
 fi
 if [ -s "$EVENTS" ]; then
   echo "list-host-processes launched Wine while inspecting host processes" >&2
+  exit 1
+fi
+orphan_inspection_json="$(
+  TEST_EVENTS="$EVENTS" \
+    "$RUNNER" inspect-session --wine "$BIN_DIR/switchyard-wine" --prefix "$PREFIX"
+)"
+expected_orphan_process_ids="$(
+  printf '%s\n%s\n' "$orphan_wine_pid" "$environment_wine_pid" | sort -n | paste -sd, -
+)"
+expected_orphan_inspection_json="{\"hostProcessIDs\":[$expected_orphan_process_ids],\"state\":\"orphaned\"}"
+if [ "$orphan_inspection_json" != "$expected_orphan_inspection_json" ]; then
+  echo "orphaned session inspection omitted state or host PID: $orphan_inspection_json" >&2
   exit 1
 fi
 
