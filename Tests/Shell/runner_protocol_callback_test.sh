@@ -32,6 +32,14 @@ cat >"$FAKE_WINE" <<'SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
 if [ "${1:-}" = "wmic" ]; then
+  if [ "${4:-}" = "CreationDate,ExecutablePath,ProcessId" ]; then
+    printf '%s\n' \
+      'CreationDate  ExecutablePath  ProcessId' \
+      '20260731060000.000000+540  C:\windows\system32\services.exe  80' \
+      '20260731060001.000000+540  C:\Program Files (x86)\Steam\steam.exe  144' \
+      '20260731060002.000000+540  C:\Games\Heartopia\xdt.exe  232'
+    exit 0
+  fi
   if [ "${4:-}" = "ExecutablePath,ProcessId" ] \
     && [ "${SWITCHYARD_TEST_LEGACY_WMIC:-0}" != "1" ]; then
     printf '%s\n' \
