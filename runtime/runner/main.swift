@@ -199,6 +199,17 @@ private let maximumLiveLogJournalBytes: Int64 = {
     return bytes
 }()
 
+private let maximumPartialLogLineByteCount: Int = {
+    guard let value = ProcessInfo.processInfo.environment[
+        "SWITCHYARD_TEST_PARTIAL_LOG_MAX_BYTES"
+    ],
+    let bytes = Int(value),
+    bytes > 0 else {
+        return 64 * 1_024
+    }
+    return bytes
+}()
+
 private let signalExitGracePeriod: TimeInterval = {
     guard let value = ProcessInfo.processInfo.environment["SWITCHYARD_TEST_SIGNAL_EXIT_TIMEOUT"],
           let seconds = TimeInterval(value),
@@ -219,35 +230,162 @@ private let prefixProcessTerminationTimeout: TimeInterval = {
 
 private final class LineAccumulator: @unchecked Sendable {
     private let lock = NSLock()
-    private var buffer = ""
+    private let maximumPartialLineByteCount: Int
+    private let counters: PerformanceCounters
+    private var buffer = Data()
+    private var hasPendingCarriageReturn = false
+    private var isDiscardingOversizedLine = false
 
-    func consume(_ chunk: String) -> [String] {
+    init(
+        maximumPartialLineByteCount: Int = maximumPartialLogLineByteCount,
+        counters: PerformanceCounters = .shared
+    ) {
+        self.maximumPartialLineByteCount = max(1, maximumPartialLineByteCount)
+        self.counters = counters
+    }
+
+    func consume(_ data: Data) -> [String] {
         lock.lock()
         defer { lock.unlock() }
 
-        buffer += chunk
-        guard !buffer.isEmpty else { return [] }
+        var lines: [String] = []
+        var cursor = data.startIndex
+        while cursor < data.endIndex {
+            if isDiscardingOversizedLine {
+                guard let newlineIndex = data[cursor...].firstIndex(of: 0x0A) else {
+                    recordDiscardedByteCount(data.distance(from: cursor, to: data.endIndex))
+                    return lines
+                }
+                recordDiscardedByteCount(data.distance(from: cursor, to: newlineIndex))
+                isDiscardingOversizedLine = false
+                cursor = data.index(after: newlineIndex)
+                continue
+            }
 
-        let lines = buffer.components(separatedBy: .newlines)
-        guard !lines.isEmpty else { return [] }
+            if hasPendingCarriageReturn {
+                if data[cursor] == 0x0A {
+                    hasPendingCarriageReturn = false
+                    appendDecodedLine(buffer[...], to: &lines)
+                    buffer.removeAll(keepingCapacity: true)
+                    cursor = data.index(after: cursor)
+                    continue
+                }
+                appendPendingCarriageReturn(to: &lines)
+                if isDiscardingOversizedLine {
+                    continue
+                }
+            }
 
-        if buffer.last == "\n" {
-            buffer.removeAll(keepingCapacity: true)
-            return lines
+            let newlineIndex = data[cursor...].firstIndex(of: 0x0A)
+            var segmentEnd = newlineIndex ?? data.endIndex
+            let endsWithCarriageReturn = segmentEnd > cursor
+                && data[data.index(before: segmentEnd)] == 0x0D
+            if endsWithCarriageReturn {
+                segmentEnd = data.index(before: segmentEnd)
+            }
+            appendPartialBytes(data[cursor..<segmentEnd], to: &lines)
+
+            guard let newlineIndex else {
+                if endsWithCarriageReturn {
+                    if isDiscardingOversizedLine {
+                        recordDiscardedByteCount(1)
+                    } else {
+                        hasPendingCarriageReturn = true
+                    }
+                }
+                return lines
+            }
+            if isDiscardingOversizedLine {
+                isDiscardingOversizedLine = false
+            } else {
+                appendDecodedLine(buffer[...], to: &lines)
+                buffer.removeAll(keepingCapacity: true)
+            }
+            cursor = data.index(after: newlineIndex)
         }
-
-        let completeLines = lines.dropLast()
-        buffer = lines.last ?? ""
-        return Array(completeLines)
+        return lines
     }
 
     func flush() -> String? {
         lock.lock()
         defer { lock.unlock() }
+        var emittedLines: [String] = []
+        appendPendingCarriageReturn(to: &emittedLines)
+        if let truncatedLine = emittedLines.first {
+            buffer.removeAll(keepingCapacity: false)
+            hasPendingCarriageReturn = false
+            isDiscardingOversizedLine = false
+            return truncatedLine
+        }
+        guard !isDiscardingOversizedLine else {
+            buffer.removeAll(keepingCapacity: false)
+            hasPendingCarriageReturn = false
+            isDiscardingOversizedLine = false
+            return nil
+        }
         guard !buffer.isEmpty else { return nil }
-        let pending = buffer
-        buffer.removeAll(keepingCapacity: true)
+        var pending = String(decoding: buffer, as: UTF8.self)
+        if pending.last == "\r" {
+            pending.removeLast()
+        }
+        buffer.removeAll(keepingCapacity: false)
         return pending
+    }
+
+    private func appendPendingCarriageReturn(to lines: inout [String]) {
+        guard hasPendingCarriageReturn else { return }
+        hasPendingCarriageReturn = false
+        let carriageReturn = Data([0x0D])
+        appendPartialBytes(carriageReturn[...], to: &lines)
+    }
+
+    private static func truncationMarker(
+        maximumPartialLineByteCount: Int
+    ) -> String {
+        " … [truncated after \(maximumPartialLineByteCount) bytes; remainder discarded until newline]"
+    }
+
+    private func appendPartialBytes(
+        _ data: Data.SubSequence,
+        to lines: inout [String]
+    ) {
+        let availableByteCount = maximumPartialLineByteCount - buffer.count
+        guard data.count > availableByteCount else {
+            buffer.append(contentsOf: data)
+            return
+        }
+
+        if availableByteCount > 0 {
+            buffer.append(contentsOf: data.prefix(availableByteCount))
+        }
+        recordDiscardedByteCount(data.count - availableByteCount)
+        counters.increment(.partialLogTruncations)
+
+        // The retained raw prefix is byte-capped. The fixed marker is appended
+        // exactly once, then every continuation byte is ignored until LF.
+        let line = String(decoding: buffer, as: UTF8.self)
+            + Self.truncationMarker(
+                maximumPartialLineByteCount: maximumPartialLineByteCount
+            )
+        lines.append(line)
+        buffer.removeAll(keepingCapacity: true)
+        isDiscardingOversizedLine = true
+    }
+
+    private func appendDecodedLine(
+        _ data: Data.SubSequence,
+        to lines: inout [String]
+    ) {
+        var line = String(decoding: data, as: UTF8.self)
+        if line.last == "\r" {
+            line.removeLast()
+        }
+        lines.append(line)
+    }
+
+    private func recordDiscardedByteCount(_ byteCount: Int) {
+        guard byteCount > 0 else { return }
+        counters.increment(.partialLogDiscardedBytes, by: UInt64(byteCount))
     }
 }
 
@@ -2714,8 +2852,7 @@ private func streamOutput(
             let reachedEnd = autoreleasepool {
                 let data = inputHandle.availableData
                 guard !data.isEmpty else { return true }
-                let chunk = String(decoding: data, as: UTF8.self)
-                for line in accumulator.consume(chunk) where !line.isEmpty {
+                for line in accumulator.consume(data) where !line.isEmpty {
                     emitLine(
                         source: source,
                         level: ProcessLogLevelPolicy.normalizedLevel(
