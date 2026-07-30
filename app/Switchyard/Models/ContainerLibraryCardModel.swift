@@ -169,7 +169,8 @@ final class ContainerLibraryCardModel: ObservableObject {
             result = await captureService.captureWindows(
                 ownedBy: processIDs,
                 preferredWindowID: candidate.id,
-                previewLimit: 1
+                previewLimit: 1,
+                forceContentRefresh: false
             )
             window = ContainerPreviewWindowPolicy.preferredWindow(
                 in: result.windows,

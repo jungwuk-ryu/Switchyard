@@ -16,10 +16,25 @@ struct WindowObservationDescriptor: Equatable, Sendable {
     let title: String?
     let frame: CGRect
     let isOnScreen: Bool
+    let isActive: Bool
     let layer: Int
 
     var ownerProcessID: pid_t {
         processIdentity.processID
+    }
+}
+
+enum WindowObservationOrdering {
+    static func areInPreferredOrder(
+        _ lhs: WindowObservationDescriptor,
+        _ rhs: WindowObservationDescriptor
+    ) -> Bool {
+        if lhs.isActive != rhs.isActive { return lhs.isActive }
+        if lhs.isOnScreen != rhs.isOnScreen { return lhs.isOnScreen }
+        let lhsArea = lhs.frame.width * lhs.frame.height
+        let rhsArea = rhs.frame.width * rhs.frame.height
+        if lhsArea != rhsArea { return lhsArea > rhsArea }
+        return lhs.windowID < rhs.windowID
     }
 }
 
@@ -117,9 +132,39 @@ struct WindowObservation: @unchecked Sendable {
     let image: CGImage?
 }
 
+private struct WindowObservationFrameIdentity: Hashable, Sendable {
+    let x: UInt64
+    let y: UInt64
+    let width: UInt64
+    let height: UInt64
+
+    init(_ frame: CGRect) {
+        x = Double(frame.origin.x).bitPattern
+        y = Double(frame.origin.y).bitPattern
+        width = Double(frame.size.width).bitPattern
+        height = Double(frame.size.height).bitPattern
+    }
+}
+
+struct WindowObservationIdentity: Hashable, Sendable {
+    let processIdentity: WindowObservationProcessIdentity
+    let windowID: CGWindowID
+    private let frameIdentity: WindowObservationFrameIdentity
+
+    init(
+        processIdentity: WindowObservationProcessIdentity,
+        windowID: CGWindowID,
+        frame: CGRect
+    ) {
+        self.processIdentity = processIdentity
+        self.windowID = windowID
+        frameIdentity = WindowObservationFrameIdentity(frame)
+    }
+}
+
 struct WindowObservationHubConfiguration: Sendable {
     var contentTTL: TimeInterval = 0.5
-    var captureTTL: TimeInterval = 1.6
+    var captureTTL: TimeInterval = 2.5
     var captureByteLimit: Int = 64 * 1_024 * 1_024
 }
 
@@ -152,24 +197,10 @@ actor WindowObservationHub {
         let task: Task<Value, any Error>
     }
 
-    private struct FrameIdentity: Hashable, Sendable {
-        let x: UInt64
-        let y: UInt64
-        let width: UInt64
-        let height: UInt64
-
-        init(_ frame: CGRect) {
-            x = Double(frame.origin.x).bitPattern
-            y = Double(frame.origin.y).bitPattern
-            width = Double(frame.size.width).bitPattern
-            height = Double(frame.size.height).bitPattern
-        }
-    }
-
     private struct CaptureKey: Hashable, Sendable {
         let processIdentity: WindowObservationProcessIdentity
         let windowID: CGWindowID
-        let frame: FrameIdentity
+        let frame: WindowObservationFrameIdentity
         let outputProfile: WindowObservationOutputProfile
     }
 
@@ -179,6 +210,7 @@ actor WindowObservationHub {
     private let clock: any WindowObservationClock
 
     private var cachedContent: Cached<[WindowObservationSource]>?
+    private var lastNonemptyContent: [WindowObservationSource] = []
     private var contentTask: InFlight<[WindowObservationSource]>?
     private var contentGeneration: UInt64 = 0
     private var captureCache:
@@ -259,9 +291,46 @@ actor WindowObservationHub {
         return observations
     }
 
+    func cachedObservations(
+        matching identities: Set<WindowObservationIdentity>,
+        outputProfile: WindowObservationOutputProfile = .preview
+    ) -> [WindowObservation] {
+        guard !identities.isEmpty else {
+            return []
+        }
+        let sources: [WindowObservationSource]
+        if let currentContent = cachedContent?.value,
+           !currentContent.isEmpty {
+            sources = currentContent
+        } else {
+            sources = lastNonemptyContent
+        }
+
+        return sources.compactMap { source in
+            let descriptor = source.descriptor
+            let identity = WindowObservationIdentity(
+                processIdentity: descriptor.processIdentity,
+                windowID: descriptor.windowID,
+                frame: descriptor.frame
+            )
+            guard identities.contains(identity),
+                  let image = cachedImage(
+                      for: descriptor,
+                      outputProfile: outputProfile
+                  ) else {
+                return nil
+            }
+            return WindowObservation(
+                descriptor: descriptor,
+                image: image
+            )
+        }
+    }
+
     func invalidateContent() {
         contentGeneration &+= 1
         cachedContent = nil
+        lastNonemptyContent.removeAll()
         contentTask?.task.cancel()
         contentTask = nil
     }
@@ -285,6 +354,7 @@ actor WindowObservationHub {
         }
         captureTasks.removeAll()
         cachedContent = nil
+        lastNonemptyContent.removeAll()
         captureCache.removeAll()
     }
 
@@ -333,6 +403,9 @@ actor WindowObservationHub {
                     value: result,
                     observedAt: clock.now()
                 )
+                if !result.isEmpty {
+                    lastNonemptyContent = result
+                }
             }
             return result
         } catch {
@@ -351,17 +424,6 @@ actor WindowObservationHub {
             for: source.descriptor,
             outputProfile: outputProfile
         )
-        if let inFlight = captureTasks[key] {
-            counters.increment(.windowCaptureCoalescedRequests)
-            return await finishCapture(
-                inFlight,
-                for: key,
-                staleImage: captureCache
-                    .valueWithoutUpdatingRecency(forKey: key)?
-                    .value.image
-            )
-        }
-
         let cached = captureCache.value(forKey: key)
         let currentTime = clock.now()
         if let cached,
@@ -376,6 +438,15 @@ actor WindowObservationHub {
 
         guard source.descriptor.isOnScreen else {
             return cached?.value.image
+        }
+
+        if let inFlight = captureTasks[key] {
+            counters.increment(.windowCaptureCoalescedRequests)
+            return await finishCapture(
+                inFlight,
+                for: key,
+                staleImage: cached?.value.image
+            )
         }
 
         counters.increment(.windowCaptureExecutions)
@@ -424,6 +495,9 @@ actor WindowObservationHub {
             }
             return captured.image
         } catch {
+            guard inFlight.generation == captureGeneration else {
+                return nil
+            }
             if captureTasks[key]?.id == inFlight.id {
                 captureTasks.removeValue(forKey: key)
             }
@@ -450,7 +524,7 @@ actor WindowObservationHub {
         CaptureKey(
             processIdentity: descriptor.processIdentity,
             windowID: descriptor.windowID,
-            frame: FrameIdentity(descriptor.frame),
+            frame: WindowObservationFrameIdentity(descriptor.frame),
             outputProfile: outputProfile
         )
     }
@@ -483,35 +557,43 @@ private enum ScreenCaptureKitWindowObservationAdapter {
         var processIdentities:
             [pid_t: WindowObservationProcessIdentity] = [:]
 
-        return content.windows.compactMap { window in
-            guard let application = window.owningApplication else {
-                return nil
-            }
-            let processID = pid_t(application.processID)
-            let processIdentity = processIdentities[processID] ?? {
-                let identity = WindowObservationProcessIdentity(
-                    processID: processID,
-                    generation: processGeneration(for: processID)
-                )
-                processIdentities[processID] = identity
-                return identity
-            }()
-            let descriptor = WindowObservationDescriptor(
-                windowID: window.windowID,
-                processIdentity: processIdentity,
-                title: window.title,
-                frame: window.frame,
-                isOnScreen: window.isOnScreen,
-                layer: window.windowLayer
-            )
-            let box = ScreenCaptureKitWindowBox(window)
-            return WindowObservationSource(
-                descriptor: descriptor,
-                captureSource: WindowObservationCaptureSource { profile in
-                    try await capture(box.window, profile: profile)
+        return content.windows
+            .compactMap { window -> WindowObservationSource? in
+                guard let application = window.owningApplication else {
+                    return nil
                 }
-            )
-        }
+                let processID = pid_t(application.processID)
+                let processIdentity = processIdentities[processID] ?? {
+                    let identity = WindowObservationProcessIdentity(
+                        processID: processID,
+                        generation: processGeneration(for: processID)
+                    )
+                    processIdentities[processID] = identity
+                    return identity
+                }()
+                let descriptor = WindowObservationDescriptor(
+                    windowID: window.windowID,
+                    processIdentity: processIdentity,
+                    title: window.title,
+                    frame: window.frame,
+                    isOnScreen: window.isOnScreen,
+                    isActive: window.isActive,
+                    layer: window.windowLayer
+                )
+                let box = ScreenCaptureKitWindowBox(window)
+                return WindowObservationSource(
+                    descriptor: descriptor,
+                    captureSource: WindowObservationCaptureSource { profile in
+                        try await capture(box.window, profile: profile)
+                    }
+                )
+            }
+            .sorted {
+                WindowObservationOrdering.areInPreferredOrder(
+                    $0.descriptor,
+                    $1.descriptor
+                )
+            }
     }
 
     @MainActor

@@ -267,6 +267,660 @@ struct WindowObservationHubTests {
     }
 
     @Test(
+        "default capture TTL spans a two-second preview poll",
+        .timeLimit(.minutes(1))
+    )
+    func defaultCaptureTTLSpansPreviewPoll() async throws {
+        let clock = WindowObservationTestClock(now: 12)
+        let capture = WindowCaptureFake(
+            outcomes: [
+                .success(makeCapturedImage(width: 1, byteCost: 4)),
+                .success(makeCapturedImage(width: 2, byteCost: 4)),
+            ]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 101,
+                    generation: "process",
+                    windowID: 1,
+                    capture: capture
+                )
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = WindowObservationHub(
+            configuration: WindowObservationHubConfiguration(),
+            counters: counters,
+            clock: clock,
+            contentProvider: {
+                try await provider.enumerate()
+            }
+        )
+
+        let first = try await hub.observeWindows(ownedBy: [101])
+        clock.advance(by: 2)
+        let secondPoll = try await hub.observeWindows(ownedBy: [101])
+        clock.advance(by: 0.5)
+        let expired = try await hub.observeWindows(ownedBy: [101])
+
+        #expect(first.first?.image?.width == 1)
+        #expect(secondPoll.first?.image?.width == 1)
+        #expect(expired.first?.image?.width == 2)
+        #expect(await provider.enumerationCount() == 3)
+        #expect(await capture.captureCount() == 2)
+        #expect(counters.snapshot()[.windowCaptureCacheHits] == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "capture services share enumeration and capture work",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func captureServicesShareHubWork() async throws {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 5, byteCost: 20))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 811,
+                    generation: "process",
+                    windowID: 81,
+                    title: "Game",
+                    capture: capture
+                )
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(provider: provider, counters: counters)
+        let cardService = makeCaptureService(hub: hub)
+        let stageService = makeCaptureService(hub: hub)
+
+        let cardResult = await cardService.captureWindows(
+            ownedBy: [811],
+            previewLimit: 1
+        )
+        let stageResult = await stageService.captureWindows(
+            ownedBy: [811],
+            preferredWindowID: 81
+        )
+
+        let cardImage = try #require(cardResult.windows.first?.image)
+        let stageImage = try #require(stageResult.windows.first?.image)
+        #expect(cardImage === stageImage)
+        #expect(await provider.enumerationCount() == 1)
+        #expect(await capture.captureCount() == 1)
+        let metrics = counters.snapshot()
+        #expect(metrics[.windowContentEnumerations] == 1)
+        #expect(metrics[.windowCaptureExecutions] == 1)
+        #expect(metrics[.windowCaptureCacheHits] == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "capture failure keeps a shared cached preview",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func captureFailureKeepsSharedCachedPreview() async throws {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 5, byteCost: 20))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 812,
+                    generation: "process",
+                    windowID: 87,
+                    title: "Game",
+                    capture: capture
+                )
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(
+            provider: provider,
+            counters: counters,
+            contentTTL: 0
+        )
+        let matchingFallback = makeFallbackWindow(
+            processID: 812,
+            windowID: 87
+        )
+        let unmatchedFallback = makeFallbackWindow(
+            processID: 812,
+            windowID: 88
+        )
+        let service = makeCaptureService(
+            hub: hub,
+            coreGraphicsWindowsProvider: { _ in
+                [matchingFallback, unmatchedFallback]
+            }
+        )
+
+        let captured = await service.captureWindows(ownedBy: [812])
+        let capturedImage = try #require(
+            captured.windows.first?.image
+        )
+        await provider.failEnumerations()
+        let fallback = await service.captureWindows(
+            ownedBy: [812],
+            forceContentRefresh: true
+        )
+        let fallbackImage = try #require(
+            fallback.windows.first?.image
+        )
+
+        #expect(fallback.windows.map(\.id) == [87, 88])
+        #expect(fallbackImage === capturedImage)
+        #expect(fallback.windows[1].image == nil)
+        #expect(!fallback.screenRecordingAccessUnavailable)
+        #expect(await provider.enumerationCount() == 2)
+        #expect(await capture.captureCount() == 1)
+        let metrics = counters.snapshot()
+        #expect(metrics[.windowObservationRequests] == 2)
+        #expect(metrics[.windowContentEnumerations] == 2)
+        #expect(metrics[.windowCaptureExecutions] == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "screen recording denial keeps a shared cached preview",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func screenRecordingDenialKeepsSharedCachedPreview() async throws {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 6, byteCost: 24))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 813,
+                    generation: "process",
+                    windowID: 89,
+                    title: "Game",
+                    capture: capture
+                )
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(provider: provider, counters: counters)
+        let fallbackWindow = makeFallbackWindow(
+            processID: 813,
+            windowID: 89
+        )
+        var hasScreenRecordingAccess = true
+        let service = makeCaptureService(
+            hub: hub,
+            screenRecordingPreflight: {
+                hasScreenRecordingAccess
+            },
+            coreGraphicsWindowsProvider: { _ in
+                [fallbackWindow]
+            }
+        )
+
+        let captured = await service.captureWindows(ownedBy: [813])
+        let capturedImage = try #require(
+            captured.windows.first?.image
+        )
+        hasScreenRecordingAccess = false
+        let fallback = await service.captureWindows(ownedBy: [813])
+        let fallbackImage = try #require(
+            fallback.windows.first?.image
+        )
+
+        #expect(fallbackImage === capturedImage)
+        #expect(fallback.screenRecordingAccessUnavailable)
+        #expect(await provider.enumerationCount() == 1)
+        #expect(await capture.captureCount() == 1)
+        let metrics = counters.snapshot()
+        #expect(metrics[.windowObservationRequests] == 1)
+        #expect(metrics[.windowContentEnumerations] == 1)
+        #expect(metrics[.windowCaptureExecutions] == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "fallback images require matching process generation and frame",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func fallbackImagesRequireSafeIdentity() async throws {
+        let capturedFrame = CGRect(
+            x: 10,
+            y: 20,
+            width: 800,
+            height: 600
+        )
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 7, byteCost: 28))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 814,
+                    generation: "original-process",
+                    windowID: 95,
+                    title: "Game",
+                    frame: capturedFrame,
+                    capture: capture
+                )
+            ]
+        )
+        let hub = makeHub(
+            provider: provider,
+            counters: PerformanceCounters()
+        )
+        let capturingService = makeCaptureService(
+            hub: hub,
+            processGeneration: "original-process"
+        )
+
+        let captured = await capturingService.captureWindows(
+            ownedBy: [814]
+        )
+        #expect(captured.windows.first?.image?.width == 7)
+
+        let frameMismatchService = makeCaptureService(
+            hub: hub,
+            screenRecordingPreflight: { false },
+            processGeneration: "original-process",
+            coreGraphicsWindowsProvider: { _ in
+                [
+                    makeFallbackWindow(
+                        processID: 814,
+                        windowID: 95,
+                        frame: capturedFrame.offsetBy(dx: 1, dy: 0)
+                    )
+                ]
+            }
+        )
+        let frameMismatch = await frameMismatchService.captureWindows(
+            ownedBy: [814]
+        )
+
+        let processMismatchService = makeCaptureService(
+            hub: hub,
+            screenRecordingPreflight: { false },
+            processGeneration: "reused-process",
+            coreGraphicsWindowsProvider: { _ in
+                [
+                    makeFallbackWindow(
+                        processID: 814,
+                        windowID: 95,
+                        frame: capturedFrame
+                    )
+                ]
+            }
+        )
+        let processMismatch = await processMismatchService.captureWindows(
+            ownedBy: [814]
+        )
+
+        #expect(frameMismatch.windows.first?.image == nil)
+        #expect(processMismatch.windows.first?.image == nil)
+        #expect(await provider.enumerationCount() == 1)
+        #expect(await capture.captureCount() == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "successful empty observations reuse a safely matched cached preview",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func emptyObservationKeepsSafelyMatchedPreview() async throws {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 8, byteCost: 32))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 815,
+                    generation: "process",
+                    windowID: 96,
+                    title: "Game",
+                    capture: capture
+                )
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(
+            provider: provider,
+            counters: counters,
+            contentTTL: 0
+        )
+        let fallbackWindow = makeFallbackWindow(
+            processID: 815,
+            windowID: 96
+        )
+        let service = makeCaptureService(
+            hub: hub,
+            coreGraphicsWindowsProvider: { _ in
+                [fallbackWindow]
+            }
+        )
+
+        let captured = await service.captureWindows(ownedBy: [815])
+        let capturedImage = try #require(
+            captured.windows.first?.image
+        )
+        await provider.setSources([])
+        let fallback = await service.captureWindows(
+            ownedBy: [815],
+            forceContentRefresh: true
+        )
+        let fallbackImage = try #require(
+            fallback.windows.first?.image
+        )
+
+        #expect(fallbackImage === capturedImage)
+        #expect(!fallback.screenRecordingAccessUnavailable)
+        #expect(await provider.enumerationCount() == 2)
+        #expect(await capture.captureCount() == 1)
+        let metrics = counters.snapshot()
+        #expect(metrics[.windowObservationRequests] == 2)
+        #expect(metrics[.windowContentEnumerations] == 2)
+        #expect(metrics[.windowCaptureExecutions] == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "content invalidation clears retained fallback observations",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func contentInvalidationClearsRetainedFallbackObservations() async throws {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 9, byteCost: 36))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 817,
+                    generation: "process",
+                    windowID: 97,
+                    title: "Game",
+                    capture: capture
+                )
+            ]
+        )
+        let hub = makeHub(
+            provider: provider,
+            counters: PerformanceCounters()
+        )
+        let fallbackWindow = makeFallbackWindow(
+            processID: 817,
+            windowID: 97
+        )
+        var hasScreenRecordingAccess = true
+        let service = makeCaptureService(
+            hub: hub,
+            screenRecordingPreflight: {
+                hasScreenRecordingAccess
+            },
+            coreGraphicsWindowsProvider: { _ in
+                [fallbackWindow]
+            }
+        )
+
+        let captured = await service.captureWindows(ownedBy: [817])
+        #expect(captured.windows.first?.image?.width == 9)
+        await hub.invalidateContent()
+        hasScreenRecordingAccess = false
+        let fallback = await service.captureWindows(ownedBy: [817])
+
+        #expect(fallback.windows.first?.image == nil)
+        #expect(fallback.screenRecordingAccessUnavailable)
+        #expect(await provider.enumerationCount() == 1)
+        #expect(await capture.captureCount() == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "capture service keeps active-first window ordering",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func captureServiceKeepsActiveFirstOrdering() async {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 5, byteCost: 20))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 816,
+                    generation: "process",
+                    windowID: 94,
+                    frame: CGRect(
+                        x: 0,
+                        y: 0,
+                        width: 1_200,
+                        height: 900
+                    ),
+                    isOnScreen: false,
+                    capture: capture
+                ),
+                makeSource(
+                    processID: 816,
+                    generation: "process",
+                    windowID: 93,
+                    capture: capture
+                ),
+                makeSource(
+                    processID: 816,
+                    generation: "process",
+                    windowID: 90,
+                    frame: CGRect(
+                        x: 0,
+                        y: 0,
+                        width: 320,
+                        height: 180
+                    ),
+                    isOnScreen: false,
+                    isActive: true,
+                    capture: capture
+                ),
+                makeSource(
+                    processID: 816,
+                    generation: "process",
+                    windowID: 92,
+                    capture: capture
+                ),
+                makeSource(
+                    processID: 816,
+                    generation: "process",
+                    windowID: 91,
+                    frame: CGRect(
+                        x: 0,
+                        y: 0,
+                        width: 1_000,
+                        height: 800
+                    ),
+                    capture: capture
+                ),
+            ]
+        )
+        let hub = makeHub(
+            provider: provider,
+            counters: PerformanceCounters()
+        )
+        let service = makeCaptureService(hub: hub)
+
+        let result = await service.captureWindows(
+            ownedBy: [816],
+            previewLimit: 1
+        )
+
+        #expect(result.windows.map(\.id) == [90, 91, 92, 93, 94])
+        #expect(result.windows.first?.isOnScreen == false)
+        #expect(await capture.captureCount() == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "card fallback query reuses hub enumeration and prior captures",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func cardFallbackReusesHubWork() async throws {
+        let genericCapture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 1, byteCost: 4))]
+        )
+        let gameCapture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 2, byteCost: 8))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 822,
+                    generation: "process",
+                    windowID: 82,
+                    title: "wine",
+                    capture: genericCapture
+                ),
+                makeSource(
+                    processID: 822,
+                    generation: "process",
+                    windowID: 83,
+                    title: "Game",
+                    capture: gameCapture
+                ),
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(provider: provider, counters: counters)
+        let service = makeCaptureService(hub: hub)
+
+        var result = await service.captureWindows(
+            ownedBy: [822],
+            previewLimit: 1
+        )
+        #expect(
+            ContainerPreviewWindowPolicy.preferredWindow(
+                in: result.windows
+            ) == nil
+        )
+        let candidate = try #require(
+            ContainerPreviewWindowPolicy.preferredWindowCandidate(
+                in: result.windows
+            )
+        )
+
+        result = await service.captureWindows(
+            ownedBy: [822],
+            preferredWindowID: candidate.id,
+            previewLimit: 1,
+            forceContentRefresh: false
+        )
+        let preferred = try #require(
+            ContainerPreviewWindowPolicy.preferredWindow(
+                in: result.windows,
+                selectedWindowID: candidate.id
+            )
+        )
+
+        #expect(preferred.id == 83)
+        #expect(preferred.image?.width == 2)
+        #expect(await provider.enumerationCount() == 1)
+        #expect(await genericCapture.captureCount() == 1)
+        #expect(await gameCapture.captureCount() == 1)
+        #expect(counters.snapshot()[.windowCaptureCacheHits] == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "capture service never captures an off-screen preferred window",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func captureServiceSuppressesOffscreenCapture() async throws {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 1, byteCost: 4))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 833,
+                    generation: "process",
+                    windowID: 84,
+                    title: "Game",
+                    isOnScreen: false,
+                    capture: capture
+                )
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(provider: provider, counters: counters)
+        let service = makeCaptureService(hub: hub)
+
+        let result = await service.captureWindows(
+            ownedBy: [833],
+            preferredWindowID: 84,
+            previewLimit: 1
+        )
+
+        #expect(result.windows.map(\.id) == [84])
+        #expect(result.windows.first?.image == nil)
+        #expect(await capture.captureCount() == 0)
+        #expect(counters.snapshot()[.windowCaptureExecutions] == 0)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "observing another container does not evict cached captures",
+        .timeLimit(.minutes(1))
+    )
+    @MainActor
+    func captureServiceDoesNotPruneOtherContainerCache() async throws {
+        let firstCapture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 1, byteCost: 4))]
+        )
+        let secondCapture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 2, byteCost: 8))]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 844,
+                    generation: "first",
+                    windowID: 85,
+                    title: "First Game",
+                    capture: firstCapture
+                ),
+                makeSource(
+                    processID: 855,
+                    generation: "second",
+                    windowID: 86,
+                    title: "Second Game",
+                    capture: secondCapture
+                ),
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(provider: provider, counters: counters)
+        let firstService = makeCaptureService(hub: hub)
+        let secondService = makeCaptureService(hub: hub)
+
+        _ = await firstService.captureWindows(ownedBy: [844])
+        _ = await secondService.captureWindows(ownedBy: [855])
+        let firstAgain = await firstService.captureWindows(
+            ownedBy: [844]
+        )
+
+        #expect(firstAgain.windows.first?.image?.width == 1)
+        #expect(await provider.enumerationCount() == 1)
+        #expect(await firstCapture.captureCount() == 1)
+        #expect(await secondCapture.captureCount() == 1)
+        #expect(counters.snapshot()[.windowCaptureCacheHits] == 1)
+        await hub.shutdown()
+    }
+
+    @Test(
         "preferred off-screen windows keep metadata without new capture",
         .timeLimit(.minutes(1))
     )
@@ -303,6 +957,83 @@ struct WindowObservationHubTests {
         #expect(metrics[.windowContentEnumerations] == 1)
         #expect(metrics[.windowCaptureExecutions] == 0)
         #expect(metrics[.windowCaptureCacheHits] == 0)
+        await hub.shutdown()
+    }
+
+    @Test(
+        "off-screen preferred windows do not join in-flight captures",
+        .timeLimit(.minutes(1))
+    )
+    func offscreenPreferredWindowDoesNotJoinInFlight() async throws {
+        let capture = WindowCaptureFake(
+            outcomes: [.success(makeCapturedImage(width: 7, byteCost: 28))]
+        )
+        await capture.blockCaptures()
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 405,
+                    generation: "process",
+                    windowID: 46,
+                    capture: capture
+                )
+            ]
+        )
+        let counters = PerformanceCounters()
+        let hub = makeHub(
+            provider: provider,
+            counters: counters,
+            contentTTL: 0
+        )
+
+        let onScreenRequest = Task {
+            try await hub.observeWindows(
+                ownedBy: [405],
+                preferredWindowID: 46,
+                previewLimit: 0
+            )
+        }
+        await capture.waitForCaptureCount(1)
+        await provider.setSources([
+            makeSource(
+                processID: 405,
+                generation: "process",
+                windowID: 46,
+                isOnScreen: false,
+                capture: capture
+            )
+        ])
+        let completion = WindowObservationCompletionProbe()
+        let offscreenRequest = Task {
+            let result = try await hub.observeWindows(
+                ownedBy: [405],
+                preferredWindowID: 46,
+                previewLimit: 0
+            )
+            await completion.finish()
+            return result
+        }
+        try await waitUntil {
+            if await completion.isFinished() {
+                return true
+            }
+            return counters.snapshot()[
+                .windowCaptureCoalescedRequests
+            ] > 0
+        }
+
+        #expect(await completion.isFinished())
+        #expect(
+            counters.snapshot()[.windowCaptureCoalescedRequests] == 0
+        )
+        await capture.releaseCaptures()
+        let offscreenResult = try await offscreenRequest.value
+        let onScreenResult = try await onScreenRequest.value
+
+        #expect(offscreenResult.first?.image == nil)
+        #expect(onScreenResult.first?.image?.width == 7)
+        #expect(await provider.enumerationCount() == 2)
+        #expect(await capture.captureCount() == 1)
         await hub.shutdown()
     }
 
@@ -538,6 +1269,52 @@ struct WindowObservationHubTests {
     }
 
     @Test(
+        "capture invalidation rejects a blocked failed completion",
+        .timeLimit(.minutes(1))
+    )
+    func captureInvalidationRejectsBlockedFailure() async throws {
+        let clock = WindowObservationTestClock(now: 0)
+        let capture = WindowCaptureFake(
+            outcomes: [
+                .success(makeCapturedImage(width: 1, byteCost: 4)),
+                .failure,
+            ]
+        )
+        let provider = WindowContentProviderFake(
+            sources: [
+                makeSource(
+                    processID: 908,
+                    generation: "process",
+                    windowID: 90,
+                    capture: capture
+                )
+            ]
+        )
+        let hub = makeHub(
+            provider: provider,
+            counters: PerformanceCounters(),
+            clock: clock,
+            captureTTL: 1
+        )
+
+        let initial = try await hub.observeWindows(ownedBy: [908])
+        #expect(initial.first?.image?.width == 1)
+        clock.advance(by: 1)
+        await capture.blockCaptures()
+        let failedRequest = Task {
+            try await hub.observeWindows(ownedBy: [908])
+        }
+        await capture.waitForCaptureCount(2)
+        await hub.removeAllCachedCaptures()
+        await capture.releaseCaptures()
+        let failedResult = try await failedRequest.value
+
+        #expect(failedResult.first?.image == nil)
+        #expect(await capture.captureCount() == 2)
+        await hub.shutdown()
+    }
+
+    @Test(
         "capture invalidation rejects and does not recache stale work",
         .timeLimit(.minutes(1))
     )
@@ -588,6 +1365,7 @@ private actor WindowContentProviderFake {
     private var sources: [WindowObservationSource]
     private var count = 0
     private var shouldBlock = false
+    private var shouldFail = false
     private var blocked: [CheckedContinuation<Void, Never>] = []
     private var countWaiters:
         [(target: Int, continuation: CheckedContinuation<Void, Never>)] = []
@@ -604,6 +1382,9 @@ private actor WindowContentProviderFake {
                 blocked.append(continuation)
             }
         }
+        if shouldFail {
+            throw WindowObservationHubTestError.captureFailed
+        }
         return sources
     }
 
@@ -613,6 +1394,10 @@ private actor WindowContentProviderFake {
 
     func blockEnumerations() {
         shouldBlock = true
+    }
+
+    func failEnumerations() {
+        shouldFail = true
     }
 
     func releaseEnumerations() {
@@ -639,6 +1424,18 @@ private actor WindowContentProviderFake {
         let ready = countWaiters.filter { $0.target <= count }
         countWaiters.removeAll { $0.target <= count }
         ready.forEach { $0.continuation.resume() }
+    }
+}
+
+private actor WindowObservationCompletionProbe {
+    private var finished = false
+
+    func finish() {
+        finished = true
+    }
+
+    func isFinished() -> Bool {
+        finished
     }
 }
 
@@ -759,8 +1556,10 @@ private func makeSource(
     processID: pid_t,
     generation: String,
     windowID: CGWindowID,
+    title: String? = nil,
     frame: CGRect = CGRect(x: 10, y: 20, width: 800, height: 600),
     isOnScreen: Bool = true,
+    isActive: Bool = false,
     capture: WindowCaptureFake
 ) -> WindowObservationSource {
     WindowObservationSource(
@@ -770,14 +1569,49 @@ private func makeSource(
                 processID: processID,
                 generation: generation
             ),
-            title: "Window \(windowID)",
+            title: title ?? "Window \(windowID)",
             frame: frame,
             isOnScreen: isOnScreen,
+            isActive: isActive,
             layer: 0
         ),
         captureSource: WindowObservationCaptureSource { profile in
             try await capture.capture(profile: profile)
         }
+    )
+}
+
+@MainActor
+private func makeCaptureService(
+    hub: WindowObservationHub,
+    screenRecordingPreflight: @escaping () -> Bool = { true },
+    processGeneration: String = "process",
+    coreGraphicsWindowsProvider:
+        @escaping (Set<Int32>) -> [WineWindowSnapshot] = { _ in [] }
+) -> WineWindowCaptureService {
+    WineWindowCaptureService(
+        screenRecordingPreflight: screenRecordingPreflight,
+        windowObservationHub: hub,
+        dockProcessIsVisible: { _ in true },
+        coreGraphicsWindowsProvider: coreGraphicsWindowsProvider,
+        processGenerationProvider: { _ in processGeneration },
+        applicationIconDataProvider: { _ in nil }
+    )
+}
+
+private func makeFallbackWindow(
+    processID: pid_t,
+    windowID: CGWindowID,
+    frame: CGRect = CGRect(x: 10, y: 20, width: 800, height: 600)
+) -> WineWindowSnapshot {
+    WineWindowSnapshot(
+        id: windowID,
+        ownerProcessID: processID,
+        title: "Fallback \(windowID)",
+        executablePath: nil,
+        frame: frame,
+        isOnScreen: true,
+        image: nil
     )
 }
 

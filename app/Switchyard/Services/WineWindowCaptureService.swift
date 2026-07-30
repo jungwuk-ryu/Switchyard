@@ -345,29 +345,47 @@ final class SystemWineWindowAccessibilityController:
     }
 }
 
+private final class LegacyShareableContentProviderBox:
+    @unchecked Sendable
+{
+    let operation: () async throws -> SCShareableContent
+
+    init(
+        _ operation: @escaping () async throws -> SCShareableContent
+    ) {
+        self.operation = operation
+    }
+}
+
+private final class LegacyScreenCaptureKitWindowBox:
+    @unchecked Sendable
+{
+    let window: SCWindow
+
+    init(_ window: SCWindow) {
+        self.window = window
+    }
+}
+
 @MainActor
 final class WineWindowCaptureService {
-    private struct CachedImage {
-        var image: CGImage
-        var capturedAt: Date
-        var frameSize: CGSize
-    }
-
     private struct CachedApplicationIcon {
         var data: Data
         var capturedAt: Date
     }
 
-    private var cachedImages: [CGWindowID: CachedImage] = [:]
     private var cachedExecutablePaths: [pid_t: String] = [:]
     private var cachedApplicationIcons: [pid_t: CachedApplicationIcon] = [:]
+    private let windowObservationHub: WindowObservationHub
     private let screenRecordingPreflight: () -> Bool
     private let screenRecordingRequest: () -> Bool
     private let screenRecordingPermissionPromptGate:
         ScreenRecordingPermissionPromptGate
     private let screenRecordingSettingsOpener: () -> Void
-    private let shareableContentProvider: () async throws -> SCShareableContent
     private let dockProcessIsVisible: (pid_t) -> Bool
+    private let coreGraphicsWindowsProvider:
+        ((Set<Int32>) -> [WineWindowSnapshot])?
+    private let processGenerationProvider: (pid_t) -> String
     private let applicationIconDataProvider: (pid_t) -> Data?
     private let applicationIconCacheLifetime: TimeInterval
     private let now: () -> Date
@@ -390,15 +408,17 @@ final class WineWindowCaptureService {
             }
             NSWorkspace.shared.open(url)
         },
-        shareableContentProvider: @escaping () async throws -> SCShareableContent = {
-            try await SCShareableContent.excludingDesktopWindows(
-                true,
-                onScreenWindowsOnly: false
-            )
-        },
+        windowObservationHub: WindowObservationHub? = nil,
+        shareableContentProvider:
+            (() async throws -> SCShareableContent)? = nil,
         dockProcessIsVisible: @escaping (pid_t) -> Bool = { processID in
             NSRunningApplication(processIdentifier: processID)?.activationPolicy
                 == .regular
+        },
+        coreGraphicsWindowsProvider:
+            ((Set<Int32>) -> [WineWindowSnapshot])? = nil,
+        processGenerationProvider: @escaping (pid_t) -> String = {
+            WineWindowCaptureService.processGeneration(for: $0)
         },
         applicationIconDataProvider: @escaping (pid_t) -> Data? = { processID in
             NSRunningApplication(processIdentifier: processID)?
@@ -415,21 +435,130 @@ final class WineWindowCaptureService {
         self.screenRecordingPermissionPromptGate =
             screenRecordingPermissionPromptGate
         self.screenRecordingSettingsOpener = screenRecordingSettingsOpener
-        self.shareableContentProvider = shareableContentProvider
+        if let windowObservationHub {
+            self.windowObservationHub = windowObservationHub
+        } else if let shareableContentProvider {
+            self.windowObservationHub = Self.makeIsolatedObservationHub(
+                shareableContentProvider: shareableContentProvider
+            )
+        } else {
+            self.windowObservationHub = .shared
+        }
         self.dockProcessIsVisible = dockProcessIsVisible
+        self.coreGraphicsWindowsProvider = coreGraphicsWindowsProvider
+        self.processGenerationProvider = processGenerationProvider
         self.applicationIconDataProvider = applicationIconDataProvider
         self.applicationIconCacheLifetime = applicationIconCacheLifetime
         self.now = now
         self.accessibilityController = accessibilityController
     }
 
+    private static func makeIsolatedObservationHub(
+        shareableContentProvider:
+            @escaping () async throws -> SCShareableContent
+    ) -> WindowObservationHub {
+        let provider = LegacyShareableContentProviderBox(
+            shareableContentProvider
+        )
+        return WindowObservationHub {
+            try await legacyObservationSources(using: provider)
+        }
+    }
+
+    private static func legacyObservationSources(
+        using provider: LegacyShareableContentProviderBox
+    ) async throws -> [WindowObservationSource] {
+        let content = try await provider.operation()
+        var processIdentities:
+            [pid_t: WindowObservationProcessIdentity] = [:]
+
+        return content.windows
+            .compactMap { window -> WindowObservationSource? in
+                guard let application = window.owningApplication else {
+                    return nil
+                }
+                let processID = pid_t(application.processID)
+                let processIdentity = processIdentities[processID] ?? {
+                    let identity = WindowObservationProcessIdentity(
+                        processID: processID,
+                        generation: processGeneration(for: processID)
+                    )
+                    processIdentities[processID] = identity
+                    return identity
+                }()
+                let descriptor = WindowObservationDescriptor(
+                    windowID: window.windowID,
+                    processIdentity: processIdentity,
+                    title: window.title,
+                    frame: window.frame,
+                    isOnScreen: window.isOnScreen,
+                    isActive: window.isActive,
+                    layer: window.windowLayer
+                )
+                let box = LegacyScreenCaptureKitWindowBox(window)
+                return WindowObservationSource(
+                    descriptor: descriptor,
+                    captureSource: WindowObservationCaptureSource { _ in
+                        try await captureLegacyWindow(box)
+                    }
+                )
+            }
+            .sorted {
+                WindowObservationOrdering.areInPreferredOrder(
+                    $0.descriptor,
+                    $1.descriptor
+                )
+            }
+    }
+
+    private static func captureLegacyWindow(
+        _ box: LegacyScreenCaptureKitWindowBox
+    ) async throws -> WindowObservationCapturedImage {
+        let configuration = screenshotConfiguration(
+            sourceSize: box.window.frame.size
+        )
+        let filter = SCContentFilter(
+            desktopIndependentWindow: box.window
+        )
+        let image = try await SCScreenshotManager.captureImage(
+            contentFilter: filter,
+            configuration: configuration
+        )
+        return WindowObservationCapturedImage(image: image)
+    }
+
+    nonisolated private static func processGeneration(
+        for processID: pid_t
+    ) -> String {
+        var info = proc_bsdinfo()
+        let expectedSize = MemoryLayout<proc_bsdinfo>.size
+        let actualSize = withUnsafeMutablePointer(to: &info) { pointer in
+            proc_pidinfo(
+                processID,
+                PROC_PIDTBSDINFO,
+                0,
+                pointer,
+                Int32(expectedSize)
+            )
+        }
+        if actualSize == expectedSize {
+            return "\(info.pbi_start_tvsec):\(info.pbi_start_tvusec)"
+        }
+        if let launchDate = NSRunningApplication(
+            processIdentifier: processID
+        )?.launchDate {
+            return "launch:\(launchDate.timeIntervalSinceReferenceDate.bitPattern)"
+        }
+        return "enumeration:\(UUID().uuidString)"
+    }
+
     func captureWindows(
         ownedBy processIDs: Set<Int32>,
         preferredWindowID: CGWindowID? = nil,
-        previewLimit: Int = 6
+        previewLimit: Int = 6,
+        forceContentRefresh: Bool = false
     ) async -> WineWindowCaptureResult {
         guard !processIDs.isEmpty else {
-            cachedImages.removeAll(keepingCapacity: true)
             cachedExecutablePaths.removeAll(keepingCapacity: true)
             cachedApplicationIcons.removeAll(keepingCapacity: true)
             return .empty
@@ -445,70 +574,83 @@ final class WineWindowCaptureService {
             processIDs.filter { dockProcessIsVisible($0) }
         )
         guard !dockVisibleProcessIDs.isEmpty else {
-            cachedImages.removeAll(keepingCapacity: true)
             return .empty
         }
 
         let metadataFallback = coreGraphicsWindows(ownedBy: dockVisibleProcessIDs)
         guard screenRecordingPreflight() else {
-            return .screenRecordingUnavailable(windows: metadataFallback)
+            return .screenRecordingUnavailable(
+                windows: await mergingSharedCachedImages(
+                    into: metadataFallback
+                )
+            )
         }
 
         do {
-            let content = try await shareableContentProvider()
-            let candidates = Array(
-                content.windows
-                    .filter { window in
-                        guard let owner = window.owningApplication else { return false }
-                        return dockVisibleProcessIDs.contains(Int32(owner.processID))
-                            && window.windowLayer == 0
-                            && window.frame.width >= 120
-                            && window.frame.height >= 72
-                            && Self.isUserFacingWindow(
-                                isDockProcess: true,
-                                title: window.title ?? "",
-                                isOnScreen: window.isOnScreen
-                            )
-                    }
-                    .sorted(by: Self.windowSort)
+            let observations = try await windowObservationHub.observeWindows(
+                ownedBy: dockVisibleProcessIDs,
+                preferredWindowID: preferredWindowID,
+                previewLimit: max(1, previewLimit),
+                forceContentRefresh: forceContentRefresh,
+                matching: { descriptor in
+                    descriptor.layer == 0
+                        && descriptor.frame.width >= 120
+                        && descriptor.frame.height >= 72
+                        && Self.isUserFacingWindow(
+                            isDockProcess: true,
+                            title: descriptor.title ?? "",
+                            isOnScreen: descriptor.isOnScreen
+                        )
+                }
             )
 
-            var snapshots: [WineWindowSnapshot] = []
-            snapshots.reserveCapacity(candidates.count)
-            for (index, window) in candidates.enumerated() {
-                guard !Task.isCancelled else { return .empty }
-                let shouldCapturePreview = index < max(1, previewLimit)
-                    || window.windowID == preferredWindowID
-                let image = shouldCapturePreview
-                    ? await image(for: window)
-                    : cachedImages[window.windowID]?.image
-                snapshots.append(
-                    WineWindowSnapshot(
-                        id: window.windowID,
-                        ownerProcessID: window.owningApplication?.processID ?? 0,
-                        title: windowTitle(for: window),
-                        executablePath: windowsExecutablePath(
-                            processID: window.owningApplication?.processID ?? 0
+            guard !Task.isCancelled else { return .empty }
+            let snapshots = observations
+                .sorted { lhs, rhs in
+                    WindowObservationOrdering.areInPreferredOrder(
+                        lhs.descriptor,
+                        rhs.descriptor
+                    )
+                }
+                .map { observation in
+                    let descriptor = observation.descriptor
+                    return WineWindowSnapshot(
+                        id: descriptor.windowID,
+                        ownerProcessID: descriptor.ownerProcessID,
+                        title: Self.windowTitle(
+                            from: descriptor.title
                         ),
-                        frame: window.frame,
-                        isOnScreen: window.isOnScreen,
-                        image: image,
+                        executablePath: windowsExecutablePath(
+                            processID: descriptor.ownerProcessID
+                        ),
+                        frame: descriptor.frame,
+                        isOnScreen: descriptor.isOnScreen,
+                        image: observation.image,
                         applicationIconData: applicationIconData(
-                            processID: window.owningApplication?.processID ?? 0
+                            processID: descriptor.ownerProcessID
                         )
                     )
-                )
-            }
+                }
 
-            let activeWindowIDs = Set(snapshots.map(\.id))
-            cachedImages = cachedImages.filter { activeWindowIDs.contains($0.key) }
+            let resultWindows: [WineWindowSnapshot]
+            if snapshots.isEmpty {
+                resultWindows = await mergingSharedCachedImages(
+                    into: metadataFallback
+                )
+            } else {
+                resultWindows = snapshots
+            }
             return WineWindowCaptureResult(
-                windows: snapshots.isEmpty ? metadataFallback : snapshots,
+                windows: resultWindows,
                 screenRecordingAccessUnavailable: false,
                 message: nil
             )
         } catch {
-            return .captureUnavailable(windows: metadataFallback)
+            return .captureUnavailable(
+                windows: await mergingSharedCachedImages(
+                    into: metadataFallback
+                )
+            )
         }
     }
 
@@ -574,7 +716,7 @@ final class WineWindowCaptureService {
         }.value
     }
 
-    static func isUserFacingWindow(
+    nonisolated static func isUserFacingWindow(
         isDockProcess: Bool,
         title: String,
         isOnScreen: Bool
@@ -683,34 +825,6 @@ final class WineWindowCaptureService {
         }
     }
 
-    private func image(for window: SCWindow) async -> CGImage? {
-        if let cached = cachedImages[window.windowID],
-           cached.frameSize == window.frame.size,
-           Date().timeIntervalSince(cached.capturedAt) < 1.6 {
-            return cached.image
-        }
-
-        let configuration = Self.screenshotConfiguration(
-            sourceSize: window.frame.size
-        )
-
-        do {
-            let filter = SCContentFilter(desktopIndependentWindow: window)
-            let image = try await SCScreenshotManager.captureImage(
-                contentFilter: filter,
-                configuration: configuration
-            )
-            cachedImages[window.windowID] = CachedImage(
-                image: image,
-                capturedAt: Date(),
-                frameSize: window.frame.size
-            )
-            return image
-        } catch {
-            return cachedImages[window.windowID]?.image
-        }
-    }
-
     static func screenshotConfiguration(
         sourceSize: CGSize
     ) -> SCStreamConfiguration {
@@ -749,6 +863,9 @@ final class WineWindowCaptureService {
     private func coreGraphicsWindows(
         ownedBy processIDs: Set<Int32>
     ) -> [WineWindowSnapshot] {
+        if let coreGraphicsWindowsProvider {
+            return coreGraphicsWindowsProvider(processIDs)
+        }
         guard let windowInfo = CGWindowListCopyWindowInfo(
             [.optionAll, .excludeDesktopElements],
             kCGNullWindowID
@@ -787,7 +904,7 @@ final class WineWindowCaptureService {
                 ),
                 frame: bounds,
                 isOnScreen: isOnScreen,
-                image: cachedImages[CGWindowID(windowNumber.uint32Value)]?.image,
+                image: nil,
                 applicationIconData: applicationIconData(
                     processID: ownerNumber.int32Value
                 )
@@ -799,8 +916,86 @@ final class WineWindowCaptureService {
         }
     }
 
-    private func windowTitle(for window: SCWindow) -> String {
-        let title = window.title?.trimmingCharacters(in: .whitespacesAndNewlines)
+    private func mergingSharedCachedImages(
+        into fallbackWindows: [WineWindowSnapshot]
+    ) async -> [WineWindowSnapshot] {
+        guard !fallbackWindows.isEmpty else { return fallbackWindows }
+
+        let processIdentities = Dictionary(
+            uniqueKeysWithValues: Set(
+                fallbackWindows.map(\.ownerProcessID)
+            ).map { processID in
+                (
+                    processID,
+                    WindowObservationProcessIdentity(
+                        processID: processID,
+                        generation: processGenerationProvider(processID)
+                    )
+                )
+            }
+        )
+        let identities = Set<WindowObservationIdentity>(
+            fallbackWindows.compactMap { window -> WindowObservationIdentity? in
+                guard let processIdentity =
+                    processIdentities[window.ownerProcessID] else {
+                    return nil
+                }
+                return WindowObservationIdentity(
+                    processIdentity: processIdentity,
+                    windowID: window.id,
+                    frame: window.frame
+                )
+            }
+        )
+        let cachedObservations = await windowObservationHub
+            .cachedObservations(matching: identities)
+        var imagesByIdentity:
+            [WindowObservationIdentity: CGImage] = [:]
+        for observation in cachedObservations {
+            guard let image = observation.image else { continue }
+            let descriptor = observation.descriptor
+            imagesByIdentity[
+                WindowObservationIdentity(
+                    processIdentity: descriptor.processIdentity,
+                    windowID: descriptor.windowID,
+                    frame: descriptor.frame
+                )
+            ] = image
+        }
+        guard !imagesByIdentity.isEmpty else {
+            return fallbackWindows
+        }
+
+        return fallbackWindows.map { window in
+            guard let processIdentity =
+                processIdentities[window.ownerProcessID] else {
+                return window
+            }
+            let cachedImage = imagesByIdentity[
+                WindowObservationIdentity(
+                    processIdentity: processIdentity,
+                    windowID: window.id,
+                    frame: window.frame
+                )
+            ]
+            guard window.image == nil, let cachedImage else {
+                return window
+            }
+            return WineWindowSnapshot(
+                id: window.id,
+                ownerProcessID: window.ownerProcessID,
+                title: window.title,
+                executablePath: window.executablePath,
+                frame: window.frame,
+                isOnScreen: window.isOnScreen,
+                image: cachedImage,
+                applicationIconData: window.applicationIconData
+            )
+        }
+    }
+
+    private static func windowTitle(from rawTitle: String?) -> String {
+        let title = rawTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let title, !title.isEmpty {
             return title
         }
@@ -974,14 +1169,6 @@ final class WineWindowCaptureService {
         return arguments
     }
 
-    private static func windowSort(_ lhs: SCWindow, _ rhs: SCWindow) -> Bool {
-        if lhs.isActive != rhs.isActive { return lhs.isActive }
-        if lhs.isOnScreen != rhs.isOnScreen { return lhs.isOnScreen }
-        let lhsArea = lhs.frame.width * lhs.frame.height
-        let rhsArea = rhs.frame.width * rhs.frame.height
-        if lhsArea != rhsArea { return lhsArea > rhsArea }
-        return lhs.windowID < rhs.windowID
-    }
 }
 
 @MainActor
