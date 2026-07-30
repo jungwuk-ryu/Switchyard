@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       validate_only:
-        description: Validate release credentials without publishing
+        description: Validate release source and credentials without publishing
         required: false
         default: false
         type: boolean
@@ -24,8 +24,91 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validate release source
+    runs-on: macos-15
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    outputs:
+      commit_sha: ${{ steps.release_input.outputs.commit_sha }}
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - name: Validate immutable release input
+        id: release_input
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must be a stable semantic version such as v0.4.0" >&2
+            exit 1
+          fi
+          tag_commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
+          head_commit="$(git rev-parse HEAD)"
+          if [ "$tag_commit" != "$head_commit" ]; then
+            echo "checked-out commit does not match $RELEASE_TAG" >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "release tag must point to a commit on origin/main" >&2
+            exit 1
+          fi
+          latest_stable_tag=""
+          while IFS= read -r candidate_tag; do
+            if [[ "$candidate_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              latest_stable_tag="$candidate_tag"
+              break
+            fi
+          done < <(git tag --list 'v*' --sort=-version:refname)
+          if [ "$latest_stable_tag" != "$RELEASE_TAG" ]; then
+            echo "release tag must be the newest stable tag: $latest_stable_tag" >&2
+            exit 1
+          fi
+          echo "commit_sha=$head_commit" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate build parallelism
+        shell: bash
+        run: |
+          set -euo pipefail
+          jobs=$(( $(sysctl -n hw.ncpu) - 1 ))
+          if [ "$jobs" -lt 1 ]; then jobs=1; fi
+          echo "SWIFT_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
+
+      - name: Run release validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          swift package resolve
+          swift test --jobs "$SWIFT_BUILD_JOBS"
+          Tests/Shell/create_dmg_test.sh
+          Tests/Shell/generate_appcast_test.sh
+          swift build --product switchyard-runner --jobs "$SWIFT_BUILD_JOBS"
+          runner_path="$(swift build --show-bin-path)/switchyard-runner"
+          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_protocol_callback_test.sh
+          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_desktop_shortcut_test.sh
+          SWITCHYARD_RUNNER="$runner_path" Tests/Shell/runner_partial_log_buffer_test.sh
+          Tests/Shell/release_workflow_credential_order_test.sh
+          for script in \
+            script/build_and_run.sh \
+            script/sign_sparkle_framework.sh \
+            script/create_dmg.sh \
+            script/generate_appcast.sh \
+            script/release_app.sh; do
+            bash -n "$script"
+          done
+
   release:
     name: Sign, notarize, and publish
+    needs: validate
     runs-on: macos-15
     timeout-minutes: 60
     environment: release
@@ -41,9 +124,10 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
-      - name: Validate immutable release input
+      - name: Revalidate release tag and commit
         shell: bash
         env:
+          EXPECTED_COMMIT: ${{ needs.validate.outputs.commit_sha }}
           GH_TOKEN: ${{ github.token }}
           VALIDATE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.validate_only }}
         run: |
@@ -56,6 +140,10 @@ jobs:
           head_commit="$(git rev-parse HEAD)"
           if [ "$tag_commit" != "$head_commit" ]; then
             echo "checked-out commit does not match $RELEASE_TAG" >&2
+            exit 1
+          fi
+          if [ "$head_commit" != "$EXPECTED_COMMIT" ]; then
+            echo "release tag changed after source validation" >&2
             exit 1
           fi
           if ! git merge-base --is-ancestor HEAD origin/main; then
@@ -96,6 +184,15 @@ jobs:
             echo "KEYCHAIN_PATH=$RUNNER_TEMP/switchyard-release.keychain-db"
           } >> "$GITHUB_ENV"
 
+      - name: Build release app without release credentials
+        shell: bash
+        env:
+          SWITCHYARD_BUILD_CONFIGURATION: release
+          SWITCHYARD_CODESIGN_IDENTITY: "-"
+          SWITCHYARD_ENABLE_APP_UPDATES: "1"
+          SWITCHYARD_SKIP_RUNTIME_ENSURE: "1"
+        run: ./script/build_and_run.sh --verify
+
       - name: Import Developer ID and notarization credentials
         shell: bash
         env:
@@ -120,10 +217,15 @@ jobs:
 
           certificate_path="$RUNNER_TEMP/developer-id-application.p12"
           notary_key_path="$RUNNER_TEMP/AuthKey.p8"
+          cleanup_raw_apple_credentials() {
+            rm -f "$certificate_path" "$notary_key_path"
+          }
+          trap cleanup_raw_apple_credentials EXIT
+
           keychain_password="$(uuidgen)-$(uuidgen)"
           printf '%s' "$CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
-          printf '%s' "$NOTARY_KEY_BASE64" | base64 --decode > "$notary_key_path"
-          chmod 600 "$certificate_path" "$notary_key_path"
+          unset CERTIFICATE_BASE64
+          chmod 600 "$certificate_path"
 
           security create-keychain -p "$keychain_password" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -133,6 +235,8 @@ jobs:
             -P "$CERTIFICATE_PASSWORD" \
             -T /usr/bin/codesign \
             -T /usr/bin/security
+          rm -f "$certificate_path"
+          unset CERTIFICATE_PASSWORD
           security set-key-partition-list \
             -S apple-tool:,apple: \
             -s \
@@ -155,12 +259,18 @@ jobs:
             echo "SWITCHYARD_CODESIGN_IDENTITY=$identity"
           } >> "$GITHUB_ENV"
 
+          printf '%s' "$NOTARY_KEY_BASE64" | base64 --decode > "$notary_key_path"
+          unset NOTARY_KEY_BASE64
+          chmod 600 "$notary_key_path"
           xcrun notarytool store-credentials "$NOTARY_PROFILE" \
             --key "$notary_key_path" \
             --key-id "$NOTARY_KEY_ID" \
             --issuer "$NOTARY_ISSUER_ID" \
             --keychain "$KEYCHAIN_PATH" \
             --validate
+          rm -f "$notary_key_path"
+          unset NOTARY_KEY_ID NOTARY_ISSUER_ID
+          trap - EXIT
 
       - name: Validate Sparkle signing credential
         shell: bash
@@ -173,14 +283,19 @@ jobs:
             exit 1
           fi
 
-          swift package resolve
           sparkle_tool=".build/artifacts/sparkle/Sparkle/bin/generate_keys"
           sparkle_private_key="$RUNNER_TEMP/sparkle-private-key"
           sparkle_account="dev.switchyard.Switchyard-ci-validation"
           expected_public_key="$(
             sed -n 's/^SWITCHYARD_SPARKLE_PUBLIC_KEY=//p' config/app-update.env
           )"
+          cleanup_raw_sparkle_credential() {
+            rm -f "$sparkle_private_key"
+          }
+          trap cleanup_raw_sparkle_credential EXIT
+
           printf '%s' "$SPARKLE_ED_PRIVATE_KEY" > "$sparkle_private_key"
+          unset SPARKLE_ED_PRIVATE_KEY
           chmod 600 "$sparkle_private_key"
           "$sparkle_tool" \
             --account "$sparkle_account" \
@@ -192,37 +307,8 @@ jobs:
             echo "Sparkle private key does not match the configured public key" >&2
             exit 1
           fi
-
-      - name: Run release validation
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          swift test --jobs "$SWIFT_BUILD_JOBS"
-          Tests/Shell/create_dmg_test.sh
-          Tests/Shell/generate_appcast_test.sh
-          swift build --product switchyard-runner --jobs "$SWIFT_BUILD_JOBS"
-          runner_path="$(swift build --show-bin-path)/switchyard-runner"
-          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_protocol_callback_test.sh
-          SWITCHYARD_RUNNER_PATH="$runner_path" Tests/Shell/runner_desktop_shortcut_test.sh
-          SWITCHYARD_RUNNER="$runner_path" Tests/Shell/runner_partial_log_buffer_test.sh
-          for script in \
-            script/build_and_run.sh \
-            script/sign_sparkle_framework.sh \
-            script/create_dmg.sh \
-            script/generate_appcast.sh \
-            script/release_app.sh; do
-            bash -n "$script"
-          done
-
-      - name: Build release app
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
-        shell: bash
-        env:
-          SWITCHYARD_BUILD_CONFIGURATION: release
-          SWITCHYARD_ENABLE_APP_UPDATES: "1"
-          SWITCHYARD_SKIP_RUNTIME_ENSURE: "1"
-        run: ./script/build_and_run.sh --verify
+          rm -f "$sparkle_private_key"
+          trap - EXIT
 
       - name: Sign and notarize release DMG
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.validate_only != true }}
