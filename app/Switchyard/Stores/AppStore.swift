@@ -16,6 +16,7 @@ private struct RuntimeRefreshResult {
 private enum LoginCallbackRecoveryError: LocalizedError {
     case noRunningApplication
     case containerStorageChanging
+    case processInspectionUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -27,6 +28,11 @@ private enum LoginCallbackRecoveryError: LocalizedError {
         case .containerStorageChanging:
             String(
                 localized: "Wait for the container folder operation to finish before recovering a login callback.",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .processInspectionUnavailable:
+            String(
+                localized: "Running Windows applications could not be inspected.",
                 bundle: SwitchyardStrings.bundle
             )
         }
@@ -475,7 +481,8 @@ final class AppStore: ObservableObject {
     @AppStorage("verboseWineLogging") private var verboseWineLogging = false
 
     private let jobEngine = JobEngine()
-    private let runnerClient = SwitchyardRunnerClient()
+    private let runnerClient: SwitchyardRunnerClient
+    private let sessionMonitor: SessionMonitor
     private let protocolBridge = WineProtocolBridge()
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
     private let containerBackgroundImageStore = ContainerBackgroundImageStore()
@@ -510,7 +517,6 @@ final class AppStore: ObservableObject {
     private var userStoppedRunSessionIDs: Set<UUID> = []
     private var prefixStartupTasks: [UUID: Task<Void, Never>] = [:]
     private var prefixStartupsAwaitingInactiveTransition: Set<UUID> = []
-    private var sessionRefreshTokens: [UUID: UUID] = [:]
     private var callbackRecoveryTasks: [UUID: Task<Void, Never>] = [:]
     private var pendingLoginCallbackRecoveries: [UUID: PendingLoginCallbackRecovery] = [:]
     private var protocolBridgeTask: Task<Void, Never>?
@@ -520,6 +526,10 @@ final class AppStore: ObservableObject {
     private var lastDesktopShortcutBridgeError: String?
 
     init() {
+        let runnerClient = SwitchyardRunnerClient()
+        self.runnerClient = runnerClient
+        sessionMonitor = SessionMonitor(inspector: runnerClient)
+
         let defaultLibrary = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
             .appendingPathComponent("Switchyard", isDirectory: true)
             .appendingPathComponent("Library", isDirectory: true)
@@ -592,6 +602,10 @@ final class AppStore: ObservableObject {
 
     deinit {
         liveLogJournalMonitor.stopAll()
+        let sessionMonitor = sessionMonitor
+        Task {
+            await sessionMonitor.shutdown()
+        }
     }
 
     var selectedContainer: Container? {
@@ -1250,6 +1264,10 @@ final class AppStore: ObservableObject {
             )
         }
         persistPreferences()
+        let sessionMonitor = sessionMonitor
+        Task {
+            await sessionMonitor.invalidateAll()
+        }
     }
 
     private func refreshInstalledManagedRuntimes() {
@@ -1854,6 +1872,7 @@ final class AppStore: ObservableObject {
                self.winePath == winePath {
                 self.winePath = result.resolvedWinePath
                 persistPreferences()
+                await self.sessionMonitor.invalidateAll()
                 logLines.insert(
                     LogLine(
                         level: "info",
@@ -2092,21 +2111,31 @@ final class AppStore: ObservableObject {
         }
 
         let prefixPath = container.path
-        let runnerClient = runnerClient
         loginCallbackRecoveryStates[containerID] = .inspecting(scheme: scheme)
         callbackRecoveryTasks[containerID]?.cancel()
         callbackRecoveryTasks[containerID] = Task { [weak self] in
             defer { self?.callbackRecoveryTasks.removeValue(forKey: containerID) }
             do {
-                let runningExecutables = try await Task.detached(priority: .userInitiated) {
-                    try runnerClient.runningWindowsExecutablePaths(
+                guard let sessionMonitor = self?.sessionMonitor else { return }
+                let sessionSnapshot = await sessionMonitor.snapshot(
+                    for: SessionMonitorKey(
                         winePath: winePath,
                         prefixPath: prefixPath
-                    )
-                }.value
+                    ),
+                    demand: .details,
+                    force: true
+                )
+                guard case let .available(runningProcesses) =
+                    sessionSnapshot.processDetails else {
+                    throw LoginCallbackRecoveryError
+                        .processInspectionUnavailable
+                }
+                let runningExecutables = runningProcesses.map(\.executablePath)
                 try Task.checkCancellation()
                 guard let self,
-                      self.containers.contains(where: { $0.id == containerID }) else {
+                      self.containers.contains(where: {
+                    $0.id == containerID
+                      }) else {
                     return
                 }
 
@@ -2749,22 +2778,11 @@ final class AppStore: ObservableObject {
     }
 
     func wineHostProcessIDs(for containerID: UUID) async -> Set<Int32> {
-        guard let container = containers.first(where: { $0.id == containerID }),
-              sessionSnapshot(for: containerID).wineServerState.hasRunningProcesses else {
+        let snapshot = sessionSnapshot(for: containerID)
+        guard snapshot.wineServerState.hasRunningProcesses else {
             return []
         }
-
-        let winePath = runtimeForExistingSession(for: container).winePath
-        let prefixPath = container.path
-        let runnerClient = runnerClient
-        return await Task.detached(priority: .utility) {
-            Set(
-                (try? runnerClient.runningWineHostProcessIDs(
-                    winePath: winePath,
-                    prefixPath: prefixPath
-                )) ?? []
-            )
-        }.value
+        return snapshot.hostProcessIDs
     }
 
     func isStoppingWineServer(in containerID: UUID) -> Bool {
@@ -2804,7 +2822,10 @@ final class AppStore: ObservableObject {
                 try runnerClient.stopWineServer(winePath: winePath, prefixPath: prefixPath)
             }.value
             finishPrefixStartup(for: containerID)
-            await refreshContainerSession(for: containerID)
+            await refreshContainerSession(
+                for: containerID,
+                includeProcessDetails: false
+            )
             mark(containerID, as: .ready)
             logLines.insert(
                 LogLine(
@@ -2820,7 +2841,10 @@ final class AppStore: ObservableObject {
             )
             return true
         } catch {
-            await refreshContainerSession(for: containerID)
+            await refreshContainerSession(
+                for: containerID,
+                includeProcessDetails: false
+            )
             if sessionSnapshot(for: containerID).wineServerState.hasRunningProcesses {
                 userStoppedRunSessionIDs.subtract(targetedRunSessionIDs)
             }
@@ -2867,10 +2891,16 @@ final class AppStore: ObservableObject {
                     processID: processID
                 )
             }.value
-            await refreshContainerSession(for: containerID)
+            await refreshContainerSession(
+                for: containerID,
+                includeProcessDetails: true
+            )
             return true
         } catch {
-            await refreshContainerSession(for: containerID)
+            await refreshContainerSession(
+                for: containerID,
+                includeProcessDetails: true
+            )
             let message = String(
                 localized: "Could not stop Wine processes: \(Self.errorDescription(error))",
                 bundle: SwitchyardStrings.bundle
@@ -2891,101 +2921,143 @@ final class AppStore: ObservableObject {
         }
     }
 
-    func monitorContainerSession(for containerID: UUID) async {
+    func monitorContainerSession(
+        for containerID: UUID,
+        includeProcessDetails: Bool
+    ) async {
+        let demand: SessionMonitorDemand = includeProcessDetails
+            ? .details
+            : .summary
+
         while !Task.isCancelled,
-              containers.contains(where: { $0.id == containerID }) {
-            await refreshContainerSession(for: containerID)
-            do {
-                try await Task.sleep(for: .seconds(3))
-            } catch {
-                return
+              let container = containers.first(where: { $0.id == containerID }) {
+            let key = sessionMonitorKey(for: container)
+            let updates = await sessionMonitor.updates(
+                for: key,
+                demand: demand
+            )
+            for await monitoredSnapshot in updates {
+                guard !Task.isCancelled,
+                      let currentContainer = containers.first(where: {
+                          $0.id == containerID
+                      }) else {
+                    return
+                }
+                guard sessionMonitorKey(for: currentContainer) == key else {
+                    break
+                }
+                apply(
+                    monitoredSnapshot,
+                    to: currentContainer,
+                    includeProcessDetails: includeProcessDetails
+                )
             }
         }
     }
 
-    func refreshContainerSession(for containerID: UUID) async {
-        guard let container = containers.first(where: { $0.id == containerID }) else { return }
-        let refreshToken = UUID()
-        sessionRefreshTokens[containerID] = refreshToken
+    func refreshContainerSession(
+        for containerID: UUID,
+        includeProcessDetails: Bool
+    ) async {
+        guard let container = containers.first(where: {
+            $0.id == containerID
+        }) else {
+            return
+        }
+        let key = sessionMonitorKey(for: container)
         if sessionSnapshotsByContainerID[containerID] == nil {
             sessionSnapshotsByContainerID[containerID] = .checking
         }
+        let monitoredSnapshot = await sessionMonitor.snapshot(
+            for: key,
+            demand: includeProcessDetails ? .details : .summary,
+            force: true
+        )
+        guard !Task.isCancelled,
+              let currentContainer = containers.first(where: {
+                  $0.id == containerID
+              }),
+              sessionMonitorKey(for: currentContainer) == key else {
+            return
+        }
+        apply(
+            monitoredSnapshot,
+            to: currentContainer,
+            includeProcessDetails: includeProcessDetails
+        )
+    }
 
-        let winePath = runtimeForExistingSession(for: container).winePath
-        let prefixPath = container.path
-        let runnerClient = runnerClient
-        let snapshot = await Task.detached(priority: .utility) {
-            switch runnerClient.prefixSessionState(winePath: winePath, prefixPath: prefixPath) {
+    private func sessionMonitorKey(
+        for container: Container
+    ) -> SessionMonitorKey {
+        SessionMonitorKey(
+            winePath: runtimeForExistingSession(for: container).winePath,
+            prefixPath: container.path
+        )
+    }
+
+    private func apply(
+        _ monitoredSnapshot: SessionMonitorSnapshot,
+        to container: Container,
+        includeProcessDetails: Bool
+    ) {
+        let containerID = container.id
+        let previous = sessionSnapshotsByContainerID[containerID]
+        let snapshot: ContainerSessionSnapshot
+
+        if let inspection = monitoredSnapshot.inspection {
+            let hostProcessIDs = Set(inspection.hostProcessIDs)
+            switch inspection.state {
             case .active:
-                do {
-                    let runningProcesses = try runnerClient.runningWindowsProcesses(
-                        winePath: winePath,
-                        prefixPath: prefixPath
-                    )
-                    let processes = runningProcesses
-                        .map {
-                            WindowsProcessSnapshot(
-                                executablePath: $0.executablePath,
-                                processID: $0.processID
-                            )
-                        }
-                        .sorted { lhs, rhs in
-                            let nameOrder = lhs.name.localizedStandardCompare(rhs.name)
-                            if nameOrder != .orderedSame {
-                                return nameOrder == .orderedAscending
-                            }
-                            return (lhs.processID ?? 0) < (rhs.processID ?? 0)
-                        }
-                    return ContainerSessionSnapshot(
-                        wineServerState: .active,
-                        processes: processes,
-                        refreshedAt: Date(),
-                        message: nil
-                    )
-                } catch {
-                    return ContainerSessionSnapshot(
-                        wineServerState: .active,
-                        processes: [],
-                        refreshedAt: Date(),
-                        message: String(
-                            localized: "Process details are temporarily unavailable.",
-                            bundle: SwitchyardStrings.bundle
-                        )
-                    )
-                }
+                let processResult = processSnapshot(
+                    from: monitoredSnapshot.processDetails,
+                    previous: previous,
+                    includeProcessDetails: includeProcessDetails
+                )
+                snapshot = ContainerSessionSnapshot(
+                    wineServerState: .active,
+                    processes: processResult.processes,
+                    hostProcessIDs: hostProcessIDs,
+                    refreshedAt: monitoredSnapshot.refreshedAt,
+                    message: processResult.message
+                )
             case .orphaned:
-                return ContainerSessionSnapshot(
+                snapshot = ContainerSessionSnapshot(
                     wineServerState: .orphaned,
                     processes: [],
-                    refreshedAt: Date(),
+                    hostProcessIDs: hostProcessIDs,
+                    refreshedAt: monitoredSnapshot.refreshedAt,
                     message: String(
                         localized: "Wine processes remain after wineserver exited. Stop this session before changing its folder.",
                         bundle: SwitchyardStrings.bundle
                     )
                 )
             case .inactive:
-                return ContainerSessionSnapshot(
+                snapshot = ContainerSessionSnapshot(
                     wineServerState: .inactive,
                     processes: [],
-                    refreshedAt: Date(),
+                    hostProcessIDs: [],
+                    refreshedAt: monitoredSnapshot.refreshedAt,
                     message: nil
                 )
-            case .unavailable:
-                return ContainerSessionSnapshot(
-                    wineServerState: .unavailable,
-                    processes: [],
-                    refreshedAt: Date(),
-                    message: String(
-                        localized: "Switchyard could not inspect this Wine session.",
-                        bundle: SwitchyardStrings.bundle
-                    )
-                )
             }
-        }.value
+        } else {
+            snapshot = ContainerSessionSnapshot(
+                wineServerState: .unavailable,
+                processes: [],
+                hostProcessIDs: [],
+                refreshedAt: monitoredSnapshot.refreshedAt,
+                message: String(
+                    localized: "Switchyard could not inspect this Wine session.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+        }
 
-        guard !Task.isCancelled,
-              sessionRefreshTokens[containerID] == refreshToken,
-              containers.contains(where: { $0.id == containerID }) else { return }
+        guard previous?.hasSamePublishedMeaning(as: snapshot) != true else {
+            return
+        }
+
         sessionSnapshotsByContainerID[containerID] = snapshot
         if snapshot.wineServerState == .active {
             startMonitoringExistingLiveLog(for: container)
@@ -3008,6 +3080,47 @@ final class AppStore: ObservableObject {
         }
     }
 
+    private func processSnapshot(
+        from details: SessionProcessDetails,
+        previous: ContainerSessionSnapshot?,
+        includeProcessDetails: Bool
+    ) -> (processes: [WindowsProcessSnapshot], message: String?) {
+        switch details {
+        case let .available(runningProcesses):
+            return (
+                runningProcesses
+                    .map {
+                        WindowsProcessSnapshot(
+                            executablePath: $0.executablePath,
+                            processID: $0.processID
+                        )
+                    }
+                    .sorted { lhs, rhs in
+                        let nameOrder = lhs.name.localizedStandardCompare(rhs.name)
+                        if nameOrder != .orderedSame {
+                            return nameOrder == .orderedAscending
+                        }
+                        return (lhs.processID ?? 0) < (rhs.processID ?? 0)
+                    },
+                nil
+            )
+        case .unavailable:
+            return (
+                [],
+                String(
+                    localized: "Process details are temporarily unavailable.",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+        case .notRequested:
+            guard !includeProcessDetails,
+                  previous?.wineServerState == .active else {
+                return ([], nil)
+            }
+            return (previous?.processes ?? [], previous?.message)
+        }
+    }
+
     private func beginPrefixStartupMonitoring(
         for containerID: UUID,
         winePath: String,
@@ -3021,35 +3134,40 @@ final class AppStore: ObservableObject {
         } else {
             prefixStartupsAwaitingInactiveTransition.remove(containerID)
         }
-        let runnerClient = runnerClient
         prefixStartupTasks[containerID] = Task { [weak self] in
-            while !Task.isCancelled {
-                let state = await Task.detached(priority: .utility) {
-                    runnerClient.prefixSessionState(
-                        winePath: winePath,
-                        prefixPath: prefixPath
-                    )
-                }.value
-                guard !Task.isCancelled, let self else { return }
+            guard let self else { return }
+            let key = SessionMonitorKey(
+                winePath: winePath,
+                prefixPath: prefixPath
+            )
+            let updates = await self.sessionMonitor.updates(
+                for: key,
+                demand: .startup
+            )
+            for await monitoredSnapshot in updates {
+                guard !Task.isCancelled,
+                      let currentContainer = self.containers.first(where: {
+                          $0.id == containerID
+                      }),
+                      self.sessionMonitorKey(for: currentContainer) == key else {
+                    return
+                }
+                self.apply(
+                    monitoredSnapshot,
+                    to: currentContainer,
+                    includeProcessDetails: false
+                )
 
-                if case .inactive = state {
+                if monitoredSnapshot.inspection?.state == .inactive {
                     self.prefixStartupsAwaitingInactiveTransition.remove(containerID)
-                } else if case .active = state,
+                } else if monitoredSnapshot.inspection?.state == .active,
                           !self.prefixStartupsAwaitingInactiveTransition.contains(containerID) {
-                    await self.refreshContainerSession(for: containerID)
                     self.finishPrefixStartup(for: containerID)
                     return
                 }
 
                 if self.activeRunSessionIDsByContainerID[containerID]?.isEmpty != false {
-                    await self.refreshContainerSession(for: containerID)
                     self.finishPrefixStartup(for: containerID)
-                    return
-                }
-
-                do {
-                    try await Task.sleep(for: .milliseconds(250))
-                } catch {
                     return
                 }
             }
@@ -3411,15 +3529,17 @@ final class AppStore: ObservableObject {
         await cancelLoginCallbackRecoveryForStorageOperation(in: containerID)
 
         let winePath = runtimeForExistingSession(for: originalContainer).winePath
-        let runnerClient = runnerClient
-        let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
-            runnerClient.prefixSessionState(
-                winePath: winePath,
-                prefixPath: originalContainer.path
-            )
-        }.value
+        let originalSessionKey = SessionMonitorKey(
+            winePath: winePath,
+            prefixPath: originalContainer.path
+        )
+        let inspectedPrefixState = await sessionMonitor.snapshot(
+            for: originalSessionKey,
+            demand: .summary,
+            force: true
+        ).inspection?.state
         switch inspectedPrefixState {
-        case .active, .orphaned:
+        case .active?, .orphaned?:
             logLines.insert(
                 LogLine(
                     containerID: containerID,
@@ -3433,7 +3553,7 @@ final class AppStore: ObservableObject {
                 at: 0
             )
             return false
-        case .unavailable:
+        case nil:
             logLines.insert(
                 LogLine(
                     containerID: containerID,
@@ -3447,7 +3567,7 @@ final class AppStore: ObservableObject {
                 at: 0
             )
             return false
-        case .inactive:
+        case .inactive?:
             break
         }
 
@@ -3476,6 +3596,7 @@ final class AppStore: ObservableObject {
         }
         defer { prefixLock.unlock() }
 
+        let runnerClient = runnerClient
         let recheckedPrefixState = await Task.detached(priority: .userInitiated) {
             runnerClient.hostProcessPrefixSessionState(
                 winePath: winePath,
@@ -3558,7 +3679,7 @@ final class AppStore: ObservableObject {
                 recentProgramLaunchesByContainerID[containerID] = recentLaunches
             }
 
-            sessionRefreshTokens[containerID] = UUID()
+            await sessionMonitor.invalidate(originalSessionKey)
             sessionSnapshotsByContainerID[containerID] = .checking
             persistRecentProgramLaunches()
             refreshInstalledPrograms(for: containerID)
@@ -3859,6 +3980,7 @@ final class AppStore: ObservableObject {
     @discardableResult
     func deleteContainer(_ containerID: UUID) async -> Bool {
         guard let container = containers.first(where: { $0.id == containerID }) else { return false }
+        let sessionKey = sessionMonitorKey(for: container)
         guard !isContainerTransitioning(containerID) else {
             logLines.insert(
                 LogLine(
@@ -3998,7 +4120,7 @@ final class AppStore: ObservableObject {
         prefixStartupsAwaitingInactiveTransition.remove(containerID)
         launchingExecutablePathByContainerID.removeValue(forKey: containerID)
         recentProgramLaunchesByContainerID.removeValue(forKey: containerID)
-        sessionRefreshTokens.removeValue(forKey: containerID)
+        await sessionMonitor.invalidate(sessionKey)
         sessionSnapshotsByContainerID.removeValue(forKey: containerID)
         stoppingWineServerContainerIDs.remove(containerID)
         stopMonitoringLiveLog(containerID: containerID)
@@ -4077,28 +4199,31 @@ final class AppStore: ObservableObject {
 
         let winePath = activeRuntime.winePath
         let prefixPath = container.path
-        let runnerClient = runnerClient
-        let inspectedPrefixState = await Task.detached(priority: .userInitiated) {
-            runnerClient.prefixSessionState(winePath: winePath, prefixPath: prefixPath)
-        }.value
-        let prefixWasOrphaned = sessionSnapshotsByContainerID[containerID]?.wineServerState == .orphaned
-            || {
-                if case .orphaned = inspectedPrefixState { return true }
-                return false
-            }()
+        let inspectedPrefixState = await sessionMonitor.snapshot(
+            for: SessionMonitorKey(
+                winePath: winePath,
+                prefixPath: prefixPath
+            ),
+            demand: .summary,
+            force: true
+        ).inspection?.state
+        let cachedPrefixState = sessionSnapshotsByContainerID[containerID]?
+            .wineServerState
+        let prefixWasOrphaned = inspectedPrefixState == .orphaned
+            || (
+                inspectedPrefixState == nil
+                    && cachedPrefixState == .orphaned
+            )
         let prefixWasActive: Bool = {
-            if sessionSnapshotsByContainerID[containerID]?.wineServerState.hasRunningProcesses == true
-                || activeRunSessionIDsByContainerID[containerID]?.isEmpty == false
-            {
+            if activeRunSessionIDsByContainerID[containerID]?.isEmpty == false {
                 return true
             }
-            if case .active = inspectedPrefixState {
+            if inspectedPrefixState == .active
+                || inspectedPrefixState == .orphaned {
                 return true
             }
-            if case .orphaned = inspectedPrefixState {
-                return true
-            }
-            return false
+            return inspectedPrefixState == nil
+                && cachedPrefixState?.hasRunningProcesses == true
         }()
 
         var terminateExistingPrefixSession = executablePath != nil && prefixWasOrphaned
@@ -4108,7 +4233,7 @@ final class AppStore: ObservableObject {
                     return false
                 }
                 terminateExistingPrefixSession = true
-            } else if case .unavailable = inspectedPrefixState {
+            } else if inspectedPrefixState == nil {
                 logLines.insert(
                     LogLine(
                         containerID: container.id,
@@ -4956,7 +5081,10 @@ final class AppStore: ObservableObject {
         refreshInstalledPrograms(for: session.containerID)
         refreshStartMenuEntries(for: session.containerID)
         Task {
-            await refreshContainerSession(for: session.containerID)
+            await refreshContainerSession(
+                for: session.containerID,
+                includeProcessDetails: false
+            )
         }
         let exitCodeDescription = session.exitCode.map(String.init)
             ?? String(localized: "unknown", bundle: SwitchyardStrings.bundle)

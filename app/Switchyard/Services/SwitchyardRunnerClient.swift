@@ -14,7 +14,6 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
     case couldNotEncodePlan
     case couldNotInspectSession(Int32)
     case couldNotListWindowsProcesses(Int32)
-    case couldNotListWineHostProcesses(Int32)
     case couldNotStopWineServer(Int32, String)
     case couldNotStopWindowsProcess(UInt32, Int32)
 
@@ -38,11 +37,6 @@ enum SwitchyardRunnerClientError: Error, CustomStringConvertible {
         case let .couldNotListWindowsProcesses(status):
             String(
                 localized: "Running Windows applications could not be inspected (exit code \(status)).",
-                bundle: SwitchyardStrings.bundle
-            )
-        case let .couldNotListWineHostProcesses(status):
-            String(
-                localized: "Windows window previews could not be inspected (exit code \(status)).",
                 bundle: SwitchyardStrings.bundle
             )
         case let .couldNotStopWineServer(status, detail):
@@ -77,34 +71,6 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
 
     func runnerURL() throws -> URL {
         try locateRunner()
-    }
-
-    func prefixSessionState(winePath: String, prefixPath: String) -> WinePrefixSessionState {
-        guard let runnerURL = try? locateRunner() else { return .unavailable }
-
-        let process = Process()
-        process.executableURL = runnerURL
-        process.arguments = ["probe-prefix", "--wine", winePath, "--prefix", prefixPath]
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            return .unavailable
-        }
-
-        switch process.terminationStatus {
-        case 0:
-            return .active
-        case 1:
-            return .inactive
-        case 3:
-            return .orphaned
-        default:
-            return .unavailable
-        }
     }
 
     func inspectSession(
@@ -157,57 +123,6 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
             return .orphaned
         default:
             return .unavailable
-        }
-    }
-
-    func runningWindowsExecutablePaths(winePath: String, prefixPath: String) throws -> [String] {
-        let runnerURL = try locateRunner()
-        let process = Process()
-        let output = Pipe()
-        process.executableURL = runnerURL
-        process.arguments = ["list-processes", "--wine", winePath, "--prefix", prefixPath]
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw SwitchyardRunnerClientError.couldNotListWindowsProcesses(process.terminationStatus)
-        }
-        return try JSONDecoder().decode([String].self, from: data)
-    }
-
-    func runningWindowsProcesses(
-        winePath: String,
-        prefixPath: String
-    ) throws -> [RunningWindowsProcess] {
-        let runnerURL = try locateRunner()
-        let process = Process()
-        let output = Pipe()
-        process.executableURL = runnerURL
-        process.arguments = [
-            "list-process-details",
-            "--wine", winePath,
-            "--prefix", prefixPath,
-        ]
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-
-        if process.terminationStatus == 0 {
-            return try Self.decodeRunningWindowsProcesses(from: data)
-        }
-
-        // Older bundled helpers can still provide executable paths. Keeping this
-        // fallback makes process inspection useful while disabling only the
-        // PID-specific stop control.
-        return try runningWindowsExecutablePaths(
-            winePath: winePath,
-            prefixPath: prefixPath
-        ).map {
-            RunningWindowsProcess(executablePath: $0, processID: nil)
         }
     }
 
@@ -271,25 +186,6 @@ final class SwitchyardRunnerClient: @unchecked Sendable {
         return try decoder.decode([String].self, from: data).map {
             RunningWindowsProcess(executablePath: $0, processID: nil)
         }
-    }
-
-    func runningWineHostProcessIDs(winePath: String, prefixPath: String) throws -> [Int32] {
-        let runnerURL = try locateRunner()
-        let process = Process()
-        let output = Pipe()
-        process.executableURL = runnerURL
-        process.arguments = ["list-host-processes", "--wine", winePath, "--prefix", prefixPath]
-        process.standardOutput = output
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        let data = output.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            throw SwitchyardRunnerClientError.couldNotListWineHostProcesses(
-                process.terminationStatus
-            )
-        }
-        return try JSONDecoder().decode([Int32].self, from: data)
     }
 
     func stopWineServer(winePath: String, prefixPath: String) throws {

@@ -1071,7 +1071,10 @@ struct ContainerSessionStageView: View {
 
     private func refreshSession() {
         Task {
-            await store.refreshContainerSession(for: container.id)
+            await store.refreshContainerSession(
+                for: container.id,
+                includeProcessDetails: true
+            )
             await stageModel.refresh(containerID: container.id, store: store)
         }
     }

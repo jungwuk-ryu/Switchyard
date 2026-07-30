@@ -21,7 +21,10 @@ struct ContainerSessionPanel: View {
 
                     Button {
                         Task {
-                            await store.refreshContainerSession(for: container.id)
+                            await store.refreshContainerSession(
+                                for: container.id,
+                                includeProcessDetails: true
+                            )
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")

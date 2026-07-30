@@ -57,13 +57,24 @@ struct WindowsProcessSnapshot: Identifiable, Equatable, Sendable {
 struct ContainerSessionSnapshot: Equatable, Sendable {
     var wineServerState: WineServerState
     var processes: [WindowsProcessSnapshot]
+    var hostProcessIDs: Set<Int32> = []
     var refreshedAt: Date?
     var message: String?
 
     static let checking = ContainerSessionSnapshot(
         wineServerState: .checking,
         processes: [],
+        hostProcessIDs: [],
         refreshedAt: nil,
         message: nil
     )
+
+    func hasSamePublishedMeaning(
+        as other: ContainerSessionSnapshot
+    ) -> Bool {
+        wineServerState == other.wineServerState
+            && processes == other.processes
+            && hostProcessIDs == other.hostProcessIDs
+            && message == other.message
+    }
 }

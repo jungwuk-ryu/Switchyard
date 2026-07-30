@@ -53,7 +53,10 @@ struct ContainerDashboardView: View {
         .task(id: container.id) {
             store.refreshInstalledPrograms(for: container.id)
             store.refreshStartMenuEntries(for: container.id)
-            await store.monitorContainerSession(for: container.id)
+            await store.monitorContainerSession(
+                for: container.id,
+                includeProcessDetails: true
+            )
         }
         .onChange(of: programs) { _, _ in
             selectInitialProgram()

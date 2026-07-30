@@ -185,7 +185,10 @@ private struct ContainerLibraryView: View {
                                 }
                             )
                             .task(id: container.id) {
-                                await store.monitorContainerSession(for: container.id)
+                                await store.monitorContainerSession(
+                                    for: container.id,
+                                    includeProcessDetails: false
+                                )
                             }
                             .windowsApplicationDropTarget(
                                 containerName: container.name,
