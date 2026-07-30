@@ -845,6 +845,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
     public var containerDisplayMode: ContainerDisplayMode?
     public var keepLoggingWhilePrefixIsActive: Bool?
     public var forwardCapturedOutput: Bool?
+    public var gptkGPUIdentitySnapshot: GPTKGPUIdentitySnapshot?
 
     public init(
         executable: String,
@@ -857,7 +858,8 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         terminateExistingPrefixSession: Bool? = nil,
         containerDisplayMode: ContainerDisplayMode? = nil,
         keepLoggingWhilePrefixIsActive: Bool? = nil,
-        forwardCapturedOutput: Bool? = nil
+        forwardCapturedOutput: Bool? = nil,
+        gptkGPUIdentitySnapshot: GPTKGPUIdentitySnapshot? = nil
     ) {
         self.executable = executable
         self.arguments = arguments
@@ -870,6 +872,7 @@ public struct CommandPlan: Codable, Equatable, Sendable {
         self.containerDisplayMode = containerDisplayMode
         self.keepLoggingWhilePrefixIsActive = keepLoggingWhilePrefixIsActive
         self.forwardCapturedOutput = forwardCapturedOutput
+        self.gptkGPUIdentitySnapshot = gptkGPUIdentitySnapshot
     }
 }
 
