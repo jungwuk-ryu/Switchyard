@@ -1,6 +1,36 @@
 import AppCore
 import SwiftUI
 
+private struct StopAllWindowsAppsConfirmationRequestKey: FocusedValueKey {
+    typealias Value = () -> Void
+}
+
+extension FocusedValues {
+    var requestStopAllWindowsAppsConfirmation: (() -> Void)? {
+        get { self[StopAllWindowsAppsConfirmationRequestKey.self] }
+        set { self[StopAllWindowsAppsConfirmationRequestKey.self] = newValue }
+    }
+}
+
+struct StopAllWindowsAppsConfirmationState: Equatable {
+    private(set) var isPresented = false
+
+    mutating func request() {
+        isPresented = true
+    }
+
+    mutating func cancel() {
+        isPresented = false
+    }
+
+    @discardableResult
+    mutating func confirm() -> Bool {
+        guard isPresented else { return false }
+        isPresented = false
+        return true
+    }
+}
+
 struct ContentView: View {
     @EnvironmentObject private var store: AppStore
     @EnvironmentObject private var updater: SwitchyardUpdater
@@ -8,6 +38,7 @@ struct ContentView: View {
     @SceneStorage("selectedSection") private var selectedSectionRawValue = SidebarSelection.containers.rawValue
     @State private var hasEvaluatedInitialReadiness = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var stopAllWindowsAppsConfirmation = StopAllWindowsAppsConfirmationState()
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -34,9 +65,7 @@ struct ContentView: View {
                     )
 
                     Button {
-                        Task {
-                            await store.stopAllWindowsApps()
-                        }
+                        stopAllWindowsAppsConfirmation.request()
                     } label: {
                         Label("Stop All Windows Apps", systemImage: "stop.fill")
                     }
@@ -44,6 +73,8 @@ struct ContentView: View {
                         !store.hasRunningContainers
                             || store.isStoppingAllWindowsApps
                     )
+                    .help("Close all running Windows apps after confirmation")
+                    .accessibilityHint("Shows a confirmation before closing all running Windows apps")
                 }
             }
         }
@@ -85,6 +116,34 @@ struct ContentView: View {
             store.refreshRuntimeStatus()
             updater.checkForUpdatesIfNeeded()
         }
+        .focusedSceneValue(
+            \.requestStopAllWindowsAppsConfirmation,
+            {
+                stopAllWindowsAppsConfirmation.request()
+            }
+        )
+        .confirmationDialog(
+            "Stop all Windows apps?",
+            isPresented: stopAllWindowsAppsConfirmationBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Stop All Windows Apps", role: .destructive) {
+                guard stopAllWindowsAppsConfirmation.confirm() else { return }
+                Task {
+                    await store.stopAllWindowsApps()
+                }
+            }
+            .disabled(
+                !store.hasRunningContainers
+                    || store.isStoppingAllWindowsApps
+            )
+
+            Button("Cancel", role: .cancel) {
+                stopAllWindowsAppsConfirmation.cancel()
+            }
+        } message: {
+            Text("All running Windows apps will close. Unsaved work may be lost.")
+        }
         .alert(
             String(localized: "Error", bundle: SwitchyardStrings.bundle),
             isPresented: updateErrorBinding
@@ -95,6 +154,18 @@ struct ContentView: View {
         } message: {
             if let errorMessage = updater.errorMessage {
                 Text(errorMessage)
+            }
+        }
+    }
+
+    private var stopAllWindowsAppsConfirmationBinding: Binding<Bool> {
+        Binding {
+            stopAllWindowsAppsConfirmation.isPresented
+        } set: { isPresented in
+            if isPresented {
+                stopAllWindowsAppsConfirmation.request()
+            } else {
+                stopAllWindowsAppsConfirmation.cancel()
             }
         }
     }

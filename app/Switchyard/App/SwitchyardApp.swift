@@ -24,50 +24,60 @@ struct SwitchyardApp: App {
                 }
         }
         .commands {
-            CommandMenu("Switchyard") {
-                Button("Add Container") {
-                    store.addContainer()
-                }
-                .keyboardShortcut("n")
-                .disabled(!store.hasCompletedSetup || !store.runtimeStatus.canLaunch)
-
-                Button("Launch") {
-                    store.runSelectedContainer()
-                }
-                .keyboardShortcut("r")
-                .disabled(
-                    !store.hasCompletedSetup
-                        || !store.runtimeStatus.canLaunch
-                        || (store.selectedContainer?.executablePath?.isEmpty ?? true)
-                )
-
-                Button("Stop All Windows Apps") {
-                    Task {
-                        await store.stopAllWindowsApps()
-                    }
-                }
-                .keyboardShortcut(".")
-                .disabled(
-                    !store.hasRunningContainers
-                        || store.isStoppingAllWindowsApps
-                )
-
-                Button("Open Logs") {
-                    store.selectedSection = .logs
-                }
-                .keyboardShortcut("l")
-
-                Button("Diagnostics") {
-                    store.selectedSection = .diagnostics
-                }
-                .keyboardShortcut("d")
-            }
+            SwitchyardCommands(store: store)
         }
 
         Settings {
             SettingsView()
                 .environmentObject(store)
                 .environmentObject(updater)
+        }
+    }
+}
+
+@MainActor
+private struct SwitchyardCommands: Commands {
+    @ObservedObject var store: AppStore
+    @FocusedValue(\.requestStopAllWindowsAppsConfirmation)
+    private var requestStopAllWindowsAppsConfirmation
+
+    var body: some Commands {
+        CommandMenu("Switchyard") {
+            Button("Add Container") {
+                store.addContainer()
+            }
+            .keyboardShortcut("n")
+            .disabled(!store.hasCompletedSetup || !store.runtimeStatus.canLaunch)
+
+            Button("Launch") {
+                store.runSelectedContainer()
+            }
+            .keyboardShortcut("r")
+            .disabled(
+                !store.hasCompletedSetup
+                    || !store.runtimeStatus.canLaunch
+                    || (store.selectedContainer?.executablePath?.isEmpty ?? true)
+            )
+
+            Button("Stop All Windows Apps") {
+                requestStopAllWindowsAppsConfirmation?()
+            }
+            .keyboardShortcut(".")
+            .disabled(
+                requestStopAllWindowsAppsConfirmation == nil
+                    || !store.hasRunningContainers
+                    || store.isStoppingAllWindowsApps
+            )
+
+            Button("Open Logs") {
+                store.selectedSection = .logs
+            }
+            .keyboardShortcut("l")
+
+            Button("Diagnostics") {
+                store.selectedSection = .diagnostics
+            }
+            .keyboardShortcut("d")
         }
     }
 }
