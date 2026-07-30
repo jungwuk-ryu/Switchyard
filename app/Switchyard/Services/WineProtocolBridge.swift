@@ -47,6 +47,228 @@ struct WineProtocolBridgeRefreshResult {
     var newlyRegisteredSchemes: [String]
 }
 
+enum WineManifestFileReader {
+    static func contents(
+        at manifestURL: URL,
+        insidePrefix prefixPath: String,
+        maximumBytes: Int,
+        afterDirectoryValidation: ((String) -> Void)? = nil,
+        afterFileValidation: (() -> Void)? = nil
+    ) -> String? {
+        guard maximumBytes >= 0,
+              maximumBytes < Int.max,
+              let relativeComponents = relativePathComponents(
+                  of: manifestURL,
+                  insidePrefix: prefixPath
+              ) else {
+            return nil
+        }
+
+        let rootDescriptor = prefixPath.withCString {
+            Darwin.open(
+                $0,
+                O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+            )
+        }
+        guard rootDescriptor >= 0,
+              verifiedRootDescriptor(rootDescriptor, path: prefixPath) else {
+            if rootDescriptor >= 0 {
+                Darwin.close(rootDescriptor)
+            }
+            return nil
+        }
+
+        var directoryDescriptors = [rootDescriptor]
+        defer {
+            for descriptor in directoryDescriptors.reversed() {
+                Darwin.close(descriptor)
+            }
+        }
+
+        var currentDirectoryDescriptor = rootDescriptor
+        var openedPathComponents: [String] = []
+        for component in relativeComponents.dropLast() {
+            let directoryDescriptor = component.withCString {
+                Darwin.openat(
+                    currentDirectoryDescriptor,
+                    $0,
+                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+                )
+            }
+            guard directoryDescriptor >= 0,
+                  verifiedChildDirectoryDescriptor(
+                      directoryDescriptor,
+                      parentDescriptor: currentDirectoryDescriptor,
+                      name: component
+                  ) else {
+                if directoryDescriptor >= 0 {
+                    Darwin.close(directoryDescriptor)
+                }
+                return nil
+            }
+
+            directoryDescriptors.append(directoryDescriptor)
+            currentDirectoryDescriptor = directoryDescriptor
+            openedPathComponents.append(component)
+            afterDirectoryValidation?(openedPathComponents.joined(separator: "/"))
+        }
+
+        guard let filename = relativeComponents.last else { return nil }
+        let fileDescriptor = filename.withCString {
+            Darwin.openat(
+                currentDirectoryDescriptor,
+                $0,
+                O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+            )
+        }
+        guard fileDescriptor >= 0 else { return nil }
+        defer { Darwin.close(fileDescriptor) }
+
+        var entryMetadata = stat()
+        var metadata = stat()
+        guard Darwin.fstat(fileDescriptor, &metadata) == 0,
+              filename.withCString({
+                  Darwin.fstatat(
+                      currentDirectoryDescriptor,
+                      $0,
+                      &entryMetadata,
+                      AT_SYMLINK_NOFOLLOW
+                  ) == 0
+              }),
+              sameFile(metadata, entryMetadata),
+              metadata.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG),
+              metadata.st_nlink == 1,
+              metadata.st_uid == geteuid(),
+              metadata.st_size >= 0,
+              metadata.st_size <= off_t(maximumBytes) else {
+            return nil
+        }
+
+        afterFileValidation?()
+        guard let data = boundedData(
+            from: fileDescriptor,
+            maximumBytes: maximumBytes
+        ) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    private static func relativePathComponents(
+        of manifestURL: URL,
+        insidePrefix prefixPath: String
+    ) -> [String]? {
+        guard manifestURL.isFileURL,
+              (prefixPath as NSString).isAbsolutePath,
+              (manifestURL.path as NSString).isAbsolutePath else {
+            return nil
+        }
+
+        let rootURL = URL(fileURLWithPath: prefixPath, isDirectory: true)
+        let standardizedRootURL = rootURL.standardizedFileURL
+        let standardizedManifestURL = manifestURL.standardizedFileURL
+        guard standardizedRootURL.path == prefixPath,
+              standardizedRootURL.resolvingSymlinksInPath().standardizedFileURL.path
+                == prefixPath,
+              standardizedManifestURL.path == manifestURL.path else {
+            return nil
+        }
+
+        let rootComponents = standardizedRootURL.pathComponents
+        let manifestComponents = standardizedManifestURL.pathComponents
+        guard manifestComponents.count > rootComponents.count,
+              Array(manifestComponents.prefix(rootComponents.count)) == rootComponents else {
+            return nil
+        }
+
+        let relativeComponents = Array(manifestComponents.dropFirst(rootComponents.count))
+        guard relativeComponents.allSatisfy({
+            !$0.isEmpty
+                && $0 != "."
+                && $0 != ".."
+                && !($0 as NSString).isAbsolutePath
+        }) else {
+            return nil
+        }
+        return relativeComponents
+    }
+
+    private static func verifiedRootDescriptor(_ descriptor: Int32, path: String) -> Bool {
+        var descriptorMetadata = stat()
+        var pathMetadata = stat()
+        guard Darwin.fstat(descriptor, &descriptorMetadata) == 0,
+              path.withCString({
+                  Darwin.lstat($0, &pathMetadata) == 0
+              }),
+              descriptorMetadata.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR),
+              descriptorMetadata.st_uid == geteuid(),
+              sameFile(descriptorMetadata, pathMetadata) else {
+            return false
+        }
+
+        let rootURL = URL(fileURLWithPath: path, isDirectory: true)
+        return rootURL.standardizedFileURL.path == path
+            && rootURL.resolvingSymlinksInPath().standardizedFileURL.path == path
+    }
+
+    private static func verifiedChildDirectoryDescriptor(
+        _ descriptor: Int32,
+        parentDescriptor: Int32,
+        name: String
+    ) -> Bool {
+        var descriptorMetadata = stat()
+        var entryMetadata = stat()
+        guard Darwin.fstat(descriptor, &descriptorMetadata) == 0,
+              name.withCString({
+                  Darwin.fstatat(
+                      parentDescriptor,
+                      $0,
+                      &entryMetadata,
+                      AT_SYMLINK_NOFOLLOW
+                  ) == 0
+              }) else {
+            return false
+        }
+        return descriptorMetadata.st_mode & mode_t(S_IFMT) == mode_t(S_IFDIR)
+            && descriptorMetadata.st_uid == geteuid()
+            && sameFile(descriptorMetadata, entryMetadata)
+    }
+
+    private static func sameFile(_ lhs: stat, _ rhs: stat) -> Bool {
+        lhs.st_dev == rhs.st_dev && lhs.st_ino == rhs.st_ino
+    }
+
+    private static func boundedData(
+        from fileDescriptor: Int32,
+        maximumBytes: Int
+    ) -> Data? {
+        let byteLimit = maximumBytes + 1
+        var data = Data()
+        data.reserveCapacity(min(maximumBytes, 64 * 1_024))
+        var buffer = [UInt8](
+            repeating: 0,
+            count: min(byteLimit, 64 * 1_024)
+        )
+
+        while data.count < byteLimit {
+            let requestedBytes = min(buffer.count, byteLimit - data.count)
+            let bytesRead = buffer.withUnsafeMutableBytes { bytes in
+                Darwin.read(fileDescriptor, bytes.baseAddress, requestedBytes)
+            }
+            if bytesRead < 0 {
+                if errno == EINTR { continue }
+                return nil
+            }
+            if bytesRead == 0 {
+                return data
+            }
+            data.append(contentsOf: buffer.prefix(Int(bytesRead)))
+        }
+        return nil
+    }
+
+}
+
 @MainActor
 final class WineProtocolBridge {
     private let fileManager: FileManager
@@ -85,15 +307,30 @@ final class WineProtocolBridge {
         }
 
         var routes: [WineProtocolRoute] = []
+        var manifestSchemeCandidates: Set<String> = []
+        var latestLearnedDateByScheme: [String: Date] = [:]
         for container in containers {
             let manifestURL = WineProtocolAssociationFormat.manifestURL(prefixPath: container.path)
-            let contents = (try? String(contentsOf: manifestURL, encoding: .utf8)) ?? ""
+            let contents = WineManifestFileReader.contents(
+                at: manifestURL,
+                insidePrefix: container.path,
+                maximumBytes: WineProtocolAssociationFormat.maximumManifestBytes
+            ) ?? ""
             let manifestSchemes = WineProtocolAssociationFormat.schemes(inManifest: contents)
             let learnedForContainer = learnedAssociations.associations(for: container.id)
             let latestLearnedAssociations = Dictionary(grouping: learnedForContainer, by: \.scheme)
                 .compactMapValues { associations in
                     associations.max { $0.learnedAt < $1.learnedAt }
                 }
+            for scheme in manifestSchemes {
+                insertBoundedManifestScheme(scheme, into: &manifestSchemeCandidates)
+            }
+            for association in latestLearnedAssociations.values {
+                latestLearnedDateByScheme[association.scheme] = max(
+                    latestLearnedDateByScheme[association.scheme] ?? .distantPast,
+                    association.learnedAt
+                )
+            }
             let schemes = manifestSchemes.union(latestLearnedAssociations.keys)
             let containerActivatedAt = activationDates[container.id] ?? container.lastRun ?? .distantPast
 
@@ -122,12 +359,19 @@ final class WineProtocolBridge {
             }
         }
 
+        let acceptedSchemes = acceptedSchemes(
+            manifestSchemes: manifestSchemeCandidates,
+            latestLearnedDateByScheme: latestLearnedDateByScheme
+        )
+        routes.removeAll { !acceptedSchemes.contains($0.scheme) }
         routes.sort {
             if $0.scheme != $1.scheme { return $0.scheme < $1.scheme }
             if $0.lastActivatedAt != $1.lastActivatedAt { return $0.lastActivatedAt < $1.lastActivatedAt }
             return $0.containerID.uuidString < $1.containerID.uuidString
         }
         try writeRouteIndex(WineProtocolRouteIndex(routes: routes))
+        try removeStaleHandlers(keeping: acceptedSchemes)
+        registeredSchemes.formIntersection(acceptedSchemes)
         guard !routes.isEmpty else {
             return WineProtocolBridgeRefreshResult(newlyRegisteredSchemes: [])
         }
@@ -222,9 +466,10 @@ final class WineProtocolBridge {
 
     func hasRegisteredScheme(_ rawScheme: String, in container: Container) -> Bool {
         guard let scheme = WineProtocolAssociationFormat.normalizedScheme(rawScheme),
-              let contents = try? String(
-                  contentsOf: WineProtocolAssociationFormat.manifestURL(prefixPath: container.path),
-                  encoding: .utf8
+              let contents = WineManifestFileReader.contents(
+                  at: WineProtocolAssociationFormat.manifestURL(prefixPath: container.path),
+                  insidePrefix: container.path,
+                  maximumBytes: WineProtocolAssociationFormat.maximumManifestBytes
               ) else {
             return false
         }
@@ -273,6 +518,63 @@ final class WineProtocolBridge {
 
     private var learnedAssociationsURL: URL {
         rootURL.appendingPathComponent("learned-associations-v1.json")
+    }
+
+    private func acceptedSchemes(
+        manifestSchemes: Set<String>,
+        latestLearnedDateByScheme: [String: Date]
+    ) -> Set<String> {
+        let learnedSchemes = latestLearnedDateByScheme.sorted { lhs, rhs in
+            if lhs.value != rhs.value { return lhs.value > rhs.value }
+            return lhs.key < rhs.key
+        }
+
+        var accepted = Set(
+            learnedSchemes.prefix(WineProtocolAssociationFormat.maximumSchemes).map(\.key)
+        )
+        for scheme in manifestSchemes.sorted()
+        where accepted.count < WineProtocolAssociationFormat.maximumSchemes {
+            accepted.insert(scheme)
+        }
+        return accepted
+    }
+
+    private func insertBoundedManifestScheme(
+        _ scheme: String,
+        into schemes: inout Set<String>
+    ) {
+        schemes.insert(scheme)
+        guard schemes.count > WineProtocolAssociationFormat.maximumSchemes,
+              let largestScheme = schemes.max() else {
+            return
+        }
+        schemes.remove(largestScheme)
+    }
+
+    private func removeStaleHandlers(keeping schemes: Set<String>) throws {
+        let handlersURL = rootURL.appendingPathComponent("Handlers", isDirectory: true)
+        guard fileManager.fileExists(atPath: handlersURL.path) else { return }
+
+        let desiredNames = Set(schemes.map {
+            "\(handlerBundleIdentifier(for: $0)).app"
+        })
+        for entry in try fileManager.contentsOfDirectory(
+            at: handlersURL,
+            includingPropertiesForKeys: nil
+        ) where isManagedHandlerName(entry.lastPathComponent)
+            && !desiredNames.contains(entry.lastPathComponent) {
+            try fileManager.removeItem(at: entry)
+        }
+    }
+
+    private func isManagedHandlerName(_ name: String) -> Bool {
+        let prefix = "dev.switchyard.protocol."
+        let suffix = ".app"
+        guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { return false }
+        let digest = name.dropFirst(prefix.count).dropLast(suffix.count)
+        return digest.utf8.count == 24 && digest.utf8.allSatisfy {
+            (48...57).contains($0) || (97...102).contains($0)
+        }
     }
 
     private func registerHandler(for scheme: String, helperURL: URL) throws {

@@ -29,6 +29,9 @@ public enum WineDesktopShortcutFormat {
     public static let manifestEnvironmentKey = "SWITCHYARD_DESKTOP_SHORTCUTS_FILE"
     public static let privateDesktopEnvironmentKey = "SWITCHYARD_PRIVATE_DESKTOP"
     public static let windowsManifestPath = #"C:\windows\temp\switchyard-desktop-shortcuts-v1.txt"#
+    public static let maximumManifestBytes = 4 * 1_024 * 1_024
+    public static let maximumManifestRecords = 2_048
+    public static let maximumEntries = 512
 
     public static func manifestURL(prefixPath: String) -> URL {
         URL(fileURLWithPath: prefixPath, isDirectory: true)
@@ -36,14 +39,19 @@ public enum WineDesktopShortcutFormat {
             .appendingPathComponent("switchyard-desktop-shortcuts-v1.txt")
     }
 
+    /// Returns normalized entries, rejecting the entire manifest when any resource limit is exceeded.
     public static func entries(inManifest contents: String) -> [WineDesktopShortcutManifestEntry] {
-        guard contents.utf8.count <= 4 * 1_024 * 1_024 else { return [] }
-        let lines = contents.split(separator: "\n", omittingEmptySubsequences: false)
-        guard lines.first.map(trimmedLine) == manifestHeader else { return [] }
+        guard contents.utf8.count <= maximumManifestBytes else { return [] }
+
+        var lines = ManifestLineIterator(contents)
+        guard lines.next().map(String.init) == manifestHeader else { return [] }
 
         var entriesByPath: [String: WineDesktopShortcutManifestEntry] = [:]
-        for rawLine in lines.dropFirst() {
-            let line = trimmedLine(rawLine)
+        var recordCount = 0
+        while let rawLine = lines.next() {
+            recordCount += 1
+            guard recordCount <= maximumManifestRecords else { return [] }
+            let line = String(rawLine)
             guard !line.isEmpty else { continue }
             let fields = line.split(separator: "\t", omittingEmptySubsequences: false)
             guard fields.count == 4,
@@ -69,14 +77,11 @@ public enum WineDesktopShortcutFormat {
                 windowsShortcutPath: shortcutPath,
                 windowsIconPath: iconPath
             )
+            // Over-cardinality manifests are rejected in full rather than partially trusted.
+            guard entriesByPath.count <= maximumEntries else { return [] }
         }
 
-        return entriesByPath.values.sorted {
-            let comparison = $0.displayName.localizedStandardCompare($1.displayName)
-            if comparison != .orderedSame { return comparison == .orderedAscending }
-            return $0.windowsShortcutPath.localizedStandardCompare($1.windowsShortcutPath)
-                == .orderedAscending
-        }
+        return entriesByPath.values.sorted(by: entryPrecedes)
     }
 
     public static func normalizedShortcutPath(
@@ -219,8 +224,66 @@ public enum WineDesktopShortcutFormat {
         }
     }
 
-    private static func trimmedLine(_ line: Substring) -> String {
-        line.last == "\r" ? String(line.dropLast()) : String(line)
+    private static func entryPrecedes(
+        _ lhs: WineDesktopShortcutManifestEntry,
+        _ rhs: WineDesktopShortcutManifestEntry
+    ) -> Bool {
+        let displayComparison = stableCompare(lhs.displayName, rhs.displayName)
+        if displayComparison != .orderedSame {
+            return displayComparison == .orderedAscending
+        }
+        let pathComparison = stableCompare(lhs.windowsShortcutPath, rhs.windowsShortcutPath)
+        if pathComparison != .orderedSame {
+            return pathComparison == .orderedAscending
+        }
+        if lhs.displayName != rhs.displayName {
+            return lhs.displayName < rhs.displayName
+        }
+        return lhs.windowsShortcutPath < rhs.windowsShortcutPath
+    }
+
+    private static func stableCompare(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        lhs.compare(
+            rhs,
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive, .numeric],
+            range: nil,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+    }
+
+    private struct ManifestLineIterator: IteratorProtocol {
+        private let contents: String
+        private var nextIndex: String.UTF8View.Index
+
+        init(_ contents: String) {
+            self.contents = contents
+            nextIndex = contents.utf8.startIndex
+        }
+
+        mutating func next() -> Substring? {
+            let bytes = contents.utf8
+            guard nextIndex < bytes.endIndex else { return nil }
+
+            let lineStart = nextIndex
+            var lineEnd = lineStart
+            while lineEnd < bytes.endIndex,
+                  bytes[lineEnd] != 0x0A,
+                  bytes[lineEnd] != 0x0D {
+                bytes.formIndex(after: &lineEnd)
+            }
+
+            nextIndex = lineEnd
+            if nextIndex < bytes.endIndex {
+                let separator = bytes[nextIndex]
+                bytes.formIndex(after: &nextIndex)
+                if separator == 0x0D,
+                   nextIndex < bytes.endIndex,
+                   bytes[nextIndex] == 0x0A {
+                    bytes.formIndex(after: &nextIndex)
+                }
+            }
+            return contents[lineStart..<lineEnd]
+        }
     }
 
     private static func isASCIILetter(_ scalar: Unicode.Scalar) -> Bool {

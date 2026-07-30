@@ -4,6 +4,9 @@ public enum WineProtocolAssociationFormat {
     public static let manifestHeader = "# switchyard-wine-protocols-v1"
     public static let manifestEnvironmentKey = "SWITCHYARD_PROTOCOL_ASSOCIATIONS_FILE"
     public static let windowsManifestPath = #"C:\windows\temp\switchyard-protocols-v1.txt"#
+    public static let maximumManifestBytes = 64 * 1_024
+    public static let maximumManifestRecords = 1_024
+    public static let maximumSchemes = 128
 
     private static let reservedSchemes: Set<String> = [
         "about", "blob", "data", "facetime", "file", "ftp", "http", "https",
@@ -41,10 +44,24 @@ public enum WineProtocolAssociationFormat {
         return normalizedScheme(String(rawURL[..<separator]))
     }
 
+    /// Returns normalized schemes, rejecting the entire manifest when any resource limit is exceeded.
     public static func schemes(inManifest contents: String) -> Set<String> {
-        let lines = contents.split(whereSeparator: { $0.isNewline }).map(String.init)
-        guard lines.first == manifestHeader else { return [] }
-        return Set(lines.dropFirst().compactMap(normalizedScheme))
+        guard contents.utf8.count <= maximumManifestBytes else { return [] }
+
+        var lines = ManifestLineIterator(contents)
+        guard lines.next().map(String.init) == manifestHeader else { return [] }
+
+        var schemes: Set<String> = []
+        var recordCount = 0
+        while let line = lines.next() {
+            recordCount += 1
+            guard recordCount <= maximumManifestRecords else { return [] }
+            guard let scheme = normalizedScheme(String(line)) else { continue }
+            schemes.insert(scheme)
+            // Over-cardinality manifests are rejected in full rather than partially trusted.
+            guard schemes.count <= maximumSchemes else { return [] }
+        }
+        return schemes
     }
 
     public static func normalizedWindowsExecutablePath(_ rawValue: String) -> String? {
@@ -164,6 +181,41 @@ public enum WineProtocolAssociationFormat {
     private static func isASCIIDigit(_ scalar: Unicode.Scalar) -> Bool {
         (48...57).contains(Int(scalar.value))
     }
+
+    private struct ManifestLineIterator: IteratorProtocol {
+        private let contents: String
+        private var nextIndex: String.UTF8View.Index
+
+        init(_ contents: String) {
+            self.contents = contents
+            nextIndex = contents.utf8.startIndex
+        }
+
+        mutating func next() -> Substring? {
+            let bytes = contents.utf8
+            guard nextIndex < bytes.endIndex else { return nil }
+
+            let lineStart = nextIndex
+            var lineEnd = lineStart
+            while lineEnd < bytes.endIndex,
+                  bytes[lineEnd] != 0x0A,
+                  bytes[lineEnd] != 0x0D {
+                bytes.formIndex(after: &lineEnd)
+            }
+
+            nextIndex = lineEnd
+            if nextIndex < bytes.endIndex {
+                let separator = bytes[nextIndex]
+                bytes.formIndex(after: &nextIndex)
+                if separator == 0x0D,
+                   nextIndex < bytes.endIndex,
+                   bytes[nextIndex] == 0x0A {
+                    bytes.formIndex(after: &nextIndex)
+                }
+            }
+            return contents[lineStart..<lineEnd]
+        }
+    }
 }
 
 public struct WineProtocolRoute: Codable, Equatable, Sendable {
@@ -246,16 +298,39 @@ public struct WineProtocolLearnedAssociation: Codable, Equatable, Sendable {
 
 public struct WineProtocolLearnedAssociationIndex: Codable, Equatable, Sendable {
     public static let currentVersion = 1
+    public static let maximumAssociations = 512
 
     public var version: Int
-    public var associations: [WineProtocolLearnedAssociation]
+    public private(set) var associations: [WineProtocolLearnedAssociation]
 
     public init(
         version: Int = currentVersion,
         associations: [WineProtocolLearnedAssociation] = []
     ) {
         self.version = version
-        self.associations = associations
+        self.associations = Array(associations.prefix(Self.maximumAssociations))
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        associations = Array(
+            try container.decode(
+                [WineProtocolLearnedAssociation].self,
+                forKey: .associations
+            ).prefix(Self.maximumAssociations)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(version, forKey: .version)
+        try container.encode(associations, forKey: .associations)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case associations
     }
 
     @discardableResult
@@ -274,6 +349,13 @@ public struct WineProtocolLearnedAssociationIndex: Codable, Equatable, Sendable 
         )
         guard handlerExecutablePath == nil || normalizedHandlerPath != nil else { return nil }
 
+        let replacesExistingAssociation = associations.contains {
+            $0.containerID == containerID
+                && WineProtocolAssociationFormat.normalizedScheme($0.scheme) == scheme
+        }
+        guard replacesExistingAssociation || associations.count < Self.maximumAssociations else {
+            return nil
+        }
         associations.removeAll {
             $0.containerID == containerID
                 && WineProtocolAssociationFormat.normalizedScheme($0.scheme) == scheme
@@ -294,7 +376,7 @@ public struct WineProtocolLearnedAssociationIndex: Codable, Equatable, Sendable 
     ) -> [WineProtocolLearnedAssociation] {
         guard version == Self.currentVersion else { return [] }
 
-        return associations.compactMap { association in
+        return associations.prefix(Self.maximumAssociations).compactMap { association in
             guard association.containerID == containerID,
                   let scheme = WineProtocolAssociationFormat.normalizedScheme(association.scheme) else {
                 return nil
@@ -313,7 +395,8 @@ public struct WineProtocolLearnedAssociationIndex: Codable, Equatable, Sendable 
         guard version == Self.currentVersion else { return Self() }
 
         var result = Self()
-        for association in associations where validContainerIDs.contains(association.containerID) {
+        for association in associations.prefix(Self.maximumAssociations)
+        where validContainerIDs.contains(association.containerID) {
             _ = result.learn(
                 scheme: association.scheme,
                 for: association.containerID,

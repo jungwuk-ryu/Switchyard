@@ -38,6 +38,15 @@ struct WineDesktopShortcutBridgeRefreshResult {
 
 @MainActor
 final class WineDesktopShortcutBridge {
+    private struct ShortcutCandidate {
+        var id: String
+        var entry: WineDesktopShortcutManifestEntry
+        var container: Container
+        var containerName: String
+        var verifiedSourceURL: URL
+        var verifiedIconURL: URL?
+    }
+
     private struct DesiredShortcut {
         var id: String
         var displayName: String
@@ -137,16 +146,32 @@ final class WineDesktopShortcutBridge {
         )
     }
 
+    // Discovery-only seam keeps limit tests independent from codesigning and Desktop writes.
+    func desiredShortcutRoutesForTesting(
+        containers: [Container],
+        winePath: String,
+        runnerPath: String
+    ) -> [WineDesktopShortcutRoute] {
+        desiredShortcuts(
+            containers: containers,
+            winePath: winePath,
+            runnerPath: runnerPath
+        ).map(\.route)
+    }
+
     private func desiredShortcuts(
         containers: [Container],
         winePath: String,
         runnerPath: String
     ) -> [DesiredShortcut] {
-        var shortcutsByID: [String: DesiredShortcut] = [:]
+        var candidatesByID: [String: ShortcutCandidate] = [:]
         for container in containers {
             let manifestURL = WineDesktopShortcutFormat.manifestURL(prefixPath: container.path)
-            guard isRegularFileInsidePrefix(manifestURL, prefixPath: container.path),
-                  let contents = try? String(contentsOf: manifestURL, encoding: .utf8) else {
+            guard let contents = WineManifestFileReader.contents(
+                at: manifestURL,
+                insidePrefix: container.path,
+                maximumBytes: WineDesktopShortcutFormat.maximumManifestBytes
+            ) else {
                 continue
             }
 
@@ -158,21 +183,38 @@ final class WineDesktopShortcutBridge {
                       isRegularNonSymbolicFile(sourceURL) else {
                     continue
                 }
-                let id = shortcutID(containerID: container.id, windowsPath: entry.windowsShortcutPath)
                 let iconURL = entry.windowsIconPath.flatMap {
                     WineDesktopShortcutFormat.hostIconURL(
                         windowsPath: $0,
                         prefixPath: container.path
                     )
                 }.flatMap { isRegularNonSymbolicFile($0) ? $0 : nil }
-                shortcutsByID[id] = DesiredShortcut(
+                let id = shortcutID(containerID: container.id, windowsPath: entry.windowsShortcutPath)
+                let candidate = ShortcutCandidate(
                     id: id,
-                    displayName: entry.displayName,
+                    entry: entry,
+                    container: container,
                     containerName: WineDesktopShortcutFormat.nativeDisplayName(container.name)
                         ?? "Switchyard",
-                    iconURL: iconURL,
+                    verifiedSourceURL: sourceURL,
+                    verifiedIconURL: iconURL
+                )
+                insertBoundedCandidate(candidate, into: &candidatesByID)
+            }
+        }
+
+        var desired: [DesiredShortcut] = []
+        for candidate in candidatesByID.values.sorted(by: candidatePrecedes) {
+            let entry = candidate.entry
+            let container = candidate.container
+            desired.append(
+                DesiredShortcut(
+                    id: candidate.id,
+                    displayName: entry.displayName,
+                    containerName: candidate.containerName,
+                    iconURL: candidate.verifiedIconURL,
                     route: WineDesktopShortcutRoute(
-                        id: id,
+                        id: candidate.id,
                         containerID: container.id,
                         prefixPath: container.path,
                         winePath: winePath,
@@ -184,16 +226,42 @@ final class WineDesktopShortcutBridge {
                             )
                     )
                 )
-            }
+            )
         }
+        return desired
+    }
 
-        return shortcutsByID.values.sorted {
-            let displayComparison = $0.displayName.localizedStandardCompare($1.displayName)
-            if displayComparison != .orderedSame { return displayComparison == .orderedAscending }
-            let containerComparison = $0.containerName.localizedStandardCompare($1.containerName)
-            if containerComparison != .orderedSame { return containerComparison == .orderedAscending }
-            return $0.id < $1.id
+    private func insertBoundedCandidate(
+        _ candidate: ShortcutCandidate,
+        into candidatesByID: inout [String: ShortcutCandidate]
+    ) {
+        candidatesByID[candidate.id] = candidate
+        guard candidatesByID.count > WineDesktopShortcutFormat.maximumEntries,
+              let excluded = candidatesByID.values.max(by: candidatePrecedes) else {
+            return
         }
+        candidatesByID.removeValue(forKey: excluded.id)
+    }
+
+    private func candidatePrecedes(_ lhs: ShortcutCandidate, _ rhs: ShortcutCandidate) -> Bool {
+        let displayComparison = stableCompare(lhs.entry.displayName, rhs.entry.displayName)
+        if displayComparison != .orderedSame {
+            return displayComparison == .orderedAscending
+        }
+        let containerComparison = stableCompare(lhs.containerName, rhs.containerName)
+        if containerComparison != .orderedSame {
+            return containerComparison == .orderedAscending
+        }
+        return lhs.id < rhs.id
+    }
+
+    private func stableCompare(_ lhs: String, _ rhs: String) -> ComparisonResult {
+        lhs.compare(
+            rhs,
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive, .numeric],
+            range: nil,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
     }
 
     private func makePlacements(for desired: [DesiredShortcut]) throws -> [Placement] {
@@ -589,15 +657,6 @@ final class WineDesktopShortcutBridge {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private func isRegularFileInsidePrefix(_ url: URL, prefixPath: String) -> Bool {
-        let resolvedPrefix = URL(fileURLWithPath: prefixPath, isDirectory: true)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        let resolvedURL = url.standardizedFileURL.resolvingSymlinksInPath()
-        return path(resolvedURL.path, isWithin: resolvedPrefix.path)
-            && isRegularNonSymbolicFile(url)
-    }
-
     private func isRegularNonSymbolicFile(_ url: URL) -> Bool {
         guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]) else {
             return false
@@ -609,7 +668,4 @@ final class WineDesktopShortcutBridge {
         url.standardizedFileURL.path.lowercased()
     }
 
-    private func path(_ candidatePath: String, isWithin directoryPath: String) -> Bool {
-        candidatePath == directoryPath || candidatePath.hasPrefix(directoryPath + "/")
-    }
 }
