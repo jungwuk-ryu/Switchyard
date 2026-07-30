@@ -1,6 +1,6 @@
 import AppCore
 import Foundation
-import RuntimeCatalog
+@testable import RuntimeCatalog
 import Testing
 
 @Test func missingGPTKPathReportsMissing() {
@@ -399,6 +399,74 @@ private func makeLaunchReadyGPTKLayout(
 
     #expect(result.status == .ok)
     #expect(result.fingerprint != nil)
+}
+
+@Test func gptkImportDestinationUsesStableArchiveContentIdentity() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let firstMount = root.appendingPathComponent(
+        "SwitchyardGPTK-first",
+        isDirectory: true
+    )
+    let secondMount = root.appendingPathComponent(
+        "SwitchyardGPTK-second",
+        isDirectory: true
+    )
+    let thirdMount = root.appendingPathComponent(
+        "SwitchyardGPTK-third",
+        isDirectory: true
+    )
+    let importRoot = root.appendingPathComponent("imports", isDirectory: true)
+    for mount in [firstMount, secondMount, thirdMount] {
+        try FileManager.default.createDirectory(
+            at: mount,
+            withIntermediateDirectories: true
+        )
+    }
+
+    let archiveName = "Game Porting Toolkit.dmg"
+    let firstArchive = firstMount.appendingPathComponent(archiveName)
+    let secondArchive = secondMount.appendingPathComponent(archiveName)
+    let thirdArchive = thirdMount.appendingPathComponent(archiveName)
+    let matchingContent = Data("matching nested archive".utf8)
+    let distinctContent = Data("different nested archiv".utf8)
+    #expect(matchingContent.count == distinctContent.count)
+    try matchingContent.write(to: firstArchive)
+    try matchingContent.write(to: secondArchive)
+    try distinctContent.write(to: thirdArchive)
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date(timeIntervalSince1970: 100)],
+        ofItemAtPath: firstArchive.path
+    )
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date(timeIntervalSince1970: 200)],
+        ofItemAtPath: secondArchive.path
+    )
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date(timeIntervalSince1970: 200)],
+        ofItemAtPath: thirdArchive.path
+    )
+
+    let locator = RuntimeLocator()
+    let firstDestination = try locator.importDestination(
+        forDiskImageAt: firstArchive.path,
+        under: importRoot.path
+    )
+    let secondDestination = try locator.importDestination(
+        forDiskImageAt: secondArchive.path,
+        under: importRoot.path
+    )
+    let thirdDestination = try locator.importDestination(
+        forDiskImageAt: thirdArchive.path,
+        under: importRoot.path
+    )
+
+    #expect(firstDestination == secondDestination)
+    #expect(firstDestination != thirdDestination)
 }
 
 @Test func wineDirectorySelectionResolvesBinWineExecutable() throws {

@@ -1,4 +1,5 @@
 import AppCore
+import CryptoKit
 import Darwin
 import Foundation
 import Security
@@ -1766,7 +1767,10 @@ public struct RuntimeLocator {
         }
         try validateNoEscapingSymbolicLinks(under: sourceRootPath)
         try validateAppleSignedMachOFiles(under: sourceRootPath)
-        let destination = importDestination(forDiskImageAt: sourceImagePath, under: importRoot)
+        let destination = try importDestination(
+            forDiskImageAt: sourceImagePath,
+            under: importRoot
+        )
         if fileManager.fileExists(atPath: destination) {
             guard validateGPTK(at: destination).status == .ok else {
                 throw RuntimeLocatorError.importDestinationConflict
@@ -1801,16 +1805,30 @@ public struct RuntimeLocator {
         return destinationURL.path
     }
 
-    private func importDestination(forDiskImageAt path: String, under importRoot: String) -> String {
+    func importDestination(
+        forDiskImageAt path: String,
+        under importRoot: String
+    ) throws -> String {
         let url = URL(fileURLWithPath: path)
         let baseName = sanitizedRuntimeName(url.deletingPathExtension().lastPathComponent)
-        let attributes = (try? fileManager.attributesOfItem(atPath: path)) ?? [:]
-        let size = attributes[.size] as? UInt64 ?? 0
-        let modified = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let digest = fnvDigest("\(canonicalPath(path)):\(size):\(modified)")
+        let digest = try sha256(of: url)
         return URL(fileURLWithPath: importRoot, isDirectory: true)
             .appendingPathComponent("\(baseName)-\(digest)", isDirectory: true)
             .path
+    }
+
+    private func sha256(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+
+        var hasher = SHA256()
+        while let data = try handle.read(upToCount: 1_024 * 1_024),
+              !data.isEmpty {
+            hasher.update(data: data)
+        }
+        return hasher.finalize().map {
+            String(format: "%02x", $0)
+        }.joined()
     }
 
     private func sanitizedRuntimeName(_ name: String) -> String {
