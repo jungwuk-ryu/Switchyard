@@ -303,6 +303,7 @@ struct SessionStageStartMenu: View {
     let recentPrograms: [RecentInstalledProgram]
     let onLaunchProgram: (InstalledProgram) -> Void
     let onOpenShortcut: (WindowsStartMenuEntry) -> Void
+    let onChooseDefaultProgram: () -> Void
 
     @State private var query = ""
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -332,15 +333,20 @@ struct SessionStageStartMenu: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 4) {
-                    if query.isEmpty, let defaultProgram = defaultProgram {
-                        menuSectionTitle(container.name)
-                        programRow(
-                            defaultProgram,
-                            trailing: String(
-                                localized: "Run",
-                                bundle: SwitchyardStrings.bundle
+                    if query.isEmpty {
+                        if let defaultProgram {
+                            menuSectionTitle(container.name)
+                            programRow(
+                                defaultProgram,
+                                trailing: String(
+                                    localized: "Run",
+                                    bundle: SwitchyardStrings.bundle
+                                )
                             )
-                        )
+                        } else if defaultProgramResolution.requiresDefaultReselection {
+                            menuSectionTitle(container.name)
+                            missingDefaultProgramRow
+                        }
                     }
 
                     if !filteredEntries.isEmpty {
@@ -434,13 +440,20 @@ struct SessionStageStartMenu: View {
         .preferredColorScheme(.dark)
     }
 
+    private var defaultProgramResolution: SessionStageDefaultProgramResolver.Resolution {
+        SessionStageDefaultProgramResolver.resolve(
+            configuredExecutablePath: container.executablePath,
+            programs: programs
+        )
+    }
+
     private var defaultProgram: InstalledProgram? {
-        programs.first(where: { $0.executablePath == container.executablePath })
-            ?? programs.first
+        defaultProgramResolution.program
     }
 
     private var hasVisibleContent: Bool {
         defaultProgram != nil
+            || defaultProgramResolution.requiresDefaultReselection
             || !filteredEntries.isEmpty
             || !matchingPrograms.isEmpty
             || !recentPrograms.isEmpty
@@ -488,6 +501,61 @@ struct SessionStageStartMenu: View {
             .padding(.horizontal, 7)
             .padding(.top, 7)
             .padding(.bottom, 2)
+    }
+
+    private var missingDefaultProgramRow: some View {
+        Button(action: onChooseDefaultProgram) {
+            HStack(spacing: 10) {
+                Image(systemName: "app.dashed")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 30, height: 30)
+                    .background(
+                        Color.orange.opacity(0.13),
+                        in: RoundedRectangle(cornerRadius: 7)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(
+                        String(
+                            localized: "Default Application",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    )
+                        .font(.system(size: 12, weight: .medium))
+                    Text(
+                        String(
+                            localized: "Missing",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    )
+                        .font(.system(size: 10))
+                        .foregroundStyle(.orange.opacity(0.82))
+                }
+
+                Spacer()
+
+                Text(
+                    String(
+                        localized: "Applications",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                )
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 7)
+            .frame(height: 43)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SessionStageMenuRowStyle())
+        .accessibilityHint(
+            Text(
+                String(
+                    localized: "Applications",
+                    bundle: SwitchyardStrings.bundle
+                )
+            )
+        )
     }
 
     private func shortcutRow(_ entry: WindowsStartMenuEntry) -> some View {

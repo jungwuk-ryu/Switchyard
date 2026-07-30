@@ -1,8 +1,59 @@
 import AppCore
 import CoreGraphics
 import Darwin
+import Foundation
 import Testing
 @testable import Switchyard
+
+@Test func sessionStageUsesTheConfiguredDefaultProgramInsteadOfCatalogOrder() throws {
+    let first = installedProgram(name: "First", path: "/prefix/drive_c/First.exe")
+    let configured = installedProgram(name: "Configured", path: "/prefix/drive_c/Configured.exe")
+
+    let resolution = SessionStageDefaultProgramResolver.resolve(
+        configuredExecutablePath: configured.executablePath,
+        programs: [first, configured]
+    )
+
+    #expect(resolution.program == configured)
+    #expect(!resolution.requiresDefaultReselection)
+}
+
+@Test func sessionStageDoesNotFallBackWhenTheConfiguredDefaultIsMissing() {
+    let unrelated = installedProgram(name: "Unrelated", path: "/prefix/drive_c/Unrelated.exe")
+
+    let resolution = SessionStageDefaultProgramResolver.resolve(
+        configuredExecutablePath: "/prefix/drive_c/Missing.exe",
+        programs: [unrelated]
+    )
+
+    #expect(resolution.program == nil)
+    #expect(resolution.requiresDefaultReselection)
+}
+
+@Test func sessionStageUsesTheFirstProgramOnlyWhenNoDefaultIsConfigured() throws {
+    let first = installedProgram(name: "First", path: "/prefix/drive_c/First.exe")
+    let second = installedProgram(name: "Second", path: "/prefix/drive_c/Second.exe")
+
+    for configuredExecutablePath in [nil, "", " \n\t"] as [String?] {
+        let resolution = SessionStageDefaultProgramResolver.resolve(
+            configuredExecutablePath: configuredExecutablePath,
+            programs: [first, second]
+        )
+
+        #expect(resolution.program == first)
+        #expect(!resolution.requiresDefaultReselection)
+    }
+}
+
+@Test func sessionStageRequestsAProgramWhenNoDefaultOrCatalogEntryExists() {
+    let resolution = SessionStageDefaultProgramResolver.resolve(
+        configuredExecutablePath: nil,
+        programs: []
+    )
+
+    #expect(resolution.program == nil)
+    #expect(!resolution.requiresDefaultReselection)
+}
 
 @MainActor
 @Test func sessionStageKeepsExistingWindowOrderAndAppendsNewWindows() {
@@ -124,6 +175,15 @@ private func window(
         frame: frame,
         isOnScreen: true,
         image: nil
+    )
+}
+
+private func installedProgram(name: String, path: String) -> InstalledProgram {
+    InstalledProgram(
+        name: name,
+        executablePath: path,
+        installDirectory: URL(fileURLWithPath: path).deletingLastPathComponent().path,
+        source: .programFiles
     )
 }
 

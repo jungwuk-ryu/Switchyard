@@ -9,6 +9,41 @@ enum ContainerDetailDestination {
     case settings
 }
 
+enum SessionStageDefaultProgramResolver {
+    enum Resolution: Equatable {
+        case program(InstalledProgram)
+        case missingConfiguredProgram
+        case noProgram
+
+        var program: InstalledProgram? {
+            guard case .program(let program) = self else { return nil }
+            return program
+        }
+
+        var requiresDefaultReselection: Bool {
+            self == .missingConfiguredProgram
+        }
+    }
+
+    static func resolve(
+        configuredExecutablePath: String?,
+        programs: [InstalledProgram]
+    ) -> Resolution {
+        let configuredExecutablePath = configuredExecutablePath?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let configuredExecutablePath,
+              !configuredExecutablePath.isEmpty else {
+            return programs.first.map(Resolution.program) ?? .noProgram
+        }
+        guard let configuredProgram = programs.first(where: {
+            $0.executablePath == configuredExecutablePath
+        }) else {
+            return .missingConfiguredProgram
+        }
+        return .program(configuredProgram)
+    }
+}
+
 enum SessionStageExecutablePathResolver {
     static func normalizedWindowsPath(
         executablePath: String,
@@ -680,7 +715,7 @@ struct ContainerSessionStageView: View {
 
     private var startMenuPanel: some View {
         SessionStageStartMenu(
-            container: container,
+            container: liveContainer,
             entries: startMenuEntries,
             programs: programs,
             recentPrograms: recentPrograms,
@@ -691,6 +726,10 @@ struct ContainerSessionStageView: View {
             onOpenShortcut: { entry in
                 startMenuPresented = false
                 store.runStartMenuEntry(entry, in: container.id)
+            },
+            onChooseDefaultProgram: {
+                startMenuPresented = false
+                onOpenDestination(.applications)
             }
         )
     }
@@ -711,7 +750,12 @@ struct ContainerSessionStageView: View {
                 onOpenDestination(.activity)
             },
             onRunSession: {
-                store.runContainer(container.id)
+                if primaryProgramResolution.requiresDefaultReselection {
+                    inspectorPopoverPresented = false
+                    onOpenDestination(.applications)
+                } else {
+                    store.runContainer(container.id)
+                }
             },
             onEndSession: {
                 endSessionConfirmationPresented = true
@@ -912,6 +956,11 @@ struct ContainerSessionStageView: View {
                             localized: "No visible Windows app windows",
                             bundle: SwitchyardStrings.bundle
                         )
+                        : primaryProgramResolution.requiresDefaultReselection
+                        ? String(
+                            localized: "Default Application",
+                            bundle: SwitchyardStrings.bundle
+                        )
                         : String(
                             localized: "Ready",
                             bundle: SwitchyardStrings.bundle
@@ -920,7 +969,17 @@ struct ContainerSessionStageView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.88))
 
-                if let fallbackProgram, !sessionIsActive {
+                if primaryProgramResolution.requiresDefaultReselection,
+                   !sessionIsActive {
+                    Text(
+                        String(
+                            localized: "Missing",
+                            bundle: SwitchyardStrings.bundle
+                        )
+                    )
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.orange.opacity(0.82))
+                } else if let fallbackProgram, !sessionIsActive {
                     Text(fallbackProgram.presentationName)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.white.opacity(0.45))
@@ -931,6 +990,8 @@ struct ContainerSessionStageView: View {
             Button {
                 if sessionIsActive {
                     onOpenDestination(.activity)
+                } else if primaryProgramResolution.requiresDefaultReselection {
+                    onOpenDestination(.applications)
                 } else if let fallbackProgram {
                     store.runInstalledProgram(fallbackProgram, in: container.id)
                 } else {
@@ -950,11 +1011,10 @@ struct ContainerSessionStageView: View {
                                     localized: "Activity",
                                     bundle: SwitchyardStrings.bundle
                                 )
-                                : String(
-                                    localized: "Run",
-                                    bundle: SwitchyardStrings.bundle
-                                ),
-                            systemImage: sessionIsActive ? "waveform.path.ecg" : "play.fill"
+                                : idlePrimaryActionTitle,
+                            systemImage: sessionIsActive
+                                ? "waveform.path.ecg"
+                                : idlePrimaryActionSystemImage
                         )
                     }
                 }
@@ -969,7 +1029,7 @@ struct ContainerSessionStageView: View {
                     ? String(localized: "Starting…", bundle: SwitchyardStrings.bundle)
                     : sessionIsActive
                     ? String(localized: "Activity", bundle: SwitchyardStrings.bundle)
-                    : String(localized: "Run", bundle: SwitchyardStrings.bundle)
+                    : idlePrimaryActionTitle
             )
             .accessibilityIdentifier("sessionStage.primaryAction")
         }
@@ -985,9 +1045,31 @@ struct ContainerSessionStageView: View {
         .accessibilityElement(children: .contain)
     }
 
+    private var primaryProgramResolution: SessionStageDefaultProgramResolver.Resolution {
+        SessionStageDefaultProgramResolver.resolve(
+            configuredExecutablePath: liveContainer.executablePath,
+            programs: programs
+        )
+    }
+
     private var fallbackProgram: InstalledProgram? {
-        programs.first(where: { $0.executablePath == liveContainer.executablePath })
-            ?? programs.first
+        primaryProgramResolution.program
+    }
+
+    private var idlePrimaryActionTitle: String {
+        if primaryProgramResolution.requiresDefaultReselection {
+            return String(
+                localized: "Applications",
+                bundle: SwitchyardStrings.bundle
+            )
+        }
+        return String(localized: "Run", bundle: SwitchyardStrings.bundle)
+    }
+
+    private var idlePrimaryActionSystemImage: String {
+        primaryProgramResolution.requiresDefaultReselection
+            ? "square.grid.2x2"
+            : "play.fill"
     }
 
     private var taskbarItems: [SessionStageTaskbarItem] {
