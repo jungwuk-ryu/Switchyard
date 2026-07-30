@@ -1,4 +1,5 @@
 import AppCore
+import Darwin
 import Foundation
 import JobEngine
 import RuntimeCatalog
@@ -446,7 +447,7 @@ import Testing
 }
 
 @Test func containerFontInstallerCopiesFontsAndRegistersWineMappings() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let root = canonicalTestTemporaryDirectory()
     let cache = root.appendingPathComponent("cache", isDirectory: true)
     let containerURL = root.appendingPathComponent("Fonts.container", isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -489,10 +490,15 @@ import Testing
     let secondResult = try installer.installOpenFontPack(into: container, from: cache)
     #expect(secondResult.installedFonts.isEmpty)
     #expect(secondResult.reusedFonts == ["Switchyard Sans Test"])
+    #expect(
+        try FileManager.default.contentsOfDirectory(
+            atPath: installedFont.deletingLastPathComponent().path
+        ).allSatisfy { !$0.hasPrefix(".switchyard-font-") }
+    )
 }
 
 @Test func containerFontInstallerSkipsUninitializedContainerWithoutCreatingRegistry() throws {
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let root = canonicalTestTemporaryDirectory()
     let cache = root.appendingPathComponent("cache", isDirectory: true)
     let containerURL = root.appendingPathComponent("Fresh.container", isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
@@ -522,6 +528,319 @@ import Testing
     #expect(!FileManager.default.fileExists(atPath: containerURL.appendingPathComponent("system.reg").path))
     #expect(!FileManager.default.fileExists(atPath: containerURL.appendingPathComponent("user.reg").path))
     #expect(!FileManager.default.fileExists(atPath: containerURL.appendingPathComponent("drive_c").path))
+}
+
+@Test func containerFontInstallerRejectsSymlinkedCachedFontAndPreservesExistingFont() throws {
+    let root = canonicalTestTemporaryDirectory()
+    let cache = root.appendingPathComponent("cache", isDirectory: true)
+    let outside = root.appendingPathComponent("outside", isDirectory: true)
+    let containerURL = root.appendingPathComponent("Fonts.container", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+    try writeInitializedRegistryFiles(to: containerURL)
+
+    let fontName = "SwitchyardSans-Regular.ttf"
+    let outsideFont = outside.appendingPathComponent(fontName)
+    try Data("trusted font bytes".utf8).write(to: outsideFont)
+    let cachedFont = cache.appendingPathComponent(fontName)
+    try FileManager.default.createSymbolicLink(
+        at: cachedFont,
+        withDestinationURL: outsideFont
+    )
+
+    let fontsDirectory = containerURL.appendingPathComponent(
+        "drive_c/windows/Fonts",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: fontsDirectory,
+        withIntermediateDirectories: true
+    )
+    let installedFont = fontsDirectory.appendingPathComponent(fontName)
+    let originalInstalledBytes = Data("existing font must survive".utf8)
+    try originalInstalledBytes.write(to: installedFont)
+
+    let font = makeTestOpenFont(
+        fileName: fontName,
+        sha256: try OpenFontPackCatalog.sha256Hex(for: outsideFont)
+    )
+    let installer = ContainerFontInstaller(catalog: [font], replacements: [])
+    let container = Container(name: "Fonts", path: containerURL.path)
+
+    #expect(
+        throws: ContainerFontInstallerError.unsafeFileSystemEntry(cachedFont.path)
+    ) {
+        try installer.installOpenFontPack(into: container, from: cache)
+    }
+    #expect(try Data(contentsOf: installedFont) == originalInstalledBytes)
+    #expect(try Data(contentsOf: outsideFont) == Data("trusted font bytes".utf8))
+}
+
+@Test func containerFontInstallerRejectsSymlinkedCacheRootComponent() throws {
+    let root = canonicalTestTemporaryDirectory()
+    let cacheParent = root.appendingPathComponent("cache-parent", isDirectory: true)
+    let outsideCache = root.appendingPathComponent("outside-cache", isDirectory: true)
+    let linkedCache = cacheParent.appendingPathComponent("font-cache", isDirectory: true)
+    let containerURL = root.appendingPathComponent("Fonts.container", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try FileManager.default.createDirectory(
+        at: cacheParent,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: outsideCache,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: containerURL,
+        withIntermediateDirectories: true
+    )
+    try writeInitializedRegistryFiles(to: containerURL)
+
+    let fontName = "SwitchyardSans-Regular.ttf"
+    let outsideFont = outsideCache.appendingPathComponent(fontName)
+    try Data("trusted font bytes".utf8).write(to: outsideFont)
+    try FileManager.default.createSymbolicLink(
+        at: linkedCache,
+        withDestinationURL: outsideCache
+    )
+
+    let font = makeTestOpenFont(
+        fileName: fontName,
+        sha256: try OpenFontPackCatalog.sha256Hex(for: outsideFont)
+    )
+    let installer = ContainerFontInstaller(catalog: [font], replacements: [])
+    let container = Container(name: "Fonts", path: containerURL.path)
+
+    #expect(
+        throws: ContainerFontInstallerError.unsafeFileSystemEntry(linkedCache.path)
+    ) {
+        try installer.installOpenFontPack(into: container, from: linkedCache)
+    }
+    #expect(
+        !FileManager.default.fileExists(
+            atPath: containerURL.appendingPathComponent("drive_c").path
+        )
+    )
+}
+
+@Test func containerFontInstallerRejectsSymlinkedContainerRoot() throws {
+    let root = canonicalTestTemporaryDirectory()
+    let cache = root.appendingPathComponent("cache", isDirectory: true)
+    let actualContainer = root.appendingPathComponent(
+        "Actual.container",
+        isDirectory: true
+    )
+    let linkedContainer = root.appendingPathComponent(
+        "Linked.container",
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: actualContainer,
+        withIntermediateDirectories: true
+    )
+    try writeInitializedRegistryFiles(to: actualContainer)
+    try FileManager.default.createSymbolicLink(
+        at: linkedContainer,
+        withDestinationURL: actualContainer
+    )
+
+    let fontName = "SwitchyardSans-Regular.ttf"
+    let sourceFont = cache.appendingPathComponent(fontName)
+    try Data("trusted font bytes".utf8).write(to: sourceFont)
+    let font = makeTestOpenFont(
+        fileName: fontName,
+        sha256: try OpenFontPackCatalog.sha256Hex(for: sourceFont)
+    )
+    let installer = ContainerFontInstaller(catalog: [font], replacements: [])
+    let container = Container(name: "Fonts", path: linkedContainer.path)
+
+    #expect(
+        throws: ContainerFontInstallerError.unsafeFileSystemEntry(
+            linkedContainer.path
+        )
+    ) {
+        try installer.installOpenFontPack(into: container, from: cache)
+    }
+    #expect(
+        !FileManager.default.fileExists(
+            atPath: actualContainer.appendingPathComponent("drive_c").path
+        )
+    )
+}
+
+@Test func containerFontInstallerRejectsSymlinkedFontsDirectory() throws {
+    let root = canonicalTestTemporaryDirectory()
+    let cache = root.appendingPathComponent("cache", isDirectory: true)
+    let outsideFonts = root.appendingPathComponent("outside-fonts", isDirectory: true)
+    let containerURL = root.appendingPathComponent("Fonts.container", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(
+        at: outsideFonts,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: containerURL.appendingPathComponent("drive_c/windows", isDirectory: true),
+        withIntermediateDirectories: true
+    )
+    try writeInitializedRegistryFiles(to: containerURL)
+
+    let fontName = "SwitchyardSans-Regular.ttf"
+    let sourceFont = cache.appendingPathComponent(fontName)
+    try Data("trusted font bytes".utf8).write(to: sourceFont)
+    let fontsDirectory = containerURL.appendingPathComponent(
+        "drive_c/windows/Fonts",
+        isDirectory: true
+    )
+    try FileManager.default.createSymbolicLink(
+        at: fontsDirectory,
+        withDestinationURL: outsideFonts
+    )
+
+    let font = makeTestOpenFont(
+        fileName: fontName,
+        sha256: try OpenFontPackCatalog.sha256Hex(for: sourceFont)
+    )
+    let installer = ContainerFontInstaller(catalog: [font], replacements: [])
+    let container = Container(name: "Fonts", path: containerURL.path)
+
+    #expect(
+        throws: ContainerFontInstallerError.unsafeFileSystemEntry(fontsDirectory.path)
+    ) {
+        try installer.installOpenFontPack(into: container, from: cache)
+    }
+    #expect(
+        !FileManager.default.fileExists(
+            atPath: outsideFonts.appendingPathComponent(fontName).path
+        )
+    )
+}
+
+@Test func containerFontInstallerRejectsNonRegularCachedFont() throws {
+    let root = canonicalTestTemporaryDirectory()
+    let cache = root.appendingPathComponent("cache", isDirectory: true)
+    let containerURL = root.appendingPathComponent("Fonts.container", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+    try writeInitializedRegistryFiles(to: containerURL)
+
+    let fontName = "SwitchyardSans-Regular.ttf"
+    let cachedFont = cache.appendingPathComponent(fontName, isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: cachedFont,
+        withIntermediateDirectories: false
+    )
+    let fontsDirectory = containerURL.appendingPathComponent(
+        "drive_c/windows/Fonts",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: fontsDirectory,
+        withIntermediateDirectories: true
+    )
+    let installedFont = fontsDirectory.appendingPathComponent(fontName)
+    let originalInstalledBytes = Data("existing font must survive".utf8)
+    try originalInstalledBytes.write(to: installedFont)
+
+    let font = makeTestOpenFont(fileName: fontName, sha256: String(repeating: "0", count: 64))
+    let installer = ContainerFontInstaller(catalog: [font], replacements: [])
+    let container = Container(name: "Fonts", path: containerURL.path)
+
+    #expect(
+        throws: ContainerFontInstallerError.unsafeFileSystemEntry(cachedFont.path)
+    ) {
+        try installer.installOpenFontPack(into: container, from: cache)
+    }
+    #expect(try Data(contentsOf: installedFont) == originalInstalledBytes)
+}
+
+@Test func containerFontInstallerRejectsSymlinkedDestinationFont() throws {
+    let root = canonicalTestTemporaryDirectory()
+    let cache = root.appendingPathComponent("cache", isDirectory: true)
+    let outside = root.appendingPathComponent("outside", isDirectory: true)
+    let containerURL = root.appendingPathComponent("Fonts.container", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
+    try writeInitializedRegistryFiles(to: containerURL)
+
+    let fontName = "SwitchyardSans-Regular.ttf"
+    let sourceFont = cache.appendingPathComponent(fontName)
+    try Data("trusted font bytes".utf8).write(to: sourceFont)
+    let fontsDirectory = containerURL.appendingPathComponent(
+        "drive_c/windows/Fonts",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: fontsDirectory,
+        withIntermediateDirectories: true
+    )
+    let outsideFont = outside.appendingPathComponent(fontName)
+    let outsideBytes = Data("outside file must survive".utf8)
+    try outsideBytes.write(to: outsideFont)
+    let installedFont = fontsDirectory.appendingPathComponent(fontName)
+    try FileManager.default.createSymbolicLink(
+        at: installedFont,
+        withDestinationURL: outsideFont
+    )
+
+    let font = makeTestOpenFont(
+        fileName: fontName,
+        sha256: try OpenFontPackCatalog.sha256Hex(for: sourceFont)
+    )
+    let installer = ContainerFontInstaller(catalog: [font], replacements: [])
+    let container = Container(name: "Fonts", path: containerURL.path)
+
+    #expect(
+        throws: ContainerFontInstallerError.unsafeFileSystemEntry(installedFont.path)
+    ) {
+        try installer.installOpenFontPack(into: container, from: cache)
+    }
+    #expect(try Data(contentsOf: outsideFont) == outsideBytes)
+    #expect(
+        try FileManager.default.destinationOfSymbolicLink(
+            atPath: installedFont.path
+        ) == outsideFont.path
+    )
+}
+
+private func canonicalTestTemporaryDirectory() -> URL {
+    let temporaryPath = FileManager.default.temporaryDirectory.path
+    let resolvedPath = temporaryPath.withCString { pathPointer -> String in
+        guard let resolvedPointer = Darwin.realpath(pathPointer, nil) else {
+            return temporaryPath
+        }
+        defer { Darwin.free(resolvedPointer) }
+        return String(cString: resolvedPointer)
+    }
+    return URL(fileURLWithPath: resolvedPath, isDirectory: true)
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+}
+
+private func makeTestOpenFont(fileName: String, sha256: String) -> OpenFontFile {
+    OpenFontFile(
+        id: "switchyard-test-font",
+        displayName: "Switchyard Sans Test",
+        fileName: fileName,
+        sourceURL: URL(string: "https://example.invalid/\(fileName)")!,
+        sha256: sha256,
+        licenseName: "SIL Open Font License 1.1",
+        licenseURL: URL(string: "https://openfontlicense.org/")!,
+        registryEntries: ["Switchyard Sans Test (TrueType)"]
+    )
 }
 
 private func writeInitializedRegistryFiles(to containerURL: URL) throws {
