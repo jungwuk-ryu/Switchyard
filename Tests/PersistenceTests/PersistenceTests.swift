@@ -529,6 +529,7 @@ private enum TestContainerRenameError: Error, Equatable {
       ]
     }
     """
+    try FileManager.default.createDirectory(at: legacyContainerURL, withIntermediateDirectories: true)
     try Data(legacySnapshot.utf8).write(to: root.appendingPathComponent("switchyard-library.json"))
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
@@ -562,6 +563,10 @@ private enum TestContainerRenameError: Error, Equatable {
       ]
     }
     """
+    try FileManager.default.createDirectory(
+        at: root.appendingPathComponent("Steam.container", isDirectory: true),
+        withIntermediateDirectories: true
+    )
     try Data(legacySnapshot.utf8).write(to: root.appendingPathComponent("switchyard-library.json"))
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())
@@ -600,6 +605,10 @@ private enum TestContainerRenameError: Error, Equatable {
       ]
     }
     """
+    try FileManager.default.createDirectory(
+        at: root.appendingPathComponent("Steam.container", isDirectory: true),
+        withIntermediateDirectories: true
+    )
     try Data(snapshot.utf8).write(to: root.appendingPathComponent("switchyard-library.json"))
 
     let loaded = try #require(try LibraryManifestStore(rootURL: root).loadSnapshot())

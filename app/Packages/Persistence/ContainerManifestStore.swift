@@ -5,6 +5,7 @@ public enum PersistenceError: LocalizedError, Equatable {
     case missingManifest(URL)
     case containerOutsideLibrary(URL)
     case unsafeManifest(URL)
+    case duplicateContainerID(UUID, [URL])
 
     public var errorDescription: String? {
         switch self {
@@ -21,6 +22,11 @@ public enum PersistenceError: LocalizedError, Equatable {
         case .unsafeManifest(let url):
             String(
                 localized: "The container folder has no Switchyard manifest: \(url.deletingLastPathComponent().path)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .duplicateContainerID(let id, let manifestURLs):
+            String(
+                localized: "Multiple container manifests use the same identifier \(id.uuidString): \(manifestURLs.map(\.path).joined(separator: ", "))",
                 bundle: SwitchyardStrings.bundle
             )
         }
@@ -45,8 +51,11 @@ public struct ContainerManifestStore {
             atPath: rootURL.path
         ).map {
             rootURL.appendingPathComponent($0, isDirectory: true)
+        }.sorted {
+            $0.path < $1.path
         }
-        return try containerDirectories.compactMap { directory in
+        let loadedContainers = try containerDirectories.compactMap { directory
+            -> (container: Container, manifestURL: URL)? in
             guard isContainerDirectoryInsideRoot(directory),
                   let readableManifestURL = readableManifestURL(in: directory) else {
                 return nil
@@ -54,8 +63,26 @@ public struct ContainerManifestStore {
             let data = try Data(contentsOf: readableManifestURL)
             var container = try JSONDecoder.switchyard.decode(Container.self, from: data)
             container.path = directory.path
-            return container
+            return (container, readableManifestURL)
         }
+
+        let duplicate = Dictionary(grouping: loadedContainers) {
+            $0.container.id
+        }.filter {
+            $0.value.count > 1
+        }.min {
+            $0.key.uuidString < $1.key.uuidString
+        }
+        if let duplicate {
+            throw PersistenceError.duplicateContainerID(
+                duplicate.key,
+                duplicate.value.map(\.manifestURL).sorted {
+                    $0.path < $1.path
+                }
+            )
+        }
+
+        return loadedContainers.map(\.container)
     }
 
     public func save(_ container: Container) throws {
@@ -245,8 +272,10 @@ public struct LibraryManifestStore {
     }
 
     public func loadSnapshot() throws -> SwitchyardContainerSnapshot? {
+        let manifestSnapshot = try loadSnapshotFromContainerManifests()
+
         guard fileManager.fileExists(atPath: manifestURL.path) else {
-            return try loadSnapshotFromContainerManifests()
+            return manifestSnapshot
         }
 
         let indexedSnapshot: SwitchyardContainerSnapshot
@@ -257,17 +286,19 @@ public struct LibraryManifestStore {
                 from: data
             )
         } catch let indexError {
-            if let recoveredSnapshot = try? loadSnapshotFromContainerManifests() {
-                return recoveredSnapshot
+            if let manifestSnapshot {
+                return manifestSnapshot
             }
             throw indexError
         }
 
-        guard indexedSnapshot.containers.isEmpty else {
-            return indexedSnapshot
+        // Per-container manifests are the portable source of truth. The
+        // aggregate library file is only a rebuildable index and must never
+        // resurrect a missing, moved, nested, or otherwise untrusted path.
+        if let manifestSnapshot {
+            return manifestSnapshot
         }
-
-        return try loadSnapshotFromContainerManifests() ?? indexedSnapshot
+        return try trustedLegacySnapshot(from: indexedSnapshot)
     }
 
     public func save(_ snapshot: SwitchyardContainerSnapshot) throws {
@@ -292,9 +323,84 @@ public struct LibraryManifestStore {
 
         return SwitchyardContainerSnapshot(
             containers: containers.sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                let nameOrder = $0.name.localizedCaseInsensitiveCompare($1.name)
+                if nameOrder != .orderedSame {
+                    return nameOrder == .orderedAscending
+                }
+                return $0.path < $1.path
             }
         )
+    }
+
+    private func trustedLegacySnapshot(
+        from indexedSnapshot: SwitchyardContainerSnapshot
+    ) throws -> SwitchyardContainerSnapshot {
+        let containers = indexedSnapshot.containers.compactMap {
+            trustedLegacyContainer($0)
+        }
+        try throwIfDuplicateContainerIDs(in: containers)
+        return SwitchyardContainerSnapshot(
+            containers: containers.sorted {
+                let nameOrder = $0.name.localizedCaseInsensitiveCompare($1.name)
+                if nameOrder != .orderedSame {
+                    return nameOrder == .orderedAscending
+                }
+                return $0.path < $1.path
+            }
+        )
+    }
+
+    private func trustedLegacyContainer(_ container: Container) -> Container? {
+        let directory = URL(fileURLWithPath: container.path, isDirectory: true)
+            .standardizedFileURL
+        let standardizedRoot = rootURL.standardizedFileURL
+        guard directory.deletingLastPathComponent().path == standardizedRoot.path else {
+            return nil
+        }
+        guard isExistingNonsymlinkDirectory(directory, under: standardizedRoot) else {
+            return nil
+        }
+        var trustedContainer = container
+        trustedContainer.path = directory.path
+        return trustedContainer
+    }
+
+    private func isExistingNonsymlinkDirectory(
+        _ directory: URL,
+        under standardizedRoot: URL
+    ) -> Bool {
+        let resolvedRoot = standardizedRoot.resolvingSymlinksInPath()
+        guard directory.deletingLastPathComponent()
+            .resolvingSymlinksInPath().path == resolvedRoot.path else {
+            return false
+        }
+        guard let values = try? directory.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        ),
+        values.isDirectory == true,
+        values.isSymbolicLink != true else {
+            return false
+        }
+        return directory.resolvingSymlinksInPath()
+            .deletingLastPathComponent().path == resolvedRoot.path
+    }
+
+    private func throwIfDuplicateContainerIDs(
+        in containers: [Container]
+    ) throws {
+        let duplicate = Dictionary(grouping: containers) {
+            $0.id
+        }.filter {
+            $0.value.count > 1
+        }.min {
+            $0.key.uuidString < $1.key.uuidString
+        }
+        if let duplicate {
+            throw PersistenceError.duplicateContainerID(
+                duplicate.key,
+                [manifestURL]
+            )
+        }
     }
 }
 
