@@ -11,14 +11,31 @@ public struct InstalledProgramCatalog {
     }
 
     public func installedPrograms(in container: Container) -> [InstalledProgram] {
-        let containerURL = URL(fileURLWithPath: container.path, isDirectory: true)
+        guard let boundary = containerBoundary(for: container) else {
+            return []
+        }
         var candidates: [ProgramCandidate] = []
 
-        for rootURL in programFilesRoots(in: containerURL) where directoryExists(rootURL) {
-            candidates.append(contentsOf: executableCandidates(under: rootURL, source: .programFiles))
+        for proposedRootURL in programFilesRoots(in: boundary.canonicalRootURL) {
+            guard let rootURL = validatedDirectoryURL(
+                proposedRootURL,
+                inside: boundary
+            ) else {
+                continue
+            }
+            candidates.append(
+                contentsOf: executableCandidates(
+                    under: rootURL,
+                    source: .programFiles,
+                    boundary: boundary
+                )
+            )
         }
 
-        if let defaultExecutable = defaultExecutableCandidate(for: container, containerURL: containerURL) {
+        if let defaultExecutable = defaultExecutableCandidate(
+            for: container,
+            boundary: boundary
+        ) {
             candidates.append(defaultExecutable)
         }
 
@@ -41,30 +58,63 @@ public struct InstalledProgramCatalog {
         ]
     }
 
-    private func executableCandidates(under rootURL: URL, source: InstalledProgramSource) -> [ProgramCandidate] {
+    private func executableCandidates(
+        under rootURL: URL,
+        source: InstalledProgramSource,
+        boundary: ContainerBoundary
+    ) -> [ProgramCandidate] {
+        let resourceKeys: Set<URLResourceKey> = [
+            .isDirectoryKey,
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+        ]
         guard let enumerator = fileManager.enumerator(
             at: rootURL,
-            includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey],
+            includingPropertiesForKeys: Array(resourceKeys),
             options: [.skipsHiddenFiles]
         ) else {
             return []
         }
 
         var candidates: [ProgramCandidate] = []
-        for case let executableURL as URL in enumerator {
-            let relativeComponents = relativePathComponents(from: rootURL, to: executableURL)
-            let resourceValues = try? executableURL.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
-            if resourceValues?.isDirectory == true {
+        for case let listedURL as URL in enumerator {
+            guard let resourceValues = try? listedURL.resourceValues(
+                forKeys: resourceKeys
+            ) else {
+                enumerator.skipDescendants()
+                continue
+            }
+
+            if resourceValues.isSymbolicLink == true {
+                // The catalog deliberately rejects even container-internal links.
+                // That keeps every returned path rooted in the enumerated tree and
+                // avoids trusting a link that can be retargeted after discovery.
+                enumerator.skipDescendants()
+                continue
+            }
+
+            let relativeComponents = relativePathComponents(
+                from: rootURL,
+                to: listedURL
+            )
+            if resourceValues.isDirectory == true {
                 if shouldSkipDirectory(relativeComponents) {
                     enumerator.skipDescendants()
                 }
                 continue
             }
 
-            guard executableURL.pathExtension.lowercased() == "exe" else { continue }
-            guard resourceValues?.isRegularFile == true else { continue }
+            guard listedURL.pathExtension.lowercased() == "exe" else { continue }
+            guard resourceValues.isRegularFile == true else { continue }
             guard relativeComponents.count >= 2, relativeComponents.count <= 8 else { continue }
             guard !isIgnoredPath(relativeComponents) else { continue }
+            guard let executableURL = validatedRegularFileURL(
+                listedURL,
+                inside: boundary,
+                scanRootURL: rootURL
+            ) else {
+                continue
+            }
 
             let topLevelDirectoryURL = rootURL.appendingPathComponent(relativeComponents[0], isDirectory: true)
             var candidate = ProgramCandidate(
@@ -87,20 +137,28 @@ public struct InstalledProgramCatalog {
         return candidates
     }
 
-    private func defaultExecutableCandidate(for container: Container, containerURL: URL) -> ProgramCandidate? {
+    private func defaultExecutableCandidate(
+        for container: Container,
+        boundary: ContainerBoundary
+    ) -> ProgramCandidate? {
         guard let executablePath = container.executablePath?.trimmingCharacters(in: .whitespacesAndNewlines),
               !executablePath.isEmpty else {
             return nil
         }
 
-        let executableURL = URL(fileURLWithPath: executablePath)
-        guard executableURL.pathExtension.lowercased() == "exe",
-              isRegularFile(executableURL),
-              isDescendant(executableURL, of: containerURL) else {
+        let listedExecutableURL = URL(fileURLWithPath: executablePath)
+        guard listedExecutableURL.pathExtension.lowercased() == "exe",
+              let executableURL = validatedRegularFileURL(
+                listedExecutableURL,
+                inside: boundary
+              ) else {
             return nil
         }
 
-        let metadata = defaultExecutableMetadata(for: executableURL, containerURL: containerURL)
+        let metadata = defaultExecutableMetadata(
+            for: executableURL,
+            boundary: boundary
+        )
         return ProgramCandidate(
             name: displayName(for: executableURL, topLevelName: metadata.topLevelName),
             executableURL: executableURL,
@@ -114,9 +172,15 @@ public struct InstalledProgramCatalog {
 
     private func defaultExecutableMetadata(
         for executableURL: URL,
-        containerURL: URL
+        boundary: ContainerBoundary
     ) -> (installDirectoryURL: URL, topLevelName: String, relativeComponents: [String]) {
-        for rootURL in programFilesRoots(in: containerURL) where isDescendant(executableURL, of: rootURL) {
+        for proposedRootURL in programFilesRoots(in: boundary.canonicalRootURL) {
+            guard let rootURL = validatedDirectoryURL(
+                proposedRootURL,
+                inside: boundary
+            ), isComponentContained(executableURL, in: rootURL) else {
+                continue
+            }
             let relativeComponents = relativePathComponents(from: rootURL, to: executableURL)
             if relativeComponents.count >= 2 {
                 return (
@@ -241,15 +305,134 @@ public struct InstalledProgramCatalog {
         return fileManager.fileExists(atPath: url.path, isDirectory: &isDirectory) && isDirectory.boolValue
     }
 
-    private func isRegularFile(_ url: URL) -> Bool {
-        (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false
+    private func containerBoundary(for container: Container) -> ContainerBoundary? {
+        let listedRootURL = URL(
+            fileURLWithPath: container.path,
+            isDirectory: true
+        ).standardizedFileURL
+        guard directoryExists(listedRootURL) else {
+            return nil
+        }
+
+        let canonicalRootURL = listedRootURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        guard directoryExists(canonicalRootURL) else {
+            return nil
+        }
+        return ContainerBoundary(
+            listedRootURL: listedRootURL,
+            canonicalRootURL: canonicalRootURL
+        )
     }
 
-    private func isDescendant(_ url: URL, of ancestorURL: URL) -> Bool {
-        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
-        let ancestorPath = ancestorURL.standardizedFileURL.resolvingSymlinksInPath().path
-        return path == ancestorPath || path.hasPrefix(ancestorPath + "/")
+    private func validatedDirectoryURL(
+        _ url: URL,
+        inside boundary: ContainerBoundary
+    ) -> URL? {
+        guard let confinedURL = confinedNonSymbolicURL(
+            url,
+            inside: boundary
+        ), let values = try? confinedURL.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        ), values.isDirectory == true,
+           values.isSymbolicLink != true else {
+            return nil
+        }
+        return confinedURL
     }
+
+    private func validatedRegularFileURL(
+        _ url: URL,
+        inside boundary: ContainerBoundary,
+        scanRootURL: URL? = nil
+    ) -> URL? {
+        guard let confinedURL = confinedNonSymbolicURL(
+            url,
+            inside: boundary
+        ), scanRootURL.map({
+            isComponentContained(confinedURL, in: $0)
+        }) ?? true,
+        let values = try? confinedURL.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ), values.isRegularFile == true,
+           values.isSymbolicLink != true else {
+            return nil
+        }
+        return confinedURL
+    }
+
+    private func confinedNonSymbolicURL(
+        _ url: URL,
+        inside boundary: ContainerBoundary
+    ) -> URL? {
+        let standardizedURL = url.standardizedFileURL
+        let relativeComponents: [String]
+        if let canonicalRelativeComponents = containedRelativePathComponents(
+            from: boundary.canonicalRootURL,
+            to: standardizedURL
+        ) {
+            relativeComponents = canonicalRelativeComponents
+        } else if let listedRelativeComponents = containedRelativePathComponents(
+            from: boundary.listedRootURL,
+            to: standardizedURL
+        ) {
+            relativeComponents = listedRelativeComponents
+        } else {
+            return nil
+        }
+
+        var projectedURL = boundary.canonicalRootURL
+        for component in relativeComponents {
+            projectedURL.appendPathComponent(component)
+            guard let values = try? projectedURL.resourceValues(
+                forKeys: [.isSymbolicLinkKey]
+            ), values.isSymbolicLink != true else {
+                return nil
+            }
+        }
+
+        let resolvedURL = projectedURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        guard isComponentContained(
+            resolvedURL,
+            in: boundary.canonicalRootURL
+        ) else {
+            return nil
+        }
+        return projectedURL.standardizedFileURL
+    }
+
+    private func containedRelativePathComponents(
+        from rootURL: URL,
+        to candidateURL: URL
+    ) -> [String]? {
+        let rootComponents = rootURL.standardizedFileURL.pathComponents
+        let candidateComponents = candidateURL.standardizedFileURL.pathComponents
+        guard candidateComponents.count >= rootComponents.count,
+              Array(candidateComponents.prefix(rootComponents.count))
+                == rootComponents else {
+            return nil
+        }
+        return Array(candidateComponents.dropFirst(rootComponents.count))
+    }
+
+    private func isComponentContained(
+        _ candidateURL: URL,
+        in rootURL: URL
+    ) -> Bool {
+        let candidateComponents = candidateURL.standardizedFileURL.pathComponents
+        let rootComponents = rootURL.standardizedFileURL.pathComponents
+        return candidateComponents.count >= rootComponents.count
+            && Array(candidateComponents.prefix(rootComponents.count))
+                == rootComponents
+    }
+}
+
+private struct ContainerBoundary {
+    var listedRootURL: URL
+    var canonicalRootURL: URL
 }
 
 private struct ProgramCandidate {

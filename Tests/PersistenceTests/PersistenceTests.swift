@@ -708,6 +708,179 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(programs.isEmpty)
 }
 
+@Test func installedProgramCatalogRejectsSymlinkedProgramFilesOutsideContainer() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent(
+        "Games.container",
+        isDirectory: true
+    )
+    let driveCURL = containerURL.appendingPathComponent(
+        "drive_c",
+        isDirectory: true
+    )
+    let outsideProgramFilesURL = root.appendingPathComponent(
+        "Outside Program Files",
+        isDirectory: true
+    )
+    let outsideExecutableURL = outsideProgramFilesURL
+        .appendingPathComponent("Escaped/Escaped.exe")
+    try FileManager.default.createDirectory(
+        at: driveCURL,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: outsideExecutableURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try Data().write(to: outsideExecutableURL)
+    try FileManager.default.createSymbolicLink(
+        at: driveCURL.appendingPathComponent(
+            "Program Files",
+            isDirectory: true
+        ),
+        withDestinationURL: outsideProgramFilesURL
+    )
+
+    let programs = InstalledProgramCatalog().installedPrograms(
+        in: Container(name: "Games", path: containerURL.path)
+    )
+
+    #expect(programs.isEmpty)
+}
+
+@Test func installedProgramCatalogRejectsNestedDirectoryAndFileSymlinks() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent(
+        "Games.container",
+        isDirectory: true
+    )
+    let programFilesURL = containerURL.appendingPathComponent(
+        "drive_c/Program Files",
+        isDirectory: true
+    )
+    let safeExecutableURL = programFilesURL
+        .appendingPathComponent("Safe/Safe.exe")
+    let outsideDirectoryURL = root.appendingPathComponent(
+        "Outside",
+        isDirectory: true
+    )
+    let outsideExecutableURL = outsideDirectoryURL
+        .appendingPathComponent("Escaped.exe")
+    let linkedFileURL = programFilesURL
+        .appendingPathComponent("Linked/Linked.exe")
+    try FileManager.default.createDirectory(
+        at: safeExecutableURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: outsideDirectoryURL,
+        withIntermediateDirectories: true
+    )
+    try FileManager.default.createDirectory(
+        at: linkedFileURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+    try Data().write(to: safeExecutableURL)
+    try Data().write(to: outsideExecutableURL)
+    try FileManager.default.createSymbolicLink(
+        at: programFilesURL.appendingPathComponent(
+            "Escaped",
+            isDirectory: true
+        ),
+        withDestinationURL: outsideDirectoryURL
+    )
+    try FileManager.default.createSymbolicLink(
+        at: linkedFileURL,
+        withDestinationURL: outsideExecutableURL
+    )
+
+    let programs = InstalledProgramCatalog().installedPrograms(
+        in: Container(name: "Games", path: containerURL.path)
+    )
+
+    #expect(programs.map(\.executablePath) == [safeExecutableURL.path])
+}
+
+@Test func installedProgramCatalogRejectsInternalRelativeExecutableSymlink() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent(
+        "Tools.container",
+        isDirectory: true
+    )
+    let toolsURL = containerURL.appendingPathComponent(
+        "drive_c/Tools",
+        isDirectory: true
+    )
+    let realExecutableURL = toolsURL.appendingPathComponent("Real.exe")
+    let linkedExecutableURL = toolsURL.appendingPathComponent("Linked.exe")
+    try FileManager.default.createDirectory(
+        at: toolsURL,
+        withIntermediateDirectories: true
+    )
+    try Data().write(to: realExecutableURL)
+    try FileManager.default.createSymbolicLink(
+        atPath: linkedExecutableURL.path,
+        withDestinationPath: "Real.exe"
+    )
+
+    let programs = InstalledProgramCatalog().installedPrograms(
+        in: Container(
+            name: "Tools",
+            path: containerURL.path,
+            executablePath: linkedExecutableURL.path
+        )
+    )
+
+    // Internal relative links are intentionally rejected too: the catalog only
+    // returns concrete regular files whose path components cannot be retargeted.
+    #expect(programs.isEmpty)
+}
+
+@Test func installedProgramCatalogRejectsDefaultExecutableSymlinkEscape() throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let containerURL = root.appendingPathComponent(
+        "Tools.container",
+        isDirectory: true
+    )
+    let toolsURL = containerURL.appendingPathComponent(
+        "drive_c/Tools",
+        isDirectory: true
+    )
+    let outsideExecutableURL = root.appendingPathComponent("Outside.exe")
+    let linkedExecutableURL = toolsURL.appendingPathComponent("Linked.exe")
+    try FileManager.default.createDirectory(
+        at: toolsURL,
+        withIntermediateDirectories: true
+    )
+    try Data().write(to: outsideExecutableURL)
+    try FileManager.default.createSymbolicLink(
+        at: linkedExecutableURL,
+        withDestinationURL: outsideExecutableURL
+    )
+
+    let programs = InstalledProgramCatalog().installedPrograms(
+        in: Container(
+            name: "Tools",
+            path: containerURL.path,
+            executablePath: linkedExecutableURL.path
+        )
+    )
+
+    #expect(programs.isEmpty)
+}
+
 @Test func containerDirectoryCatalogListsFoldersBeforeFiles() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }
