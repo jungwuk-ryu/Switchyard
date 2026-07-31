@@ -176,7 +176,9 @@ url_status="$?"
 set -e
 test "$url_status" -eq 1
 test ! -e "$REQUEST_PATH"
-rg -F "Timed out while waiting to access the Wine prefix." "$TEST_ROOT/url.stderr" >/dev/null
+/usr/bin/grep -F \
+  "Timed out while waiting to access the Wine prefix." \
+  "$TEST_ROOT/url.stderr" >/dev/null
 
 DESKTOP_PATH="$PREFIX_PATH/drive_c/users/steamuser/Desktop"
 mkdir -p "$DESKTOP_PATH"
@@ -201,7 +203,9 @@ shortcut_status="$?"
 set -e
 test "$shortcut_status" -eq 1
 test ! -e "$REQUEST_PATH"
-rg -F "Timed out while waiting to access the Wine prefix." "$TEST_ROOT/shortcut.stderr" >/dev/null
+/usr/bin/grep -F \
+  "Timed out while waiting to access the Wine prefix." \
+  "$TEST_ROOT/shortcut.stderr" >/dev/null
 
 stop_owned_child "$LOCK_HOLDER_PID"
 LOCK_HOLDER_PID=""
@@ -325,7 +329,7 @@ fi
 FAKE_RUNNER_PID=""
 FAKE_RUNNER_IDENTITY=""
 test -z "$(find "$BRIDGE_ROOT/Requests" -type f -print -quit 2>/dev/null)"
-rg -F "did not finish opening the desktop shortcut within 30 seconds" \
+/usr/bin/grep -F "did not finish opening the desktop shortcut within 30 seconds" \
   "$TEST_ROOT/handler.stderr" >/dev/null
 
 rm -f "$FAKE_RUNNER_PID_PATH" "$FAKE_RUNNER_SIGNAL_PATH"

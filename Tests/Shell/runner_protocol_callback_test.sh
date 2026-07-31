@@ -186,8 +186,8 @@ diff -u \
     '[invocation]' \
     'reg' 'copy' 'HKCU\Software\Classes\xdt' 'HKCR\xdt' '/s' '/f') \
   "$ARGUMENTS_PATH"
-test "$(rg -c -F -x "$PREFIX_PATH" "$ENVIRONMENT_PATH")" = "6"
-test "$(rg -c -F -x 'C:\windows\temp\switchyard-protocols-v1.txt' "$ENVIRONMENT_PATH")" = "6"
+test "$(/usr/bin/grep -c -F -x "$PREFIX_PATH" "$ENVIRONMENT_PATH")" = "6"
+test "$(/usr/bin/grep -c -F -x 'C:\windows\temp\switchyard-protocols-v1.txt' "$ENVIRONMENT_PATH")" = "6"
 
 : >"$ARGUMENTS_PATH"
 : >"$ENVIRONMENT_PATH"
@@ -210,7 +210,7 @@ diff -u \
     '[invocation]' \
     'start' 'xdt://callback?code=existing-handler-secret') \
   "$ARGUMENTS_PATH"
-test "$(rg -c -F -x "$PREFIX_PATH" "$ENVIRONMENT_PATH")" = "3"
+test "$(/usr/bin/grep -c -F -x "$PREFIX_PATH" "$ENVIRONMENT_PATH")" = "3"
 
 : >"$ARGUMENTS_PATH"
 : >"$ENVIRONMENT_PATH"
@@ -251,16 +251,18 @@ SWITCHYARD_TEST_ARGUMENTS_PATH="$ARGUMENTS_PATH" \
 SWITCHYARD_TEST_ENVIRONMENT_PATH="$ENVIRONMENT_PATH" \
   "$RUNNER_PATH" run --plan "$PLAN_PATH" >/dev/null
 for _ in 1 2 3 4 5; do
-  invocation_count="$(rg -c '^\[invocation\]$' "$ARGUMENTS_PATH" || true)"
+  invocation_count="$(
+    /usr/bin/grep -c -F -x '[invocation]' "$ARGUMENTS_PATH" || true
+  )"
   [ "$invocation_count" = "2" ] && break
   sleep 0.1
 done
-test "$(rg -c '^\[invocation\]$' "$ARGUMENTS_PATH")" = "2"
-test "$(rg -c -x 'winemenubuilder.exe' "$ARGUMENTS_PATH")" = "1"
-test "$(rg -c -x -- '-m' "$ARGUMENTS_PATH")" = "1"
-test "$(rg -c -F -x 'C:\Game.exe' "$ARGUMENTS_PATH")" = "1"
-test "$(rg -c -F -x "$PREFIX_PATH" "$ENVIRONMENT_PATH")" = "2"
-test "$(rg -c -F -x 'C:\windows\temp\switchyard-protocols-v1.txt' "$ENVIRONMENT_PATH")" = "2"
-test "$(rg -c -F -x "rosetta=$EXPECTED_ROSETTA_AVX" "$ENVIRONMENT_PATH")" = "2"
+test "$(/usr/bin/grep -c -F -x '[invocation]' "$ARGUMENTS_PATH")" = "2"
+test "$(/usr/bin/grep -c -x 'winemenubuilder.exe' "$ARGUMENTS_PATH")" = "1"
+test "$(/usr/bin/grep -c -x -- '-m' "$ARGUMENTS_PATH")" = "1"
+test "$(/usr/bin/grep -c -F -x 'C:\Game.exe' "$ARGUMENTS_PATH")" = "1"
+test "$(/usr/bin/grep -c -F -x "$PREFIX_PATH" "$ENVIRONMENT_PATH")" = "2"
+test "$(/usr/bin/grep -c -F -x 'C:\windows\temp\switchyard-protocols-v1.txt' "$ENVIRONMENT_PATH")" = "2"
+test "$(/usr/bin/grep -c -F -x "rosetta=$EXPECTED_ROSETTA_AVX" "$ENVIRONMENT_PATH")" = "2"
 
 printf 'runner protocol callback test passed\n'

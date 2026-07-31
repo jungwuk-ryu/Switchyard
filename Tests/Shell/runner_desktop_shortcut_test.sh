@@ -150,10 +150,10 @@ SWITCHYARD_TEST_ENVIRONMENT_PATH="$ENVIRONMENT_PATH" \
 test -d "$DESKTOP_PATH"
 test ! -L "$DESKTOP_PATH"
 test -d "$HOME/Desktop"
-test "$(rg -c -x 'winemenubuilder.exe' "$ARGUMENTS_PATH")" = "1"
-test "$(rg -c -x -- '-m' "$ARGUMENTS_PATH")" = "1"
-test "$(rg -c -F -x 'C:\Game.exe' "$ARGUMENTS_PATH")" = "1"
-test "$(rg -c -F -x "rosetta=$EXPECTED_ROSETTA_AVX" "$ENVIRONMENT_PATH")" = "2"
+test "$(/usr/bin/grep -c -x 'winemenubuilder.exe' "$ARGUMENTS_PATH")" = "1"
+test "$(/usr/bin/grep -c -x -- '-m' "$ARGUMENTS_PATH")" = "1"
+test "$(/usr/bin/grep -c -F -x 'C:\Game.exe' "$ARGUMENTS_PATH")" = "1"
+test "$(/usr/bin/grep -c -F -x "rosetta=$EXPECTED_ROSETTA_AVX" "$ENVIRONMENT_PATH")" = "2"
 
 : >"$ARGUMENTS_PATH"
 : >"$ENVIRONMENT_PATH"
@@ -174,6 +174,6 @@ JSON
 SWITCHYARD_TEST_ARGUMENTS_PATH="$ARGUMENTS_PATH" \
 SWITCHYARD_TEST_ENVIRONMENT_PATH="$ENVIRONMENT_PATH" \
   "$RUNNER_PATH" run --plan "$PLAN_PATH" >/dev/null
-test "$(rg -c -F -x 'rosetta=0' "$ENVIRONMENT_PATH")" = "2"
+test "$(/usr/bin/grep -c -F -x 'rosetta=0' "$ENVIRONMENT_PATH")" = "2"
 
 printf 'runner desktop shortcut test passed\n'
