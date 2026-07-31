@@ -44,6 +44,100 @@ enum SessionStageDefaultProgramResolver {
     }
 }
 
+struct SessionStageSearchPresentation: Equatable {
+    private(set) var query = ""
+    private(set) var isPresented = false
+
+    var normalizedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var showsResults: Bool {
+        isPresented && !normalizedQuery.isEmpty
+    }
+
+    mutating func present() {
+        isPresented = true
+    }
+
+    mutating func updateQuery(_ query: String) {
+        self.query = query
+        if !normalizedQuery.isEmpty {
+            isPresented = true
+        }
+    }
+
+    mutating func dismiss() {
+        query = ""
+        isPresented = false
+    }
+}
+
+enum SessionStageSearchResultID: Hashable {
+    case program(String)
+    case startMenuEntry(String)
+}
+
+enum SessionStageSearchFocus: Hashable {
+    case field
+    case result(SessionStageSearchResultID)
+}
+
+enum SessionStageSearchFocusMove: Equatable {
+    case focus(SessionStageSearchFocus)
+    case systemDefault
+}
+
+enum SessionStageSearchReturnAction: Equatable {
+    case activate(SessionStageSearchResultID)
+    case none
+}
+
+enum SessionStageSearchInteractionPolicy {
+    static func focusAfterTab(
+        from focus: SessionStageSearchFocus,
+        resultIDs: [SessionStageSearchResultID],
+        movesBackward: Bool
+    ) -> SessionStageSearchFocusMove {
+        switch focus {
+        case .field:
+            guard !movesBackward, let firstResultID = resultIDs.first else {
+                return .systemDefault
+            }
+            return .focus(.result(firstResultID))
+        case .result(let resultID):
+            guard let index = resultIDs.firstIndex(of: resultID) else {
+                return .systemDefault
+            }
+            if movesBackward {
+                guard index > resultIDs.startIndex else {
+                    return .focus(.field)
+                }
+                return .focus(.result(resultIDs[resultIDs.index(before: index)]))
+            }
+            let nextIndex = resultIDs.index(after: index)
+            guard nextIndex < resultIDs.endIndex else {
+                return .systemDefault
+            }
+            return .focus(.result(resultIDs[nextIndex]))
+        }
+    }
+
+    static func returnAction(
+        from focus: SessionStageSearchFocus,
+        resultIDs: [SessionStageSearchResultID]
+    ) -> SessionStageSearchReturnAction {
+        switch focus {
+        case .field:
+            guard let firstResultID = resultIDs.first else { return .none }
+            return .activate(firstResultID)
+        case .result(let resultID):
+            guard resultIDs.contains(resultID) else { return .none }
+            return .activate(resultID)
+        }
+    }
+}
+
 enum SessionStageExecutablePathResolver {
     static func normalizedWindowsPath(
         executablePath: String,
@@ -359,12 +453,12 @@ struct ContainerSessionStageView: View {
     let onDelete: () -> Void
 
     @StateObject private var stageModel = ContainerSessionStageModel()
-    @State private var searchText = ""
+    @State private var searchPresentation = SessionStageSearchPresentation()
     @State private var startMenuPresented = false
     @State private var inspectorPopoverPresented = false
     @State private var endSessionConfirmationPresented = false
     @State private var closeNotice: String?
-    @FocusState private var searchIsFocused: Bool
+    @FocusState private var searchFocus: SessionStageSearchFocus?
 
     var body: some View {
         GeometryReader { proxy in
@@ -384,12 +478,14 @@ struct ContainerSessionStageView: View {
                         .padding(.bottom, 20)
                 }
 
-                if searchIsFocused, !searchText.isEmpty {
+                if searchPresentation.showsResults {
                     searchResults
                         .frame(width: min(430, max(320, proxy.size.width * 0.34)))
                         .position(x: proxy.size.width / 2, y: 145)
                         .transition(.scale(scale: 0.97, anchor: .top).combined(with: .opacity))
                         .zIndex(20)
+
+                    searchDismissShortcut
                 }
 
                 if startMenuPresented {
@@ -436,7 +532,7 @@ struct ContainerSessionStageView: View {
         }
         .animation(
             reduceMotion ? nil : .snappy(duration: 0.25),
-            value: searchIsFocused && !searchText.isEmpty
+            value: searchPresentation.showsResults
         )
         .animation(
             reduceMotion ? nil : .snappy(duration: 0.24),
@@ -489,12 +585,17 @@ struct ContainerSessionStageView: View {
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.white.opacity(0.58))
 
-                TextField("Search apps or tasks", text: $searchText)
+                TextField("Search apps or tasks", text: searchQueryBinding)
                     .textFieldStyle(.plain)
-                    .focused($searchIsFocused)
+                    .focused($searchFocus, equals: .field)
                     .font(.system(size: 12))
                     .foregroundStyle(.white.opacity(0.9))
-                    .onSubmit(launchFirstSearchResult)
+                    .onSubmit {
+                        performSearchReturn(from: .field)
+                    }
+                    .onKeyPress(.tab, phases: .down, action: handleSearchTab)
+                    .onExitCommand(perform: dismissSearch)
+                    .accessibilityIdentifier("sessionStage.searchField")
 
                 Text("⌘K")
                     .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -505,7 +606,7 @@ struct ContainerSessionStageView: View {
             .background(.black.opacity(0.24), in: Capsule())
             .overlay {
                 Capsule().strokeBorder(
-                    searchIsFocused
+                    searchPresentation.showsResults
                         ? Color.blue.opacity(0.52)
                         : Color.white.opacity(0.13)
                 )
@@ -769,11 +870,10 @@ struct ContainerSessionStageView: View {
 
     private var searchResults: some View {
         VStack(spacing: 4) {
-            ForEach(searchPrograms.prefix(5)) { program in
+            ForEach(displayedSearchPrograms) { program in
+                let resultID = SessionStageSearchResultID.program(program.id)
                 Button {
-                    searchText = ""
-                    searchIsFocused = false
-                    store.runInstalledProgram(program, in: container.id)
+                    _ = activateSearchResult(resultID)
                 } label: {
                     HStack(spacing: 10) {
                         WindowsProgramIconView(program: program, size: 30)
@@ -788,14 +888,28 @@ struct ContainerSessionStageView: View {
                     .frame(height: 43)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(SessionStageSearchRowStyle())
+                .buttonStyle(
+                    SessionStageSearchRowStyle(
+                        isFocused: searchFocus == .result(resultID)
+                    )
+                )
+                .focused($searchFocus, equals: .result(resultID))
+                .onKeyPress(.tab, phases: .down, action: handleSearchTab)
+                .onKeyPress(.return) {
+                    performSearchReturn(from: .result(resultID))
+                        ? .handled
+                        : .ignored
+                }
+                .onExitCommand(perform: dismissSearch)
+                .accessibilityIdentifier(
+                    accessibilityIdentifier(for: resultID)
+                )
             }
 
-            ForEach(searchStartMenuEntries.prefix(max(0, 7 - searchPrograms.count))) { entry in
+            ForEach(displayedSearchStartMenuEntries) { entry in
+                let resultID = SessionStageSearchResultID.startMenuEntry(entry.id)
                 Button {
-                    searchText = ""
-                    searchIsFocused = false
-                    store.runStartMenuEntry(entry, in: container.id)
+                    _ = activateSearchResult(resultID)
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: entry.kind == .url ? "link" : "app.fill")
@@ -816,10 +930,25 @@ struct ContainerSessionStageView: View {
                     .frame(height: 43)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(SessionStageSearchRowStyle())
+                .buttonStyle(
+                    SessionStageSearchRowStyle(
+                        isFocused: searchFocus == .result(resultID)
+                    )
+                )
+                .focused($searchFocus, equals: .result(resultID))
+                .onKeyPress(.tab, phases: .down, action: handleSearchTab)
+                .onKeyPress(.return) {
+                    performSearchReturn(from: .result(resultID))
+                        ? .handled
+                        : .ignored
+                }
+                .onExitCommand(perform: dismissSearch)
+                .accessibilityIdentifier(
+                    accessibilityIdentifier(for: resultID)
+                )
             }
 
-            if searchPrograms.isEmpty, searchStartMenuEntries.isEmpty {
+            if searchResultIDs.isEmpty {
                 Text("No matching apps or tasks")
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -833,16 +962,28 @@ struct ContainerSessionStageView: View {
                 .strokeBorder(Color.white.opacity(0.13))
         }
         .shadow(color: .black.opacity(0.44), radius: 20, y: 10)
+        .accessibilityIdentifier("sessionStage.searchResults")
     }
 
     private var commandKShortcut: some View {
         Button {
-            searchIsFocused = true
+            searchPresentation.present()
+            searchFocus = .field
         } label: {
             Color.clear.frame(width: 1, height: 1)
         }
         .buttonStyle(.plain)
         .keyboardShortcut("k", modifiers: .command)
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+    }
+
+    private var searchDismissShortcut: some View {
+        Button(action: dismissSearch) {
+            Color.clear.frame(width: 1, height: 1)
+        }
+        .buttonStyle(.plain)
+        .keyboardShortcut(.cancelAction)
         .accessibilityHidden(true)
         .allowsHitTesting(false)
     }
@@ -1090,6 +1231,10 @@ struct ContainerSessionStageView: View {
         }
     }
 
+    private var displayedSearchPrograms: ArraySlice<InstalledProgram> {
+        searchPrograms.prefix(5)
+    }
+
     private var searchStartMenuEntries: [WindowsStartMenuEntry] {
         guard !normalizedSearchQuery.isEmpty else { return [] }
         return startMenuEntries.filter {
@@ -1098,21 +1243,98 @@ struct ContainerSessionStageView: View {
         }
     }
 
-    private func launchFirstSearchResult() {
-        guard !normalizedSearchQuery.isEmpty else { return }
-        if let program = searchPrograms.first {
-            searchText = ""
-            searchIsFocused = false
-            store.runInstalledProgram(program, in: container.id)
-        } else if let entry = searchStartMenuEntries.first {
-            searchText = ""
-            searchIsFocused = false
-            store.runStartMenuEntry(entry, in: container.id)
+    private var displayedSearchStartMenuEntries: ArraySlice<WindowsStartMenuEntry> {
+        searchStartMenuEntries.prefix(max(0, 7 - searchPrograms.count))
+    }
+
+    private var searchResultIDs: [SessionStageSearchResultID] {
+        displayedSearchPrograms.map {
+            .program($0.id)
+        } + displayedSearchStartMenuEntries.map {
+            .startMenuEntry($0.id)
+        }
+    }
+
+    private var searchQueryBinding: Binding<String> {
+        Binding {
+            searchPresentation.query
+        } set: { query in
+            searchPresentation.updateQuery(query)
         }
     }
 
     private var normalizedSearchQuery: String {
-        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        searchPresentation.normalizedQuery
+    }
+
+    private func handleSearchTab(_ keyPress: KeyPress) -> KeyPress.Result {
+        guard searchPresentation.showsResults,
+              let searchFocus else {
+            return .ignored
+        }
+        let move = SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: searchFocus,
+            resultIDs: searchResultIDs,
+            movesBackward: keyPress.modifiers.contains(.shift)
+        )
+        switch move {
+        case .focus(let focus):
+            self.searchFocus = focus
+            return .handled
+        case .systemDefault:
+            return .ignored
+        }
+    }
+
+    @discardableResult
+    private func performSearchReturn(
+        from focus: SessionStageSearchFocus
+    ) -> Bool {
+        let action = SessionStageSearchInteractionPolicy.returnAction(
+            from: focus,
+            resultIDs: searchResultIDs
+        )
+        guard case .activate(let resultID) = action else { return false }
+        return activateSearchResult(resultID)
+    }
+
+    @discardableResult
+    private func activateSearchResult(
+        _ resultID: SessionStageSearchResultID
+    ) -> Bool {
+        switch resultID {
+        case .program(let programID):
+            guard let program = displayedSearchPrograms.first(where: {
+                $0.id == programID
+            }) else {
+                return false
+            }
+            dismissSearch()
+            store.runInstalledProgram(program, in: container.id)
+        case .startMenuEntry(let entryID):
+            guard let entry = displayedSearchStartMenuEntries.first(where: {
+                $0.id == entryID
+            }) else {
+                return false
+            }
+            dismissSearch()
+            store.runStartMenuEntry(entry, in: container.id)
+        }
+        return true
+    }
+
+    private func dismissSearch() {
+        searchFocus = nil
+        searchPresentation.dismiss()
+    }
+
+    private func accessibilityIdentifier(
+        for resultID: SessionStageSearchResultID
+    ) -> String {
+        guard let index = searchResultIDs.firstIndex(of: resultID) else {
+            return "sessionStage.searchResult"
+        }
+        return "sessionStage.searchResult.\(index + 1)"
     }
 
     private func program(for window: WineWindowSnapshot?) -> InstalledProgram? {
@@ -1244,11 +1466,21 @@ private struct SessionStageHeaderButtonStyle: ButtonStyle {
 }
 
 private struct SessionStageSearchRowStyle: ButtonStyle {
+    let isFocused: Bool
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background(
-                Color.white.opacity(configuration.isPressed ? 0.1 : 0),
+                Color.white.opacity(
+                    configuration.isPressed ? 0.12 : (isFocused ? 0.085 : 0)
+                ),
                 in: RoundedRectangle(cornerRadius: 8)
             )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(
+                        isFocused ? Color.blue.opacity(0.62) : Color.clear
+                    )
+            }
     }
 }

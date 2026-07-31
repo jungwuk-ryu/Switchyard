@@ -55,6 +55,110 @@ import Testing
     #expect(!resolution.requiresDefaultReselection)
 }
 
+@Test func sessionStageSearchStaysPresentedUntilExplicitDismissal() {
+    var presentation = SessionStageSearchPresentation()
+
+    presentation.present()
+    presentation.updateQuery("steam")
+
+    #expect(presentation.showsResults)
+    #expect(presentation.query == "steam")
+
+    presentation.dismiss()
+
+    #expect(!presentation.showsResults)
+    #expect(!presentation.isPresented)
+    #expect(presentation.query.isEmpty)
+}
+
+@Test func sessionStageSearchTabTraversalReachesEveryResultWithoutTrappingFocus() {
+    let first = SessionStageSearchResultID.program("first")
+    let second = SessionStageSearchResultID.program("second")
+    let third = SessionStageSearchResultID.startMenuEntry("third")
+    let resultIDs = [first, second, third]
+
+    #expect(
+        SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: .field,
+            resultIDs: resultIDs,
+            movesBackward: false
+        ) == .focus(.result(first))
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: .result(first),
+            resultIDs: resultIDs,
+            movesBackward: false
+        ) == .focus(.result(second))
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: .result(second),
+            resultIDs: resultIDs,
+            movesBackward: false
+        ) == .focus(.result(third))
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: .result(third),
+            resultIDs: resultIDs,
+            movesBackward: false
+        ) == .systemDefault
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: .result(third),
+            resultIDs: resultIDs,
+            movesBackward: true
+        ) == .focus(.result(second))
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: .result(first),
+            resultIDs: resultIDs,
+            movesBackward: true
+        ) == .focus(.field)
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.focusAfterTab(
+            from: .field,
+            resultIDs: resultIDs,
+            movesBackward: true
+        ) == .systemDefault
+    )
+}
+
+@Test func sessionStageSearchReturnTargetsTheFocusedResultExplicitly() {
+    let first = SessionStageSearchResultID.program("first")
+    let second = SessionStageSearchResultID.startMenuEntry("second")
+    let resultIDs = [first, second]
+
+    #expect(
+        SessionStageSearchInteractionPolicy.returnAction(
+            from: .field,
+            resultIDs: resultIDs
+        ) == .activate(first)
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.returnAction(
+            from: .result(second),
+            resultIDs: resultIDs
+        ) == .activate(second)
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.returnAction(
+            from: .result(.program("stale")),
+            resultIDs: resultIDs
+        ) == .none
+    )
+    #expect(
+        SessionStageSearchInteractionPolicy.returnAction(
+            from: .field,
+            resultIDs: []
+        ) == .none
+    )
+}
+
 @MainActor
 @Test func sessionStageKeepsExistingWindowOrderAndAppendsNewWindows() {
     let previous = [
