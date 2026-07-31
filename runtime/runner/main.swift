@@ -1,6 +1,8 @@
 import AppCore
 import Darwin
 import Foundation
+import Metal
+import RuntimeCatalog
 
 private enum RunnerRosettaAVXPolicy {
     static let current = RosettaAVXAdvertisingPolicy(
@@ -24,6 +26,376 @@ private enum RunnerRosettaAVXPolicy {
         #else
         false
         #endif
+    }
+}
+
+struct RunnerGPUIdentitySystemContext: Equatable, Sendable {
+    let operatingSystemBuild: String
+    let defaultGPURegistryID: UInt64
+}
+
+protocol RunnerGPUIdentitySystemContextProviding: Sendable {
+    func currentContext() throws -> RunnerGPUIdentitySystemContext
+}
+
+struct CurrentRunnerGPUIdentitySystemContextProvider:
+    RunnerGPUIdentitySystemContextProviding,
+    Sendable
+{
+    func currentContext() throws -> RunnerGPUIdentitySystemContext {
+        var byteCount = 0
+        guard Darwin.sysctlbyname(
+            "kern.osversion",
+            nil,
+            &byteCount,
+            nil,
+            0
+        ) == 0,
+        byteCount > 1 else {
+            throw RunnerGPUIdentityValidationError
+                .systemContextUnavailable
+        }
+
+        var bytes = [CChar](repeating: 0, count: byteCount)
+        let result = bytes.withUnsafeMutableBytes { buffer in
+            Darwin.sysctlbyname(
+                "kern.osversion",
+                buffer.baseAddress,
+                &byteCount,
+                nil,
+                0
+            )
+        }
+        guard result == 0,
+              let terminator = bytes.firstIndex(of: 0),
+              terminator > bytes.startIndex,
+              let registryID =
+                MTLCreateSystemDefaultDevice()?.registryID,
+              registryID != 0 else {
+            throw RunnerGPUIdentityValidationError
+                .systemContextUnavailable
+        }
+        let operatingSystemBuild = String(
+            decoding: bytes[..<terminator].map {
+                UInt8(bitPattern: $0)
+            },
+            as: UTF8.self
+        )
+        guard !operatingSystemBuild.isEmpty else {
+            throw RunnerGPUIdentityValidationError
+                .systemContextUnavailable
+        }
+        return RunnerGPUIdentitySystemContext(
+            operatingSystemBuild: operatingSystemBuild,
+            defaultGPURegistryID: registryID
+        )
+    }
+}
+
+protocol RunnerGPUIdentityEvidenceBuilding: Sendable {
+    func build(
+        runtimeID: String,
+        runtimeRootURL: URL,
+        runtimeContentFingerprint: String,
+        helperURL: URL,
+        policyURL: URL
+    ) async throws -> RuntimeGPUIdentityEvidence
+}
+
+extension RuntimeGPUIdentityEvidenceBuilder:
+    RunnerGPUIdentityEvidenceBuilding {}
+
+enum RunnerGPUIdentityValidationError: Error, Equatable, Sendable {
+    case snapshotMissing
+    case gptkNotEnabled
+    case systemContextUnavailable
+    case operatingSystemChanged
+    case defaultGPUChanged
+    case invalidRuntimeExecutable
+    case runtimeIDMismatch
+    case runtimeRootMismatch
+    case runtimeContentMismatch
+    case helperPathMismatch
+    case policyPathMismatch
+    case runtimeEvidenceUnavailable
+    case runtimeEvidenceChanged
+    case invalidIdentityTransport
+    case invalidRunnerExecutable
+}
+
+struct RunnerValidatedGPUIdentityTransport: Equatable, Sendable {
+    let helperPath: String
+    let encodedIdentity: String
+}
+
+struct RunnerGPUIdentityPlanValidator: Sendable {
+    static let helperRelativePath =
+        "libexec/switchyard-host-gpu-info"
+    static let policyRelativePath =
+        "share/switchyard/gpu_capability_policy.sh"
+
+    private let contextProvider:
+        any RunnerGPUIdentitySystemContextProviding
+    private let evidenceBuilder:
+        any RunnerGPUIdentityEvidenceBuilding
+
+    init(
+        contextProvider:
+            any RunnerGPUIdentitySystemContextProviding =
+                CurrentRunnerGPUIdentitySystemContextProvider(),
+        evidenceBuilder:
+            any RunnerGPUIdentityEvidenceBuilding =
+                RuntimeGPUIdentityEvidenceBuilder()
+    ) {
+        self.contextProvider = contextProvider
+        self.evidenceBuilder = evidenceBuilder
+    }
+
+    func validate(
+        plan: CommandPlan,
+        runnerURL: URL
+    ) async throws -> RunnerValidatedGPUIdentityTransport {
+        guard let snapshot = plan.gptkGPUIdentitySnapshot else {
+            throw RunnerGPUIdentityValidationError.snapshotMissing
+        }
+        guard let gptkRoot =
+                plan.environment[
+                    GPTKGPUIdentityTransport
+                        .gptkRootEnvironmentKey
+                ],
+              gptkRoot.first == "/",
+              gptkRoot.utf8.count <= Int(PATH_MAX),
+              !gptkRoot.unicodeScalars.contains(where: {
+                  $0.value <= 0x1F || $0.value == 0x7F
+              }),
+              URL(
+                  fileURLWithPath: gptkRoot,
+                  isDirectory: true
+              )
+              .standardizedFileURL
+              .resolvingSymlinksInPath()
+              .standardizedFileURL
+              .path == gptkRoot else {
+            throw RunnerGPUIdentityValidationError.gptkNotEnabled
+        }
+        let runtime = snapshot.cacheKey.runtime
+
+        let runtimeID =
+            plan.environment[
+                RuntimeGPUIdentityContentFingerprint
+                    .runtimeIDEnvironmentKey
+            ]
+        guard runtimeID == runtime.runtimeID else {
+            throw RunnerGPUIdentityValidationError.runtimeIDMismatch
+        }
+
+        let runtimeRootURL = try Self.runtimeRootURL(
+            forWineExecutable: plan.executable
+        )
+        guard runtimeRootURL.path == runtime.runtimeRoot else {
+            throw RunnerGPUIdentityValidationError.runtimeRootMismatch
+        }
+
+        let expectedContentFingerprint: String
+        do {
+            expectedContentFingerprint =
+                try RuntimeGPUIdentityContentFingerprint.make(
+                    environment: plan.environment,
+                    wineExecutablePath: plan.executable
+                )
+        } catch {
+            throw RunnerGPUIdentityValidationError
+                .runtimeContentMismatch
+        }
+        guard expectedContentFingerprint ==
+                runtime.runtimeContentFingerprint else {
+            throw RunnerGPUIdentityValidationError
+                .runtimeContentMismatch
+        }
+
+        let helperURL = runtimeRootURL.appendingPathComponent(
+            Self.helperRelativePath,
+            isDirectory: false
+        )
+        let policyURL = runtimeRootURL.appendingPathComponent(
+            Self.policyRelativePath,
+            isDirectory: false
+        )
+        guard helperURL.path == runtime.helper.canonicalPath else {
+            throw RunnerGPUIdentityValidationError.helperPathMismatch
+        }
+        guard policyURL.path == runtime.policy.canonicalPath else {
+            throw RunnerGPUIdentityValidationError.policyPathMismatch
+        }
+
+        let context: RunnerGPUIdentitySystemContext
+        do {
+            context = try contextProvider.currentContext()
+        } catch {
+            throw RunnerGPUIdentityValidationError
+                .systemContextUnavailable
+        }
+        guard context.operatingSystemBuild ==
+                snapshot.cacheKey.operatingSystemBuild else {
+            throw RunnerGPUIdentityValidationError
+                .operatingSystemChanged
+        }
+        guard context.defaultGPURegistryID ==
+                snapshot.cacheKey.defaultGPURegistryID else {
+            throw RunnerGPUIdentityValidationError.defaultGPUChanged
+        }
+
+        let currentEvidence: RuntimeGPUIdentityEvidence
+        do {
+            currentEvidence = try await evidenceBuilder.build(
+                runtimeID: runtime.runtimeID,
+                runtimeRootURL: runtimeRootURL,
+                runtimeContentFingerprint:
+                    runtime.runtimeContentFingerprint,
+                helperURL: helperURL,
+                policyURL: policyURL
+            )
+        } catch {
+            throw RunnerGPUIdentityValidationError
+                .runtimeEvidenceUnavailable
+        }
+        guard currentEvidence == runtime else {
+            throw RunnerGPUIdentityValidationError
+                .runtimeEvidenceChanged
+        }
+
+        let encodedIdentity: String
+        do {
+            encodedIdentity = try GPTKGPUIdentityTransport.encode(
+                snapshot
+            )
+            guard try GPTKGPUIdentityTransport.decodeIdentity(
+                encodedIdentity
+            ) == snapshot.identity else {
+                throw RunnerGPUIdentityValidationError
+                    .invalidIdentityTransport
+            }
+        } catch {
+            throw RunnerGPUIdentityValidationError
+                .invalidIdentityTransport
+        }
+
+        let canonicalRunnerURL = runnerURL
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        guard canonicalRunnerURL.path.first == "/",
+              canonicalRunnerURL.path != "/" else {
+            throw RunnerGPUIdentityValidationError
+                .invalidRunnerExecutable
+        }
+        return RunnerValidatedGPUIdentityTransport(
+            helperPath: canonicalRunnerURL.path,
+            encodedIdentity: encodedIdentity
+        )
+    }
+
+    private static func runtimeRootURL(
+        forWineExecutable path: String
+    ) throws -> URL {
+        guard path.first == "/",
+              !path.unicodeScalars.contains(where: {
+                  $0.value <= 0x1F || $0.value == 0x7F
+              }) else {
+            throw RunnerGPUIdentityValidationError
+                .invalidRuntimeExecutable
+        }
+        let canonicalWineURL = URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let wineDirectoryURL = canonicalWineURL
+            .deletingLastPathComponent()
+        let relativePath =
+            "\(wineDirectoryURL.lastPathComponent)/\(canonicalWineURL.lastPathComponent)"
+        guard RuntimeGPUIdentityContentFingerprint
+            .allowedWineExecutableRelativePaths
+            .contains(relativePath) else {
+            throw RunnerGPUIdentityValidationError
+                .invalidRuntimeExecutable
+        }
+        let runtimeRootURL = wineDirectoryURL
+            .deletingLastPathComponent()
+            .standardizedFileURL
+        guard runtimeRootURL.path != "/" else {
+            throw RunnerGPUIdentityValidationError
+                .invalidRuntimeExecutable
+        }
+        return runtimeRootURL
+    }
+}
+
+enum RunnerGPUIdentityLaunchEnvironment {
+    static func assemble(
+        inheritedEnvironment: [String: String],
+        planEnvironment: [String: String],
+        validatedTransport:
+            RunnerValidatedGPUIdentityTransport?
+    ) -> [String: String] {
+        var environment = GPTKGPUIdentityTransport.sanitized(
+            inheritedEnvironment
+        )
+        environment.merge(
+            GPTKGPUIdentityTransport.sanitized(planEnvironment)
+        ) { _, planValue in
+            planValue
+        }
+        if let validatedTransport {
+            environment[
+                GPTKGPUIdentityTransport.helperEnvironmentKey
+            ] = validatedTransport.helperPath
+            environment[
+                GPTKGPUIdentityTransport
+                    .cachedIdentityEnvironmentKey
+            ] = validatedTransport.encodedIdentity
+        }
+        return environment
+    }
+
+    static func helperOutput(
+        arguments: [String],
+        environment: [String: String],
+        runnerURL: URL
+    ) -> Data? {
+        guard arguments.isEmpty else { return nil }
+        let internalKeys = Set(
+            environment.keys.filter(
+                GPTKGPUIdentityTransport.isPrivateEnvironmentKey
+            )
+        )
+        guard internalKeys == [
+            GPTKGPUIdentityTransport.cachedIdentityEnvironmentKey
+        ],
+        let helperPath = environment[
+            GPTKGPUIdentityTransport.helperEnvironmentKey
+        ],
+        let encodedIdentity = environment[
+            GPTKGPUIdentityTransport.cachedIdentityEnvironmentKey
+        ] else {
+            return nil
+        }
+
+        let canonicalHelperURL = URL(fileURLWithPath: helperPath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        let canonicalRunnerURL = runnerURL
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        guard canonicalHelperURL == canonicalRunnerURL,
+              let identity =
+                try? GPTKGPUIdentityTransport.decodeIdentity(
+                    encodedIdentity
+                ) else {
+            return nil
+        }
+        return identity.canonicalTSVData
     }
 }
 
@@ -1209,17 +1581,28 @@ private final class TerminationSignalMonitor {
 
 @main
 struct SwitchyardRunner {
-    static func main() {
+    static func main() async {
         let signalMonitor = TerminationSignalMonitor()
 
-        withExtendedLifetime(signalMonitor) {
-            runCommand()
-        }
+        await runCommand()
+        withExtendedLifetime(signalMonitor) {}
     }
 
-    private static func runCommand() {
+    private static func runCommand() async {
         let arguments = Array(CommandLine.arguments.dropFirst())
         guard !arguments.isEmpty else {
+            if let output = RunnerGPUIdentityLaunchEnvironment
+                .helperOutput(
+                    arguments: arguments,
+                    environment: ProcessInfo.processInfo.environment,
+                    runnerURL: URL(
+                        fileURLWithPath:
+                            CommandLine.arguments.first ?? ""
+                    )
+                ) {
+                FileHandle.standardOutput.write(output)
+                return
+            }
             printUsage()
             runnerExit(2)
         }
@@ -1291,7 +1674,7 @@ struct SwitchyardRunner {
             }
         case "run":
             do {
-                try run(arguments: Array(arguments.dropFirst()))
+                try await run(arguments: Array(arguments.dropFirst()))
             } catch {
                 FileHandle.standardError.write(Data("switchyard-runner failed: \(error.localizedDescription)\n".utf8))
                 runnerExit(1)
@@ -1302,7 +1685,7 @@ struct SwitchyardRunner {
         }
     }
 
-    private static func run(arguments: [String]) throws {
+    private static func run(arguments: [String]) async throws {
         guard arguments.count == 2, arguments[0] == "--plan" else {
             printUsage()
             runnerExit(2)
@@ -1311,14 +1694,46 @@ struct SwitchyardRunner {
         let planURL = URL(fileURLWithPath: arguments[1])
         let data = try Data(contentsOf: planURL)
         var plan = try JSONDecoder().decode(CommandPlan.self, from: data)
-        plan.environment = RunnerRosettaAVXPolicy.current.resolving(plan.environment)
+        let sanitizedPlanEnvironment =
+            GPTKGPUIdentityTransport.sanitized(plan.environment)
+        plan.environment = sanitizedPlanEnvironment
+        let validatedGPUTransport = try? await
+            RunnerGPUIdentityPlanValidator().validate(
+                plan: plan,
+                runnerURL: URL(
+                    fileURLWithPath:
+                        CommandLine.arguments.first ?? ""
+                )
+            )
+        plan.environment = RunnerRosettaAVXPolicy.current.resolving(
+            RunnerGPUIdentityLaunchEnvironment.assemble(
+                inheritedEnvironment:
+                    ProcessInfo.processInfo.environment,
+                planEnvironment: sanitizedPlanEnvironment,
+                validatedTransport: validatedGPUTransport
+            )
+        )
         let debugLogWriter = openDebugLogWriter(path: plan.debugLogPath, source: plan.logSource)
         let liveLogWriter = openLiveLogWriter(path: plan.liveLogPath, source: plan.logSource)
         defer {
             debugLogWriter?.close()
             liveLogWriter?.close()
         }
-        let environmentKeys = plan.environment.keys.sorted().joined(separator: ",")
+        let environmentKeys = (
+            Set(sanitizedPlanEnvironment.keys)
+                .union(
+                    validatedGPUTransport == nil
+                        ? []
+                        : [
+                            GPTKGPUIdentityTransport
+                                .helperEnvironmentKey,
+                            GPTKGPUIdentityTransport
+                                .cachedIdentityEnvironmentKey,
+                        ]
+                )
+        )
+        .sorted()
+        .joined(separator: ",")
         emit(
             source: plan.logSource,
             level: "info",
@@ -1356,7 +1771,7 @@ struct SwitchyardRunner {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: plan.executable)
         process.arguments = plan.arguments
-        process.environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
+        process.environment = plan.environment
         if let workingDirectory = plan.workingDirectory {
             process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory, isDirectory: true)
         }
@@ -1827,7 +2242,7 @@ struct SwitchyardRunner {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: plan.executable)
         process.arguments = ["winemenubuilder.exe", "-m"]
-        process.environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
+        process.environment = plan.environment
         if let workingDirectory = plan.workingDirectory {
             process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory, isDirectory: true)
         }
@@ -2304,11 +2719,10 @@ private func terminateExistingPrefixSession(plan: CommandPlan) throws {
 }
 
 private func stopPrefixSession(plan: CommandPlan) throws {
-    let environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
     try stopWinePrefixSession(
         wineExecutablePath: plan.executable,
         prefixPath: plan.environment["WINEPREFIX"] ?? plan.workingDirectory ?? "",
-        environment: environment
+        environment: plan.environment
     )
 }
 
@@ -2358,7 +2772,7 @@ private func runWineRegistryCommand(
     let outputCollector = ProcessOutputCollector()
     process.executableURL = URL(fileURLWithPath: plan.executable)
     process.arguments = arguments
-    process.environment = ProcessInfo.processInfo.environment.merging(plan.environment) { _, new in new }
+    process.environment = plan.environment
     if let workingDirectory = plan.workingDirectory {
         process.currentDirectoryURL = URL(fileURLWithPath: workingDirectory, isDirectory: true)
     }

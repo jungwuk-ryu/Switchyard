@@ -160,6 +160,8 @@ private func commandPlan(
         "WINEPREFIX": container.path,
         "SWITCHYARD_WINE_BUILD_ID": runtime.id,
         "SWITCHYARD_PATCHSET_ID": runtime.patchsetID,
+        RuntimeGPUIdentityContentFingerprint.sourceRevisionEnvironmentKey:
+            runtime.sourceRevision,
         WineProtocolAssociationFormat.manifestEnvironmentKey: WineProtocolAssociationFormat.windowsManifestPath,
         WineDesktopShortcutFormat.manifestEnvironmentKey: WineDesktopShortcutFormat.windowsManifestPath,
         WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"

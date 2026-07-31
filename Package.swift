@@ -70,7 +70,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "SwitchyardRunner",
-            dependencies: ["AppCore"],
+            dependencies: ["AppCore", "RuntimeCatalog"],
             path: "runtime/runner"
         ),
         .executableTarget(
@@ -107,6 +107,16 @@ let package = Package(
             name: "SwitchyardTests",
             dependencies: ["AppCore", "Switchyard", "SwitchyardLocalization"],
             path: "Tests/SwitchyardTests"
+        ),
+        .testTarget(
+            name: "SwitchyardRunnerTests",
+            dependencies: [
+                "AppCore",
+                "JobEngine",
+                "RuntimeCatalog",
+                "SwitchyardRunner",
+            ],
+            path: "Tests/SwitchyardRunnerTests"
         ),
         .testTarget(
             name: "SwitchyardLocalizationTests",
