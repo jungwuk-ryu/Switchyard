@@ -269,6 +269,7 @@ struct RuntimeSettingsView: View {
                         localized: "Choose a locally built Wine executable or runtime folder.",
                         bundle: SwitchyardStrings.bundle
                     ),
+                    selectionKind: .wineRuntime,
                     path: $store.winePath
                 ) {
                     store.useSelectedLocalDevelopmentRuntime()

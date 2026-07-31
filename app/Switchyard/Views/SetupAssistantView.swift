@@ -566,6 +566,7 @@ struct SetupAssistantView: View {
                         localized: "Choose where Switchyard stores containers and manifests.",
                         bundle: SwitchyardStrings.bundle
                     ),
+                    selectionKind: .directory,
                     path: $store.libraryPath
                 ) {
                     store.persistPreferences()
@@ -576,6 +577,7 @@ struct SetupAssistantView: View {
                         localized: "Choose a local GPTK directory or disk image.",
                         bundle: SwitchyardStrings.bundle
                     ),
+                    selectionKind: .gamePortingToolkit,
                     path: gptkPathBinding
                 ) {}
                 .disabled(
@@ -603,6 +605,7 @@ struct SetupAssistantView: View {
                         localized: "Choose a locally built Wine executable or runtime folder.",
                         bundle: SwitchyardStrings.bundle
                     ),
+                    selectionKind: .wineRuntime,
                     path: $store.winePath
                 ) {
                     store.useSelectedLocalDevelopmentRuntime()

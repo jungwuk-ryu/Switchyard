@@ -118,6 +118,7 @@ struct SettingsView: View {
                             localized: "Choose the Switchyard storage folder.",
                             bundle: SwitchyardStrings.bundle
                         ),
+                        selectionKind: .directory,
                         path: $store.libraryPath
                     ) {
                         store.persistPreferences()
@@ -298,6 +299,7 @@ struct SettingsView: View {
                             localized: "Choose your local Apple Game Porting Toolkit installation.",
                             bundle: SwitchyardStrings.bundle
                         ),
+                        selectionKind: .gamePortingToolkit,
                         path: gptkPathBinding
                     ) {}
                     .disabled(

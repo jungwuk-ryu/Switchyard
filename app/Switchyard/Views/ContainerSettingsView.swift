@@ -304,6 +304,7 @@ struct ContainerSettingsView: View {
                     message: localizedSettings(
                         "Choose the Windows executable to run by default in this container."
                     ),
+                    selectionKind: .windowsExecutable,
                     initialDirectoryURL: URL(
                         fileURLWithPath: liveContainer.path,
                         isDirectory: true
