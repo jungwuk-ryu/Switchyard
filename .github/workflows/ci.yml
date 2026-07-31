@@ -36,7 +36,7 @@ jobs:
           echo "SWIFT_BUILD_JOBS=$jobs" >> "$GITHUB_ENV"
 
       - name: Run Swift tests
-        run: swift test --jobs "$SWIFT_BUILD_JOBS"
+        run: swift test --jobs "$SWIFT_BUILD_JOBS" --no-parallel
 
       - name: Test Wine source synchronization
         run: Tests/Shell/ensure_switchyard_wine_test.sh

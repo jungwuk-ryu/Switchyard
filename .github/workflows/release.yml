@@ -91,7 +91,7 @@ jobs:
         run: |
           set -euo pipefail
           swift package resolve
-          swift test --jobs "$SWIFT_BUILD_JOBS"
+          swift test --jobs "$SWIFT_BUILD_JOBS" --no-parallel
           Tests/Shell/create_dmg_test.sh
           Tests/Shell/generate_appcast_test.sh
           swift build --product switchyard-runner --jobs "$SWIFT_BUILD_JOBS"
