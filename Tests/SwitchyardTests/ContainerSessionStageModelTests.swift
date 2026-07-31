@@ -160,6 +160,14 @@ import Testing
 }
 
 @MainActor
+@Test func sessionStageModelConstructsItsCaptureService() {
+    let model = ContainerSessionStageModel()
+
+    #expect(model.windows.isEmpty)
+    #expect(!model.screenRecordingAccessUnavailable)
+}
+
+@MainActor
 @Test func sessionStageKeepsExistingWindowOrderAndAppendsNewWindows() {
     let previous = [
         window(id: 10, title: "First"),

@@ -1183,12 +1183,18 @@ final class ContainerSessionStageModel: ObservableObject {
     @Published private(set) var selectedWindowIdentity:
         SessionStageWindowIdentity?
 
-    private let captureService = WineWindowCaptureService()
+    private let captureService: WineWindowCaptureService
     private let previewStore = ContainerPreviewImageStore.shared
     private let resourceMetricsService = WineSessionResourceMetricsService()
     private var refreshGeneration = 0
     private var lastPersistedWindowIdentity: SessionStageWindowIdentity?
     private var lastPersistedAt: Date?
+
+    init() {
+        // Swift 6.1.2 can crash during SIL generation when this construction
+        // appears in a stored-property initializer.
+        captureService = WineWindowCaptureService()
+    }
 
     func monitor(containerID: UUID, store: AppStore) async {
         while !Task.isCancelled {
