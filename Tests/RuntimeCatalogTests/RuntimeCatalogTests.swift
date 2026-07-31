@@ -57,6 +57,354 @@ import Testing
     #expect(result.version == String(fingerprint.suffix(8)))
 }
 
+@Test func gptkFingerprintIgnoresMarkerModificationDateChanges() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
+    let marker = root.appendingPathComponent(
+        "redist/lib/external/libd3dshared.dylib"
+    )
+    let locator = RuntimeLocator()
+    let initial = locator.validateGPTK(at: root.path)
+    let initialFingerprint = try #require(initial.fingerprint)
+
+    try FileManager.default.setAttributes(
+        [.modificationDate: Date(timeIntervalSince1970: 1)],
+        ofItemAtPath: marker.path
+    )
+    let touched = locator.validateGPTK(at: root.path)
+
+    #expect(initial.status == .ok)
+    #expect(touched.status == .ok)
+    #expect(touched.fingerprint == initialFingerprint)
+}
+
+@Test func gptkFingerprintDetectsAtomicContentReplacementWithPreservedMetadata() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
+    let marker = root.appendingPathComponent(
+        "redist/lib/external/libd3dshared.dylib"
+    )
+    let locator = RuntimeLocator()
+    let originalDate = Date(timeIntervalSince1970: 123)
+    try FileManager.default.setAttributes(
+        [.modificationDate: originalDate],
+        ofItemAtPath: marker.path
+    )
+    let originalInode = try #require(
+        (
+            FileManager.default.attributesOfItem(atPath: marker.path)[
+                .systemFileNumber
+            ] as? NSNumber
+        )?.uint64Value
+    )
+    let initialFingerprint = try #require(
+        locator.validateGPTK(at: root.path).fingerprint
+    )
+
+    var replacement = try Data(contentsOf: marker)
+    let replacementOffset = replacement.index(before: replacement.endIndex)
+    replacement[replacementOffset] ^= 0xff
+    try replacement.write(to: marker, options: .atomic)
+    try FileManager.default.setAttributes(
+        [.modificationDate: originalDate],
+        ofItemAtPath: marker.path
+    )
+    let replacedInode = try #require(
+        (
+            FileManager.default.attributesOfItem(atPath: marker.path)[
+                .systemFileNumber
+            ] as? NSNumber
+        )?.uint64Value
+    )
+    let replacedFingerprint = try #require(
+        locator.validateGPTK(at: root.path).fingerprint
+    )
+
+    #expect(replacedInode != originalInode)
+    #expect(replacedFingerprint != initialFingerprint)
+}
+
+@Test func gptkFingerprintDoesNotReadEscapingMarkerSymlinkTargets() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    let outside = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString
+    )
+    defer {
+        try? FileManager.default.removeItem(at: root)
+        try? FileManager.default.removeItem(at: outside)
+    }
+    try makeLaunchReadyGPTKLayout(at: root)
+    let marker = root.appendingPathComponent(
+        "redist/lib/external/libd3dshared.dylib"
+    )
+    try FileManager.default.removeItem(at: marker)
+    try Data("outside-one".utf8).write(to: outside)
+    try FileManager.default.createSymbolicLink(
+        at: marker,
+        withDestinationURL: outside
+    )
+    let locator = RuntimeLocator()
+    let initial = locator.validateGPTK(at: root.path)
+
+    try Data("outside-two-is-different".utf8).write(to: outside)
+    let changedTarget = locator.validateGPTK(at: root.path)
+
+    #expect(initial.status == .warning)
+    #expect(changedTarget.status == .warning)
+    #expect(initial.fingerprint == nil)
+    #expect(changedTarget.fingerprint == nil)
+}
+
+@Test func gptkFingerprintRejectsInternalMarkerSymlinks() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
+    let externalDirectory = root.appendingPathComponent(
+        "redist/lib/external",
+        isDirectory: true
+    )
+    let marker = externalDirectory.appendingPathComponent(
+        "libd3dshared.dylib"
+    )
+    let firstTarget = externalDirectory.appendingPathComponent(
+        "libd3dshared-first.dylib"
+    )
+    let secondTarget = externalDirectory.appendingPathComponent(
+        "libd3dshared-second.dylib"
+    )
+    try FileManager.default.moveItem(at: marker, to: firstTarget)
+    try FileManager.default.copyItem(
+        at: URL(fileURLWithPath: "/usr/bin/true"),
+        to: secondTarget
+    )
+    try FileManager.default.createSymbolicLink(
+        at: marker,
+        withDestinationURL: firstTarget
+    )
+    let locator = RuntimeLocator()
+    let initial = locator.validateGPTK(at: root.path)
+
+    try FileManager.default.removeItem(at: marker)
+    try FileManager.default.createSymbolicLink(
+        at: marker,
+        withDestinationURL: secondTarget
+    )
+    let changedTarget = locator.validateGPTK(at: root.path)
+
+    #expect(initial.status == .warning)
+    #expect(changedTarget.status == .warning)
+    #expect(initial.fingerprint == nil)
+    #expect(changedTarget.fingerprint == nil)
+}
+
+@Test func gptkFingerprintRejectsSymlinksEscapingMarkerDirectory() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    let framework = try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
+    let externalDirectory = framework.deletingLastPathComponent()
+    let firstTarget = externalDirectory.appendingPathComponent(
+        "framework-external-first"
+    )
+    let secondTarget = externalDirectory.appendingPathComponent(
+        "framework-external-second"
+    )
+    try FileManager.default.copyItem(
+        at: URL(fileURLWithPath: "/bin/echo"),
+        to: firstTarget
+    )
+    try FileManager.default.copyItem(
+        at: URL(fileURLWithPath: "/usr/bin/true"),
+        to: secondTarget
+    )
+    let link = framework.appendingPathComponent("Current")
+    try FileManager.default.createSymbolicLink(
+        atPath: link.path,
+        withDestinationPath: "../\(firstTarget.lastPathComponent)"
+    )
+    let locator = RuntimeLocator()
+    let initial = locator.validateGPTK(at: root.path)
+
+    try FileManager.default.removeItem(at: link)
+    try FileManager.default.createSymbolicLink(
+        atPath: link.path,
+        withDestinationPath: "../\(secondTarget.lastPathComponent)"
+    )
+    let changedTarget = locator.validateGPTK(at: root.path)
+
+    #expect(initial.status == .warning)
+    #expect(changedTarget.status == .warning)
+    #expect(initial.fingerprint == nil)
+    #expect(changedTarget.fingerprint == nil)
+}
+
+@Test func gptkFingerprintFailsClosedAboveItsContentByteLimit() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeLaunchReadyGPTKLayout(at: root)
+    let marker = root.appendingPathComponent(
+        "redist/lib/external/libd3dshared.dylib"
+    )
+    let handle = try FileHandle(forWritingTo: marker)
+    try handle.truncate(atOffset: UInt64(256 * 1_024 * 1_024 + 1))
+    try handle.close()
+
+    let result = RuntimeLocator().validateGPTK(at: root.path)
+
+    #expect(result.status == .warning)
+    #expect(result.fingerprint == nil)
+}
+
+@Test func gptkFingerprintFailsClosedAboveItsMarkerCountLimit() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
+    for index in 0..<7 {
+        let directory = root.appendingPathComponent(
+            "overflow-\(index)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        try Data("overflow-\(index)".utf8).write(
+            to: directory.appendingPathComponent("gameportingtoolkit")
+        )
+    }
+
+    let result = RuntimeLocator().validateGPTK(at: root.path)
+
+    #expect(result.status == .warning)
+    #expect(result.fingerprint == nil)
+}
+
+@Test func gptkFingerprintDetectsMarkerAddedAfterDescriptorDiscovery() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    try makeLaunchReadyGPTKLayout(
+        at: root,
+        sharedLibrarySource: URL(fileURLWithPath: "/bin/echo")
+    )
+    for index in 0..<6 {
+        let directory = root.appendingPathComponent(
+            "existing-\(index)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        try Data("existing-\(index)".utf8).write(
+            to: directory.appendingPathComponent("gameportingtoolkit")
+        )
+    }
+    let lateDirectory = root.appendingPathComponent(
+        "late",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: lateDirectory,
+        withIntermediateDirectories: true
+    )
+    let lateMarker = lateDirectory.appendingPathComponent(
+        "gameportingtoolkit"
+    )
+    let locator = RuntimeLocator(
+        runtimeCacheRoot: nil,
+        managedRuntimeInstallationDateProvider: { _ in nil },
+        gptkFingerprintDidDiscoverMarkers: {
+            try? Data("late-marker".utf8).write(to: lateMarker)
+        }
+    )
+
+    let result = locator.validateGPTK(at: root.path)
+
+    #expect(FileManager.default.fileExists(atPath: lateMarker.path))
+    #expect(result.status == .warning)
+    #expect(result.fingerprint == nil)
+}
+
+@Test func gptkFingerprintDetectsSymlinkChangedAfterRead() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+        UUID().uuidString,
+        isDirectory: true
+    )
+    defer { try? FileManager.default.removeItem(at: root) }
+    let framework = try makeLaunchReadyGPTKLayout(at: root)
+    let firstTarget = framework.appendingPathComponent("first")
+    let secondTarget = framework.appendingPathComponent(
+        "second-target-with-a-different-length"
+    )
+    try Data("first".utf8).write(to: firstTarget)
+    try Data("second".utf8).write(to: secondTarget)
+    let marker = framework.appendingPathComponent("Current")
+    try FileManager.default.createSymbolicLink(
+        at: marker,
+        withDestinationURL: firstTarget
+    )
+    let locator = RuntimeLocator(
+        runtimeCacheRoot: nil,
+        managedRuntimeInstallationDateProvider: { _ in nil },
+        gptkFingerprintDidReadSymlink: {
+            try? FileManager.default.removeItem(at: marker)
+            try? FileManager.default.createSymbolicLink(
+                at: marker,
+                withDestinationURL: secondTarget
+            )
+        }
+    )
+
+    let result = locator.validateGPTK(at: root.path)
+
+    #expect(
+        try FileManager.default.destinationOfSymbolicLink(atPath: marker.path)
+            == secondTarget.path
+    )
+    #expect(result.status == .warning)
+    #expect(result.fingerprint == nil)
+}
+
 @Test func unsignedGPTKMarkerIsRejected() throws {
     let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: root) }

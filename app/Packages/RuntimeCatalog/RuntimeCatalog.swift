@@ -484,11 +484,29 @@ public struct RuntimeLocator {
     private static let temporaryImportComponentSuffix = ".tmp-"
     private static let uuidStringByteCount =
         "00000000-0000-0000-0000-000000000000".utf8.count
+    private static let maximumGPTKFingerprintMarkerCount = 8
+    private static let maximumGPTKMarkerDiscoveryEntryCount = 16 * 1_024
+    private static let maximumGPTKMarkerDiscoveryDirectoryCount = 2 * 1_024
+    private static let maximumGPTKMarkerDiscoveryDepth = 32
+    private static let maximumGPTKFingerprintDirectoryEntryCount = 512
+    private static let maximumGPTKFingerprintRegularFileCount = 64
+    private static let maximumGPTKFingerprintBytes = 256 * 1_024 * 1_024
+    private static let maximumGPTKFingerprintDirectoryDepth = 16
+    private static let maximumGPTKFingerprintSymlinkBytes = 4 * 1_024
+    private static let gptkFingerprintReadChunkBytes = 1 * 1_024 * 1_024
+    private static let gptkMarkerNames: Set<String> = [
+        "libd3dmetal.dylib",
+        "libd3dshared.dylib",
+        "D3DMetal.framework",
+        "gameportingtoolkit"
+    ]
 
     public var fileManager: FileManager
     private let runtimeCacheRootOverride: URL?
     private let managedRuntimeInstallationDateProvider:
         @Sendable (URL) -> Date?
+    private let gptkFingerprintDidDiscoverMarkers: () -> Void
+    private let gptkFingerprintDidReadSymlink: () -> Void
     private let hdiutilPath = "/usr/bin/hdiutil"
     private let hdiutilTimeout: TimeInterval = 20
 
@@ -500,18 +518,26 @@ public struct RuntimeLocator {
                 forKeys: [.creationDateKey]
             ).creationDate
         }
+        gptkFingerprintDidDiscoverMarkers = {}
+        gptkFingerprintDidReadSymlink = {}
     }
 
     init(
         fileManager: FileManager = .default,
         runtimeCacheRoot: URL?,
         managedRuntimeInstallationDateProvider:
-            @escaping @Sendable (URL) -> Date?
+            @escaping @Sendable (URL) -> Date?,
+        gptkFingerprintDidDiscoverMarkers: @escaping () -> Void = {},
+        gptkFingerprintDidReadSymlink: @escaping () -> Void = {}
     ) {
         self.fileManager = fileManager
         runtimeCacheRootOverride = runtimeCacheRoot
         self.managedRuntimeInstallationDateProvider =
             managedRuntimeInstallationDateProvider
+        self.gptkFingerprintDidDiscoverMarkers =
+            gptkFingerprintDidDiscoverMarkers
+        self.gptkFingerprintDidReadSymlink =
+            gptkFingerprintDidReadSymlink
     }
 
     public func diagnose(
@@ -1031,6 +1057,18 @@ public struct RuntimeLocator {
                     bundle: SwitchyardStrings.bundle
                 ),
                 fingerprint,
+                nil
+            )
+        }
+        guard let fingerprint else {
+            let error = RuntimeLocatorError.noAppleSignedGPTKCode
+            return (
+                .warning,
+                String(
+                    localized: "\(sourceDescription) contains GPTK markers, but its executable code is not fully Apple-signed: \(error.localizedDescription)",
+                    bundle: SwitchyardStrings.bundle
+                ),
+                nil,
                 nil
             )
         }
@@ -1673,13 +1711,6 @@ public struct RuntimeLocator {
     }
 
     private func findGPTKMarkers(under path: String) -> [String] {
-        let markerNames: Set<String> = [
-            "libd3dmetal.dylib",
-            "libd3dshared.dylib",
-            "D3DMetal.framework",
-            "gameportingtoolkit"
-        ]
-
         guard let enumerator = fileManager.enumerator(atPath: path) else {
             return []
         }
@@ -1687,10 +1718,10 @@ public struct RuntimeLocator {
         var markers: [String] = []
         for case let item as String in enumerator {
             let name = URL(fileURLWithPath: item).lastPathComponent
-            if markerNames.contains(name) {
+            if Self.gptkMarkerNames.contains(name) {
                 markers.append(item)
             }
-            if markers.count >= 8 {
+            if markers.count > Self.maximumGPTKFingerprintMarkerCount {
                 break
             }
         }
@@ -2137,21 +2168,756 @@ public struct RuntimeLocator {
         )
     }
 
-    private func fingerprint(forMarkersAt rootPath: String, markers: [String]) -> String {
-        let markerInput = markers.sorted().map { marker in
-            let fullPath = URL(fileURLWithPath: rootPath).appendingPathComponent(marker).path
-            let attributes = (try? fileManager.attributesOfItem(atPath: fullPath)) ?? [:]
-            let size = attributes[.size] as? UInt64 ?? 0
-            let modified = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-            return "\(marker):\(size):\(modified)"
-        }.joined(separator: "|")
-        let input = markerInput.isEmpty ? "no-markers" : markerInput
-        var hash: UInt64 = 14_695_981_039_346_656_037
-        for byte in input.utf8 {
-            hash ^= UInt64(byte)
-            hash &*= 1_099_511_628_211
+    private func fingerprint(
+        forMarkersAt rootPath: String,
+        markers: [String]
+    ) -> String? {
+        guard markers.count <= Self.maximumGPTKFingerprintMarkerCount else {
+            return nil
         }
-        return String(format: "gptk-%016llx", hash)
+
+        let canonicalRootPath = URL(
+            fileURLWithPath: rootPath,
+            isDirectory: true
+        )
+        .resolvingSymlinksInPath()
+        .standardizedFileURL
+        .path
+        let rootDescriptor = Darwin.open(
+            canonicalRootPath,
+            O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+        )
+        guard rootDescriptor >= 0 else {
+            return nil
+        }
+        defer { Darwin.close(rootDescriptor) }
+
+        var rootStatus = stat()
+        guard Darwin.fstat(rootDescriptor, &rootStatus) == 0,
+              rootStatus.st_mode & S_IFMT == S_IFDIR else {
+            return nil
+        }
+
+        var hasher = SHA256()
+        updateGPTKFingerprint(
+            Data("switchyard-gptk-marker-fingerprint-v2".utf8),
+            hasher: &hasher
+        )
+        var budget = GPTKFingerprintBudget(
+            remainingDirectoryEntries:
+                Self.maximumGPTKFingerprintDirectoryEntryCount,
+            remainingRegularFiles:
+                Self.maximumGPTKFingerprintRegularFileCount,
+            remainingBytes: Self.maximumGPTKFingerprintBytes
+        )
+
+        do {
+            var discoveryBudget = GPTKMarkerDiscoveryBudget(
+                remainingEntries:
+                    Self.maximumGPTKMarkerDiscoveryEntryCount,
+                remainingDirectories:
+                    Self.maximumGPTKMarkerDiscoveryDirectoryCount
+            )
+            var discoveredMarkers: [String] = []
+            var directorySnapshots: [GPTKDirectorySnapshot] = []
+            try discoverGPTKMarkers(
+                descriptor: rootDescriptor,
+                relativeComponents: [],
+                depth: 0,
+                budget: &discoveryBudget,
+                markers: &discoveredMarkers,
+                directorySnapshots: &directorySnapshots
+            )
+            guard discoveredMarkers.count
+                    <= Self.maximumGPTKFingerprintMarkerCount,
+                  discoveredMarkers.sorted() == markers.sorted() else {
+                throw GPTKFingerprintError.limitExceeded
+            }
+            gptkFingerprintDidDiscoverMarkers()
+
+            for marker in discoveredMarkers.sorted() {
+                let components = marker.split(
+                    separator: "/",
+                    omittingEmptySubsequences: false
+                )
+                .map(String.init)
+                guard !components.isEmpty,
+                      components.allSatisfy({
+                          !$0.isEmpty && $0 != "." && $0 != ".."
+                              && !$0.utf8.contains(0)
+                      }) else {
+                    throw GPTKFingerprintError.invalidRelativePath
+                }
+                updateGPTKFingerprint(
+                    Data(marker.utf8),
+                    hasher: &hasher
+                )
+                try hashGPTKMarker(
+                    components: components,
+                    markerPath: marker,
+                    rootDescriptor: rootDescriptor,
+                    budget: &budget,
+                    hasher: &hasher
+                )
+            }
+            var finalDiscoveryBudget = GPTKMarkerDiscoveryBudget(
+                remainingEntries:
+                    Self.maximumGPTKMarkerDiscoveryEntryCount,
+                remainingDirectories:
+                    Self.maximumGPTKMarkerDiscoveryDirectoryCount
+            )
+            var finalMarkers: [String] = []
+            var finalDirectorySnapshots: [GPTKDirectorySnapshot] = []
+            try discoverGPTKMarkers(
+                descriptor: rootDescriptor,
+                relativeComponents: [],
+                depth: 0,
+                budget: &finalDiscoveryBudget,
+                markers: &finalMarkers,
+                directorySnapshots: &finalDirectorySnapshots
+            )
+            guard finalMarkers.sorted() == discoveredMarkers.sorted() else {
+                throw GPTKFingerprintError.changedDuringRead
+            }
+            guard directorySnapshots.allSatisfy({
+                directorySnapshotStillMatches(
+                    $0,
+                    rootDescriptor: rootDescriptor
+                )
+            }) else {
+                throw GPTKFingerprintError.changedDuringRead
+            }
+        } catch {
+            return nil
+        }
+        guard pathStillReferencesGPTKFingerprintRoot(
+            canonicalRootPath,
+            expectedStatus: rootStatus
+        ) else {
+            return nil
+        }
+
+        let digest = hasher.finalize().map {
+            String(format: "%02x", $0)
+        }.joined()
+        return "gptk-\(digest)"
+    }
+
+    private func discoverGPTKMarkers(
+        descriptor: Int32,
+        relativeComponents: [String],
+        depth: Int,
+        budget: inout GPTKMarkerDiscoveryBudget,
+        markers: inout [String],
+        directorySnapshots: inout [GPTKDirectorySnapshot]
+    ) throws {
+        guard depth <= Self.maximumGPTKMarkerDiscoveryDepth else {
+            throw GPTKFingerprintError.limitExceeded
+        }
+        var initialStatus = stat()
+        guard Darwin.fstat(descriptor, &initialStatus) == 0,
+              initialStatus.st_mode & S_IFMT == S_IFDIR else {
+            throw GPTKFingerprintError.unsafeEntry
+        }
+        directorySnapshots.append(
+            GPTKDirectorySnapshot(
+                relativeComponents: relativeComponents,
+                status: initialStatus
+            )
+        )
+
+        let enumerationDescriptor = ".".withCString {
+            Darwin.openat(
+                descriptor,
+                $0,
+                O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+            )
+        }
+        guard enumerationDescriptor >= 0,
+              let directory = Darwin.fdopendir(enumerationDescriptor) else {
+            if enumerationDescriptor >= 0 {
+                Darwin.close(enumerationDescriptor)
+            }
+            throw GPTKFingerprintError.unavailable
+        }
+        var names: [String] = []
+        while let entry = Darwin.readdir(directory) {
+            let name = gptkFingerprintDirectoryEntryName(entry)
+            guard name != ".", name != ".." else { continue }
+            guard budget.remainingEntries > 0 else {
+                Darwin.closedir(directory)
+                throw GPTKFingerprintError.limitExceeded
+            }
+            budget.remainingEntries -= 1
+            names.append(name)
+        }
+        Darwin.closedir(directory)
+
+        for name in names.sorted() {
+            var childStatus = stat()
+            let statResult = name.withCString {
+                Darwin.fstatat(
+                    descriptor,
+                    $0,
+                    &childStatus,
+                    AT_SYMLINK_NOFOLLOW
+                )
+            }
+            guard statResult == 0 else {
+                throw GPTKFingerprintError.changedDuringRead
+            }
+
+            let childComponents = relativeComponents + [name]
+            if Self.gptkMarkerNames.contains(name) {
+                markers.append(childComponents.joined(separator: "/"))
+                guard markers.count
+                        <= Self.maximumGPTKFingerprintMarkerCount else {
+                    throw GPTKFingerprintError.limitExceeded
+                }
+            }
+            guard childStatus.st_mode & S_IFMT == S_IFDIR else {
+                continue
+            }
+            guard budget.remainingDirectories > 0 else {
+                throw GPTKFingerprintError.limitExceeded
+            }
+            budget.remainingDirectories -= 1
+
+            let childDescriptor = name.withCString {
+                Darwin.openat(
+                    descriptor,
+                    $0,
+                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+                )
+            }
+            guard childDescriptor >= 0 else {
+                throw GPTKFingerprintError.changedDuringRead
+            }
+            do {
+                defer { Darwin.close(childDescriptor) }
+                var openedStatus = stat()
+                guard Darwin.fstat(childDescriptor, &openedStatus) == 0,
+                      sameGPTKFingerprintObject(
+                          childStatus,
+                          openedStatus
+                      ) else {
+                    throw GPTKFingerprintError.changedDuringRead
+                }
+                try discoverGPTKMarkers(
+                    descriptor: childDescriptor,
+                    relativeComponents: childComponents,
+                    depth: depth + 1,
+                    budget: &budget,
+                    markers: &markers,
+                    directorySnapshots: &directorySnapshots
+                )
+            }
+        }
+
+        var finalStatus = stat()
+        guard Darwin.fstat(descriptor, &finalStatus) == 0,
+              sameGPTKFingerprintSnapshot(
+                  initialStatus,
+                  finalStatus
+              ) else {
+            throw GPTKFingerprintError.changedDuringRead
+        }
+    }
+
+    private func directorySnapshotStillMatches(
+        _ snapshot: GPTKDirectorySnapshot,
+        rootDescriptor: Int32
+    ) -> Bool {
+        var descriptor = Darwin.dup(rootDescriptor)
+        guard descriptor >= 0 else {
+            return false
+        }
+        defer { Darwin.close(descriptor) }
+
+        for component in snapshot.relativeComponents {
+            let nextDescriptor = component.withCString {
+                Darwin.openat(
+                    descriptor,
+                    $0,
+                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+                )
+            }
+            guard nextDescriptor >= 0 else {
+                return false
+            }
+            Darwin.close(descriptor)
+            descriptor = nextDescriptor
+        }
+
+        var currentStatus = stat()
+        return Darwin.fstat(descriptor, &currentStatus) == 0
+            && sameGPTKFingerprintSnapshot(
+                snapshot.status,
+                currentStatus
+            )
+    }
+
+    private func hashGPTKMarker(
+        components: [String],
+        markerPath: String,
+        rootDescriptor: Int32,
+        budget: inout GPTKFingerprintBudget,
+        hasher: inout SHA256
+    ) throws {
+        guard let finalComponent = components.last else {
+            throw GPTKFingerprintError.invalidRelativePath
+        }
+        var parentDescriptor = Darwin.dup(rootDescriptor)
+        guard parentDescriptor >= 0 else {
+            throw GPTKFingerprintError.unavailable
+        }
+        defer { Darwin.close(parentDescriptor) }
+
+        for component in components.dropLast() {
+            var componentStatus = stat()
+            let statResult = component.withCString {
+                Darwin.fstatat(
+                    parentDescriptor,
+                    $0,
+                    &componentStatus,
+                    AT_SYMLINK_NOFOLLOW
+                )
+            }
+            guard statResult == 0,
+                  componentStatus.st_mode & S_IFMT == S_IFDIR else {
+                throw GPTKFingerprintError.unsafeEntry
+            }
+            let nextDescriptor = component.withCString {
+                Darwin.openat(
+                    parentDescriptor,
+                    $0,
+                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+                )
+            }
+            guard nextDescriptor >= 0 else {
+                throw GPTKFingerprintError.unsafeEntry
+            }
+            Darwin.close(parentDescriptor)
+            parentDescriptor = nextDescriptor
+        }
+
+        var entryStatus = stat()
+        let statResult = finalComponent.withCString {
+            Darwin.fstatat(
+                parentDescriptor,
+                $0,
+                &entryStatus,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard statResult == 0 else {
+            throw GPTKFingerprintError.unavailable
+        }
+
+        let entryType = entryStatus.st_mode & S_IFMT
+        if entryType == S_IFLNK {
+            throw GPTKFingerprintError.unsafeEntry
+        }
+
+        let flags: Int32
+        if entryType == S_IFDIR {
+            flags = O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+        } else if entryType == S_IFREG {
+            flags = O_RDONLY | O_CLOEXEC | O_NOFOLLOW
+        } else {
+            throw GPTKFingerprintError.unsafeEntry
+        }
+        let entryDescriptor = finalComponent.withCString {
+            Darwin.openat(parentDescriptor, $0, flags)
+        }
+        guard entryDescriptor >= 0 else {
+            throw GPTKFingerprintError.unsafeEntry
+        }
+        defer { Darwin.close(entryDescriptor) }
+
+        var openedStatus = stat()
+        guard Darwin.fstat(entryDescriptor, &openedStatus) == 0,
+              sameGPTKFingerprintObject(entryStatus, openedStatus) else {
+            throw GPTKFingerprintError.changedDuringRead
+        }
+
+        if entryType == S_IFREG {
+            try hashGPTKFingerprintRegularFile(
+                descriptor: entryDescriptor,
+                relativePath: markerPath,
+                budget: &budget,
+                hasher: &hasher
+            )
+        } else {
+            try hashGPTKFingerprintDirectory(
+                descriptor: entryDescriptor,
+                relativePath: markerPath,
+                depth: 0,
+                budget: &budget,
+                hasher: &hasher
+            )
+        }
+    }
+
+    private func pathStillReferencesGPTKFingerprintRoot(
+        _ path: String,
+        expectedStatus: stat
+    ) -> Bool {
+        let descriptor = Darwin.open(
+            path,
+            O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+        )
+        guard descriptor >= 0 else {
+            return false
+        }
+        defer { Darwin.close(descriptor) }
+
+        var currentStatus = stat()
+        return Darwin.fstat(descriptor, &currentStatus) == 0
+            && sameGPTKFingerprintObject(
+                expectedStatus,
+                currentStatus
+            )
+    }
+
+    private func hashGPTKFingerprintDirectory(
+        descriptor: Int32,
+        relativePath: String,
+        depth: Int,
+        budget: inout GPTKFingerprintBudget,
+        hasher: inout SHA256
+    ) throws {
+        guard depth <= Self.maximumGPTKFingerprintDirectoryDepth else {
+            throw GPTKFingerprintError.limitExceeded
+        }
+        var initialStatus = stat()
+        guard Darwin.fstat(descriptor, &initialStatus) == 0,
+              initialStatus.st_mode & S_IFMT == S_IFDIR else {
+            throw GPTKFingerprintError.unsafeEntry
+        }
+
+        let enumerationDescriptor = ".".withCString {
+            Darwin.openat(
+                descriptor,
+                $0,
+                O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+            )
+        }
+        guard enumerationDescriptor >= 0,
+              let directory = Darwin.fdopendir(enumerationDescriptor) else {
+            if enumerationDescriptor >= 0 {
+                Darwin.close(enumerationDescriptor)
+            }
+            throw GPTKFingerprintError.unavailable
+        }
+        var names: [String] = []
+        while let entry = Darwin.readdir(directory) {
+            let name = gptkFingerprintDirectoryEntryName(entry)
+            guard name != ".", name != ".." else { continue }
+            guard budget.remainingDirectoryEntries > 0 else {
+                Darwin.closedir(directory)
+                throw GPTKFingerprintError.limitExceeded
+            }
+            budget.remainingDirectoryEntries -= 1
+            names.append(name)
+        }
+        Darwin.closedir(directory)
+
+        for name in names.sorted() {
+            let childPath = "\(relativePath)/\(name)"
+            updateGPTKFingerprint(Data(childPath.utf8), hasher: &hasher)
+
+            var childStatus = stat()
+            let statResult = name.withCString {
+                Darwin.fstatat(
+                    descriptor,
+                    $0,
+                    &childStatus,
+                    AT_SYMLINK_NOFOLLOW
+                )
+            }
+            guard statResult == 0 else {
+                throw GPTKFingerprintError.changedDuringRead
+            }
+
+            let childType = childStatus.st_mode & S_IFMT
+            if childType == S_IFLNK {
+                try hashGPTKFingerprintSymlink(
+                    named: name,
+                    parentDescriptor: descriptor,
+                    initialStatus: childStatus,
+                    parentDepthWithinMarker: depth,
+                    hasher: &hasher
+                )
+                continue
+            }
+            let flags: Int32
+            if childType == S_IFDIR {
+                flags =
+                    O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW
+            } else if childType == S_IFREG {
+                flags = O_RDONLY | O_CLOEXEC | O_NOFOLLOW
+            } else {
+                throw GPTKFingerprintError.unsafeEntry
+            }
+            let childDescriptor = name.withCString {
+                Darwin.openat(descriptor, $0, flags)
+            }
+            guard childDescriptor >= 0 else {
+                throw GPTKFingerprintError.changedDuringRead
+            }
+            do {
+                defer { Darwin.close(childDescriptor) }
+
+                var openedStatus = stat()
+                guard Darwin.fstat(childDescriptor, &openedStatus) == 0,
+                      sameGPTKFingerprintObject(childStatus, openedStatus) else {
+                    throw GPTKFingerprintError.changedDuringRead
+                }
+                if childType == S_IFDIR {
+                    updateGPTKFingerprint(
+                        Data("directory".utf8),
+                        hasher: &hasher
+                    )
+                    try hashGPTKFingerprintDirectory(
+                        descriptor: childDescriptor,
+                        relativePath: childPath,
+                        depth: depth + 1,
+                        budget: &budget,
+                        hasher: &hasher
+                    )
+                } else {
+                    try hashGPTKFingerprintRegularFile(
+                        descriptor: childDescriptor,
+                        relativePath: childPath,
+                        budget: &budget,
+                        hasher: &hasher
+                    )
+                }
+            }
+        }
+
+        var finalStatus = stat()
+        guard Darwin.fstat(descriptor, &finalStatus) == 0,
+              sameGPTKFingerprintSnapshot(
+                  initialStatus,
+                  finalStatus
+              ) else {
+            throw GPTKFingerprintError.changedDuringRead
+        }
+    }
+
+    private func hashGPTKFingerprintRegularFile(
+        descriptor: Int32,
+        relativePath: String,
+        budget: inout GPTKFingerprintBudget,
+        hasher: inout SHA256
+    ) throws {
+        var initialStatus = stat()
+        guard Darwin.fstat(descriptor, &initialStatus) == 0,
+              initialStatus.st_mode & S_IFMT == S_IFREG,
+              initialStatus.st_size >= 0,
+              initialStatus.st_nlink == 1 else {
+            throw GPTKFingerprintError.unsafeEntry
+        }
+        let byteCount = Int(initialStatus.st_size)
+        guard budget.remainingRegularFiles > 0,
+              byteCount <= budget.remainingBytes else {
+            throw GPTKFingerprintError.limitExceeded
+        }
+        budget.remainingRegularFiles -= 1
+        budget.remainingBytes -= byteCount
+
+        updateGPTKFingerprint(
+            Data("regular-file".utf8),
+            hasher: &hasher
+        )
+        updateGPTKFingerprint(
+            Data(relativePath.utf8),
+            hasher: &hasher
+        )
+        guard Darwin.lseek(descriptor, 0, SEEK_SET) >= 0 else {
+            throw GPTKFingerprintError.unavailable
+        }
+        let handle = FileHandle(
+            fileDescriptor: descriptor,
+            closeOnDealloc: false
+        )
+        var bytesRead = 0
+        while let chunk = try handle.read(
+            upToCount: Self.gptkFingerprintReadChunkBytes
+        ), !chunk.isEmpty {
+            bytesRead += chunk.count
+            guard bytesRead <= byteCount else {
+                throw GPTKFingerprintError.changedDuringRead
+            }
+            hasher.update(data: chunk)
+        }
+        guard bytesRead == byteCount else {
+            throw GPTKFingerprintError.changedDuringRead
+        }
+
+        var finalStatus = stat()
+        guard Darwin.fstat(descriptor, &finalStatus) == 0,
+              sameGPTKFingerprintSnapshot(
+                  initialStatus,
+                  finalStatus
+              ) else {
+            throw GPTKFingerprintError.changedDuringRead
+        }
+    }
+
+    private func hashGPTKFingerprintSymlink(
+        named name: String,
+        parentDescriptor: Int32,
+        initialStatus: stat,
+        parentDepthWithinMarker: Int,
+        hasher: inout SHA256
+    ) throws {
+        let target = try readGPTKFingerprintSymlink(
+            named: name,
+            parentDescriptor: parentDescriptor
+        )
+        gptkFingerprintDidReadSymlink()
+        guard gptkFingerprintSymlinkTargetStaysWithinMarker(
+            target,
+            parentDepth: parentDepthWithinMarker
+        ) else {
+            throw GPTKFingerprintError.unsafeEntry
+        }
+
+        var finalStatus = stat()
+        let statResult = name.withCString {
+            Darwin.fstatat(
+                parentDescriptor,
+                $0,
+                &finalStatus,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard statResult == 0,
+              sameGPTKFingerprintSnapshot(
+                  initialStatus,
+                  finalStatus
+              ) else {
+            throw GPTKFingerprintError.changedDuringRead
+        }
+
+        updateGPTKFingerprint(
+            Data("symlink".utf8),
+            hasher: &hasher
+        )
+        updateGPTKFingerprint(target, hasher: &hasher)
+    }
+
+    private func gptkFingerprintSymlinkTargetStaysWithinMarker(
+        _ target: Data,
+        parentDepth: Int
+    ) -> Bool {
+        guard !target.isEmpty,
+              !target.contains(0),
+              let targetPath = String(data: target, encoding: .utf8),
+              !targetPath.hasPrefix("/") else {
+            return false
+        }
+
+        var depth = parentDepth
+        for component in targetPath.split(
+            separator: "/",
+            omittingEmptySubsequences: false
+        ) {
+            if component.isEmpty || component == "." {
+                continue
+            }
+            if component == ".." {
+                guard depth > 0 else {
+                    return false
+                }
+                depth -= 1
+            } else {
+                depth += 1
+            }
+        }
+        return true
+    }
+
+    private func readGPTKFingerprintSymlink(
+        named name: String,
+        parentDescriptor: Int32
+    ) throws -> Data {
+        var buffer = [UInt8](
+            repeating: 0,
+            count: Self.maximumGPTKFingerprintSymlinkBytes + 1
+        )
+        let length = name.withCString {
+            Darwin.readlinkat(
+                parentDescriptor,
+                $0,
+                &buffer,
+                buffer.count
+            )
+        }
+        guard length >= 0,
+              length <= Self.maximumGPTKFingerprintSymlinkBytes else {
+            throw GPTKFingerprintError.limitExceeded
+        }
+        return Data(buffer.prefix(length))
+    }
+
+    private func updateGPTKFingerprint(
+        _ data: Data,
+        hasher: inout SHA256
+    ) {
+        var length = UInt64(data.count).bigEndian
+        withUnsafeBytes(of: &length) {
+            hasher.update(data: Data($0))
+        }
+        hasher.update(data: data)
+    }
+
+    private func sameGPTKFingerprintObject(
+        _ lhs: stat,
+        _ rhs: stat
+    ) -> Bool {
+        lhs.st_dev == rhs.st_dev
+            && lhs.st_ino == rhs.st_ino
+            && lhs.st_mode & S_IFMT == rhs.st_mode & S_IFMT
+    }
+
+    private func sameGPTKFingerprintSnapshot(
+        _ lhs: stat,
+        _ rhs: stat
+    ) -> Bool {
+        sameGPTKFingerprintObject(lhs, rhs)
+            && lhs.st_mode == rhs.st_mode
+            && lhs.st_nlink == rhs.st_nlink
+            && lhs.st_uid == rhs.st_uid
+            && lhs.st_gid == rhs.st_gid
+            && lhs.st_rdev == rhs.st_rdev
+            && lhs.st_size == rhs.st_size
+            && lhs.st_mtimespec.tv_sec == rhs.st_mtimespec.tv_sec
+            && lhs.st_mtimespec.tv_nsec == rhs.st_mtimespec.tv_nsec
+            && lhs.st_ctimespec.tv_sec == rhs.st_ctimespec.tv_sec
+            && lhs.st_ctimespec.tv_nsec == rhs.st_ctimespec.tv_nsec
+            && lhs.st_birthtimespec.tv_sec
+                == rhs.st_birthtimespec.tv_sec
+            && lhs.st_birthtimespec.tv_nsec
+                == rhs.st_birthtimespec.tv_nsec
+            && lhs.st_flags == rhs.st_flags
+            && lhs.st_gen == rhs.st_gen
+    }
+
+    private func gptkFingerprintDirectoryEntryName(
+        _ entry: UnsafeMutablePointer<dirent>
+    ) -> String {
+        withUnsafePointer(to: entry.pointee.d_name) { pointer in
+            pointer.withMemoryRebound(
+                to: CChar.self,
+                capacity: Int(MAXNAMLEN) + 1
+            ) {
+                String(cString: $0)
+            }
+        }
     }
 
     private func fnvDigest(_ input: String) -> String {
@@ -2162,6 +2928,30 @@ public struct RuntimeLocator {
         }
         return String(format: "%016llx", hash)
     }
+}
+
+private struct GPTKFingerprintBudget {
+    var remainingDirectoryEntries: Int
+    var remainingRegularFiles: Int
+    var remainingBytes: Int
+}
+
+private struct GPTKMarkerDiscoveryBudget {
+    var remainingEntries: Int
+    var remainingDirectories: Int
+}
+
+private struct GPTKDirectorySnapshot {
+    var relativeComponents: [String]
+    var status: stat
+}
+
+private enum GPTKFingerprintError: Error {
+    case changedDuringRead
+    case invalidRelativePath
+    case limitExceeded
+    case unavailable
+    case unsafeEntry
 }
 
 private enum RuntimeLocatorError: LocalizedError {
