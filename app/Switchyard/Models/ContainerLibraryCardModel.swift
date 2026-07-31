@@ -88,11 +88,22 @@ final class ContainerLibraryCardModel: ObservableObject {
     private var storageRefreshID: UUID?
 
     init(
-        captureService: WineWindowCaptureService = WineWindowCaptureService(),
+        captureService: WineWindowCaptureService,
         previewStore: ContainerPreviewImageStore = .shared
     ) {
         self.captureService = captureService
         self.previewStore = previewStore
+    }
+
+    convenience init(
+        previewStore: ContainerPreviewImageStore = .shared
+    ) {
+        // Swift 6.1.2 can crash during SIL generation when this construction
+        // appears in a default-argument expression.
+        self.init(
+            captureService: WineWindowCaptureService(),
+            previewStore: previewStore
+        )
     }
 
     func monitor(containerID: UUID, store: AppStore) async {

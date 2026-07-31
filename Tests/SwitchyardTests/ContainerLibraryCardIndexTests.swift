@@ -7,6 +7,17 @@ import Testing
 @Suite("Container Library Card Index")
 @MainActor
 struct ContainerLibraryCardIndexTests {
+    @Test("card model supports default and injected capture services")
+    func captureServiceConstructionPaths() {
+        let defaultModel = ContainerLibraryCardModel()
+        let injectedModel = ContainerLibraryCardModel(
+            captureService: WineWindowCaptureService()
+        )
+
+        #expect(defaultModel.previewImage == nil)
+        #expect(injectedModel.previewImage == nil)
+    }
+
     @Test(
         "card and store-facing storage requests share one scan and suppress unchanged publishes",
         .timeLimit(.minutes(1))
