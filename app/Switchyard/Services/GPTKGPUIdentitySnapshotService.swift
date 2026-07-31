@@ -116,6 +116,15 @@ enum GPTKGPUIdentitySnapshotServiceError: Error, Equatable, Sendable {
     case runtimeEvidenceChanged
 }
 
+protocol GPTKGPUIdentitySnapshotProviding: Sendable {
+    func snapshotIfNeeded(
+        forGPTKLaunch isGPTKLaunch: Bool,
+        runtime: RuntimeBuild,
+        runtimeRootURL: URL,
+        runtimeContentFingerprint: String
+    ) async throws -> GPTKGPUIdentitySnapshot?
+}
+
 final class GPTKGPUIdentitySnapshotService: @unchecked Sendable {
     static let helperRelativePath = "libexec/switchyard-host-gpu-info"
     static let policyRelativePath =
@@ -250,6 +259,20 @@ final class GPTKGPUIdentitySnapshotService: @unchecked Sendable {
         for runtime: RuntimeBuild,
         suppliedRootURL: URL
     ) throws -> URL {
+        let derivedRootURL = try runtimeRootURL(for: runtime)
+        let canonicalSuppliedRootURL = suppliedRootURL
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .standardizedFileURL
+        guard canonicalSuppliedRootURL.path == derivedRootURL.path else {
+            throw GPTKGPUIdentitySnapshotServiceError.runtimeRootMismatch
+        }
+        return derivedRootURL
+    }
+
+    static func runtimeRootURL(
+        for runtime: RuntimeBuild
+    ) throws -> URL {
         guard runtime.winePath.first == "/",
               !runtime.winePath.unicodeScalars.contains(where: {
                   $0.value <= 0x1F || $0.value == 0x7F
@@ -274,15 +297,44 @@ final class GPTKGPUIdentitySnapshotService: @unchecked Sendable {
             throw GPTKGPUIdentitySnapshotServiceError
                 .invalidRuntimeWinePath
         }
-
-        let canonicalSuppliedRootURL = suppliedRootURL
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-            .standardizedFileURL
-        guard canonicalSuppliedRootURL.path == derivedRootURL.path else {
-            throw GPTKGPUIdentitySnapshotServiceError.runtimeRootMismatch
-        }
         return derivedRootURL
+    }
+}
+
+extension GPTKGPUIdentitySnapshotService:
+    GPTKGPUIdentitySnapshotProviding {}
+
+struct GPTKGPUIdentityLaunchSnapshotResolver: Sendable {
+    private let provider: any GPTKGPUIdentitySnapshotProviding
+
+    init(
+        provider: any GPTKGPUIdentitySnapshotProviding =
+            GPTKGPUIdentitySnapshotService()
+    ) {
+        self.provider = provider
+    }
+
+    func snapshotIfNeeded(
+        forGPTKLaunch isGPTKLaunch: Bool,
+        runtime: RuntimeBuild
+    ) async throws -> GPTKGPUIdentitySnapshot? {
+        guard isGPTKLaunch else { return nil }
+        try Task.checkCancellation()
+        let runtimeRootURL =
+            try GPTKGPUIdentitySnapshotService.runtimeRootURL(
+                for: runtime
+            )
+        let runtimeContentFingerprint =
+            try RuntimeGPUIdentityContentFingerprint.make(
+                for: runtime
+            )
+        return try await provider.snapshotIfNeeded(
+            forGPTKLaunch: true,
+            runtime: runtime,
+            runtimeRootURL: runtimeRootURL,
+            runtimeContentFingerprint:
+                runtimeContentFingerprint
+        )
     }
 }
 

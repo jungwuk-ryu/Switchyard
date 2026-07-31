@@ -369,6 +369,83 @@ import Testing
     #expect(plan.keepLoggingWhilePrefixIsActive == false)
 }
 
+@Test func jobEngineTransportsGPUIdentityOnlyForGPTKPlans()
+    throws
+{
+    let fileManager = FileManager.default
+    let gptkRoot = fileManager.temporaryDirectory
+        .appendingPathComponent(
+            "Switchyard-GPU-Plan-\(UUID().uuidString)",
+            isDirectory: true
+        )
+    defer { try? fileManager.removeItem(at: gptkRoot) }
+    try fileManager.createDirectory(
+        at: gptkRoot.appendingPathComponent(
+            "redist/lib/wine",
+            isDirectory: true
+        ),
+        withIntermediateDirectories: true
+    )
+    let externalRoot = gptkRoot.appendingPathComponent(
+        "redist/lib/external",
+        isDirectory: true
+    )
+    try fileManager.createDirectory(
+        at: externalRoot.appendingPathComponent(
+            "D3DMetal.framework",
+            isDirectory: true
+        ),
+        withIntermediateDirectories: true
+    )
+    try Data().write(
+        to: externalRoot.appendingPathComponent(
+            "libd3dshared.dylib"
+        )
+    )
+
+    let container = Container(
+        name: "Toolbox",
+        path: "/tmp/Toolbox.container",
+        executablePath: "/tmp/Toolbox.exe"
+    )
+    let runtime = RuntimeBuild(
+        id: "wine-a",
+        winePath: "/opt/wine/bin/wine",
+        patchsetID: "patch-a",
+        sourceRevision: String(repeating: "a", count: 40)
+    )
+    let snapshot = try jobEngineGPUIdentitySnapshot(
+        for: runtime
+    )
+
+    let runPlan = try JobEngine().runPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: gptkRoot.path,
+        gptkGPUIdentitySnapshot: snapshot
+    )
+    let preparationPlan =
+        JobEngine().runtimePreparationPlan(
+            container: container,
+            runtime: runtime,
+            gptkPath: gptkRoot.path,
+            gptkGPUIdentitySnapshot: snapshot
+        )
+    let nonGPTKPlan = try JobEngine().runPlan(
+        container: container,
+        runtime: runtime,
+        gptkPath: nil,
+        gptkGPUIdentitySnapshot: snapshot
+    )
+
+    #expect(runPlan.gptkGPUIdentitySnapshot == snapshot)
+    #expect(
+        preparationPlan.gptkGPUIdentitySnapshot
+            == snapshot
+    )
+    #expect(nonGPTKPlan.gptkGPUIdentitySnapshot == nil)
+}
+
 @Test func jobEngineUsesAdHocExecutableArgumentsForProgramRuns() throws {
     let container = Container(
         name: "Toolbox",
@@ -387,6 +464,65 @@ import Testing
     )
 
     #expect(plan.arguments == ["/tmp/Tools/Repair.exe", "/repair"])
+}
+
+private func jobEngineGPUIdentitySnapshot(
+    for runtime: RuntimeBuild
+) throws -> GPTKGPUIdentitySnapshot {
+    let runtimeRoot = URL(
+        fileURLWithPath: runtime.winePath
+    )
+    .deletingLastPathComponent()
+    .deletingLastPathComponent()
+    let fingerprint =
+        try RuntimeGPUIdentityContentFingerprint.make(
+            for: runtime
+        )
+    let helper = try RuntimeGPUIdentityFileEvidence(
+        canonicalPath: runtimeRoot
+            .appendingPathComponent(
+                "libexec/switchyard-host-gpu-info"
+            ).path,
+        device: 1,
+        inode: 2,
+        size: 4_096,
+        modificationTimeNanoseconds: 1_000,
+        mode: 0o100755,
+        sha256: String(repeating: "a", count: 64)
+    )
+    let policy = try RuntimeGPUIdentityFileEvidence(
+        canonicalPath: runtimeRoot
+            .appendingPathComponent(
+                "share/switchyard/gpu_capability_policy.sh"
+            ).path,
+        device: 1,
+        inode: 3,
+        size: 1_024,
+        modificationTimeNanoseconds: 2_000,
+        mode: 0o100644,
+        sha256: String(repeating: "b", count: 64)
+    )
+    let evidence = try RuntimeGPUIdentityEvidence(
+        runtimeID: runtime.id,
+        runtimeRoot: runtimeRoot.path,
+        runtimeContentFingerprint: fingerprint,
+        helper: helper,
+        policy: policy
+    )
+    return GPTKGPUIdentitySnapshot(
+        cacheKey: try GPTKGPUIdentityCacheKey(
+            operatingSystemBuild: "24G90",
+            defaultGPURegistryID: 0x100,
+            runtime: evidence
+        ),
+        identity: try HostGPUIdentity(
+            vendorID: 0x106B,
+            deviceID: 1,
+            subsystemID: 0,
+            revisionID: 0,
+            description: "Apple GPU"
+        )
+    )
 }
 
 @Test func jobEngineRunsWindowsShortcutThroughStartWithContainerEnvironment() throws {

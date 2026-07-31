@@ -32,6 +32,126 @@ struct GPTKGPUIdentitySnapshotServiceTests {
         #expect(await executor.executionCount == 0)
     }
 
+    @Test(
+        "launch resolver derives the trusted runtime root and content fingerprint"
+    )
+    func launchResolverDerivesRuntimeInputs() async throws {
+        let runtime = testRuntime()
+        let expectedSnapshot =
+            try testGPUIdentitySnapshot(for: runtime)
+        let provider =
+            RecordingGPUIdentitySnapshotProvider(
+                snapshot: expectedSnapshot
+            )
+        let resolver =
+            GPTKGPUIdentityLaunchSnapshotResolver(
+                provider: provider
+            )
+
+        let snapshot = try await resolver.snapshotIfNeeded(
+            forGPTKLaunch: true,
+            runtime: runtime
+        )
+        let repeatedSnapshot =
+            try await resolver.snapshotIfNeeded(
+                forGPTKLaunch: true,
+                runtime: runtime
+            )
+
+        #expect(snapshot == expectedSnapshot)
+        #expect(repeatedSnapshot == expectedSnapshot)
+        let invocations = await provider.invocations
+        let invocation = try #require(
+            invocations.first
+        )
+        #expect(invocations.count == 2)
+        #expect(invocation.isGPTKLaunch)
+        #expect(invocation.runtime == runtime)
+        #expect(
+            invocation.runtimeRootURL
+                == testRuntimeRoot()
+        )
+        let expectedFingerprint =
+            try RuntimeGPUIdentityContentFingerprint
+                .make(for: runtime)
+        #expect(
+            invocation.runtimeContentFingerprint
+                == expectedFingerprint
+        )
+        #expect(
+            invocations.allSatisfy {
+                $0.isGPTKLaunch
+                    && $0.runtime == runtime
+                    && $0.runtimeRootURL
+                        == testRuntimeRoot()
+                    && $0.runtimeContentFingerprint
+                        == expectedFingerprint
+            }
+        )
+    }
+
+    @Test(
+        "launch resolver skips invalid non-GPTK runtime inputs"
+    )
+    func launchResolverSkipsNonGPTKInputs() async throws {
+        let provider =
+            RecordingGPUIdentitySnapshotProvider(
+                snapshot: nil
+            )
+        let resolver =
+            GPTKGPUIdentityLaunchSnapshotResolver(
+                provider: provider
+            )
+        let invalidRuntime = RuntimeBuild(
+            id: "runtime-a",
+            winePath: "relative/wine",
+            patchsetID: "switchyard",
+            sourceRevision: "not-pinned"
+        )
+
+        let snapshot = try await resolver.snapshotIfNeeded(
+            forGPTKLaunch: false,
+            runtime: invalidRuntime
+        )
+
+        #expect(snapshot == nil)
+        #expect(await provider.invocations.isEmpty)
+    }
+
+    @Test("launch resolver preserves cancellation")
+    func launchResolverPreservesCancellation() async {
+        let resolver =
+            GPTKGPUIdentityLaunchSnapshotResolver(
+                provider:
+                    CancellingGPUIdentitySnapshotProvider()
+            )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await resolver.snapshotIfNeeded(
+                forGPTKLaunch: true,
+                runtime: testRuntime()
+            )
+        }
+    }
+
+    @Test("launch resolver preserves provider failures")
+    func launchResolverPreservesProviderFailures() async {
+        let resolver =
+            GPTKGPUIdentityLaunchSnapshotResolver(
+                provider:
+                    FailingGPUIdentitySnapshotProvider()
+            )
+
+        await #expect(
+            throws: InjectedGPUIdentityProviderError.expected
+        ) {
+            _ = try await resolver.snapshotIfNeeded(
+                forGPTKLaunch: true,
+                runtime: testRuntime()
+            )
+        }
+    }
+
     @Test("runtime root must match the root derived from the Wine path")
     func rejectsMismatchedRuntimeRootBeforeExecutingHelper() async throws {
         let context = MutableGPUIdentityContextProvider()
@@ -395,6 +515,76 @@ private struct GPUIdentityFailureScenario {
     let expected: GPTKGPUIdentitySnapshotServiceError
 }
 
+private struct GPUIdentityProviderInvocation: Sendable {
+    let isGPTKLaunch: Bool
+    let runtime: RuntimeBuild
+    let runtimeRootURL: URL
+    let runtimeContentFingerprint: String
+}
+
+private actor RecordingGPUIdentitySnapshotProvider:
+    GPTKGPUIdentitySnapshotProviding
+{
+    private let snapshot: GPTKGPUIdentitySnapshot?
+    private(set) var invocations:
+        [GPUIdentityProviderInvocation] = []
+
+    init(snapshot: GPTKGPUIdentitySnapshot?) {
+        self.snapshot = snapshot
+    }
+
+    func snapshotIfNeeded(
+        forGPTKLaunch isGPTKLaunch: Bool,
+        runtime: RuntimeBuild,
+        runtimeRootURL: URL,
+        runtimeContentFingerprint: String
+    ) -> GPTKGPUIdentitySnapshot? {
+        invocations.append(
+            GPUIdentityProviderInvocation(
+                isGPTKLaunch: isGPTKLaunch,
+                runtime: runtime,
+                runtimeRootURL: runtimeRootURL,
+                runtimeContentFingerprint:
+                    runtimeContentFingerprint
+            )
+        )
+        return snapshot
+    }
+}
+
+private struct CancellingGPUIdentitySnapshotProvider:
+    GPTKGPUIdentitySnapshotProviding
+{
+    func snapshotIfNeeded(
+        forGPTKLaunch isGPTKLaunch: Bool,
+        runtime: RuntimeBuild,
+        runtimeRootURL: URL,
+        runtimeContentFingerprint: String
+    ) async throws -> GPTKGPUIdentitySnapshot? {
+        throw CancellationError()
+    }
+}
+
+private enum InjectedGPUIdentityProviderError:
+    Error,
+    Equatable
+{
+    case expected
+}
+
+private struct FailingGPUIdentitySnapshotProvider:
+    GPTKGPUIdentitySnapshotProviding
+{
+    func snapshotIfNeeded(
+        forGPTKLaunch isGPTKLaunch: Bool,
+        runtime: RuntimeBuild,
+        runtimeRootURL: URL,
+        runtimeContentFingerprint: String
+    ) async throws -> GPTKGPUIdentitySnapshot? {
+        throw InjectedGPUIdentityProviderError.expected
+    }
+}
+
 private actor MutableGPUIdentityContextProvider:
     GPTKGPUIdentitySystemContextProviding
 {
@@ -573,7 +763,7 @@ private func testRuntime(id: String = "runtime-a") -> RuntimeBuild {
         id: id,
         winePath: "/private/runtime-a/bin/wine",
         patchsetID: "switchyard",
-        sourceRevision: "abc123"
+        sourceRevision: String(repeating: "a", count: 40)
     )
 }
 
@@ -585,6 +775,43 @@ private func successfulGPUIdentityResult() -> RunnerCommandResult {
     runnerResult(
         output: Data(
             "0000106b\t00000001\t00000000\t00000000\tApple GPU\n".utf8
+        )
+    )
+}
+
+private func testGPUIdentitySnapshot(
+    for runtime: RuntimeBuild
+) throws -> GPTKGPUIdentitySnapshot {
+    let runtimeRootURL = testRuntimeRoot()
+    let fingerprint =
+        try RuntimeGPUIdentityContentFingerprint.make(
+            for: runtime
+        )
+    let evidence = try syntheticGPUIdentityEvidence(
+        runtimeID: runtime.id,
+        runtimeRootURL: runtimeRootURL,
+        runtimeContentFingerprint: fingerprint,
+        helperURL: runtimeRootURL.appendingPathComponent(
+            GPTKGPUIdentitySnapshotService.helperRelativePath
+        ),
+        policyURL: runtimeRootURL.appendingPathComponent(
+            GPTKGPUIdentitySnapshotService.policyRelativePath
+        ),
+        helperRevision: 0,
+        policyRevision: 0
+    )
+    return GPTKGPUIdentitySnapshot(
+        cacheKey: try GPTKGPUIdentityCacheKey(
+            operatingSystemBuild: "24G90",
+            defaultGPURegistryID: 0x100,
+            runtime: evidence
+        ),
+        identity: try HostGPUIdentity(
+            vendorID: 0x106B,
+            deviceID: 1,
+            subsystemID: 0,
+            revisionID: 0,
+            description: "Apple GPU"
         )
     )
 }

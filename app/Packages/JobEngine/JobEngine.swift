@@ -76,7 +76,9 @@ public struct JobEngine {
         environmentOverrides: [String: String] = [:],
         debugLogPath: String? = nil,
         terminateExistingPrefixSession: Bool = false,
-        configureContainerDisplay: Bool = true
+        configureContainerDisplay: Bool = true,
+        gptkGPUIdentitySnapshot:
+            GPTKGPUIdentitySnapshot? = nil
     ) throws -> CommandPlan {
         let selectedExecutablePath = executablePath ?? container.executablePath
         guard let preparedExecutablePath = selectedExecutablePath?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -100,14 +102,19 @@ public struct JobEngine {
             containerDisplayMode: configureContainerDisplay ? container.displayMode : nil,
             logSource: container.name,
             debugLogPath: debugLogPath,
-            terminateExistingPrefixSession: terminateExistingPrefixSession
+            terminateExistingPrefixSession:
+                terminateExistingPrefixSession,
+            gptkGPUIdentitySnapshot:
+                gptkGPUIdentitySnapshot
         )
     }
 
     public func runtimePreparationPlan(
         container: Container,
         runtime: RuntimeBuild,
-        gptkPath: String?
+        gptkPath: String?,
+        gptkGPUIdentitySnapshot:
+            GPTKGPUIdentitySnapshot? = nil
     ) -> CommandPlan {
         commandPlan(
             runtime: runtime,
@@ -117,7 +124,9 @@ public struct JobEngine {
             gptkPath: gptkPath,
             overrides: container.environmentOverrides,
             logSource: container.name,
-            keepLoggingWhilePrefixIsActive: false
+            keepLoggingWhilePrefixIsActive: false,
+            gptkGPUIdentitySnapshot:
+                gptkGPUIdentitySnapshot
         )
     }
 
@@ -154,7 +163,9 @@ private func commandPlan(
     logSource: String,
     debugLogPath: String? = nil,
     terminateExistingPrefixSession: Bool = false,
-    keepLoggingWhilePrefixIsActive: Bool? = nil
+    keepLoggingWhilePrefixIsActive: Bool? = nil,
+    gptkGPUIdentitySnapshot:
+        GPTKGPUIdentitySnapshot? = nil
 ) -> CommandPlan {
     var environment = [
         "WINEPREFIX": container.path,
@@ -167,7 +178,9 @@ private func commandPlan(
         WineDesktopShortcutFormat.privateDesktopEnvironmentKey: "1"
     ]
 
-    if let gptkPath = RuntimeLocator().canonicalGPTKRoot(at: gptkPath) {
+    let canonicalGPTKPath =
+        RuntimeLocator().canonicalGPTKRoot(at: gptkPath)
+    if let gptkPath = canonicalGPTKPath {
         let gptkRedistLibraryPath = URL(
             fileURLWithPath: gptkPath,
             isDirectory: true
@@ -180,7 +193,9 @@ private func commandPlan(
         let gptkExternalLibraryPath = gptkRedistLibraryPath
             .appendingPathComponent("external", isDirectory: true)
             .path
-        environment["SWITCHYARD_GPTK_PATH"] = gptkPath
+        environment[
+            GPTKGPUIdentityTransport.gptkRootEnvironmentKey
+        ] = gptkPath
         environment["WINEDLLPATH"] = gptkWineLibraryPath
         environment["DYLD_LIBRARY_PATH"] = gptkExternalLibraryPath
         environment["DYLD_FRAMEWORK_PATH"] = gptkExternalLibraryPath
@@ -206,6 +221,10 @@ private func commandPlan(
         debugLogPath: debugLogPath,
         terminateExistingPrefixSession: terminateExistingPrefixSession,
         containerDisplayMode: containerDisplayMode,
-        keepLoggingWhilePrefixIsActive: keepLoggingWhilePrefixIsActive
+        keepLoggingWhilePrefixIsActive: keepLoggingWhilePrefixIsActive,
+        gptkGPUIdentitySnapshot:
+            canonicalGPTKPath == nil
+                ? nil
+                : gptkGPUIdentitySnapshot
     )
 }

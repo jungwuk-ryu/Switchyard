@@ -522,6 +522,8 @@ final class AppStore: ObservableObject, ContainerStorageIndexProviding {
     private let jobEngine = JobEngine()
     private let runnerClient: SwitchyardRunnerClient
     private let sessionMonitor: SessionMonitor
+    private let gptkGPUIdentitySnapshotResolver =
+        GPTKGPUIdentityLaunchSnapshotResolver()
     private let containerIndexService: ContainerIndexService
     private let protocolBridge = WineProtocolBridge()
     private let desktopShortcutBridge = WineDesktopShortcutBridge()
@@ -4484,6 +4486,37 @@ final class AppStore: ObservableObject, ContainerStorageIndexProviding {
             }
         }
 
+        let isGPTKLaunch =
+            RuntimeLocator().canonicalGPTKRoot(
+                at: activeGPTKPath
+            ) != nil
+        let gptkGPUIdentitySnapshot:
+            GPTKGPUIdentitySnapshot?
+        do {
+            gptkGPUIdentitySnapshot =
+                try await gptkGPUIdentitySnapshotResolver
+                    .snapshotIfNeeded(
+                        forGPTKLaunch: isGPTKLaunch,
+                        runtime: activeRuntime
+                    )
+        } catch is CancellationError {
+            return false
+        } catch {
+            gptkGPUIdentitySnapshot = nil
+            logLines.insert(
+                LogLine(
+                    containerID: container.id,
+                    level: "warning",
+                    source: container.name,
+                    message: String(
+                        localized: "The host GPU identity cache could not be prepared; launch will continue without it: \(Self.errorDescription(error))",
+                        bundle: SwitchyardStrings.bundle
+                    )
+                ),
+                at: 0
+            )
+        }
+
         let liveLogPath = prepareLiveLogJournal(
             for: container,
             reset: !prefixWasActive || terminateExistingPrefixSession
@@ -4495,6 +4528,8 @@ final class AppStore: ObservableObject, ContainerStorageIndexProviding {
                 runtime: activeRuntime,
                 gptkPath: activeGPTKPath,
                 gptkFingerprint: activeGPTKFingerprint,
+                gptkGPUIdentitySnapshot:
+                    gptkGPUIdentitySnapshot,
                 liveLogPath: liveLogPath
             )
         }
@@ -4518,7 +4553,11 @@ final class AppStore: ObservableObject, ContainerStorageIndexProviding {
                 environmentOverrides: debugEnvironmentOverrides,
                 debugLogPath: debugLogPath,
                 terminateExistingPrefixSession: terminateExistingPrefixSession,
-                configureContainerDisplay: !prefixWasActive || terminateExistingPrefixSession
+                configureContainerDisplay:
+                    !prefixWasActive
+                    || terminateExistingPrefixSession,
+                gptkGPUIdentitySnapshot:
+                    gptkGPUIdentitySnapshot
             )
             plan.liveLogPath = liveLogPath
             _ = try await IndexedLaunchCoordinator.launch(
@@ -5254,6 +5293,8 @@ final class AppStore: ObservableObject, ContainerStorageIndexProviding {
         runtime: RuntimeBuild,
         gptkPath: String,
         gptkFingerprint: String?,
+        gptkGPUIdentitySnapshot:
+            GPTKGPUIdentitySnapshot?,
         liveLogPath: String?
     ) async -> Bool {
         let preparation = container.runtimePreparation(
@@ -5284,7 +5325,9 @@ final class AppStore: ObservableObject, ContainerStorageIndexProviding {
             var plan = jobEngine.runtimePreparationPlan(
                 container: container,
                 runtime: runtime,
-                gptkPath: gptkPath
+                gptkPath: gptkPath,
+                gptkGPUIdentitySnapshot:
+                    gptkGPUIdentitySnapshot
             )
             plan.liveLogPath = liveLogPath
             let session = try await runnerClient.launchAndWait(
