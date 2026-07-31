@@ -1,7 +1,7 @@
 import AppCore
 import Darwin
 import Foundation
-import JobEngine
+@testable import JobEngine
 import RuntimeCatalog
 import Testing
 
@@ -487,14 +487,29 @@ import Testing
     #expect(userRegistry.contains("[Software\\\\Wine\\\\Fonts\\\\Replacements]"))
     #expect(userRegistry.contains("\"Segoe UI\"=\"Switchyard Sans Test\""))
 
+    let firstSystemRegistryData = try Data(
+        contentsOf: containerURL.appendingPathComponent("system.reg")
+    )
+    let firstUserRegistryData = try Data(
+        contentsOf: containerURL.appendingPathComponent("user.reg")
+    )
     let secondResult = try installer.installOpenFontPack(into: container, from: cache)
     #expect(secondResult.installedFonts.isEmpty)
     #expect(secondResult.reusedFonts == ["Switchyard Sans Test"])
+    #expect(
+        try Data(contentsOf: containerURL.appendingPathComponent("system.reg"))
+            == firstSystemRegistryData
+    )
+    #expect(
+        try Data(contentsOf: containerURL.appendingPathComponent("user.reg"))
+            == firstUserRegistryData
+    )
     #expect(
         try FileManager.default.contentsOfDirectory(
             atPath: installedFont.deletingLastPathComponent().path
         ).allSatisfy { !$0.hasPrefix(".switchyard-font-") }
     )
+    #expect(try fontRegistryTemporaryFiles(in: containerURL).isEmpty)
 }
 
 @Test func containerFontInstallerSkipsUninitializedContainerWithoutCreatingRegistry() throws {
@@ -817,6 +832,413 @@ import Testing
     )
 }
 
+@Test func containerFontInstallerRejectsUnreadableRegistryWithoutChangingEitherFile() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let systemRegistryURL = fixture.containerURL.appendingPathComponent("system.reg")
+    let userRegistryURL = fixture.containerURL.appendingPathComponent("user.reg")
+    let originalSystem = try Data(contentsOf: systemRegistryURL)
+    let originalUser = try Data(contentsOf: userRegistryURL)
+    guard Darwin.chmod(systemRegistryURL.path, 0) == 0 else {
+        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
+    defer { _ = Darwin.chmod(systemRegistryURL.path, mode_t(S_IRUSR | S_IWUSR)) }
+
+    do {
+        _ = try registryOnlyFontInstaller().installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+        Issue.record("Expected an unreadable registry to fail")
+    } catch let error as ContainerFontInstallerError {
+        guard case .registryReadFailed(let path, _) = error else {
+            Issue.record("Unexpected font installer error: \(error)")
+            return
+        }
+        #expect(path == systemRegistryURL.path)
+    }
+
+    guard Darwin.chmod(systemRegistryURL.path, mode_t(S_IRUSR | S_IWUSR)) == 0 else {
+        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+    }
+    #expect(try Data(contentsOf: systemRegistryURL) == originalSystem)
+    #expect(try Data(contentsOf: userRegistryURL) == originalUser)
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerRejectsInvalidUTF8RegistryWithoutChangingEitherFile() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let systemRegistryURL = fixture.containerURL.appendingPathComponent("system.reg")
+    let userRegistryURL = fixture.containerURL.appendingPathComponent("user.reg")
+    let originalSystem = try Data(contentsOf: systemRegistryURL)
+    var invalidUser = try Data(contentsOf: userRegistryURL)
+    invalidUser.append(contentsOf: [0xFF, 0xFE])
+    try invalidUser.write(to: userRegistryURL)
+
+    #expect(
+        throws: ContainerFontInstallerError.invalidRegistryEncoding(
+            userRegistryURL.path
+        )
+    ) {
+        try registryOnlyFontInstaller().installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+    }
+
+    #expect(try Data(contentsOf: systemRegistryURL) == originalSystem)
+    #expect(try Data(contentsOf: userRegistryURL) == invalidUser)
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerStopsAtPrefixLockDeadline() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let originalSystem = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+    )
+    let originalUser = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+    )
+    let heldLock = try WinePrefixFileLock(
+        prefixPath: fixture.containerURL.path,
+        mode: .shared
+    )
+    defer { heldLock.unlock() }
+
+    #expect(throws: WinePrefixFileLockAcquisitionError.timedOut) {
+        try registryOnlyFontInstaller(
+            lockAcquisitionTimeout: .milliseconds(50)
+        ).installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+    }
+
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+        ) == originalSystem
+    )
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+        ) == originalUser
+    )
+}
+
+@Test func containerFontInstallerPreservesRegistriesWhenCommitFailsBeforeFirstReplacement() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let originalSystem = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+    )
+    let originalUser = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+    )
+    let installer = registryOnlyFontInstaller { point in
+        if point == .beforeFirstRegistryReplacement {
+            throw InjectedFontRegistryFailure.expected
+        }
+    }
+
+    expectRegistryTransactionFailure {
+        _ = try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+    }
+
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+        ) == originalSystem
+    )
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+        ) == originalUser
+    )
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerCleansEarlierTempsWhenStagingFails() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let originalSystem = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+    )
+    let originalUser = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+    )
+    let installer = registryOnlyFontInstaller { point in
+        if point == .beforeUserRegistryStaging {
+            throw InjectedFontRegistryFailure.expected
+        }
+    }
+
+    #expect(throws: InjectedFontRegistryFailure.expected) {
+        try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+    }
+
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+        ) == originalSystem
+    )
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+        ) == originalUser
+    )
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerRollsBackWhenCommitFailsAfterFirstReplacement() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let originalSystem = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+    )
+    let originalUser = try Data(
+        contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+    )
+    let installer = registryOnlyFontInstaller { point in
+        if point == .afterFirstRegistryReplacement {
+            throw InjectedFontRegistryFailure.expected
+        }
+    }
+
+    expectRegistryTransactionFailure {
+        _ = try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+    }
+
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("system.reg")
+        ) == originalSystem
+    )
+    #expect(
+        try Data(
+            contentsOf: fixture.containerURL.appendingPathComponent("user.reg")
+        ) == originalUser
+    )
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerPreservesConcurrentRegistryChange() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let systemRegistryURL = fixture.containerURL.appendingPathComponent("system.reg")
+    let userRegistryURL = fixture.containerURL.appendingPathComponent("user.reg")
+    let originalUser = try Data(contentsOf: userRegistryURL)
+    let concurrentlyChangedSystem = Data(
+        """
+        WINE REGISTRY Version 2
+        #arch=win64
+        ; concurrent writer
+
+        """.utf8
+    )
+    let installer = registryOnlyFontInstaller { point in
+        if point == .beforeOriginalRegistryValidation {
+            try concurrentlyChangedSystem.write(
+                to: systemRegistryURL,
+                options: .atomic
+            )
+        }
+    }
+
+    #expect(
+        throws: ContainerFontInstallerError.registryChanged(
+            systemRegistryURL.path
+        )
+    ) {
+        try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+    }
+
+    #expect(try Data(contentsOf: systemRegistryURL) == concurrentlyChangedSystem)
+    #expect(try Data(contentsOf: userRegistryURL) == originalUser)
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerRevalidatesRegistryImmediatelyBeforeReplacement() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let systemRegistryURL = fixture.containerURL.appendingPathComponent("system.reg")
+    let userRegistryURL = fixture.containerURL.appendingPathComponent("user.reg")
+    let originalUser = try Data(contentsOf: userRegistryURL)
+    let concurrentlyChangedSystem = Data(
+        """
+        WINE REGISTRY Version 2
+        #arch=win64
+        ; changed immediately before replacement
+
+        """.utf8
+    )
+    let installer = registryOnlyFontInstaller { point in
+        if point == .beforeFirstRegistryReplacement {
+            try concurrentlyChangedSystem.write(
+                to: systemRegistryURL,
+                options: .atomic
+            )
+        }
+    }
+
+    #expect(
+        throws: ContainerFontInstallerError.registryChanged(
+            systemRegistryURL.path
+        )
+    ) {
+        try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+    }
+
+    #expect(try Data(contentsOf: systemRegistryURL) == concurrentlyChangedSystem)
+    #expect(try Data(contentsOf: userRegistryURL) == originalUser)
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerRejectsInPlaceStagedRegistryMutation() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let systemRegistryURL = fixture.containerURL.appendingPathComponent("system.reg")
+    let userRegistryURL = fixture.containerURL.appendingPathComponent("user.reg")
+    let originalSystem = try Data(contentsOf: systemRegistryURL)
+    let originalUser = try Data(contentsOf: userRegistryURL)
+    let installer = registryOnlyFontInstaller { point in
+        guard point == .beforeFirstRegistryReplacement else {
+            return
+        }
+        let stagedName = try #require(
+            FileManager.default
+                .contentsOfDirectory(atPath: fixture.containerURL.path)
+                .first {
+                    $0.hasPrefix(".switchyard-font-registry-system-new-")
+                }
+        )
+        let stagedURL = fixture.containerURL.appendingPathComponent(stagedName)
+        let handle = try FileHandle(forWritingTo: stagedURL)
+        defer { try? handle.close() }
+        try handle.seek(toOffset: 0)
+        try handle.write(contentsOf: Data([0x58]))
+        try handle.synchronize()
+    }
+
+    do {
+        _ = try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+        Issue.record("Expected the modified staged registry to be rejected")
+    } catch let error as ContainerFontInstallerError {
+        guard case .registryChanged(let path) = error else {
+            Issue.record("Unexpected font installer error: \(error)")
+            return
+        }
+        #expect(
+            path.contains(".switchyard-font-registry-system-new-")
+        )
+    }
+
+    #expect(try Data(contentsOf: systemRegistryURL) == originalSystem)
+    #expect(try Data(contentsOf: userRegistryURL) == originalUser)
+    #expect(try fontRegistryTemporaryFiles(in: fixture.containerURL).isEmpty)
+}
+
+@Test func containerFontInstallerSurfacesRegistryRecoveryFailure() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let installer = registryOnlyFontInstaller { point in
+        switch point {
+        case .afterFirstRegistryReplacement,
+             .beforeSystemRegistryRollback:
+            throw InjectedFontRegistryFailure.expected
+        default:
+            break
+        }
+    }
+
+    do {
+        _ = try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+        Issue.record("Expected registry recovery to fail")
+    } catch let error as ContainerFontInstallerError {
+        guard case .registryRecoveryFailed = error else {
+            Issue.record("Unexpected font installer error: \(error)")
+            return
+        }
+    }
+
+    #expect(
+        try fontRegistryTemporaryFiles(in: fixture.containerURL)
+            .contains { $0.contains("-backup-") }
+    )
+}
+
+@Test func containerFontInstallerDoesNotOverwriteConcurrentChangeDuringRollback() throws {
+    let fixture = try makeFontRegistryFixture()
+    defer { try? FileManager.default.removeItem(at: fixture.root) }
+    let systemRegistryURL = fixture.containerURL.appendingPathComponent("system.reg")
+    let userRegistryURL = fixture.containerURL.appendingPathComponent("user.reg")
+    let originalUser = try Data(contentsOf: userRegistryURL)
+    let concurrentSystem = Data(
+        """
+        WINE REGISTRY Version 2
+        #arch=win64
+        ; concurrent rollback-window update
+
+        """.utf8
+    )
+    let installer = registryOnlyFontInstaller { point in
+        switch point {
+        case .afterFirstRegistryReplacement:
+            throw InjectedFontRegistryFailure.expected
+        case .beforeSystemRegistryRollback:
+            try concurrentSystem.write(
+                to: systemRegistryURL,
+                options: .atomic
+            )
+        default:
+            break
+        }
+    }
+
+    do {
+        _ = try installer.installOpenFontPack(
+            into: fixture.container,
+            from: fixture.cacheURL
+        )
+        Issue.record("Expected registry recovery to fail closed")
+    } catch let error as ContainerFontInstallerError {
+        guard case .registryRecoveryFailed = error else {
+            Issue.record("Unexpected font installer error: \(error)")
+            return
+        }
+    }
+
+    #expect(try Data(contentsOf: systemRegistryURL) == concurrentSystem)
+    #expect(try Data(contentsOf: userRegistryURL) == originalUser)
+    #expect(
+        try fontRegistryTemporaryFiles(in: fixture.containerURL)
+            .contains { $0.contains("-backup-") }
+    )
+}
+
 private func canonicalTestTemporaryDirectory() -> URL {
     let temporaryPath = FileManager.default.temporaryDirectory.path
     let resolvedPath = temporaryPath.withCString { pathPointer -> String in
@@ -860,4 +1282,89 @@ private func writeInitializedRegistryFiles(to containerURL: URL) throws {
     """
     try Data(systemRegistry.utf8).write(to: containerURL.appendingPathComponent("system.reg"))
     try Data(userRegistry.utf8).write(to: containerURL.appendingPathComponent("user.reg"))
+}
+
+private struct FontRegistryFixture {
+    let root: URL
+    let cacheURL: URL
+    let containerURL: URL
+    let container: Container
+}
+
+private enum InjectedFontRegistryFailure: Error {
+    case expected
+}
+
+private func makeFontRegistryFixture() throws -> FontRegistryFixture {
+    let root = canonicalTestTemporaryDirectory()
+    let cacheURL = root.appendingPathComponent("cache", isDirectory: true)
+    let containerURL = root.appendingPathComponent(
+        "Registry.container",
+        isDirectory: true
+    )
+    try FileManager.default.createDirectory(
+        at: containerURL,
+        withIntermediateDirectories: true
+    )
+    try writeInitializedRegistryFiles(to: containerURL)
+    return FontRegistryFixture(
+        root: root,
+        cacheURL: cacheURL,
+        containerURL: containerURL,
+        container: Container(name: "Registry", path: containerURL.path)
+    )
+}
+
+private func registryOnlyFontInstaller(
+    lockAcquisitionTimeout: Duration = .seconds(1)
+) -> ContainerFontInstaller {
+    ContainerFontInstaller(
+        catalog: [],
+        replacements: [
+            FontReplacement(
+                requestedFamily: "Segoe UI",
+                replacementFamily: "Switchyard Sans Test"
+            )
+        ],
+        lockAcquisitionTimeout: lockAcquisitionTimeout
+    )
+}
+
+private func registryOnlyFontInstaller(
+    lockAcquisitionTimeout: Duration = .seconds(1),
+    failureInjector:
+        @escaping @Sendable (ContainerFontInstallerFailurePoint) throws -> Void
+) -> ContainerFontInstaller {
+    ContainerFontInstaller(
+        catalog: [],
+        replacements: [
+            FontReplacement(
+                requestedFamily: "Segoe UI",
+                replacementFamily: "Switchyard Sans Test"
+            )
+        ],
+        lockAcquisitionTimeout: lockAcquisitionTimeout,
+        failureInjector: failureInjector
+    )
+}
+
+private func expectRegistryTransactionFailure(
+    _ operation: () throws -> Void
+) {
+    do {
+        try operation()
+        Issue.record("Expected the registry transaction to fail")
+    } catch let error as ContainerFontInstallerError {
+        guard case .registryTransactionFailed = error else {
+            Issue.record("Unexpected font installer error: \(error)")
+            return
+        }
+    } catch {
+        Issue.record("Unexpected registry transaction error: \(error)")
+    }
+}
+
+private func fontRegistryTemporaryFiles(in containerURL: URL) throws -> [String] {
+    try FileManager.default.contentsOfDirectory(atPath: containerURL.path)
+        .filter { $0.hasPrefix(".switchyard-font-registry-") }
 }

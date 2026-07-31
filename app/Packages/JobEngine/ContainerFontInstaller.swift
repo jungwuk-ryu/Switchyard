@@ -44,6 +44,12 @@ public enum ContainerFontInstallerError: LocalizedError, Equatable {
     case invalidCachedFont(String, expected: String, actual: String)
     case invalidContainerPath(String)
     case unsafeFileSystemEntry(String)
+    case registryReadFailed(String, code: Int32)
+    case invalidRegistryEncoding(String)
+    case registryChanged(String)
+    case registryWriteFailed(String, code: Int32)
+    case registryTransactionFailed(String)
+    case registryRecoveryFailed(transaction: String, recovery: String)
 
     public var errorDescription: String? {
         switch self {
@@ -67,23 +73,87 @@ public enum ContainerFontInstallerError: LocalizedError, Equatable {
                 localized: "Open Font Pack installation refused an unsafe file-system entry: \(path)",
                 bundle: SwitchyardStrings.bundle
             )
+        case .registryReadFailed(let path, let code):
+            return String(
+                localized: "The Wine registry could not be read safely at \(path) (error \(code)).",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .invalidRegistryEncoding(let path):
+            return String(
+                localized: "The Wine registry is not valid UTF-8 and was left unchanged: \(path)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .registryChanged(let path):
+            return String(
+                localized: "The Wine registry changed during font installation and was left unchanged: \(path)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .registryWriteFailed(let path, let code):
+            return String(
+                localized: "The Wine registry update could not be committed at \(path) (error \(code)).",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .registryTransactionFailed(let message):
+            return String(
+                localized: "The Wine registry transaction failed: \(message)",
+                bundle: SwitchyardStrings.bundle
+            )
+        case .registryRecoveryFailed(let transaction, let recovery):
+            return String(
+                localized: "The Wine registry transaction failed (\(transaction)), and recovery also failed (\(recovery)).",
+                bundle: SwitchyardStrings.bundle
+            )
         }
     }
+}
+
+enum ContainerFontInstallerFailurePoint: Equatable, Sendable {
+    case beforeSystemRegistryRead
+    case beforeUserRegistryRead
+    case beforeUserRegistryStaging
+    case beforeOriginalRegistryValidation
+    case beforeFirstRegistryReplacement
+    case afterFirstRegistryReplacement
+    case beforeSecondRegistryReplacement
+    case afterSecondRegistryReplacement
+    case beforeSystemRegistryRollback
+    case beforeUserRegistryRollback
 }
 
 public struct ContainerFontInstaller {
     public var fileManager: FileManager
     public var catalog: [OpenFontFile]
     public var replacements: [FontReplacement]
+    public var lockAcquisitionTimeout: Duration
+    private var failureInjector:
+        @Sendable (ContainerFontInstallerFailurePoint) throws -> Void
 
     public init(
         fileManager: FileManager = .default,
         catalog: [OpenFontFile] = OpenFontPackCatalog.files,
-        replacements: [FontReplacement] = OpenFontPackCatalog.replacements
+        replacements: [FontReplacement] = OpenFontPackCatalog.replacements,
+        lockAcquisitionTimeout: Duration = .seconds(10)
     ) {
         self.fileManager = fileManager
         self.catalog = catalog
         self.replacements = replacements
+        self.lockAcquisitionTimeout = lockAcquisitionTimeout
+        self.failureInjector = { _ in }
+    }
+
+    init(
+        fileManager: FileManager = .default,
+        catalog: [OpenFontFile] = OpenFontPackCatalog.files,
+        replacements: [FontReplacement] = OpenFontPackCatalog.replacements,
+        lockAcquisitionTimeout: Duration = .seconds(10),
+        failureInjector:
+            @escaping @Sendable (ContainerFontInstallerFailurePoint) throws -> Void
+    ) {
+        self.fileManager = fileManager
+        self.catalog = catalog
+        self.replacements = replacements
+        self.lockAcquisitionTimeout = lockAcquisitionTimeout
+        self.failureInjector = failureInjector
     }
 
     public func installOpenFontPack(into container: Container, from fontCacheRoot: URL) throws -> ContainerFontInstallResult {
@@ -101,10 +171,30 @@ public struct ContainerFontInstaller {
         )
         defer { Darwin.close(containerDirectory.descriptor) }
 
-        let systemRegistryURL = containerURL.appendingPathComponent("system.reg")
-        let userRegistryURL = containerURL.appendingPathComponent("user.reg")
-        guard registryHasArchitectureMarker(at: systemRegistryURL),
-              registryHasArchitectureMarker(at: userRegistryURL) else {
+        let prefixLock = try WinePrefixFileLock(
+            prefixPath: containerURL.path,
+            mode: .exclusive,
+            acquisitionTimeout: lockAcquisitionTimeout
+        )
+        defer { prefixLock.unlock() }
+        try verifyPinnedDirectory(containerDirectory)
+
+        try failureInjector(.beforeSystemRegistryRead)
+        let systemRegistry = try WineRegistryFile.read(
+            named: "system.reg",
+            in: containerDirectory.descriptor,
+            directoryPath: containerDirectory.path
+        )
+        try failureInjector(.beforeUserRegistryRead)
+        let userRegistry = try WineRegistryFile.read(
+            named: "user.reg",
+            in: containerDirectory.descriptor,
+            directoryPath: containerDirectory.path
+        )
+        guard let systemRegistry,
+              let userRegistry,
+              systemRegistry.hasArchitectureMarker,
+              userRegistry.hasArchitectureMarker else {
             return ContainerFontInstallResult(
                 installedFonts: [],
                 reusedFonts: [],
@@ -215,7 +305,9 @@ public struct ContainerFontInstaller {
         )
 
         try registerFonts(
-            containerURL: containerURL,
+            containerDirectory: containerDirectory,
+            systemRegistry: systemRegistry,
+            userRegistry: userRegistry,
             fontValues: fontRegistryValues,
             replacementValues: replacementValues
         )
@@ -226,16 +318,6 @@ public struct ContainerFontInstaller {
             registeredFontEntries: fontRegistryValues.count,
             registeredReplacements: replacementValues.count
         )
-    }
-
-    private func registryHasArchitectureMarker(at url: URL) -> Bool {
-        guard let data = try? Data(contentsOf: url),
-              let text = String(data: data, encoding: .utf8) else {
-            return false
-        }
-        return text.components(separatedBy: .newlines).contains { line in
-            line.hasPrefix("#arch=")
-        }
     }
 
     private func cachedFont(
@@ -995,12 +1077,13 @@ public struct ContainerFontInstaller {
     }
 
     private func registerFonts(
-        containerURL: URL,
+        containerDirectory: OpenedDirectory,
+        systemRegistry originalSystemRegistry: WineRegistryFile,
+        userRegistry originalUserRegistry: WineRegistryFile,
         fontValues: [String: String],
         replacementValues: [String: String]
     ) throws {
-        let systemRegistryURL = containerURL.appendingPathComponent("system.reg")
-        var systemRegistry = try WineRegistryFile(url: systemRegistryURL)
+        var systemRegistry = originalSystemRegistry
         for section in [
             "Software\\\\Microsoft\\\\Windows NT\\\\CurrentVersion\\\\Fonts",
             "Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Fonts",
@@ -1015,26 +1098,126 @@ public struct ContainerFontInstaller {
         ] {
             systemRegistry.upsertStringValues(replacementValues, in: section)
         }
-        try systemRegistry.write()
 
-        let userRegistryURL = containerURL.appendingPathComponent("user.reg")
-        var userRegistry = try WineRegistryFile(url: userRegistryURL)
+        var userRegistry = originalUserRegistry
         userRegistry.upsertStringValues(replacementValues, in: "Software\\\\Wine\\\\Fonts\\\\Replacements")
-        try userRegistry.write()
+        try WineRegistryTransaction(
+            directoryDescriptor: containerDirectory.descriptor,
+            directoryPath: containerDirectory.path,
+            failureInjector: failureInjector
+        ).commit(
+            systemRegistry: systemRegistry,
+            userRegistry: userRegistry
+        )
     }
 }
 
 private struct WineRegistryFile {
-    var url: URL
+    static let maximumByteCount = 16 * 1_024 * 1_024
+
+    var name: String
+    var path: String
+    var originalData: Data
+    var originalStatus: stat
     var lines: [String]
 
-    init(url: URL) throws {
-        self.url = url
-        if let data = try? Data(contentsOf: url),
-           let text = String(data: data, encoding: .utf8) {
-            self.lines = text.components(separatedBy: .newlines)
-        } else {
-            self.lines = ["WINE REGISTRY Version 2", ""]
+    static func read(
+        named name: String,
+        in directoryDescriptor: Int32,
+        directoryPath: String
+    ) throws -> WineRegistryFile? {
+        let path = URL(
+            fileURLWithPath: directoryPath,
+            isDirectory: true
+        ).appendingPathComponent(name).path
+        let descriptor = name.withCString {
+            Darwin.openat(
+                directoryDescriptor,
+                $0,
+                O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW
+            )
+        }
+        guard descriptor >= 0 else {
+            let openError = errno
+            if openError == ENOENT {
+                return nil
+            }
+            if openError == ELOOP {
+                throw ContainerFontInstallerError.unsafeFileSystemEntry(path)
+            }
+            throw ContainerFontInstallerError.registryReadFailed(
+                path,
+                code: openError
+            )
+        }
+        defer { Darwin.close(descriptor) }
+
+        let initialStatus = try validatedRegistryStatus(
+            descriptor: descriptor,
+            path: path
+        )
+        let data = try readRegistryData(
+            descriptor: descriptor,
+            path: path
+        )
+        let finalStatus = try validatedRegistryStatus(
+            descriptor: descriptor,
+            path: path
+        )
+        var pathStatus = stat()
+        let statusResult = name.withCString {
+            Darwin.fstatat(
+                directoryDescriptor,
+                $0,
+                &pathStatus,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard statusResult == 0,
+              stableRegistryFile(initialStatus, finalStatus),
+              stableRegistryFile(initialStatus, pathStatus) else {
+            throw ContainerFontInstallerError.registryChanged(path)
+        }
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw ContainerFontInstallerError.invalidRegistryEncoding(path)
+        }
+
+        return WineRegistryFile(
+            name: name,
+            path: path,
+            originalData: data,
+            originalStatus: initialStatus,
+            lines: text.components(separatedBy: .newlines)
+        )
+    }
+
+    var hasArchitectureMarker: Bool {
+        lines.contains { $0.hasPrefix("#arch=") }
+    }
+
+    var serializedData: Data {
+        Data(lines.joined(separator: "\n").utf8)
+    }
+
+    var permissions: mode_t {
+        originalStatus.st_mode & mode_t(0o777)
+    }
+
+    func verifyUnchanged(
+        in directoryDescriptor: Int32
+    ) throws {
+        var currentStatus = stat()
+        let result = name.withCString {
+            Darwin.fstatat(
+                directoryDescriptor,
+                $0,
+                &currentStatus,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard result == 0,
+              stableRegistryFile(originalStatus, currentStatus) else {
+            throw ContainerFontInstallerError.registryChanged(path)
         }
     }
 
@@ -1085,11 +1268,6 @@ private struct WineRegistryFile {
         }
     }
 
-    func write() throws {
-        let text = lines.joined(separator: "\n")
-        try Data(text.utf8).write(to: url, options: .atomic)
-    }
-
     private func registryValueName(from line: String) -> String? {
         guard line.first == "\"" else {
             return nil
@@ -1119,4 +1297,621 @@ private struct WineRegistryFile {
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
     }
+
+    private static func validatedRegistryStatus(
+        descriptor: Int32,
+        path: String
+    ) throws -> stat {
+        var status = stat()
+        guard Darwin.fstat(descriptor, &status) == 0 else {
+            throw ContainerFontInstallerError.registryReadFailed(
+                path,
+                code: errno
+            )
+        }
+        guard status.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG),
+              status.st_nlink == 1,
+              status.st_uid == geteuid() else {
+            throw ContainerFontInstallerError.unsafeFileSystemEntry(path)
+        }
+        guard status.st_size >= 0,
+              status.st_size <= maximumByteCount else {
+            throw ContainerFontInstallerError.registryReadFailed(
+                path,
+                code: EFBIG
+            )
+        }
+        return status
+    }
+
+    private static func readRegistryData(
+        descriptor: Int32,
+        path: String
+    ) throws -> Data {
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1_024)
+        while true {
+            let count = buffer.withUnsafeMutableBytes {
+                Darwin.read(descriptor, $0.baseAddress, $0.count)
+            }
+            if count > 0 {
+                guard data.count <= maximumByteCount - count else {
+                    throw ContainerFontInstallerError.registryReadFailed(
+                        path,
+                        code: EFBIG
+                    )
+                }
+                data.append(buffer, count: count)
+                continue
+            }
+            if count == 0 {
+                return data
+            }
+            if errno == EINTR {
+                continue
+            }
+            throw ContainerFontInstallerError.registryReadFailed(
+                path,
+                code: errno
+            )
+        }
+    }
+}
+
+private struct WineRegistryTransaction {
+    private let directoryDescriptor: Int32
+    private let directoryPath: String
+    private let failureInjector:
+        @Sendable (ContainerFontInstallerFailurePoint) throws -> Void
+
+    init(
+        directoryDescriptor: Int32,
+        directoryPath: String,
+        failureInjector:
+            @escaping @Sendable (ContainerFontInstallerFailurePoint) throws -> Void
+    ) {
+        self.directoryDescriptor = directoryDescriptor
+        self.directoryPath = directoryPath
+        self.failureInjector = failureInjector
+    }
+
+    func commit(
+        systemRegistry: WineRegistryFile,
+        userRegistry: WineRegistryFile
+    ) throws {
+        var stagedSystemStorage: RegistryStagedFile?
+        var stagedUserStorage: RegistryStagedFile?
+        var backupSystemStorage: RegistryStagedFile?
+        var backupUserStorage: RegistryStagedFile?
+        var preserveBackups = false
+        defer {
+            if let stagedSystemStorage {
+                cleanupIfPresent(stagedSystemStorage)
+            }
+            if let stagedUserStorage {
+                cleanupIfPresent(stagedUserStorage)
+            }
+            if !preserveBackups {
+                if let backupSystemStorage {
+                    cleanupIfPresent(backupSystemStorage)
+                }
+                if let backupUserStorage {
+                    cleanupIfPresent(backupUserStorage)
+                }
+            }
+        }
+
+        stagedSystemStorage = try stage(
+            data: systemRegistry.serializedData,
+            permissions: systemRegistry.permissions,
+            label: "system-new"
+        )
+        try failureInjector(.beforeUserRegistryStaging)
+        stagedUserStorage = try stage(
+            data: userRegistry.serializedData,
+            permissions: userRegistry.permissions,
+            label: "user-new"
+        )
+        backupSystemStorage = try stage(
+            data: systemRegistry.originalData,
+            permissions: systemRegistry.permissions,
+            label: "system-backup"
+        )
+        backupUserStorage = try stage(
+            data: userRegistry.originalData,
+            permissions: userRegistry.permissions,
+            label: "user-backup"
+        )
+        guard var stagedSystem = stagedSystemStorage,
+              var stagedUser = stagedUserStorage,
+              var backupSystem = backupSystemStorage,
+              var backupUser = backupUserStorage else {
+            throw ContainerFontInstallerError.registryTransactionFailed(
+                "Registry staging did not complete."
+            )
+        }
+
+        var replacedSystem = false
+        var replacedUser = false
+        do {
+            try failureInjector(.beforeOriginalRegistryValidation)
+            try systemRegistry.verifyUnchanged(in: directoryDescriptor)
+            try userRegistry.verifyUnchanged(in: directoryDescriptor)
+
+            try failureInjector(.beforeFirstRegistryReplacement)
+            try systemRegistry.verifyUnchanged(in: directoryDescriptor)
+            try replace(
+                staged: &stagedSystem,
+                destinationName: systemRegistry.name,
+                destinationPath: systemRegistry.path,
+                didReplace: &replacedSystem
+            )
+            try failureInjector(.afterFirstRegistryReplacement)
+
+            try userRegistry.verifyUnchanged(in: directoryDescriptor)
+            try failureInjector(.beforeSecondRegistryReplacement)
+            try userRegistry.verifyUnchanged(in: directoryDescriptor)
+            try replace(
+                staged: &stagedUser,
+                destinationName: userRegistry.name,
+                destinationPath: userRegistry.path,
+                didReplace: &replacedUser
+            )
+            try failureInjector(.afterSecondRegistryReplacement)
+            try synchronizeDirectory()
+        } catch {
+            let transactionError = normalizedTransactionError(error)
+            do {
+                try rollback(
+                    systemRegistry: systemRegistry,
+                    userRegistry: userRegistry,
+                    installedSystem: stagedSystem,
+                    installedUser: stagedUser,
+                    backupSystem: &backupSystem,
+                    backupUser: &backupUser,
+                    replacedSystem: replacedSystem,
+                    replacedUser: replacedUser
+                )
+            } catch {
+                preserveBackups = true
+                throw ContainerFontInstallerError.registryRecoveryFailed(
+                    transaction: transactionError.localizedDescription,
+                    recovery: error.localizedDescription
+                )
+            }
+            throw transactionError
+        }
+
+        try remove(staged: &backupSystem)
+        try remove(staged: &backupUser)
+        try synchronizeDirectory()
+    }
+
+    private func rollback(
+        systemRegistry: WineRegistryFile,
+        userRegistry: WineRegistryFile,
+        installedSystem: RegistryStagedFile,
+        installedUser: RegistryStagedFile,
+        backupSystem: inout RegistryStagedFile,
+        backupUser: inout RegistryStagedFile,
+        replacedSystem: Bool,
+        replacedUser: Bool
+    ) throws {
+        var recoveryFailures: [String] = []
+
+        if replacedUser {
+            do {
+                try failureInjector(.beforeUserRegistryRollback)
+                guard destinationMatches(
+                    installedUser,
+                    named: userRegistry.name
+                ) else {
+                    throw ContainerFontInstallerError.registryChanged(
+                        userRegistry.path
+                    )
+                }
+                var restoredUser = false
+                try replace(
+                    staged: &backupUser,
+                    destinationName: userRegistry.name,
+                    destinationPath: userRegistry.path,
+                    didReplace: &restoredUser
+                )
+            } catch {
+                recoveryFailures.append(error.localizedDescription)
+            }
+        }
+        if replacedSystem {
+            do {
+                try failureInjector(.beforeSystemRegistryRollback)
+                guard destinationMatches(
+                    installedSystem,
+                    named: systemRegistry.name
+                ) else {
+                    throw ContainerFontInstallerError.registryChanged(
+                        systemRegistry.path
+                    )
+                }
+                var restoredSystem = false
+                try replace(
+                    staged: &backupSystem,
+                    destinationName: systemRegistry.name,
+                    destinationPath: systemRegistry.path,
+                    didReplace: &restoredSystem
+                )
+            } catch {
+                recoveryFailures.append(error.localizedDescription)
+            }
+        }
+        do {
+            try synchronizeDirectory()
+        } catch {
+            recoveryFailures.append(error.localizedDescription)
+        }
+
+        guard recoveryFailures.isEmpty else {
+            throw ContainerFontInstallerError.registryTransactionFailed(
+                recoveryFailures.joined(separator: "; ")
+            )
+        }
+    }
+
+    private func stage(
+        data: Data,
+        permissions: mode_t,
+        label: String
+    ) throws -> RegistryStagedFile {
+        for _ in 0..<32 {
+            let name = ".switchyard-font-registry-\(label)-\(UUID().uuidString).tmp"
+            let path = URL(
+                fileURLWithPath: directoryPath,
+                isDirectory: true
+            ).appendingPathComponent(name).path
+            let descriptor = name.withCString {
+                Darwin.openat(
+                    directoryDescriptor,
+                    $0,
+                    O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                    mode_t(S_IRUSR | S_IWUSR)
+                )
+            }
+            guard descriptor >= 0 else {
+                if errno == EEXIST {
+                    continue
+                }
+                throw ContainerFontInstallerError.registryWriteFailed(
+                    path,
+                    code: errno
+                )
+            }
+
+            var identity: RegistryFileIdentity?
+            var keepFile = false
+            defer {
+                Darwin.close(descriptor)
+                if !keepFile, let identity {
+                    unlinkIfSameFile(named: name, identity: identity)
+                }
+            }
+            do {
+                var status = stat()
+                guard Darwin.fstat(descriptor, &status) == 0 else {
+                    throw ContainerFontInstallerError.registryWriteFailed(
+                        path,
+                        code: errno
+                    )
+                }
+                guard status.st_mode & mode_t(S_IFMT) == mode_t(S_IFREG),
+                      status.st_nlink == 1,
+                      status.st_uid == geteuid() else {
+                    throw ContainerFontInstallerError.unsafeFileSystemEntry(path)
+                }
+                identity = RegistryFileIdentity(status)
+                try write(data, to: descriptor, path: path)
+                guard Darwin.fchmod(descriptor, permissions) == 0,
+                      Darwin.fsync(descriptor) == 0 else {
+                    throw ContainerFontInstallerError.registryWriteFailed(
+                        path,
+                        code: errno
+                    )
+                }
+                var finalStatus = stat()
+                guard Darwin.fstat(descriptor, &finalStatus) == 0,
+                      identity == RegistryFileIdentity(finalStatus),
+                      finalStatus.st_size == data.count else {
+                    throw ContainerFontInstallerError.registryChanged(path)
+                }
+                let snapshot = RegistryFileSnapshot(finalStatus)
+                keepFile = true
+                return RegistryStagedFile(
+                    name: name,
+                    path: path,
+                    snapshot: snapshot,
+                    contentDigest: Data(SHA256.hash(data: data)),
+                    isPresent: true
+                )
+            } catch {
+                throw normalizedTransactionError(error)
+            }
+        }
+        throw ContainerFontInstallerError.registryWriteFailed(
+            directoryPath,
+            code: EEXIST
+        )
+    }
+
+    private func replace(
+        staged: inout RegistryStagedFile,
+        destinationName: String,
+        destinationPath: String,
+        didReplace: inout Bool
+    ) throws {
+        guard staged.isPresent,
+              stagedFileIsUnchanged(staged) else {
+            throw ContainerFontInstallerError.registryChanged(staged.path)
+        }
+        let result = staged.name.withCString { sourceName in
+            destinationName.withCString { destinationName in
+                Darwin.renameat(
+                    directoryDescriptor,
+                    sourceName,
+                    directoryDescriptor,
+                    destinationName
+                )
+            }
+        }
+        guard result == 0 else {
+            throw ContainerFontInstallerError.registryWriteFailed(
+                destinationPath,
+                code: errno
+            )
+        }
+        didReplace = true
+        staged.isPresent = false
+
+        guard destinationMatches(
+            staged,
+            named: destinationName
+        ) else {
+            throw ContainerFontInstallerError.registryChanged(destinationPath)
+        }
+    }
+
+    private func destinationMatches(
+        _ staged: RegistryStagedFile,
+        named name: String
+    ) -> Bool {
+        let descriptor = name.withCString {
+            Darwin.openat(
+                directoryDescriptor,
+                $0,
+                O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW
+            )
+        }
+        guard descriptor >= 0 else {
+            return false
+        }
+        defer { Darwin.close(descriptor) }
+
+        var initialStatus = stat()
+        guard Darwin.fstat(descriptor, &initialStatus) == 0,
+              staged.snapshot.matchesAfterRename(initialStatus) else {
+            return false
+        }
+
+        var hasher = SHA256()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1_024)
+        var bytesRead = 0
+        while true {
+            let count = buffer.withUnsafeMutableBytes {
+                Darwin.read(descriptor, $0.baseAddress, $0.count)
+            }
+            if count > 0 {
+                bytesRead += count
+                guard bytesRead <= staged.snapshot.size else {
+                    return false
+                }
+                hasher.update(data: Data(buffer.prefix(count)))
+                continue
+            }
+            if count == 0 {
+                break
+            }
+            if errno == EINTR {
+                continue
+            }
+            return false
+        }
+
+        var finalStatus = stat()
+        var pathStatus = stat()
+        let pathResult = name.withCString {
+            Darwin.fstatat(
+                directoryDescriptor,
+                $0,
+                &pathStatus,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        return bytesRead == staged.snapshot.size
+            && Data(hasher.finalize()) == staged.contentDigest
+            && Darwin.fstat(descriptor, &finalStatus) == 0
+            && stableRegistryFile(initialStatus, finalStatus)
+            && pathResult == 0
+            && RegistryFileIdentity(initialStatus)
+                == RegistryFileIdentity(pathStatus)
+    }
+
+    private func remove(staged: inout RegistryStagedFile) throws {
+        guard staged.isPresent else {
+            return
+        }
+        guard stagedFileIsUnchanged(staged) else {
+            throw ContainerFontInstallerError.registryChanged(staged.path)
+        }
+        let result = staged.name.withCString {
+            Darwin.unlinkat(directoryDescriptor, $0, 0)
+        }
+        guard result == 0 else {
+            throw ContainerFontInstallerError.registryWriteFailed(
+                staged.path,
+                code: errno
+            )
+        }
+        staged.isPresent = false
+    }
+
+    private func cleanupIfPresent(_ staged: RegistryStagedFile) {
+        guard staged.isPresent else {
+            return
+        }
+        unlinkIfSameFile(
+            named: staged.name,
+            identity: staged.snapshot.identity
+        )
+    }
+
+    private func unlinkIfSameFile(
+        named name: String,
+        identity: RegistryFileIdentity
+    ) {
+        var status = stat()
+        let statusResult = name.withCString {
+            Darwin.fstatat(
+                directoryDescriptor,
+                $0,
+                &status,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard statusResult == 0,
+              identity == RegistryFileIdentity(status) else {
+            return
+        }
+        _ = name.withCString {
+            Darwin.unlinkat(directoryDescriptor, $0, 0)
+        }
+    }
+
+    private func stagedFileIsUnchanged(
+        _ staged: RegistryStagedFile
+    ) -> Bool {
+        var status = stat()
+        let result = staged.name.withCString {
+            Darwin.fstatat(
+                directoryDescriptor,
+                $0,
+                &status,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        return result == 0
+            && staged.snapshot == RegistryFileSnapshot(status)
+    }
+
+    private func write(
+        _ data: Data,
+        to descriptor: Int32,
+        path: String
+    ) throws {
+        try data.withUnsafeBytes { bytes in
+            var written = 0
+            while written < bytes.count {
+                let result = Darwin.write(
+                    descriptor,
+                    bytes.baseAddress?.advanced(by: written),
+                    bytes.count - written
+                )
+                if result > 0 {
+                    written += result
+                } else if result < 0, errno == EINTR {
+                    continue
+                } else {
+                    throw ContainerFontInstallerError.registryWriteFailed(
+                        path,
+                        code: errno
+                    )
+                }
+            }
+        }
+    }
+
+    private func synchronizeDirectory() throws {
+        guard Darwin.fsync(directoryDescriptor) == 0 else {
+            throw ContainerFontInstallerError.registryWriteFailed(
+                directoryPath,
+                code: errno
+            )
+        }
+    }
+
+    private func normalizedTransactionError(
+        _ error: Error
+    ) -> ContainerFontInstallerError {
+        if let error = error as? ContainerFontInstallerError {
+            return error
+        }
+        return .registryTransactionFailed(error.localizedDescription)
+    }
+}
+
+private struct RegistryStagedFile {
+    var name: String
+    var path: String
+    var snapshot: RegistryFileSnapshot
+    var contentDigest: Data
+    var isPresent: Bool
+}
+
+private struct RegistryFileIdentity: Equatable {
+    var device: dev_t
+    var inode: ino_t
+
+    init(_ status: stat) {
+        self.device = status.st_dev
+        self.inode = status.st_ino
+    }
+}
+
+private struct RegistryFileSnapshot: Equatable {
+    var identity: RegistryFileIdentity
+    var mode: mode_t
+    var linkCount: nlink_t
+    var owner: uid_t
+    var size: Int
+    var modificationSeconds: Int
+    var modificationNanoseconds: Int
+    var changeSeconds: Int
+    var changeNanoseconds: Int
+
+    init(_ status: stat) {
+        self.identity = RegistryFileIdentity(status)
+        self.mode = status.st_mode
+        self.linkCount = status.st_nlink
+        self.owner = status.st_uid
+        self.size = Int(status.st_size)
+        self.modificationSeconds = status.st_mtimespec.tv_sec
+        self.modificationNanoseconds = status.st_mtimespec.tv_nsec
+        self.changeSeconds = status.st_ctimespec.tv_sec
+        self.changeNanoseconds = status.st_ctimespec.tv_nsec
+    }
+
+    func matchesAfterRename(_ status: stat) -> Bool {
+        identity == RegistryFileIdentity(status)
+            && mode == status.st_mode
+            && linkCount == status.st_nlink
+            && owner == status.st_uid
+            && size == Int(status.st_size)
+            && modificationSeconds == status.st_mtimespec.tv_sec
+            && modificationNanoseconds == status.st_mtimespec.tv_nsec
+    }
+}
+
+private func stableRegistryFile(_ lhs: stat, _ rhs: stat) -> Bool {
+    RegistryFileIdentity(lhs) == RegistryFileIdentity(rhs)
+        && lhs.st_size == rhs.st_size
+        && lhs.st_mtimespec.tv_sec == rhs.st_mtimespec.tv_sec
+        && lhs.st_mtimespec.tv_nsec == rhs.st_mtimespec.tv_nsec
+        && lhs.st_ctimespec.tv_sec == rhs.st_ctimespec.tv_sec
+        && lhs.st_ctimespec.tv_nsec == rhs.st_ctimespec.tv_nsec
 }
