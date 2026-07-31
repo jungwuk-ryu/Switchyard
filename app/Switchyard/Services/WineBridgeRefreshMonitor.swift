@@ -28,13 +28,20 @@ enum WineBridgeRefreshMode: Equatable, Sendable {
     case forcedSafety
 }
 
-struct WineBridgeFileStamp: Equatable, Hashable, Sendable {
+struct WineBridgeFileStamp:
+    Codable,
+    Equatable,
+    Hashable,
+    Sendable
+{
     let exists: Bool
     let device: UInt64
     let inode: UInt64
     let size: UInt64
     let modificationSeconds: Int64
     let modificationNanoseconds: Int64
+    let changeSeconds: Int64
+    let changeNanoseconds: Int64
 
     static let missing = WineBridgeFileStamp(
         exists: false,
@@ -42,7 +49,9 @@ struct WineBridgeFileStamp: Equatable, Hashable, Sendable {
         inode: 0,
         size: 0,
         modificationSeconds: 0,
-        modificationNanoseconds: 0
+        modificationNanoseconds: 0,
+        changeSeconds: 0,
+        changeNanoseconds: 0
     )
 
     static func read(from url: URL) -> WineBridgeFileStamp {
@@ -57,7 +66,9 @@ struct WineBridgeFileStamp: Equatable, Hashable, Sendable {
             inode: UInt64(fileStatus.st_ino),
             size: UInt64(max(0, fileStatus.st_size)),
             modificationSeconds: Int64(fileStatus.st_mtimespec.tv_sec),
-            modificationNanoseconds: Int64(fileStatus.st_mtimespec.tv_nsec)
+            modificationNanoseconds: Int64(fileStatus.st_mtimespec.tv_nsec),
+            changeSeconds: Int64(fileStatus.st_ctimespec.tv_sec),
+            changeNanoseconds: Int64(fileStatus.st_ctimespec.tv_nsec)
         )
     }
 }

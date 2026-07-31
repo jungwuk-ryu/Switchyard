@@ -4929,12 +4929,32 @@ final class AppStore: ObservableObject, ContainerStorageIndexProviding {
                     )
                 }
 
-                let result = try desktopShortcutBridge.refresh(
+                let result = try await desktopShortcutBridge.refresh(
                     prepared,
-                    fileDigests: fileDigests
+                    fileDigests: fileDigests,
+                    isStillCurrent: { [weak self] in
+                        guard let self else { return false }
+                        return !Task.isCancelled
+                            && refreshContainers == self.containers
+                            && refreshWinePath
+                                == self.currentRuntime.winePath
+                            && refreshRunnerPath
+                                == (try? self.runnerClient
+                                    .runnerURL().path)
+                    }
                 )
                 recordDesktopShortcutBridgeRefresh(result)
+            } catch WineDesktopShortcutBridgeError
+                .committedTransactionNeedsCleanup {
+                invalidateWineBridges(.shortcuts)
+                throw CancellationError()
             } catch is CancellationError {
+                if !Task.isCancelled {
+                    // A prepared dependency changed while identity/icon
+                    // work was in flight. Re-index even if its file event
+                    // was coalesced into the active refresh.
+                    invalidateWineBridges(.shortcuts)
+                }
                 throw CancellationError()
             } catch {
                 recordDesktopShortcutBridgeRefreshError(error)

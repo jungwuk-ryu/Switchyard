@@ -75,19 +75,22 @@ struct ContainerBridgeDependencyMetadata: Hashable, Sendable {
     let byteCount: Int64?
     let modificationDate: Date?
     let fingerprint: String?
+    let fileStamp: WineBridgeFileStamp?
 
     init(
         role: Role,
         path: String,
         byteCount: Int64? = nil,
         modificationDate: Date? = nil,
-        fingerprint: String? = nil
+        fingerprint: String? = nil,
+        fileStamp: WineBridgeFileStamp? = nil
     ) {
         self.role = role
         self.path = path
         self.byteCount = byteCount
         self.modificationDate = modificationDate
         self.fingerprint = fingerprint
+        self.fileStamp = fileStamp
     }
 }
 
@@ -949,6 +952,12 @@ private enum LiveContainerBridgeMetadataScanner {
         let shortcutManifestURL = WineDesktopShortcutFormat.manifestURL(
             prefixPath: prefixPath
         )
+        let protocolManifestStamp = WineBridgeFileStamp.read(
+            from: protocolManifestURL
+        )
+        let shortcutManifestStamp = WineBridgeFileStamp.read(
+            from: shortcutManifestURL
+        )
         let protocolContents = WineManifestFileReader.contents(
             at: protocolManifestURL,
             insidePrefix: prefixPath,
@@ -961,8 +970,16 @@ private enum LiveContainerBridgeMetadataScanner {
         ) ?? ""
 
         var dependencies = [
-            dependency(.protocolManifest, url: protocolManifestURL),
-            dependency(.desktopShortcutManifest, url: shortcutManifestURL),
+            dependency(
+                .protocolManifest,
+                url: protocolManifestURL,
+                fileStamp: protocolManifestStamp
+            ),
+            dependency(
+                .desktopShortcutManifest,
+                url: shortcutManifestURL,
+                fileStamp: shortcutManifestStamp
+            ),
         ]
         let entries = WineDesktopShortcutFormat.entries(
             inManifest: shortcutContents
@@ -1014,7 +1031,8 @@ private enum LiveContainerBridgeMetadataScanner {
 
     private static func dependency(
         _ role: ContainerBridgeDependencyMetadata.Role,
-        url: URL
+        url: URL,
+        fileStamp: WineBridgeFileStamp? = nil
     ) -> ContainerBridgeDependencyMetadata {
         let normalizedURL = url.standardizedFileURL
         let values = try? normalizedURL.resourceValues(
@@ -1027,7 +1045,9 @@ private enum LiveContainerBridgeMetadataScanner {
             role: role,
             path: normalizedURL.path,
             byteCount: values?.fileSize.map(Int64.init),
-            modificationDate: values?.contentModificationDate
+            modificationDate: values?.contentModificationDate,
+            fileStamp: fileStamp
+                ?? WineBridgeFileStamp.read(from: normalizedURL)
         )
     }
 

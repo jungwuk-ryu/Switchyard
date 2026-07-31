@@ -919,7 +919,9 @@ private func stamp(
         inode: inode,
         size: size,
         modificationSeconds: seconds,
-        modificationNanoseconds: nanoseconds
+        modificationNanoseconds: nanoseconds,
+        changeSeconds: seconds,
+        changeNanoseconds: nanoseconds
     )
 }
 

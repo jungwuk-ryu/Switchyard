@@ -345,7 +345,9 @@ struct WineManifestPreflightTests {
     }
 
     @MainActor
-    @Test func desktopBridgePreflightsSizeAndRejectsOverCardinalityWithoutArtifacts() throws {
+    @Test func desktopBridgePreflightsSizeAndRejectsOverCardinalityWithoutArtifacts()
+        async throws
+    {
         let fileManager = FileManager.default
         let root = fileManager.temporaryDirectory.resolvingSymlinksInPath()
             .appendingPathComponent("switchyard-desktop-limits-\(UUID().uuidString)", isDirectory: true)
@@ -399,7 +401,7 @@ struct WineManifestPreflightTests {
             rootURL: bridgeRoot,
             desktopURL: desktop
         )
-        let result = try bridge.refresh(
+        let result = try await bridge.refresh(
             containers: [
                 Container(name: "Oversized", path: oversizedPrefix.path),
                 Container(name: "Over cardinality", path: overCardinalityPrefix.path)
