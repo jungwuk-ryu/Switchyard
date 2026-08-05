@@ -1,7 +1,10 @@
 import Foundation
 
 public enum WindowsExecutableIconExtractor {
-    public static func iconData(at executableURL: URL) -> Data? {
+    public static func iconData(
+        at executableURL: URL,
+        iconIndex: Int? = nil
+    ) -> Data? {
         guard let values = try? executableURL.resourceValues(forKeys: [.fileSizeKey]),
               let fileSize = values.fileSize,
               fileSize > 0,
@@ -9,11 +12,14 @@ public enum WindowsExecutableIconExtractor {
               let data = try? Data(contentsOf: executableURL, options: [.mappedIfSafe]) else {
             return nil
         }
-        return iconData(from: data)
+        return iconData(from: data, iconIndex: iconIndex)
     }
 
-    public static func iconData(from executableData: Data) -> Data? {
-        PEIconParser(data: executableData)?.bestIconData()
+    public static func iconData(
+        from executableData: Data,
+        iconIndex: Int? = nil
+    ) -> Data? {
+        PEIconParser(data: executableData)?.iconData(iconIndex: iconIndex)
     }
 }
 
@@ -30,7 +36,7 @@ private struct PEIconParser {
     }
 
     private struct ResourceEntry {
-        let id: Int
+        let id: Int?
         let targetOffset: Int
         let isDirectory: Bool
     }
@@ -130,13 +136,35 @@ private struct PEIconParser {
         resourceSize = Int(resourceSizeValue)
     }
 
-    func bestIconData() -> Data? {
-        let icons = resources(ofType: 3)
-        let groups = resources(ofType: 14)
+    func iconData(iconIndex: Int?) -> Data? {
+        var icons: [Int: Data] = [:]
+        for icon in orderedResources(ofType: 3) {
+            guard let id = icon.id else { continue }
+            icons[id] = icon.data
+        }
+        let groups = orderedResources(ofType: 14)
         guard !icons.isEmpty, !groups.isEmpty else { return nil }
 
-        var best: (score: Int, resourceID: Int, data: Data)?
-        for (resourceID, groupData) in groups {
+        if let iconIndex {
+            let group: (id: Int?, data: Data)?
+            if iconIndex < 0 {
+                guard iconIndex != Int.min else { return nil }
+                group = groups.first(where: { $0.id == -iconIndex })
+            } else {
+                group = groups.indices.contains(iconIndex)
+                    ? groups[iconIndex]
+                    : nil
+            }
+            guard let group else { return nil }
+            return reconstructedIconData(
+                from: group.data,
+                icons: icons
+            )
+        }
+
+        var best: (score: Int, order: Int, data: Data)?
+        for (order, group) in groups.enumerated() {
+            let groupData = group.data
             guard let entries = groupEntries(from: groupData, icons: icons),
                   let iconData = makeIconFile(from: entries) else {
                 continue
@@ -145,21 +173,31 @@ private struct PEIconParser {
             let score = (largestDimension * largestDimension * 1_000) + entries.count
             if best == nil
                 || score > best!.score
-                || (score == best!.score && resourceID < best!.resourceID)
+                || (score == best!.score && order < best!.order)
             {
-                best = (score, resourceID, iconData)
+                best = (score, order, iconData)
             }
         }
         return best?.data
     }
 
-    private func resources(ofType typeID: Int) -> [Int: Data] {
+    private func reconstructedIconData(
+        from groupData: Data,
+        icons: [Int: Data]
+    ) -> Data? {
+        guard let entries = groupEntries(from: groupData, icons: icons) else {
+            return nil
+        }
+        return makeIconFile(from: entries)
+    }
+
+    private func orderedResources(ofType typeID: Int) -> [(id: Int?, data: Data)] {
         guard let typeEntry = directoryEntries(relativeOffset: 0)
             .first(where: { $0.id == typeID && $0.isDirectory }) else {
-            return [:]
+            return []
         }
 
-        var result: [Int: Data] = [:]
+        var result: [(id: Int?, data: Data)] = []
         var cachedDataByEntryOffset: [Int: Data] = [:]
         var collectedByteCount = 0
         for nameEntry in directoryEntries(relativeOffset: typeEntry.targetOffset) {
@@ -178,7 +216,7 @@ private struct PEIconParser {
                 cachedDataByEntryOffset[dataEntryOffset] = parsedData
                 collectedByteCount += parsedData.count
             }
-            result[nameEntry.id] = resolvedData
+            result.append((nameEntry.id, resolvedData))
         }
         return result
     }
@@ -216,13 +254,12 @@ private struct PEIconParser {
         for index in 0..<entryCount {
             let offset = entriesOffset + (index * 8)
             guard let name = Self.uint32(in: data, at: offset),
-                  let target = Self.uint32(in: data, at: offset + 4),
-                  name & 0x8000_0000 == 0 else {
+                  let target = Self.uint32(in: data, at: offset + 4) else {
                 continue
             }
             entries.append(
                 ResourceEntry(
-                    id: Int(name),
+                    id: name & 0x8000_0000 == 0 ? Int(name) : nil,
                     targetOffset: Int(target & 0x7FFF_FFFF),
                     isDirectory: target & 0x8000_0000 != 0
                 )
@@ -278,10 +315,18 @@ private struct PEIconParser {
                   let reserved = Self.uint8(in: groupData, at: offset + 3),
                   let planes = Self.uint16(in: groupData, at: offset + 4),
                   let bitCount = Self.uint16(in: groupData, at: offset + 6),
+                  let declaredByteCountValue = Self.uint32(
+                      in: groupData,
+                      at: offset + 8
+                  ),
                   let iconID = Self.uint16(in: groupData, at: offset + 12),
                   let imageData = icons[Int(iconID)],
-                  !imageData.isEmpty,
-                  imageData.count <= Int(UInt32.max) else {
+                  declaredByteCountValue > 0 else {
+                continue
+            }
+            let declaredByteCount = Int(declaredByteCountValue)
+            guard declaredByteCount <= imageData.count,
+                  declaredByteCount <= Self.maximumSingleResourceBytes else {
                 continue
             }
             entries.append(
@@ -292,7 +337,7 @@ private struct PEIconParser {
                     reserved: reserved,
                     planes: planes,
                     bitCount: bitCount,
-                    imageData: imageData
+                    imageData: Data(imageData.prefix(declaredByteCount))
                 )
             )
         }

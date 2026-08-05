@@ -563,17 +563,12 @@ struct SessionStageStartMenu: View {
             onOpenShortcut(entry)
         } label: {
             HStack(spacing: 10) {
-                if let program = matchingProgram(for: entry) {
-                    WindowsProgramIconView(program: program, size: 30)
-                } else {
-                    Image(systemName: entry.kind == .url ? "link" : "app.fill")
-                        .font(.system(size: 14, weight: .semibold))
-                        .frame(width: 30, height: 30)
-                        .background(
-                            Color.white.opacity(0.07),
-                            in: RoundedRectangle(cornerRadius: 7)
-                        )
-                }
+                WindowsStartMenuIconView(
+                    entry: entry,
+                    prefixPath: container.path,
+                    fallbackProgram: matchingProgram(for: entry),
+                    size: 30
+                )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(entry.displayName)

@@ -976,7 +976,70 @@ private enum TestContainerRenameError: Error, Equatable {
     #expect(Array(icon.suffix(iconImage.count)) == Array(iconImage))
 }
 
-private func makePEExecutableWithIconResource(iconImage: Data) -> Data {
+@Test func windowsExecutableIconExtractorHonorsGroupIconIndexes() throws {
+    let iconImage = Data([0x11, 0x22, 0x33, 0x44])
+    let executable = makePEExecutableWithIconResource(iconImage: iconImage)
+
+    let indexedIcon = try #require(
+        WindowsExecutableIconExtractor.iconData(
+            from: executable,
+            iconIndex: 0
+        )
+    )
+    let resourceIcon = try #require(
+        WindowsExecutableIconExtractor.iconData(
+            from: executable,
+            iconIndex: -101
+        )
+    )
+
+    #expect(Array(indexedIcon.suffix(iconImage.count)) == Array(iconImage))
+    #expect(Array(resourceIcon.suffix(iconImage.count)) == Array(iconImage))
+    #expect(
+        WindowsExecutableIconExtractor.iconData(
+            from: executable,
+            iconIndex: 1
+        ) == nil
+    )
+}
+
+@Test func windowsExecutableIconExtractorSupportsNamedIconGroups() throws {
+    let iconImage = Data([0xAA, 0xBB, 0xCC, 0xDD])
+    let executable = makePEExecutableWithIconResource(
+        iconImage: iconImage,
+        groupResourceName: 0x8000_00A0
+    )
+
+    let icon = try #require(
+        WindowsExecutableIconExtractor.iconData(
+            from: executable,
+            iconIndex: 0
+        )
+    )
+
+    #expect(Array(icon.suffix(iconImage.count)) == Array(iconImage))
+}
+
+@Test func windowsExecutableIconExtractorTrimsPaddedIconResources() throws {
+    let iconImage = Data([0x11, 0x22, 0x33, 0x44])
+    let executable = makePEExecutableWithIconResource(
+        iconImage: iconImage,
+        iconResourcePadding: Data([0xAA, 0xBB, 0xCC, 0xDD])
+    )
+
+    let icon = try #require(
+        WindowsExecutableIconExtractor.iconData(from: executable)
+    )
+
+    #expect(icon.count == 26)
+    #expect(Array(icon.suffix(iconImage.count)) == Array(iconImage))
+}
+
+private func makePEExecutableWithIconResource(
+    iconImage: Data,
+    groupResourceName: UInt32 = 101,
+    iconResourcePadding: Data = Data()
+) -> Data {
     var data = Data(repeating: 0, count: 0x600)
     data[0] = 0x4D
     data[1] = 0x5A
@@ -1011,10 +1074,14 @@ private func makePEExecutableWithIconResource(iconImage: Data) -> Data {
     writeLittleEndian(UInt32(1_033), to: &data, at: resources + 0x48)
     writeLittleEndian(UInt32(0x50), to: &data, at: resources + 0x4C)
     writeLittleEndian(UInt32(0x1_100), to: &data, at: resources + 0x50)
-    writeLittleEndian(UInt32(iconImage.count), to: &data, at: resources + 0x54)
+    writeLittleEndian(
+        UInt32(iconImage.count + iconResourcePadding.count),
+        to: &data,
+        at: resources + 0x54
+    )
 
     writeLittleEndian(UInt16(1), to: &data, at: resources + 0x60 + 14)
-    writeLittleEndian(UInt32(101), to: &data, at: resources + 0x70)
+    writeLittleEndian(groupResourceName, to: &data, at: resources + 0x70)
     writeLittleEndian(UInt32(0x8000_0078), to: &data, at: resources + 0x74)
     writeLittleEndian(UInt16(1), to: &data, at: resources + 0x78 + 14)
     writeLittleEndian(UInt32(1_033), to: &data, at: resources + 0x88)
@@ -1023,6 +1090,10 @@ private func makePEExecutableWithIconResource(iconImage: Data) -> Data {
     writeLittleEndian(UInt32(20), to: &data, at: resources + 0x94)
 
     data.replaceSubrange(0x300..<(0x300 + iconImage.count), with: iconImage)
+    data.replaceSubrange(
+        (0x300 + iconImage.count)..<(0x300 + iconImage.count + iconResourcePadding.count),
+        with: iconResourcePadding
+    )
     writeLittleEndian(UInt16(1), to: &data, at: 0x322)
     writeLittleEndian(UInt16(1), to: &data, at: 0x324)
     data[0x326] = 32
@@ -1031,6 +1102,18 @@ private func makePEExecutableWithIconResource(iconImage: Data) -> Data {
     writeLittleEndian(UInt16(32), to: &data, at: 0x32C)
     writeLittleEndian(UInt32(iconImage.count), to: &data, at: 0x32E)
     writeLittleEndian(UInt16(1), to: &data, at: 0x332)
+    if groupResourceName & 0x8000_0000 != 0 {
+        let nameOffset = resources + Int(groupResourceName & 0x7FFF_FFFF)
+        let name = Array("Chrome".utf16)
+        writeLittleEndian(UInt16(name.count), to: &data, at: nameOffset)
+        for (index, character) in name.enumerated() {
+            writeLittleEndian(
+                character,
+                to: &data,
+                at: nameOffset + 2 + (index * 2)
+            )
+        }
+    }
     return data
 }
 

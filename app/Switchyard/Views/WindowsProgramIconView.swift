@@ -143,6 +143,64 @@ struct WindowsProgramIconView: View {
     }
 }
 
+struct WindowsStartMenuIconView: View {
+    let entry: WindowsStartMenuEntry
+    let prefixPath: String
+    let fallbackProgram: InstalledProgram?
+    let size: CGFloat
+
+    @State private var icon: NSImage?
+
+    private struct RequestID: Hashable {
+        let entryID: String
+        let prefixPath: String
+    }
+
+    var body: some View {
+        Group {
+            if let icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.025)
+            } else if let fallbackProgram {
+                WindowsProgramIconView(
+                    program: fallbackProgram,
+                    size: size
+                )
+            } else {
+                Image(systemName: entry.kind == .url ? "link" : "app.fill")
+                    .font(.system(size: size * 0.47, weight: .semibold))
+                    .frame(width: size, height: size)
+                    .background(
+                        Color.white.opacity(0.07),
+                        in: RoundedRectangle(
+                            cornerRadius: size * 0.23,
+                            style: .continuous
+                        )
+                    )
+            }
+        }
+        .frame(width: size, height: size)
+        .task(
+            id: RequestID(entryID: entry.id, prefixPath: prefixPath)
+        ) {
+            icon = nil
+            let data = await WindowsStartMenuIconResolver.iconData(
+                for: entry,
+                prefixPath: prefixPath
+            )
+            guard !Task.isCancelled,
+                  let data,
+                  let resolvedIcon = NSImage(data: data) else {
+                return
+            }
+            icon = resolvedIcon
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 struct WindowsProcessIconView: View {
     let executablePath: String?
     let isSystemProcess: Bool

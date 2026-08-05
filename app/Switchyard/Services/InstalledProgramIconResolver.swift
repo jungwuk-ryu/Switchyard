@@ -99,7 +99,7 @@ enum InstalledProgramIconResolver {
         return nil
     }
 
-    fileprivate static func isUsableIconData(_ data: Data) -> Bool {
+    static func isUsableIconData(_ data: Data) -> Bool {
         guard data.count <= 8_000_000,
               let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             return false
